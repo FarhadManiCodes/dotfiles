@@ -67,6 +67,7 @@ Plug 'tpope/vim-vinegar'
 Plug 'tpope/vim-commentary'
 Plug 'ycm-core/YouCompleteMe'
 Plug 'mbbill/undotree'
+Plug 'itchyny/lightline.vim'
 
 call plug#end()
 
@@ -134,3 +135,6 @@ inoremap [ []<esc>i
 set tags=tags; " Look for tags file recursively in parent directiories.
 " Regenerate tags when saving Python files.
 autocmd BufWritePost *.py silent! !ctags -R &
+
+" for lightline
+set laststatus=2
