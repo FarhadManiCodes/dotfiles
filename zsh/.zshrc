@@ -78,8 +78,15 @@ set -o vi
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git vi-mode gitignore)
-
+plugins=(git 
+         vi-mode 
+         gitignore 
+         zsh-syntax-highlighting 
+         last-working-dir
+         wd
+        )
+#   git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions
+fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
@@ -115,7 +122,6 @@ fi
 #
 # Python related 
 alias python=python3.13
-source ~/virtualenv/py_review/bin/activate
 
 # alias python3=python3.13 
 # Example aliases
@@ -123,4 +129,14 @@ source ~/virtualenv/py_review/bin/activate
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# Zsh Directory Stack
+# Push the current directory visited on to the stack.
+setopt AUTO_PUSHD
+# Do not store duplicate directories in the stack.
+setopt PUSHD_IGNORE_DUPS
+# Do not print the directory stack after using pushd or popd.
+setopt PUSHD_SILENT
+# source alias
 source "$XDG_CONFIG_HOME/zsh/aliases"
+# source scripts
+source $DOTFILES/zsh/scripts.sh

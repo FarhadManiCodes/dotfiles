@@ -84,7 +84,6 @@ autocmd filetype python set encoding=utf-8
 
 " remapping commands
 "
-let mapleader = ','   " Map the leader key to a comma.
 noremap <leader>] :YcmCompleter GoTo<cr>
 " Remove newbie crutches in Insert Mode
 inoremap <Down> <Nop>
@@ -130,3 +129,8 @@ inoremap " ""<esc>i
 inoremap ( ()<esc>i
 inoremap { {}<esc>i
 inoremap [ []<esc>i
+
+" tags settings
+set tags=tags; " Look for tags file recursively in parent directiories.
+" Regenerate tags when saving Python files.
+autocmd BufWritePost *.py silent! !ctags -R &
