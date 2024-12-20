@@ -140,3 +140,9 @@ autocmd BufWritePost *.py silent! !ctags -R &
 
 " for lightline
 set laststatus=2
+
+
+" Use :make to run pylint for Python files.
+autocmd filetype python setlocal makeprg=pylint\ --reports=n\ --msg-template=\"{path}:{line}:\ {msg_id}\ {symbol},\ {obj}\ {msg}\"\ %:p
+autocmd filetype python setlocal errorformat=%f:%l:\ %m
+
