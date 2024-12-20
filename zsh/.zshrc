@@ -84,6 +84,7 @@ plugins=(git
          zsh-syntax-highlighting 
          last-working-dir
          wd
+         gh
         )
 #   git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions
 fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
