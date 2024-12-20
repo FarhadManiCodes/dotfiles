@@ -69,6 +69,7 @@ Plug 'ycm-core/YouCompleteMe'
 Plug 'mbbill/undotree'
 Plug 'itchyny/lightline.vim'
 Plug 'christoomey/vim-tmux-navigator'
+Plug 'tpope/vim-fugitive'
 
 call plug#end()
 
