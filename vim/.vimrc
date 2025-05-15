@@ -118,7 +118,7 @@ inoremap <expr> <C-B> getline('.')=~'^\s*$'&&col('.')>strlen(getline('.'))?"0\<L
 cnoremap        <C-B> <Left>
 
 inoremap <expr> <C-D> col('.')>strlen(getline('.'))?"\<Lt>C-D>":"\<Lt>Del>"
-cnoremap <expr> <C-D> getcmdpos()>strlen(getcmdline())?"\<Lt>C-D>":"\<Lt>Del>"
+cnoremap <expr> <C-D> getcmggggdpos()>strlen(getcmdline())?"\<Lt>C-D>":"\<Lt>Del>"
 
 inoremap <expr> <C-E> col('.')>strlen(getline('.'))<bar><bar>pumvisible()?"\<Lt>C-E>":"\<Lt>End>"
 
@@ -140,6 +140,9 @@ autocmd BufWritePost *.py silent! !ctags -R &
 
 " for lightline
 set laststatus=2
+let g:lightline = {
+  \ 'colorscheme': 'onedark',
+  \ }
 
 
 " Use :make to run pylint for Python files.
