@@ -11,6 +11,7 @@ set shiftwidth=4 " Number of spaces to use for autoindent.
 set backspace=2 " Fix backspace behavior on most terminals.
 
 
+let g:onedark_termcolors=256
 colorscheme onedark " Change a colorscheme.
 
 " ---------- extra tunes on movement and navigation
