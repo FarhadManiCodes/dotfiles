@@ -62,15 +62,15 @@ highlight Folded ctermbg=DarkGrey
 let g:plug_timeout = 300 " Increase vim-plug timeout for YCM
 call plug#begin()
 
-Plug 'mileszs/ack.vim'
-Plug 'tpope/vim-unimpaired'
-Plug 'tpope/vim-vinegar'
-Plug 'tpope/vim-commentary'
-Plug 'ycm-core/YouCompleteMe'
-Plug 'mbbill/undotree'
-Plug 'itchyny/lightline.vim'
-Plug 'christoomey/vim-tmux-navigator'
-Plug 'tpope/vim-fugitive'
+Plug 'mileszs/ack.vim' " ack integration
+Plug 'tpope/vim-unimpaired' " pairs of helpful shortcuts
+Plug 'tpope/vim-vinegar' " to open netrw
+Plug 'tomtom/tcomment_vim' " commenting helpers
+Plug 'ycm-core/YouCompleteMe' " Auto Complete
+Plug 'mbbill/undotree' " Visualize the undo tree
+Plug 'itchyny/lightline.vim' " Nicer vim status
+Plug 'christoomey/vim-tmux-navigator' " better tmux integration
+Plug 'tpope/vim-fugitive' " Vim plugin for Git. 
 
 call plug#end()
 
