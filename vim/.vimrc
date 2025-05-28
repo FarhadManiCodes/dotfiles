@@ -71,6 +71,8 @@ Plug 'mbbill/undotree' " Visualize the undo tree
 Plug 'itchyny/lightline.vim' " Nicer vim status
 Plug 'christoomey/vim-tmux-navigator' " better tmux integration
 Plug 'tpope/vim-fugitive' " Vim plugin for Git. 
+Plug 'nvie/vim-flake8'
+Plug 'psf/black', { 'branch': 'stable' }
 
 call plug#end()
 
