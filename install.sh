@@ -16,7 +16,7 @@ ln -sf "$HOME/dotfiles/ptpython/config.py" "$HOME/.config/ptpython/config.py"
 
 # foot terminal
 mkdir -p "$XDG_CONFIG_HOME/foot"
-ln -sf "~/dotfiles/foot/foot.ini" "$XDG_CONFIG_HOME/foot/foot.ini"
+ln -sf "$HOME/dotfiles/foot/foot.ini" "$XDG_CONFIG_HOME/foot/foot.ini"
 #########
 # Fonts #
 #########
