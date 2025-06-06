@@ -8,8 +8,10 @@ set autoindent " Respect indentation when starting new line.
 set expandtab " Expand tabs to spaces. Essential in Python.
 set tabstop=4 " Number of spaces tab is counted for.
 set shiftwidth=4 " Number of spaces to use for autoindent.
-set backspace=2 " Fix backspace behavior on most terminals.
-
+set backspace=indent,eol,start
+set number relativenumber
+set splitright
+set splitbelow
 "Use 24-bit (true-color) mode in Vim/Neovim when outside tmux.
 "If you're using tmux version 2.2 or later, you can remove the outermost $TMUX check and use tmux's 24-bit color support
 "(see < http://sunaku.github.io/tmux-24bit-color.html#usage > for more information.)
@@ -37,7 +39,7 @@ set incsearch       " Search as you type
 
 set clipboard=unnamed,unnamedplus " Comy into system (*, +) registers.
 
-
+" Flagging unnecessary white spaces"
 " Change cursor 
 if has("autocmd")
   au VimEnter,InsertLeave * silent execute '!echo -ne "\e[1 q"' | redraw!
@@ -72,7 +74,6 @@ highlight Folded ctermbg=DarkGrey
 " endif
 let g:plug_timeout = 300 " Increase vim-plug timeout for YCM
 call plug#begin()
-
 Plug 'mileszs/ack.vim' " ack integration
 Plug 'tpope/vim-unimpaired' " pairs of helpful shortcuts
 Plug 'tpope/vim-vinegar' " to open netrw
@@ -84,11 +85,13 @@ Plug 'christoomey/vim-tmux-navigator' " better tmux integration
 Plug 'tpope/vim-fugitive' " Vim plugin for Git. 
 Plug 'nvie/vim-flake8'
 Plug 'psf/black', { 'branch': 'stable' }
-
+Plug 'vim-python/python-syntax'
+Plug 'tpope/vim-dadbod'
+Plug 'AndrewRadev/splitjoin.vim'       " Code block transformations
+Plug 'FarhadManiCodes/vim-envx'
 call plug#end()
 
-
-" Some python specific settings
+" ==== Some python specific settings ===
 
 autocmd filetype python set expandtab
 autocmd filetype python set tabstop=4
@@ -99,9 +102,25 @@ autocmd filetype python set autoindent
 autocmd filetype python set fileformat=unix
 autocmd filetype python set encoding=utf-8
 
-" remapping commands
+" === Python Development Enhancements ===
+" Auto-format on save
+autocmd BufWritePre *.py execute ':Black'
+autocmd BufWritePre *.py execute ':call Flake8()'
 "
-noremap <leader>] :YcmCompleter GoTo<cr>
+" Python-syntax enhancements
+let g:python_highlight_all = 1
+
+" === Quality of Life Improvements ===
+" Persistent undo history
+set undofile
+set undodir=~/.vim/undodir
+set undolevels=1000
+set undoreload=10000
+
+
+" remapping commands
+" YCM go to 
+noremap <leader>g :YcmCompleter GoTo<cr>
 " Remove newbie crutches in Insert Mode
 inoremap <Down> <Nop>
 inoremap <Left> <Nop>
