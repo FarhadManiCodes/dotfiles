@@ -78,13 +78,13 @@ Plug 'mileszs/ack.vim' " ack integration
 Plug 'tpope/vim-unimpaired' " pairs of helpful shortcuts
 Plug 'tpope/vim-vinegar' " to open netrw
 Plug 'tomtom/tcomment_vim' " commenting helpers
-Plug 'ycm-core/YouCompleteMe' " Auto Complete
+
+Plug 'ycm-core/YouCompleteMe', { 'do': './install.py --clang-completer'}
+Plug 'dense-analysis/ale' " Asynchronous Lint Engine
 Plug 'mbbill/undotree' " Visualize the undo tree
 Plug 'itchyny/lightline.vim' " Nicer vim status
 Plug 'christoomey/vim-tmux-navigator' " better tmux integration
 Plug 'tpope/vim-fugitive' " Vim plugin for Git. 
-Plug 'nvie/vim-flake8'
-Plug 'psf/black', { 'branch': 'stable' }
 Plug 'vim-python/python-syntax'
 Plug 'tpope/vim-dadbod'
 Plug 'AndrewRadev/splitjoin.vim'       " Code block transformations
@@ -103,9 +103,6 @@ autocmd filetype python set fileformat=unix
 autocmd filetype python set encoding=utf-8
 
 " === Python Development Enhancements ===
-" Auto-format on save
-autocmd BufWritePre *.py execute ':Black'
-autocmd BufWritePre *.py execute ':call Flake8()'
 "
 " Python-syntax enhancements
 let g:python_highlight_all = 1
@@ -120,7 +117,7 @@ set undoreload=10000
 
 " remapping commands
 " YCM go to 
-noremap <leader>g :YcmCompleter GoTo<cr>
+noremap <leader>] :YcmCompleter GoTo<cr>
 " Remove newbie crutches in Insert Mode
 inoremap <Down> <Nop>
 inoremap <Left> <Nop>
@@ -177,6 +174,88 @@ let g:lightline = {
   \ 'colorscheme': 'onedark',
   \ }
 
+" === ALE Configuration ===
+let g:ale_enabled = 1
+let g:ale_lint_on_enter = 0
+let g:ale_lint_on_save = 1
+let g:ale_lint_on_text_changed = 'never' " Only lint in normal mode
+let g:ale_lint_on_insert_leave = 0
+
+" Python-specific settings
+let g:ale_python_flake8_options = '--max-line-length=88'
+let g:ale_python_black_options = '--line-length 88'
+let g:ale_python_auto_pipenv = 1  " Auto-detect pipenv
+" let g:ale_python_mypy_options = '--ignore-missing-imports'
+
+" Linters & Fixers
+let g:ale_linters = {
+\   'python': ['flake8', 'mypy', 'pylint'],
+\   'yaml': ['yamllint'],
+\   'json': ['jsonlint'],
+\}
+
+let g:ale_fixers = {
+\   'python': ['black', 'isort'],
+\   'sql': ['sqlfmt'],
+\   'json': ['jq'],
+\   'yaml': ['yamlfix'],
+\}
+
+" Fix on save
+let g:ale_fix_on_save = 1
+
+" Error signs and formatting
+let g:ale_sign_error = '✘'
+let g:ale_sign_warning = '⚠'
+highlight ALEErrorSign ctermbg=NONE ctermfg=red
+highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
+
+" Auto-format SQL queries and validate YAML configs
+autocmd BufWritePre *.sql,*.yaml :ALEFix
+
+" Navigation mappings
+nmap <silent> <leader>aj :ALENext<cr>
+nmap <silent> <leader>ak :ALEPrevious<cr>
+nmap <silent> <leader>af :ALEFix<cr>
+" ALE status in lightline
+let g:lightline = {
+\ 'colorscheme': 'onedark',
+\ 'active': {
+\   'left': [['mode', 'paste'], ['readonly', 'filename', 'modified']],
+\   'right': [['lineinfo'], ['percent'], ['ale']]
+\ },
+\ 'component_function': {
+\   'ale': 'ALEStatus'
+\ }
+\}
+
+function! ALEStatus() abort
+  let l:counts = ale#statusline#Count(bufnr(''))
+  let l:all_errors = l:counts.error + l:counts.style_error
+  let l:all_warnings = l:counts.warning + l:counts.style_warning
+  return l:all_errors == 0 && l:all_warnings == 0 ? '✔' :
+      \ printf('E:%d W:%d', all_errors, all_warnings)
+endfunction
+
+" ====== YouCompleteMe Settings ======
+let g:ycm_autoclose_preview_window_after_completion = 1
+let g:ycm_autoclose_preview_window_after_insertion = 1
+" Only allow ALE to show diagnostics in sign column
+let g:ycm_show_diagnostics_ui = 0
+let g:ycm_enable_diagnostic_signs = 0
+let g:ycm_echo_current_diagnostic = 0
+let g:ycm_max_diagnostics_to_display = 0      " Disable diagnostic messages
+let g:ycm_enable_diagnostic_highlighting = 0  " Disable error highlighting
+let g:ycm_python_interpreter_path = 'python3'  " Auto-resolves virtualenvs
+let g:ycm_filetype_whitelist = { 
+  \ 'python': 1,
+  \ 'cpp': 1,
+  \ 'c': 1,
+  \ 'h': 1,
+  \ 'sql': 1,
+  \ 'yaml': 1,
+  \ 'sh': 1
+\ }
 
 " Use :make to run pylint for Python files.
 autocmd filetype python setlocal makeprg=pylint\ --reports=n\ --msg-template=\"{path}:{line}:\ {msg_id}\ {symbol},\ {obj}\ {msg}\"\ %:p
