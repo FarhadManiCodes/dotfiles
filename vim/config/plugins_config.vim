@@ -35,6 +35,7 @@ let g:ale_linters = {
 \   'python': ['flake8', 'mypy', 'pylint'],
 \   'yaml': ['yamllint'],
 \   'json': ['jsonlint'],
+\   'sh': ['shellcheck'],
 \}
 
 let g:ale_fixers = {
@@ -42,8 +43,13 @@ let g:ale_fixers = {
 \   'sql': ['sqlfmt'],
 \   'json': ['jq'],
 \   'yaml': ['yamlfix'],
+\   'sh': ['shfmt'],
 \ '*': ['remove_trailing_lines', 'trim_whitespace'],
 \}
+
+" ShellCheck-specific settings
+let g:ale_sh_shellcheck_options = '--enable=all --shell=bash'
+let g:ale_sh_shfmt_options = '-i 2 -ci'
 
 " YouCompleteMe
 let g:ycm_autoclose_preview_window_after_completion = 1
@@ -54,7 +60,7 @@ let g:ycm_echo_current_diagnostic = 0
 let g:ycm_max_diagnostics_to_display = 0
 let g:ycm_enable_diagnostic_highlighting = 0
 let g:ycm_python_interpreter_path = 'python3'
-let g:ycm_filetype_whitelist = { 
+let g:ycm_filetype_whitelist = {
   \ 'python': 1,
   \ 'cpp': 1,
   \ 'c': 1,
