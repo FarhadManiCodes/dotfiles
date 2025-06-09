@@ -48,7 +48,12 @@ let g:ale_fixers = {
 \}
 
 " ShellCheck-specific settings
-let g:ale_sh_shellcheck_options = '--enable=all --shell=bash'
+let g:ale_sh_shellcheck_options = '
+  \ --enable-all
+  \ --external-sources
+  \ --shell=bash
+  \ --source-path=SCRIPTDIR:${XDG_CONFIG_HOME}:${HOME}/.config
+  \'
 let g:ale_sh_shfmt_options = '-i 2 -ci'
 
 " YouCompleteMe
