@@ -1,7 +1,20 @@
 #!/bin/bash
-# vim
+# =========== vim ===============
 ln -sf "$HOME/dotfiles/vim/.vimrc" "$HOME/.vimrc"
-# zsh
+
+mkdir -p "$HOME/.vim/config"
+ln -sf "$HOME/dotfiles/vim/config/basic.vim" "$HOME/.vim/config/basic.vim"
+ln -sf "$HOME/dotfiles/vim/config/plugins.vim" "$HOME/.vim/config/plugins.vim"
+ln -sf "$HOME/dotfiles/vim/config/plugins_config.vim" "$HOME/.vim/config/plugins_config.vim"
+ln -sf "$HOME/dotfiles/vim/config/mappings.vim" "$HOME/.vim/config/mappings.vim"
+ln -sf "$HOME/dotfiles/vim/config/autcmds.vim" "$HOME/.vim/config/autcmds.vim"
+
+# Language-specific configurations
+
+ln -sf "$HOME/dotfiles/vim/config/python.vim" "$HOME/.vim/config/python.vim"
+ln -sf "$HOME/dotfiles/vim/config/sql.vim" "$HOME/.vim/config/sql.vim"
+
+# ============ zsh ==============================
 mkdir -p "$HOME/.config/zsh"
 ln -sf "$HOME/dotfiles/zsh/.zshenv" "$HOME/.zshenv"
 ln -sf "$HOME/dotfiles/zsh/.zshrc" "$HOME/.zshrc"
