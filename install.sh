@@ -1,4 +1,8 @@
 #!/bin/bash
+# provide default values for environment variable if not defined
+: "${XDG_CONFIG_HOME:=${HOME}/.config}"
+: "${DOTFILES:=${HOME}/dotfiles}"
+: "${XDG_DATA_HOME:=${HOME}/.config/local/share}"
 # =========== vim ===============
 ln -sf "${HOME}/dotfiles/vim/.vimrc" "${HOME}/.vimrc"
 ln -sf "${HOME}/dotfiles/vim/vimrc" "${HOME}/.vim/vimrc"
