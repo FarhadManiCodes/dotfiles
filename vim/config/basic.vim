@@ -30,6 +30,13 @@ set ttimeout
 set ttimeoutlen=1
 set ttyfast
 
+"relative numbers when navigating, absolute when editing.
+augroup numbertoggle
+  autocmd!
+  autocmd BufEnter,FocusGained,InsertLeave,WinEnter * if &nu && mode() != "i" | set rnu   | endif
+  autocmd BufLeave,FocusLost,InsertEnter,WinLeave   * if &nu                  | set nornu | endif
+augroup END
+
 " True color support
 if (has("nvim"))
     let $NVIM_TUI_ENABLE_TRUE_COLOR=1

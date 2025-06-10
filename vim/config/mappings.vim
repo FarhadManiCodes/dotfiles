@@ -49,6 +49,8 @@ nnoremap <leader>t :terminal<CR>
 nnoremap <leader>sr :%s/\<<C-r><C-w>\>//g<Left><Left>
 " Search and replace visual selection
 vnoremap <leader>sr "hy:%s/<C-r>h//g<Left><Left>
+" Search for selected text
+vnoremap * "hy/\V<C-r>=escape(@h,'/\')<CR><CR>
 
 " Quick window resizing
 nnoremap <silent> <C-Left> :vertical resize -5<CR>

@@ -10,3 +10,6 @@ autocmd BufNewFile,BufRead Pipfile set filetype=toml
 
 " Tags configuration
 set tags=tags;
+
+" Persistent Cursor Position
+autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
