@@ -18,7 +18,6 @@ let g:ale_python_flake8_options = '--max-line-length=88'
 let g:ale_python_black_options = '--line-length 88'
 let g:ale_python_auto_pipenv = 1
 
-
 " Pylint integration
 autocmd FileType python setlocal makeprg=pylint\ --reports=n\ --msg-template=\"{path}:{line}:\ {msg_id}\ {symbol},\ {obj}\ {msg}\"\ %:p
 autocmd FileType python setlocal errorformat=%f:%l:\ %m

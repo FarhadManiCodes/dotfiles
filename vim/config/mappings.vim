@@ -41,3 +41,23 @@ inoremap [ []<esc>i
 
 " Quick reload mapping
 nnoremap <leader>vr :source $MYVIMRC<CR>
+
+" Terminal toggle
+nnoremap <leader>t :terminal<CR>
+
+" Search and replace word under cursor
+nnoremap <leader>sr :%s/\<<C-r><C-w>\>//g<Left><Left>
+" Search and replace visual selection
+vnoremap <leader>sr "hy:%s/<C-r>h//g<Left><Left>
+
+" Quick window resizing
+nnoremap <silent> <C-Left> :vertical resize -5<CR>
+nnoremap <silent> <C-Right> :vertical resize +5<CR>
+nnoremap <silent> <C-Up> :resize +5<CR>
+nnoremap <silent> <C-Down> :resize -5<CR>
+
+" Clear search highlighting
+nnoremap <leader><space> :nohlsearch<CR>
+
+" Quick formatting
+nnoremap <leader>= gg=G``

@@ -1,3 +1,9 @@
+" terminal and shell
+set shell=/bin/zsh
+if has('terminal')
+    let g:terminal_height = float2nr(&lines / 3)
+    set termwinsize=10x0
+endif
 " Basic settings
 syntax on
 filetype plugin indent on
@@ -42,7 +48,7 @@ highlight Folded ctermfg=Black ctermbg=DarkGrey
 if has("autocmd")
   au VimEnter,InsertLeave * silent execute '!echo -ne "\e[1 q"' | redraw!
   au InsertEnter,InsertChange *
-    \ if v:insertmode == 'i' | 
+    \ if v:insertmode == 'i' |
     \   silent execute '!echo -ne "\e[6 q"' | redraw! |
     \ elseif v:insertmode == 'r' |
     \   silent execute '!echo -ne "\e[3 q"' | redraw! |

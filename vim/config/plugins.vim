@@ -16,5 +16,5 @@ Plug 'vim-python/python-syntax'
 Plug 'tpope/vim-dadbod'
 Plug 'AndrewRadev/splitjoin.vim'
 Plug 'FarhadManiCodes/vim-envx'
-
+Plug 'mechatroner/rainbow_csv'
 call plug#end()
