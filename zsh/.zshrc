@@ -78,10 +78,10 @@ set -o vi
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git 
-         vi-mode 
-         gitignore 
-         zsh-syntax-highlighting 
+plugins=(git
+         vi-mode
+         gitignore
+         zsh-syntax-highlighting
          last-working-dir
          wd
          gh)
@@ -90,9 +90,9 @@ fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
-# VIM Cursor 
+# VIM Cursor
 VI_MODE_SET_CURSOR=true
-# modify 
+# modify
 VI_MODE_CURSOR_NORMAL=1
 VI_MODE_CURSOR_VISUAL=6
 VI_MODE_CURSOR_INSERT=6
@@ -120,10 +120,10 @@ fi
 # - $ZSH_CUSTOM/macos.zsh
 # For a full list of active aliases, run `alias`.
 #
-# Python related 
+# Python related
 alias python=python3.13
 
-# alias python3=python3.13 
+# alias python3=python3.13
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
@@ -140,3 +140,6 @@ setopt PUSHD_SILENT
 source "$XDG_CONFIG_HOME/zsh/aliases"
 # source scripts
 source $DOTFILES/zsh/scripts.sh
+
+
+export PATH="$HOME/.local/bin:$PATH"
