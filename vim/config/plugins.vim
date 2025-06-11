@@ -17,4 +17,6 @@ Plug 'tpope/vim-dadbod'
 Plug 'AndrewRadev/splitjoin.vim'
 Plug 'FarhadManiCodes/vim-envx'
 Plug 'mechatroner/rainbow_csv'
+Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
+Plug 'junegunn/fzf.vim'
 call plug#end()
