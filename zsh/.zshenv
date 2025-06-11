@@ -35,3 +35,12 @@ if [ -n "$TMUX" ]; then
   export FZF_TMUX=1
   export FZF_TMUX_OPTS='-p 80%,70%'
 fi
+
+# z.lua configuration (environment variables)
+export _ZL_CMD=z
+export _ZL_DATA="$HOME/.zlua"
+export _ZL_NO_PROMPT_COMMAND=1
+export _ZL_EXCLUDE_DIRS="$HOME/.cache,/tmp,/var/tmp,/usr/share"
+export _ZL_ADD_ONCE=1
+export _ZL_MAXAGE=5000
+export _ZL_CD=cd
