@@ -32,3 +32,6 @@ export FZF_DEFAULT_OPTS='
   --color=fg+:#ffffff,bg+:#3e4451,hl+:#61afef
   --color=info:#e5c07b,prompt:#61afef,pointer:#e06c75
   --color=marker:#98c379,spinner:#e5c07b,header:#c678dd'
+
+# to zoxide to work
+eval "$(zoxide init zsh)"

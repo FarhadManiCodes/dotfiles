@@ -19,3 +19,7 @@ alias lz='eza -l --icons --size-sort'         # sort by size
 alias lt2='eza --tree --level=2 --icons'      # tree depth 2
 alias lt3='eza --tree --level=3 --icons'      # tree depth 3
 alias lgrep='eza -la --icons | grep'          # quick filtering
+
+alias cd="z"          # Replace cd with z
+alias cdi="zi"        # Interactive directory selection
+alias zz="z -"        # Jump to previous directory

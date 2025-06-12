@@ -1,4 +1,4 @@
-# For dotfiles
+# For dotfile
 export XDG_CONFIG_HOME="$HOME/.config"
 # For specific data
 export XDG_DATA_HOME="$XDG_CONFIG_HOME/local/share"
@@ -9,6 +9,12 @@ export EDITOR="vim"
 export VISUAL="vim"
 
 export DOTFILES="$HOME/dotfiles"
+
+
+# add paths
+export PATH="$HOME/.local/bin:$PATH"
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Go PATH and environment
 export PATH=$PATH:/usr/local/go/bin
@@ -37,3 +43,8 @@ if [ -n "$TMUX" ]; then
 fi
 
 export BAT_THEME="OneHalfDark"
+
+# zoxide setting
+export _ZO_ECHO=1           # Print matched directory before jumping
+export _ZO_RESOLVE_SYMLINKS=1  # Resolve symlinks when adding paths
+export _ZO_FZF_OPTS="--height=40% --layout=reverse --border"  # Customize fzf if using zi
