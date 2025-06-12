@@ -34,13 +34,14 @@ highlight ALEWarningSign ctermbg=NONE ctermfg=yellow
 let g:ale_linters = {
 \   'python': ['flake8', 'mypy', 'pylint'],
 \   'yaml': ['yamllint'],
-\   'json': ['jsonlint'],
+\   'sql': ['sqlfluff'],
+\   'json': ['jq'],
 \   'sh': ['shellcheck'],
 \}
 
 let g:ale_fixers = {
 \   'python': ['black', 'isort'],
-\   'sql': ['sqlfmt'],
+\   'sql': ['sqlfluff'],
 \   'json': ['jq'],
 \   'yaml': ['yamlfix'],
 \   'sh': ['shfmt'],
