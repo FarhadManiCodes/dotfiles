@@ -35,3 +35,5 @@ if [ -n "$TMUX" ]; then
   export FZF_TMUX=1
   export FZF_TMUX_OPTS='-p 80%,70%'
 fi
+
+export BAT_THEME="OneHalfDark"
