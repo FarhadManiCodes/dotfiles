@@ -50,8 +50,6 @@ augroup autopairs_filetype_config
     \ '<': '>'
   \ })
 
-  " Vim: No single quotes (they're comments!)
-  autocmd FileType vim let b:AutoPairs = filter(copy(g:AutoPairs), 'v:key != "'"'"'"')
 
   " Shell: Conservative with quotes
   autocmd FileType sh,bash,zsh let b:AutoPairs = {
@@ -95,7 +93,14 @@ augroup autopairs_filetype_config
     \ '`': '`'
   \ }
 augroup END
-
+" vim setting
+autocmd FileType vim let b:AutoPairs = {
+  \ '(': ')',
+  \ '[': ']',
+  \ '{': '}',
+  \ '"': '"',
+  \ '`': '`'
+\ }
 " ----------------------------------------------------------------------------
 " Plugin Compatibility
 " ----------------------------------------------------------------------------
