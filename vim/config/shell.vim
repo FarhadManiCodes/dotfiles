@@ -1,1 +1,0 @@
-autocmd BufWritePre *.sh :ALEFix

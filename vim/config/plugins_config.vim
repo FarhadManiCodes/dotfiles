@@ -20,7 +20,7 @@ endfunction
 
 " ALE Configuration
 let g:ale_enabled = 1
-let g:ale_lint_on_enter = 0
+let g:ale_lint_on_enter = 1
 let g:ale_lint_on_save = 1
 let g:ale_fix_on_save = 1
 let g:ale_lint_on_text_changed = 'never'
@@ -48,14 +48,9 @@ let g:ale_fixers = {
 \}
 
 " ShellCheck-specific settings
-let g:ale_sh_shellcheck_options = '
-  \ --enable-all
-  \ --external-sources
-  \ --shell=bash
-  \ --source-path=SCRIPTDIR:${XDG_CONFIG_HOME}:${HOME}/.config
-  \'
+" ShellCheck-specific settings (preferred)
+let g:ale_sh_shellcheck_options = '-x -e SC1091 --shell=bash --source-path=SCRIPTDIR:' . expand('$XDG_CONFIG_HOME') . ':' . expand('$HOME') . '/.config'
 let g:ale_sh_shfmt_options = '-i 2 -ci'
-
 " YouCompleteMe
 let g:ycm_autoclose_preview_window_after_completion = 1
 let g:ycm_autoclose_preview_window_after_insertion = 1

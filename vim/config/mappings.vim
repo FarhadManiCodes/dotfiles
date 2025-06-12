@@ -63,3 +63,9 @@ nnoremap <leader><space> :nohlsearch<CR>
 
 " Quick formatting
 nnoremap <leader>= gg=G``
+
+" Add FZF mappings (since you have the plugin)
+nnoremap <C-p> :Files<CR>
+nnoremap <leader>b :Buffers<CR>
+nnoremap <leader>rg :Rg<CR>
+nnoremap <leader>/ :BLines<CR>
