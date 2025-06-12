@@ -1,12 +1,15 @@
 " Lightline
+
 let g:lightline = {
   \ 'colorscheme': 'onedark',
   \ 'active': {
   \   'left': [['mode', 'paste'], ['readonly', 'filename', 'modified']],
-  \   'right': [['lineinfo'], ['percent'], ['ale']]
+  \   'right': [['lineinfo'], ['percent'], ['ale', 'virtualenv', 'gitbranch']]
   \ },
   \ 'component_function': {
-  \   'ale': 'ALEStatus'
+  \   'ale': 'ALEStatus',
+  \   'virtualenv': 'VirtualEnvStatus',
+  \   'gitbranch': 'FugitiveHead'
   \ }
 \}
 
@@ -16,6 +19,23 @@ function! ALEStatus() abort
   let l:all_warnings = l:counts.warning + l:counts.style_warning
   return l:all_errors == 0 && l:all_warnings == 0 ? '✔' :
       \ printf('E:%d W:%d', all_errors, all_warnings)
+endfunction
+
+function! VirtualEnvStatus() abort
+  " Check for various virtual environment indicators
+  if exists('$VIRTUAL_ENV')
+    return fnamemodify($VIRTUAL_ENV, ':t')
+  elseif exists('$CONDA_DEFAULT_ENV')
+    return $CONDA_DEFAULT_ENV
+  elseif exists('$PIPENV_ACTIVE') && $PIPENV_ACTIVE == '1'
+    " Try to get pipenv project name
+    let pipenv_project = system('pipenv --venv 2>/dev/null | xargs basename 2>/dev/null')
+    if v:shell_error == 0 && !empty(trim(pipenv_project))
+      return trim(pipenv_project)
+    endif
+    return 'pipenv'
+  endif
+  return ''
 endfunction
 
 " ALE Configuration

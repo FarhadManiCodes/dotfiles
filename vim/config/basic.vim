@@ -28,7 +28,9 @@ set undoreload=10000
 set laststatus=2
 set ttimeout
 set ttimeoutlen=1
+" Startup Time Optimization
 set ttyfast
+set lazyredraw
 
 "relative numbers when navigating, absolute when editing.
 augroup numbertoggle
