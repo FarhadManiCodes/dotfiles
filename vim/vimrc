@@ -8,6 +8,7 @@
 source $HOME/.vim/config/basic.vim
 source $HOME/.vim/config/plugins.vim
 source $HOME/.vim/config/plugins_config.vim
+source $HOME/.vim/config/autopairs.vim
 source $HOME/.vim/config/autocmds.vim
 source $HOME/.vim/config/mappings.vim
 source $HOME/.vim/config/python.vim

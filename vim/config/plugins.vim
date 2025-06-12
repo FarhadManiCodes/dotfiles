@@ -19,4 +19,6 @@ Plug 'FarhadManiCodes/vim-envx'
 Plug 'mechatroner/rainbow_csv'
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
+Plug 'tpope/vim-surround'
+Plug 'jiangmiao/auto-pairs'
 call plug#end()

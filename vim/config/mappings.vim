@@ -32,13 +32,6 @@ inoremap <expr> <C-E> col('.')>strlen(getline('.'))<bar><bar>pumvisible()?"\<C-E
 inoremap <expr> <C-F> col('.')>strlen(getline('.'))?"\<C-F>":"\<Right>"
 cnoremap <expr> <C-F> getcmdpos()>strlen(getcmdline())?&cedit:"\<Right>"
 
-" Auto-pairs
-inoremap ' ''<esc>i
-inoremap " ""<esc>i
-inoremap ( ()<esc>i
-inoremap { {}<esc>i
-inoremap [ []<esc>i
-
 " Quick reload mapping
 nnoremap <leader>vr :source $MYVIMRC<CR>
 

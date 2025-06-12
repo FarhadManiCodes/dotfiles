@@ -13,6 +13,7 @@ ln -sf "${HOME}/dotfiles/vim/config/plugins.vim" "${HOME}/.vim/config/plugins.vi
 ln -sf "${HOME}/dotfiles/vim/config/plugins_config.vim" "${HOME}/.vim/config/plugins_config.vim"
 ln -sf "${HOME}/dotfiles/vim/config/mappings.vim" "${HOME}/.vim/config/mappings.vim"
 ln -sf "${HOME}/dotfiles/vim/config/autocmds.vim" "${HOME}/.vim/config/autocmds.vim"
+ln -sf "${HOME}/dotfiles/vim/config/autopairs.vim" "${HOME}/.vim/config/autopairs.vim"
 
 # Language-specific configurations
 
