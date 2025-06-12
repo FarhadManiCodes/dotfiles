@@ -32,7 +32,13 @@ set ttimeoutlen=1
 set ttyfast
 set lazyredraw
 
-"relative numbers when navigating, absolute when editing.
+" SSH Performance Settings
+set timeout timeoutlen=1000 ttimeoutlen=50
+set updatetime=300
+set shortmess+=I  " Remove intro message
+set noshowcmd     " Don't show partial commands (faster over SSH)
+
+"" relative numbers when navigating, absolute when editing.
 augroup numbertoggle
   autocmd!
   autocmd BufEnter,FocusGained,InsertLeave,WinEnter * if &nu && mode() != "i" | set rnu   | endif
