@@ -53,6 +53,7 @@ let g:ale_fixers = {
 let g:ale_sh_shellcheck_options = '-x -e SC1091 --shell=bash --source-path=SCRIPTDIR:' . expand('$XDG_CONFIG_HOME') . ':' . expand('$HOME') . '/.config'
 let g:ale_sh_shfmt_options = '-i 2 -ci'
 " YouCompleteMe
+let g:ycm_add_preview_to_completeopt = 1
 let g:ycm_autoclose_preview_window_after_completion = 1
 let g:ycm_autoclose_preview_window_after_insertion = 1
 let g:ycm_show_diagnostics_ui = 0
