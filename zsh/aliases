@@ -1,3 +1,21 @@
 alias l.='ls -d .* --color=auto'
 alias d='dirs -v'
 for index ({1..9}) alias "$index"="cd +${index}"; unset index
+
+
+# ==== alias fo eza =======
+alias ls='eza'
+alias ll='eza -l --icons --git'
+alias la='eza -la --icons --git'
+alias lt='eza --tree --icons'
+
+# Developer-Focused Aliases
+alias lsd='eza -D --icons'                    # directories only
+alias lsf='eza -f --icons'                    # files only
+alias lg='eza -l --icons --git --git-ignore'  # respect .gitignore
+alias lh='eza -la --icons --header'           # with header
+alias lr='eza -R --icons'                     # recursive
+alias lz='eza -l --icons --size-sort'         # sort by size
+alias lt2='eza --tree --level=2 --icons'      # tree depth 2
+alias lt3='eza --tree --level=3 --icons'      # tree depth 3
+alias lgrep='eza -la --icons | grep'          # quick filtering
