@@ -21,6 +21,7 @@ ln -sf "${HOME}/dotfiles/vim/config/python.vim" "${HOME}/.vim/config/python.vim"
 ln -sf "${HOME}/dotfiles/vim/config/sql.vim" "${HOME}/.vim/config/sql.vim"
 ln -sf "${HOME}/dotfiles/vim/config/json.vim" "${HOME}/.vim/config/json.vim"
 ln -sf "${HOME}/dotfiles/vim/config/yaml.vim" "${HOME}/.vim/config/yaml.vim"
+ln -sf "${HOME}/dotfiles/vim/config/vimscript.vim" "${HOME}/.vim/config/vimscript.vim"
 
 # ============ zsh ==============================
 mkdir -p "${HOME}/.config/zsh"

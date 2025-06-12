@@ -62,3 +62,8 @@ nnoremap <C-p> :Files<CR>
 nnoremap <leader>b :Buffers<CR>
 nnoremap <leader>rg :Rg<CR>
 nnoremap <leader>/ :BLines<CR>
+
+" Add vim develepmetnt
+" Vimscript development helpers (only in .vim files)
+autocmd FileType vim nnoremap <buffer> <leader>R :source %<CR>:echo "Reloaded " . expand('%')<CR>
+autocmd FileType vim nnoremap <buffer> <leader>H :help <C-r>=expand('<cword>')<CR><CR>
