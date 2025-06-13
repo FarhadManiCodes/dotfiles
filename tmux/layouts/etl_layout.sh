@@ -2,7 +2,7 @@
 # ETL Development Layout - Clean Version (No Echo Duplication)
 
 SESSION_NAME="etl-$(basename "$PWD")"
-cd "$PWD"
+cd "$PWD" | exit
 
 echo "🚀 Creating ETL Development workspace: $SESSION_NAME"
 echo "📁 Working directory: $PWD"
@@ -13,8 +13,8 @@ tmux new-session -d -s "$SESSION_NAME" -c "$PWD"
 
 # Helper function to create info panels without echo duplication
 create_info_panel() {
-    local info_text="$1"
-    printf '%s\n' "$info_text"
+  local info_text="$1"
+  printf '%s\n' "$info_text"
 }
 
 # ============================================================================
@@ -33,15 +33,15 @@ tmux send-keys "vim ." Enter
 # Pane 1: ptpython REPL
 tmux select-pane -t 1
 tmux send-keys "clear" Enter
-if command -v ptpython &> /dev/null; then
-    tmux send-keys "ptpython" Enter
-    tmux send-keys "import pandas as pd, numpy as np, sqlite3, json, csv" Enter
-    tmux send-keys "from pathlib import Path" Enter
-    tmux send-keys "print('🐍 ETL libraries loaded')" Enter
+if command -v ptpython &>/dev/null; then
+  tmux send-keys "ptpython" Enter
+  tmux send-keys "import pandas as pd, numpy as np, sqlite3, json, csv" Enter
+  tmux send-keys "from pathlib import Path" Enter
+  tmux send-keys "print('🐍 ETL libraries loaded')" Enter
 else
-    tmux send-keys "python" Enter
-    tmux send-keys "import pandas as pd, numpy as np" Enter
-    tmux send-keys "print('🐍 Python ready for ETL')" Enter
+  tmux send-keys "python" Enter
+  tmux send-keys "import pandas as pd, numpy as np" Enter
+  tmux send-keys "print('🐍 Python ready for ETL')" Enter
 fi
 
 # Pane 2: File operations
@@ -56,11 +56,11 @@ tmux send-keys "git status 2>/dev/null || printf '\\n📁 Files ready\\n'" Enter
 echo "🌳 Setting up Window 2: Git Management"
 tmux new-window -n "git" -c "$PWD"
 tmux send-keys "clear" Enter
-if command -v lazygit &> /dev/null; then
-    tmux send-keys "lazygit" Enter
+if command -v lazygit &>/dev/null; then
+  tmux send-keys "lazygit" Enter
 else
-    tmux send-keys "printf '❌ lazygit not found\\nInstall: https://github.com/jesseduffield/lazygit\\n\\n'" Enter
-    tmux send-keys "git log --oneline -10 2>/dev/null || printf 'Not a git repository\\n'" Enter
+  tmux send-keys "printf '❌ lazygit not found\\nInstall: https://github.com/jesseduffield/lazygit\\n\\n'" Enter
+  tmux send-keys "git log --oneline -10 2>/dev/null || printf 'Not a git repository\\n'" Enter
 fi
 
 # ============================================================================
@@ -73,26 +73,26 @@ tmux split-window -h -p 50 -c "$PWD"
 # Left: ptpython for data analysis
 tmux select-pane -t 0
 tmux send-keys "clear" Enter
-if command -v ptpython &> /dev/null; then
-    tmux send-keys "ptpython" Enter
-    tmux send-keys "import pandas as pd, numpy as np, matplotlib.pyplot as plt, seaborn as sns" Enter
-    tmux send-keys "pd.set_option('display.max_columns', None)" Enter
-    tmux send-keys "print('🔬 Data exploration ready')" Enter
+if command -v ptipython &>/dev/null; then
+  tmux send-keys "ptipython" Enter
+  tmux send-keys "import pandas as pd, numpy as np, matplotlib.pyplot as plt, seaborn as sns" Enter
+  tmux send-keys "pd.set_option('display.max_columns', None)" Enter
+  tmux send-keys "print('🔬 Data exploration ready')" Enter
 else
-    tmux send-keys "python" Enter
-    tmux send-keys "import pandas as pd, numpy as np" Enter
-    tmux send-keys "print('🔬 Basic data tools loaded')" Enter
+  tmux send-keys "python" Enter
+  tmux send-keys "import pandas as pd, numpy as np" Enter
+  tmux send-keys "print('🔬 Basic data tools loaded')" Enter
 fi
 
 # Right: DuckDB
 tmux select-pane -t 1
 tmux send-keys "clear" Enter
-if command -v duckdb &> /dev/null; then
-    tmux send-keys "duckdb" Enter
-    tmux send-keys "-- 🦆 DuckDB ready for analytics" Enter
+if command -v duckdb &>/dev/null; then
+  tmux send-keys "duckdb" Enter
+  tmux send-keys "-- 🦆 DuckDB ready for analytics" Enter
 else
-    tmux send-keys "printf '❌ DuckDB not found\\nInstall: pip install duckdb\\n\\nUsing SQLite instead:\\n'" Enter
-    tmux send-keys "sqlite3" Enter
+  tmux send-keys "printf '❌ DuckDB not found\\nInstall: pip install duckdb\\n\\nUsing SQLite instead:\\n'" Enter
+  tmux send-keys "sqlite3" Enter
 fi
 
 # ============================================================================
@@ -120,11 +120,11 @@ tmux send-keys "  \\d     # Describe table" Enter
 tmux send-keys "" Enter
 tmux send-keys "EOF" Enter
 
-if command -v psql &> /dev/null; then
-    tmux send-keys "printf '✅ psql available\\n'" Enter
-    tmux send-keys "pg_isready 2>/dev/null && printf '✅ PostgreSQL server ready\\n' || printf '❌ Server not responding\\n'" Enter
+if command -v psql &>/dev/null; then
+  tmux send-keys "printf '✅ psql available\\n'" Enter
+  tmux send-keys "pg_isready 2>/dev/null && printf '✅ PostgreSQL server ready\\n' || printf '❌ Server not responding\\n'" Enter
 else
-    tmux send-keys "printf '❌ Install: sudo apt install postgresql-client\\n'" Enter
+  tmux send-keys "printf '❌ Install: sudo apt install postgresql-client\\n'" Enter
 fi
 
 # Redis pane
@@ -145,11 +145,11 @@ tmux send-keys "  DBSIZE     # Key count" Enter
 tmux send-keys "" Enter
 tmux send-keys "EOF" Enter
 
-if command -v redis-cli &> /dev/null; then
-    tmux send-keys "printf '✅ redis-cli available\\n'" Enter
-    tmux send-keys "redis-cli ping 2>/dev/null && printf '✅ Redis responding\\n' || printf '❌ Server not responding\\n'" Enter
+if command -v redis-cli &>/dev/null; then
+  tmux send-keys "printf '✅ redis-cli available\\n'" Enter
+  tmux send-keys "redis-cli ping 2>/dev/null && printf '✅ Redis responding\\n' || printf '❌ Server not responding\\n'" Enter
 else
-    tmux send-keys "printf '❌ Install: sudo apt install redis-tools\\n'" Enter
+  tmux send-keys "printf '❌ Install: sudo apt install redis-tools\\n'" Enter
 fi
 
 # ============================================================================
@@ -169,10 +169,10 @@ tmux send-keys "htop" Enter
 # Pane 1: Docker stats
 tmux select-pane -t 1
 tmux send-keys "clear" Enter
-if command -v docker &> /dev/null; then
-    tmux send-keys "docker stats 2>/dev/null || printf 'No running containers\\nTry: docker ps -a\\n'" Enter
+if command -v docker &>/dev/null; then
+  tmux send-keys "docker stats 2>/dev/null || printf 'No running containers\\nTry: docker ps -a\\n'" Enter
 else
-    tmux send-keys "printf 'Docker not available\\n'" Enter
+  tmux send-keys "printf 'Docker not available\\n'" Enter
 fi
 
 # Pane 2: Disk monitoring
@@ -216,10 +216,10 @@ tmux send-keys "  pytest test_file.py    # Specific file" Enter
 tmux send-keys "  pytest --lf            # Last failed" Enter
 tmux send-keys "" Enter
 tmux send-keys "EOF" Enter
-if command -v pytest &> /dev/null; then
-    tmux send-keys "printf '✅ pytest available\\n'" Enter
+if command -v pytest &>/dev/null; then
+  tmux send-keys "printf '✅ pytest available\\n'" Enter
 else
-    tmux send-keys "printf '❌ Install: pip install pytest\\n'" Enter
+  tmux send-keys "printf '❌ Install: pip install pytest\\n'" Enter
 fi
 
 # Pane 2: Coverage
@@ -233,10 +233,10 @@ tmux send-keys "  pytest --cov-report=html" Enter
 tmux send-keys "  ptw                    # Watch mode" Enter
 tmux send-keys "" Enter
 tmux send-keys "EOF" Enter
-if command -v ptw &> /dev/null; then
-    tmux send-keys "printf '✅ pytest-watch available\\n'" Enter
+if command -v ptw &>/dev/null; then
+  tmux send-keys "printf '✅ pytest-watch available\\n'" Enter
 else
-    tmux send-keys "printf 'Install: pip install pytest-watch\\n'" Enter
+  tmux send-keys "printf 'Install: pip install pytest-watch\\n'" Enter
 fi
 
 # ============================================================================
@@ -253,7 +253,7 @@ echo ""
 echo "🪟 Windows created:"
 echo "  1. dev     - Main development (vim + ptpython + files)"
 echo "  2. git     - Git management with lazygit"
-echo "  3. explore - Data exploration (ptpython + DuckDB)" 
+echo "  3. explore - Data exploration (ptpython + DuckDB)"
 echo "  4. db      - Database connections (PostgreSQL + Redis)"
 echo "  5. monitor - System monitoring and logs"
 echo "  6. test    - Pytest testing environment"
@@ -264,9 +264,9 @@ echo "📋 Use $TMUX_PREFIX then arrow keys to switch between panes"
 
 # Attach to session (handle nested tmux sessions)
 if [ -n "$TMUX" ]; then
-    echo "🔄 Switching to session: $SESSION_NAME"
-    tmux switch-client -t "$SESSION_NAME"
+  echo "🔄 Switching to session: $SESSION_NAME"
+  tmux switch-client -t "$SESSION_NAME"
 else
-    echo "🔗 Attaching to session: $SESSION_NAME"
-    tmux attach-session -t "$SESSION_NAME"
+  echo "🔗 Attaching to session: $SESSION_NAME"
+  tmux attach-session -t "$SESSION_NAME"
 fi
