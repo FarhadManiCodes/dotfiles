@@ -1,0 +1,362 @@
+#!/bin/bash
+# Smart Jupyter Lab launcher - captures URL and opens browser automatically
+# Usage: jupyter-smart [PORT] [COMMAND]
+# Examples: jupyter-smart 8889, jupyter-smart 8890 start, jupyter-smart stop
+
+# Default values
+DEFAULT_PORT=8888
+
+# Parse arguments - check if first arg is a port number or special command
+if [[ "$1" == "ls" ]] || [[ "$1" == "list" ]]; then
+    # Special case for list commands (no port needed)
+    JUPYTER_PORT="$DEFAULT_PORT"  # Not used for list
+    COMMAND="$1"
+elif [[ "$1" =~ ^[0-9]+$ ]]; then
+    # First arg is a port number
+    JUPYTER_PORT="$1"
+    COMMAND="${2:-start}"
+else
+    # First arg is a command or default
+    JUPYTER_PORT="$DEFAULT_PORT"
+    COMMAND="${1:-start}"
+fi
+
+LOG_FILE="/tmp/jupyter-lab-$USER-$JUPYTER_PORT.log"
+PID_FILE="/tmp/jupyter-lab-$USER-$JUPYTER_PORT.pid"
+
+# Function to stop any existing Jupyter Lab
+stop_jupyter() {
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "🛑 Stopping existing Jupyter Lab on port $JUPYTER_PORT (PID: $PID)"
+            kill "$PID"
+            sleep 2
+        fi
+        rm -f "$PID_FILE"
+    fi
+}
+
+# Function to start Jupyter Lab
+start_jupyter() {
+    # Check if instance is already running on this port
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "⚠️  WARNING: Jupyter Lab is already running on port $JUPYTER_PORT"
+            echo ""
+            echo "📊 Existing Instance Info:"
+            echo "   PID: $PID"
+            echo "   Port: $JUPYTER_PORT"
+            
+            local existing_url=""
+            local directory=""
+            
+            if [ -f "$LOG_FILE" ]; then
+                existing_url=$(grep -o 'http://[^[:space:]]*lab?token=[^[:space:]]*' "$LOG_FILE" 2>/dev/null | head -1)
+                if [ -n "$existing_url" ]; then
+                    echo "   URL: $existing_url"
+                else
+                    echo "   URL: Starting or check logs"
+                fi
+                
+                directory=$(grep -o "Serving notebooks from local directory: .*" "$LOG_FILE" 2>/dev/null | head -1 | sed 's/.*: //')
+                if [ -n "$directory" ]; then
+                    echo "   Directory: $directory"
+                fi
+            fi
+            
+            echo ""
+            echo "💡 Options:"
+            echo "   1. Use a different port: jupyter-smart $((JUPYTER_PORT + 1))"
+            echo "   2. Connect to existing: Open the URL above in your browser"
+            echo "   3. Force restart: jupyter-smart $JUPYTER_PORT restart"
+            echo "   4. Force start: jupyter-smart $JUPYTER_PORT force"
+            echo "   5. Stop existing: jupyter-smart $JUPYTER_PORT stop"
+            echo "   6. View all instances: jupyter-smart ls"
+            
+            # Interactive prompt to open in browser
+            if [ -n "$existing_url" ]; then
+                echo ""
+                read -p "🌐 Would you like to open the existing Jupyter Lab in your browser? [Y/n]: " -n 1 -r
+                echo
+                
+                if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+                    echo "🚀 Opening existing Jupyter Lab in browser..."
+                    
+                    if command -v xdg-open &> /dev/null; then
+                        xdg-open "$existing_url" &
+                        echo "✅ Opened in default browser"
+                    elif command -v open &> /dev/null; then
+                        open "$existing_url" &
+                        echo "✅ Opened in default browser"
+                    else
+                        echo "💡 Please open this URL manually: $existing_url"
+                    fi
+                    
+                    echo ""
+                    echo "🔧 Quick management commands:"
+                    if [ "$JUPYTER_PORT" = "$DEFAULT_PORT" ]; then
+                        echo "  jupyter-smart status     # Check status"
+                        echo "  jupyter-smart stop       # Stop when done"
+                        echo "  jupyter-smart logs       # View logs"
+                    else
+                        echo "  jupyter-smart $JUPYTER_PORT status     # Check status"
+                        echo "  jupyter-smart $JUPYTER_PORT stop       # Stop when done"
+                        echo "  jupyter-smart $JUPYTER_PORT logs       # View logs"
+                    fi
+                else
+                    echo "💡 No problem! Use the options above or try a different port."
+                fi
+            fi
+            
+            return 1
+        else
+            echo "🧹 Found stale PID file, cleaning up..."
+            rm -f "$PID_FILE"
+        fi
+    fi
+    
+    echo "🚀 Starting Jupyter Lab on port $JUPYTER_PORT..."
+    
+    # Start Jupyter Lab
+    nohup jupyter lab \
+        --no-browser \
+        --ip=0.0.0.0 \
+        --port=$JUPYTER_PORT \
+        --notebook-dir="$(pwd)" \
+        > "$LOG_FILE" 2>&1 &
+    
+    JUPYTER_PID=$!
+    echo $JUPYTER_PID > "$PID_FILE"
+    
+    echo "⏳ Waiting for Jupyter Lab to initialize..."
+    
+    # Wait for Jupyter to start and capture URL
+    local url=""
+    for i in {1..15}; do
+        if [ -f "$LOG_FILE" ]; then
+            # Look for the URL in the log file
+            url=$(grep -o 'http://[^[:space:]]*lab?token=[^[:space:]]*' "$LOG_FILE" 2>/dev/null | head -1)
+            if [ -n "$url" ]; then
+                break
+            fi
+        fi
+        sleep 1
+    done
+    
+    if [ -n "$url" ]; then
+        echo "✅ Jupyter Lab started successfully!"
+        echo ""
+        echo "🌐 Access URL: $url"
+        echo "📁 Working directory: $(pwd)"
+        echo "📋 PID: $JUPYTER_PID"
+        echo "📊 Logs: $LOG_FILE"
+        echo ""
+        
+        # Auto-open in browser
+        if command -v xdg-open &> /dev/null; then
+            echo "🌐 Opening in default browser..."
+            xdg-open "$url" &
+        elif command -v open &> /dev/null; then
+            echo "🌐 Opening in default browser..."
+            open "$url" &
+        else
+            echo "💡 Copy the URL above to your browser"
+        fi
+        
+        echo ""
+        echo "🔧 Management commands:"
+        if [ "$JUPYTER_PORT" = "$DEFAULT_PORT" ]; then
+            echo "  jupyter-smart stop       # Stop Jupyter Lab"
+            echo "  jupyter-smart logs       # View logs"
+            echo "  jupyter-smart status     # Check status"
+        else
+            echo "  jupyter-smart $JUPYTER_PORT stop       # Stop Jupyter Lab"
+            echo "  jupyter-smart $JUPYTER_PORT logs       # View logs"
+            echo "  jupyter-smart $JUPYTER_PORT status     # Check status"
+        fi
+        
+    else
+        echo "❌ Failed to start Jupyter Lab or capture URL"
+        echo "📋 Check logs: cat $LOG_FILE"
+        stop_jupyter
+        return 1
+    fi
+}
+
+# Function to show status
+show_status() {
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "✅ Jupyter Lab is running on port $JUPYTER_PORT (PID: $PID)"
+            if [ -f "$LOG_FILE" ]; then
+                url=$(grep -o 'http://[^[:space:]]*lab?token=[^[:space:]]*' "$LOG_FILE" 2>/dev/null | head -1)
+                if [ -n "$url" ]; then
+                    echo "🌐 URL: $url"
+                fi
+            fi
+        else
+            echo "❌ Jupyter Lab is not running on port $JUPYTER_PORT (stale PID file)"
+            rm -f "$PID_FILE"
+        fi
+    else
+        echo "❌ Jupyter Lab is not running on port $JUPYTER_PORT"
+    fi
+}
+
+# Function to list all running Jupyter Lab instances
+list_jupyter() {
+    echo "📊 Jupyter Lab Instances"
+    echo "========================"
+    
+    # Find all PID files for this user
+    local pid_files=(/tmp/jupyter-lab-$USER-*.pid)
+    local found_running=false
+    
+    if [ ${#pid_files[@]} -eq 1 ] && [ ! -f "${pid_files[0]}" ]; then
+        echo "❌ No Jupyter Lab instances found"
+        return
+    fi
+    
+    # Table header
+    printf "%-6s %-8s %-10s %-50s %-20s\n" "PORT" "STATUS" "PID" "URL" "DIRECTORY"
+    printf "%-6s %-8s %-10s %-50s %-20s\n" "------" "--------" "----------" "--------------------------------------------------" "--------------------"
+    
+    for pid_file in "${pid_files[@]}"; do
+        if [ -f "$pid_file" ]; then
+            # Extract port from filename
+            local port=$(basename "$pid_file" | sed 's/jupyter-lab-.*-\([0-9]*\)\.pid/\1/')
+            local log_file="/tmp/jupyter-lab-$USER-$port.log"
+            local pid=$(cat "$pid_file" 2>/dev/null)
+            local status="❌ DEAD"
+            local url="N/A"
+            local directory="N/A"
+            
+            # Check if process is running
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                status="✅ RUNNING"
+                found_running=true
+                
+                # Extract URL from log file
+                if [ -f "$log_file" ]; then
+                    url=$(grep -o 'http://[^[:space:]]*lab?token=[^[:space:]]*' "$log_file" 2>/dev/null | head -1)
+                    if [ -z "$url" ]; then
+                        url="Starting..."
+                    else
+                        # Truncate URL if too long
+                        if [ ${#url} -gt 45 ]; then
+                            url="${url:0:42}..."
+                        fi
+                    fi
+                    
+                    # Extract working directory from log
+                    directory=$(grep -o "Serving notebooks from local directory: .*" "$log_file" 2>/dev/null | head -1 | sed 's/.*: //')
+                    if [ -z "$directory" ]; then
+                        directory="Unknown"
+                    else
+                        # Truncate directory if too long
+                        if [ ${#directory} -gt 18 ]; then
+                            directory="...${directory: -15}"
+                        fi
+                    fi
+                fi
+            else
+                # Clean up stale PID file
+                rm -f "$pid_file" 2>/dev/null
+            fi
+            
+            printf "%-6s %-8s %-10s %-50s %-20s\n" "$port" "$status" "$pid" "$url" "$directory"
+        fi
+    done
+    
+    if [ "$found_running" = true ]; then
+        echo ""
+        echo "💡 Commands:"
+        echo "  jupyter-smart <PORT> status  # Check specific instance"
+        echo "  jupyter-smart <PORT> stop    # Stop specific instance"
+        echo "  jupyter-smart <PORT> url     # Get full URL"
+        echo "  jupyter-smart <PORT> logs    # View logs"
+    fi
+}
+
+# Function to show logs
+show_logs() {
+    if [ -f "$LOG_FILE" ]; then
+        echo "📊 Jupyter Lab logs (port $JUPYTER_PORT):"
+        tail -20 "$LOG_FILE"
+        echo ""
+        echo "📋 For live logs: tail -f $LOG_FILE"
+    else
+        echo "❌ No log file found for port $JUPYTER_PORT"
+    fi
+}
+
+# Main command handling
+case "$COMMAND" in
+    "start")
+        start_jupyter  # No longer automatically stops existing instances
+        ;;
+    "force"|"force-start")
+        echo "🔄 Force starting Jupyter Lab (stopping existing instance if any)..."
+        stop_jupyter
+        start_jupyter
+        ;;
+    "stop")
+        stop_jupyter
+        echo "✅ Jupyter Lab stopped (port $JUPYTER_PORT)"
+        ;;
+    "restart")
+        stop_jupyter
+        sleep 1
+        start_jupyter
+        ;;
+    "status")
+        show_status
+        ;;
+    "logs")
+        show_logs
+        ;;
+    "url")
+        if [ -f "$LOG_FILE" ]; then
+            url=$(grep -o 'http://[^[:space:]]*lab?token=[^[:space:]]*' "$LOG_FILE" 2>/dev/null | head -1)
+            if [ -n "$url" ]; then
+                echo "$url"
+            else
+                echo "❌ No URL found in logs for port $JUPYTER_PORT"
+            fi
+        else
+            echo "❌ Jupyter Lab not running on port $JUPYTER_PORT"
+        fi
+        ;;
+    "ls"|"list")
+        list_jupyter
+        ;;
+    *)
+        echo "📚 Usage: jupyter-smart [PORT] [COMMAND]"
+        echo ""
+        echo "PORT (optional):"
+        echo "  Default: 8888"
+        echo "  Examples: 8889, 8890, 9000"
+        echo ""
+        echo "COMMAND (optional):"
+        echo "  start       - Start Jupyter Lab (default, warns if already running)"
+        echo "  force       - Force start (stops existing instance first)"
+        echo "  stop        - Stop Jupyter Lab"
+        echo "  restart     - Restart Jupyter Lab (stops then starts)"
+        echo "  status      - Check if running"
+        echo "  logs        - Show recent logs"
+        echo "  url         - Show access URL"
+        echo "  ls|list     - List all running instances"
+        echo ""
+        echo "Examples:"
+        echo "  jupyter-smart                  # Start on port 8888 (safe)"
+        echo "  jupyter-smart 8889             # Start on port 8889 (safe)"
+        echo "  jupyter-smart 8890 force       # Force start on port 8890"
+        echo "  jupyter-smart 8889 stop        # Stop instance on port 8889"
+        echo "  jupyter-smart 8888 restart     # Force restart on port 8888"
+        echo "  jupyter-smart ls               # List all running instances"
+        echo "  jupyter-smart status           # Check status on default port"
+        ;;
+esac

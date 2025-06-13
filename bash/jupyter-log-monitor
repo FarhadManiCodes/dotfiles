@@ -1,0 +1,197 @@
+#!/bin/bash
+# Interactive Jupyter Log Monitor with Ctrl+C handling - Multi-port support
+# Location: ~/.local/bin/jupyter-log-monitor
+# Usage: jupyter-log-monitor [PORT]
+
+# Function to detect Jupyter port from context
+detect_port() {
+    local detected_port=""
+
+    # Method 1: Check if port passed as argument
+    if [ -n "$1" ]; then
+        detected_port="$1"
+    # Method 2: Try to detect from tmux window name
+    elif [ -n "$TMUX" ]; then
+        local window_name=$(tmux display-message -p '#W' 2>/dev/null)
+        # Fixed regex pattern matching syntax
+        if [[ "$window_name" =~ jupyter.*([0-9]{4}) ]]; then
+            detected_port="${BASH_REMATCH[1]}"
+        elif [[ "$window_name" == "jupyter-dev" ]]; then
+            detected_port="8888"  # Default for dev window
+        fi
+    fi
+
+    # Method 3: If still no port, show running instances and let user choose
+    if [ -z "$detected_port" ]; then
+        echo "🔍 Detecting running Jupyter instances..."
+
+        # Fixed: Use mapfile/readarray for better array handling
+        local running_ports=()
+        if ls /tmp/jupyter-lab-$USER-*.pid >/dev/null 2>&1; then
+            while IFS= read -r -d '' file; do
+                local port=$(basename "$file" | sed 's/jupyter-lab-'$USER'-\([0-9]*\)\.pid/\1/')
+                running_ports+=("$port")
+            done < <(find /tmp -name "jupyter-lab-$USER-*.pid" -print0 2>/dev/null)
+        fi
+
+        if [ ${#running_ports[@]} -eq 0 ]; then
+            echo "❌ No running Jupyter instances found"
+            echo "💡 Start one with: jupyter-smart 8888"
+            exit 1
+        elif [ ${#running_ports[@]} -eq 1 ]; then
+            detected_port="${running_ports[0]}"
+            echo "✅ Found single instance on port $detected_port"
+        else
+            echo "📊 Multiple Jupyter instances found:"
+            for i in "${!running_ports[@]}"; do
+                local port="${running_ports[$i]}"
+                local status="❓"
+                local pid_file="/tmp/jupyter-lab-$USER-$port.pid"
+                if [ -f "$pid_file" ] && kill -0 $(cat "$pid_file" 2>/dev/null) 2>/dev/null; then
+                    status="✅"
+                fi
+                echo "  $((i+1)). Port $port $status"
+            done
+            echo ""
+            while true; do
+                read -p "Choose instance [1-${#running_ports[@]}]: " choice
+                if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#running_ports[@]} ]; then
+                    detected_port="${running_ports[$((choice-1))]}"
+                    break
+                else
+                    echo "❌ Invalid choice. Please choose 1-${#running_ports[@]}"
+                fi
+            done
+        fi
+    fi
+
+    echo "$detected_port"
+}
+
+# Function to handle Ctrl+C
+handle_interrupt() {
+    echo ""
+    echo "🛑 Log monitoring stopped (port $PORT)."
+    echo ""
+    echo "🤔 What would you like to do with Jupyter Lab on port $PORT?"
+    echo ""
+    echo "Options:"
+    echo "  1. Keep Jupyter running (just exit logs)"
+    echo "  2. Stop Jupyter Lab completely"
+    echo "  3. Restart log monitoring"
+    echo "  4. Show Jupyter status"
+    echo "  5. Switch to different Jupyter instance"
+    echo ""
+
+    while true; do
+        read -p "Choose [1-5]: " choice
+
+        case $choice in
+            1)
+                echo ""
+                echo "✅ Keeping Jupyter Lab running on port $PORT"
+                echo "🌐 You can continue using it in your browser"
+                echo ""
+                echo "💡 Quick commands:"
+                echo "  jupyter-smart $PORT status    # Check status"
+                echo "  jupyter-smart $PORT stop      # Stop later"
+                echo "  jupyter-smart $PORT url       # Get URL"
+                echo ""
+                echo "Press any key to exit..."
+                read -n 1
+                exit 0
+                ;;
+            2)
+                echo ""
+                echo "🛑 Stopping Jupyter Lab on port $PORT..."
+                jupyter-smart $PORT stop
+                echo ""
+                echo "✅ Jupyter Lab stopped completely"
+                echo "Press any key to exit..."
+                read -n 1
+                exit 0
+                ;;
+            3)
+                echo ""
+                echo "🔄 Restarting log monitoring for port $PORT..."
+                echo "Press Ctrl+C again to get options"
+                echo ""
+                break
+                ;;
+            4)
+                echo ""
+                echo "📊 Jupyter Lab Status (port $PORT):"
+                jupyter-smart $PORT status
+                echo ""
+                echo "Press any key to continue..."
+                read -n 1
+                echo ""
+                ;;
+            5)
+                echo ""
+                echo "🔄 Switching to different instance..."
+                # Re-detect port (will show selection menu)
+                PORT=$(detect_port)
+                if [ -n "$PORT" ]; then
+                    LOG_FILE="/tmp/jupyter-lab-$USER-$PORT.log"
+                    echo "✅ Now monitoring port $PORT"
+                    echo "Press Ctrl+C again to get options"
+                    echo ""
+                    break
+                else
+                    echo "❌ No valid port selected"
+                    exit 1
+                fi
+                ;;
+            *)
+                echo "❌ Invalid choice. Please choose 1-5."
+                ;;
+        esac
+    done
+}
+
+# Main script starts here
+echo "🔍 Detecting Jupyter instance..."
+
+# Detect which port to monitor
+PORT=$(detect_port "$1")
+
+if [ -z "$PORT" ]; then
+    echo "❌ Could not detect Jupyter port"
+    exit 1
+fi
+
+LOG_FILE="/tmp/jupyter-lab-$USER-$PORT.log"
+
+# Set trap for Ctrl+C
+trap handle_interrupt SIGINT
+
+# Show initial info
+echo "📊 Jupyter Lab Log Monitor (Port $PORT)"
+echo "Press Ctrl+C for options (stop logs, stop Jupyter, switch instance, etc.)"
+echo "Monitoring: $LOG_FILE"
+echo ""
+
+# Wait for log file to exist
+while [ ! -f "$LOG_FILE" ]; do
+    echo "⏳ Waiting for Jupyter on port $PORT to create log file..."
+    sleep 2
+done
+
+echo "✅ Log file found, starting monitor for port $PORT..."
+echo "----------------------------------------"
+
+# Start monitoring logs with restart capability
+while true; do
+    # Monitor logs until interrupted
+    if [ -f "$LOG_FILE" ]; then
+        tail -f "$LOG_FILE" 2>/dev/null || {
+            echo "❌ Log file disappeared, waiting for it to return..."
+            sleep 2
+            continue
+        }
+    else
+        echo "❌ Log file not found, waiting..."
+        sleep 2
+    fi
+done

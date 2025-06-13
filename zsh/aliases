@@ -23,3 +23,7 @@ alias lgrep='eza -la --icons | grep'          # quick filtering
 alias cd="z"          # Replace cd with z
 alias cdi="zi"        # Interactive directory selection
 alias zz="z -"        # Jump to previous directory
+
+# Jupyhter smart
+alias jls='jupyter-smart ls'           # List instances
+alias j-etl='jupyer-smart 8888'  

@@ -1,0 +1,51 @@
+#!/bin/bash
+# tmux-jupyter-single - Single Jupyter instance manager for Python Development menu
+# Location: ~/.local/bin/tmux-jupyter-single
+
+SESSION_NAME=$(tmux display-message -p '#S')
+WINDOW_NAME="jupyter-dev"
+
+echo "🔍 Checking for existing Jupyter development window..."
+
+# Check if jupyter window already exists in current session
+if tmux list-windows -t "$SESSION_NAME" | grep -q "$WINDOW_NAME"; then
+  # Window exists, switch to it
+  echo "✅ Found existing Jupyter window, switching to it..."
+  tmux select-window -t "$WINDOW_NAME"
+  echo "📱 Switched to existing Jupyter window"
+else
+  # Create new window with Jupyter + logs layout
+  echo "🚀 Creating new Jupyter development window..."
+
+  # Create new window
+  tmux new-window -n "$WINDOW_NAME"
+
+  # Create layout: 80% top for logs, 20% bottom for Jupyter
+  tmux split-window -v -p 20
+
+  # Layout visualization:
+  # ┌─────────────────────────────────────┐
+  # │         Live Logs (80%)             │
+  # │ tail -f jupyter-lab-logs...         │
+  # │                                     │
+  # │                                     │
+  # ├─────────────────────────────────────┤
+  # │      Jupyter Starter (20%)          │
+  # └─────────────────────────────────────┘
+
+  # Bottom pane (20%): Start Jupyter Lab
+  tmux select-pane -t 1
+  tmux send-keys "echo '🚀 Starting Jupyter Lab for development...'" Enter
+  tmux send-keys "jupyter-smart 8888" Enter
+
+  # Top pane (80%): Show logs with interactive control
+  tmux select-pane -t 0
+  tmux send-keys "echo '📊 Jupyter Lab Logs (Live) - 80% view'" Enter
+  tmux send-keys "echo 'Press Ctrl+C to stop logs and get options'" Enter
+  tmux send-keys "echo 'Waiting for Jupyter to start and generate logs...'" Enter
+  tmux send-keys "echo ''" Enter
+  tmux send-keys "sleep 3" Enter
+  tmux send-keys "~/.local/bin/jupyter-log-monitor" Enter
+
+  echo "✅ Jupyter development window created - 80% logs, 20% starter"
+fi

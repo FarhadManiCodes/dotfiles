@@ -49,3 +49,8 @@ ln -sf "${HOME}/dotfiles/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
 #########
 mkdir -p "${XDG_DATA_HOME}"
 cp -rf "${DOTFILES}/fonts" "${XDG_DATA_HOME}"
+
+# other help functions
+for file in "${HOME}/dotfiles/bash/"*; do
+  ln -sf "$file" "${HOME}/.local/bin/"
+done
