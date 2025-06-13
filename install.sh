@@ -31,6 +31,11 @@ ln -sf "${HOME}/dotfiles/zsh/aliases" "${HOME}/.config/zsh/aliases"
 # tmux
 mkdir -p "$XDG_CONFIG_HOME/tmux"
 ln -sf "${HOME}/dotfiles/tmux/tmux.conf" "${XDG_CONFIG_HOME}/tmux/tmux.conf"
+mkdir -p "$XDG_CONFIG_HOME/tmux/layouts"
+
+for file in "${HOME}/dotfiles/tmux/layouts/"*.sh; do
+  ln -sf "$file" "${XDG_CONFIG_HOME}/tmux/layouts/"
+done
 
 # ptpyhthon
 mkdir -p "${HOME}/.config/ptpython"
