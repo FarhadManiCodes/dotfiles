@@ -68,33 +68,59 @@ fi
 # ============================================================================
 echo "🔍 Setting up Window 3: Data Exploration"
 tmux new-window -n "explore" -c "$PWD"
-tmux split-window -h -p 50 -c "$PWD"
+tmux split-window -h -p 50 -c "$PWD"  # Horizontal split: 50% left, 50% right
 
-# Left: ptpython for data analysis
+# Split the left pane vertically: 70% top (DuckDB), 30% bottom (Jupyter)
+tmux select-pane -t 0
+tmux split-window -v -p 30 -c "$PWD"  # Split left side: 70% top, 30% bottom
+
+# Top-left pane (70% of left): DuckDB
 tmux select-pane -t 0
 tmux send-keys "clear" Enter
-if command -v ptipython &>/dev/null; then
-  tmux send-keys "ptipython" Enter
-  tmux send-keys "import pandas as pd, numpy as np, matplotlib.pyplot as plt, seaborn as sns" Enter
-  tmux send-keys "pd.set_option('display.max_columns', None)" Enter
-  tmux send-keys "print('🔬 Data exploration ready')" Enter
+if command -v duckdb &> /dev/null; then
+    tmux send-keys "duckdb" Enter
+    tmux send-keys "-- 🦆 DuckDB ready for analytics" Enter
+    tmux send-keys "-- Quick commands:" Enter
+    tmux send-keys "-- .help        # Show help" Enter
+    tmux send-keys "-- .tables      # List tables" Enter
+    tmux send-keys "-- .schema      # Show schema" Enter
+    tmux send-keys "-- SELECT * FROM read_csv_auto('file.csv');" Enter
 else
-  tmux send-keys "python" Enter
-  tmux send-keys "import pandas as pd, numpy as np" Enter
-  tmux send-keys "print('🔬 Basic data tools loaded')" Enter
+    tmux send-keys "printf '❌ DuckDB not found\\nInstall: pip install duckdb\\n\\nUsing SQLite instead:\\n'" Enter
+    tmux send-keys "sqlite3" Enter
 fi
 
-# Right: DuckDB
+# Bottom-left pane (30% of left): Jupyter Lab with log monitoring
 tmux select-pane -t 1
 tmux send-keys "clear" Enter
-if command -v duckdb &>/dev/null; then
-  tmux send-keys "duckdb" Enter
-  tmux send-keys "-- 🦆 DuckDB ready for analytics" Enter
-else
-  tmux send-keys "printf '❌ DuckDB not found\\nInstall: pip install duckdb\\n\\nUsing SQLite instead:\\n'" Enter
-  tmux send-keys "sqlite3" Enter
-fi
+tmux send-keys "printf '🚀 Starting Jupyter Lab for data exploration...\\n'" Enter
+tmux send-keys "printf 'Port: 8889 (to avoid conflicts with main dev)\\n'" Enter
+tmux send-keys "printf 'Starting in background and monitoring logs...\\n\\n'" Enter
 
+# Start Jupyter Lab in background on port 8889 (to avoid conflicts)
+tmux send-keys "jupyter-smart 8889 > /dev/null 2>&1 &" Enter
+tmux send-keys "sleep 3" Enter
+
+# Start log monitoring with connection info
+tmux send-keys "printf '📊 Jupyter Lab Logs (Live monitoring)\\n'" Enter
+tmux send-keys "printf 'Press Ctrl+C in this pane for Jupyter options\\n'" Enter
+tmux send-keys "printf 'Port: 8889 | Use jupyter-smart 8889 url for quick access\\n'" Enter
+tmux send-keys "printf '----------------------------------------\\n\\n'" Enter
+tmux send-keys "jupyter-log-monitor 8889" Enter
+
+# Right pane (50% of window): ptpython for data analysis
+tmux select-pane -t 2
+tmux send-keys "clear" Enter
+if command -v ptpython &> /dev/null; then
+    tmux send-keys "ptipython" Enter
+    tmux send-keys "import pandas as pd, numpy as np, matplotlib.pyplot as plt, seaborn as sns" Enter
+    tmux send-keys "pd.set_option('display.max_columns', None)" Enter
+    tmux send-keys "print('🔬 Data exploration ready')" Enter
+else
+    tmux send-keys "python" Enter
+    tmux send-keys "import pandas as pd, numpy as np" Enter
+    tmux send-keys "print('🔬 Basic data tools loaded')" Enter
+fi
 # ============================================================================
 # Window 4: Database Connections (db)
 # ============================================================================
