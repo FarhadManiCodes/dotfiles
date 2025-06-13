@@ -1,0 +1,55 @@
+#!/bin/bash
+# tmux-jupyter-stop-all - Stop all running Jupyter instances
+# Location: ~/.local/bin/tmux-jupyter-stop-all
+
+echo "🛑 Finding and stopping all Jupyter instances..."
+echo ""
+
+stopped=0
+total_found=0
+
+# Find all PID files for this user
+for pidfile in /tmp/jupyter-lab-$USER-*.pid; do
+    # Check if the glob matched any files
+    if [ ! -f "$pidfile" ]; then
+        continue
+    fi
+
+    # Extract port from filename
+    port=$(basename "$pidfile" | sed "s/jupyter-lab-$USER-\([0-9]*\)\.pid/\1/")
+    total_found=$((total_found + 1))
+
+    echo "📍 Found Jupyter instance on port $port"
+
+    # Check if process is actually running
+    if [ -f "$pidfile" ]; then
+        pid=$(cat "$pidfile" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            echo "   ⏹️  Stopping Jupyter Lab on port $port (PID: $pid)..."
+            if jupyter-smart "$port" stop; then
+                stopped=$((stopped + 1))
+                echo "   ✅ Successfully stopped port $port"
+            else
+                echo "   ❌ Failed to stop port $port"
+            fi
+        else
+            echo "   🧹 Cleaning up stale PID file for port $port"
+            rm -f "$pidfile" 2>/dev/null
+        fi
+    fi
+    echo ""
+done
+
+if [ $total_found -eq 0 ]; then
+    echo "📭 No Jupyter instances found"
+else
+    echo "📊 Summary:"
+    echo "   Found: $total_found instance(s)"
+    echo "   Stopped: $stopped instance(s)"
+fi
+
+echo ""
+echo "✅ Cleanup complete!"
+echo ""
+echo "Press any key to close..."
+read -t 30 -n 1 2>/dev/null || true

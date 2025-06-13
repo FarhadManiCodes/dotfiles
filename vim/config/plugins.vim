@@ -22,4 +22,5 @@ Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-surround'
 Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-repeat'
+Plug 'tpope/obsess'
 call plug#end()

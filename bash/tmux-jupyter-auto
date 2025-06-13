@@ -1,0 +1,71 @@
+#!/bin/bash
+# tmux-jupyter-auto - Auto-detect next available port and create Jupyter window
+# Location: ~/.local/bin/tmux-jupyter-auto
+
+SESSION_NAME=$(tmux display-message -p '#S')
+
+echo "🔍 Finding next available Jupyter port..."
+
+# Find next available port starting from 8888
+JUPYTER_PORT=8888
+while [ $JUPYTER_PORT -le 8899 ]; do
+    # Check if port is already in use by checking PID file and process
+    PID_FILE="/tmp/jupyter-lab-$USER-$JUPYTER_PORT.pid"
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE" 2>/dev/null)
+        if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+            echo "⚠️  Port $JUPYTER_PORT is busy, trying next..."
+            JUPYTER_PORT=$((JUPYTER_PORT + 1))
+            continue
+        else
+            # Stale PID file, port is available
+            rm -f "$PID_FILE" 2>/dev/null
+            break
+        fi
+    else
+        # No PID file, port is available
+        break
+    fi
+done
+
+if [ $JUPYTER_PORT -gt 8899 ]; then
+    echo "❌ No available ports found (8888-8899 all busy)"
+    echo "💡 Try stopping some instances with: jupyter-smart ls"
+    exit 1
+fi
+
+WINDOW_NAME="jupyter-$JUPYTER_PORT"
+
+echo "✅ Using port $JUPYTER_PORT"
+echo "🚀 Creating Jupyter window: $WINDOW_NAME"
+
+# Create new window
+tmux new-window -n "$WINDOW_NAME"
+
+# Create layout: 70% top for logs, 30% bottom for Jupyter control
+tmux split-window -v -p 30
+
+# Layout:
+# ┌─────────────────────────────────────┐
+# │         Live Logs (70%)             │
+# │ tail -f jupyter-lab-logs...         │
+# │                                     │
+# ├─────────────────────────────────────┤
+# │      Jupyter Control (30%)          │
+# └─────────────────────────────────────┘
+
+# Bottom pane (30%): Start Jupyter Lab
+tmux select-pane -t 1
+tmux send-keys "echo '🚀 Starting Jupyter Lab on port $JUPYTER_PORT...'" Enter
+tmux send-keys "jupyter-smart $JUPYTER_PORT" Enter
+
+# Top pane (70%): Show logs with colorful monitoring
+tmux select-pane -t 0
+tmux send-keys "echo '📊 Jupyter Lab Logs (Live) - Port $JUPYTER_PORT'" Enter
+tmux send-keys "echo 'Press Ctrl+C to stop logs and get options'" Enter
+tmux send-keys "echo 'Waiting for Jupyter to start and generate logs...'" Enter
+tmux send-keys "echo ''" Enter
+tmux send-keys "sleep 3" Enter
+tmux send-keys "jupyter-log-monitor $JUPYTER_PORT" Enter
+
+echo "✅ Jupyter window created on port $JUPYTER_PORT"

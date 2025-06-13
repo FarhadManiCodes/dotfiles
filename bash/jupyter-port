@@ -1,0 +1,18 @@
+#!/bin/bash
+# Extract ONLY the numbers from the input (removes any tmux artifacts)
+PORT=$(echo "$1" | sed 's/[^0-9]//g')
+
+# Validate we got a number
+if [ -z "$PORT" ]; then
+    echo "Error: No valid port number found in: '$1'"
+    exit 1
+fi
+
+echo "Using cleaned port: $PORT"
+tmux new-window -n "jupyter-$PORT"
+tmux split-window -v -p 30
+tmux select-pane -t 1
+tmux send-keys "jupyter-smart $PORT" Enter
+tmux select-pane -t 0
+tmux send-keys "sleep 3" Enter
+tmux send-keys "jupyter-log-monitor $PORT" Enter
