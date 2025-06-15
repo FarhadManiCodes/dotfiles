@@ -26,4 +26,6 @@ alias zz="z -"        # Jump to previous directory
 
 # Jupyhter smart
 alias jls='jupyter-smart ls'           # List instances
-alias j-etl='jupyer-smart 8888'  
+alias jlm='jupyter-log-monitor'           # List instances
+alias jl='tmux-jupyer-auto' 
+alias js='jupyer-smart'

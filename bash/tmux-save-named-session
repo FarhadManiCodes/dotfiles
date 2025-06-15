@@ -1,0 +1,69 @@
+#!/bin/bash
+# ~/.local/bin/tmux-save-named-session
+# Fixed to prevent corrupted saves
+
+if [ -z "$1" ]; then
+    echo "❌ Error: Session name required"
+    exit 1
+fi
+
+SESSION_NAME="$1"
+RESURRECT_DIR="$HOME/.config/local/share/tmux/resurrect"
+NAMED_DIR="$HOME/.config/local/share/tmux/named-sessions"
+RESURRECT_SCRIPT="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/save.sh"
+
+# Create named sessions directory
+mkdir -p "$NAMED_DIR"
+
+echo "💾 Saving named session: $SESSION_NAME"
+
+# Check if resurrect script exists
+if [ ! -f "$RESURRECT_SCRIPT" ]; then
+    echo "❌ tmux-resurrect save script not found at: $RESURRECT_SCRIPT"
+    exit 1
+fi
+
+# Get the current latest file before saving (for comparison)
+OLD_LATEST=$(ls -t "$RESURRECT_DIR"/*.txt 2>/dev/null | head -1)
+OLD_SIZE=0
+if [ -f "$OLD_LATEST" ]; then
+    OLD_SIZE=$(stat -c%s "$OLD_LATEST" 2>/dev/null || echo 0)
+fi
+
+echo "🔄 Running tmux-resurrect save..."
+
+# Save using resurrect
+"$RESURRECT_SCRIPT"
+
+# Find the new latest file
+NEW_LATEST=$(ls -t "$RESURRECT_DIR"/*.txt 2>/dev/null | head -1)
+
+if [ -f "$NEW_LATEST" ]; then
+    NEW_SIZE=$(stat -c%s "$NEW_LATEST" 2>/dev/null || echo 0)
+    echo "📏 New save file size: $NEW_SIZE bytes"
+    
+    # Check if the save looks valid (not too small)
+    if [ "$NEW_SIZE" -lt 500 ]; then
+        echo "⚠️  Warning: Save file seems too small ($NEW_SIZE bytes)"
+        echo "💡 This might indicate a problem with the session save"
+        
+        # If we have a good previous save, offer to use that instead
+        if [ -f "$OLD_LATEST" ] && [ "$OLD_SIZE" -gt 500 ]; then
+            echo "🔄 Using previous good save ($OLD_SIZE bytes) instead"
+            cp "$OLD_LATEST" "$NAMED_DIR/${SESSION_NAME}.txt"
+        else
+            echo "❌ No good backup available, saving anyway"
+            cp "$NEW_LATEST" "$NAMED_DIR/${SESSION_NAME}.txt"
+        fi
+    else
+        echo "✅ Save looks good, copying to named sessions"
+        cp "$NEW_LATEST" "$NAMED_DIR/${SESSION_NAME}.txt"
+    fi
+    
+    echo "📁 Named session saved: $NAMED_DIR/${SESSION_NAME}.txt"
+    echo "📊 Final size: $(stat -c%s "$NAMED_DIR/${SESSION_NAME}.txt") bytes"
+    
+else
+    echo "❌ Failed to find new save file in: $RESURRECT_DIR"
+    exit 1
+fi

@@ -1,0 +1,92 @@
+#!/bin/bash
+# ~/.local/bin/tmux-debug-sessions
+# Debug what's happening with session restoration
+
+RESURRECT_DIR="$HOME/.config/local/share/tmux/resurrect"
+NAMED_DIR="$HOME/.config/local/share/tmux/named-sessions"
+
+echo "🔍 Session Debug Information"
+echo "============================"
+echo ""
+
+echo "📁 Resurrect Directory: $RESURRECT_DIR"
+if [ -d "$RESURRECT_DIR" ]; then
+    echo "   ✅ Directory exists"
+    echo "   📊 Files found: $(find "$RESURRECT_DIR" -name "*.txt" | wc -l)"
+
+    if [ "$(find "$RESURRECT_DIR" -name "*.txt" | wc -l)" -gt 0 ]; then
+        echo ""
+        echo "📋 Auto-save files (newest first):"
+        ls -lat "$RESURRECT_DIR"/*.txt 2>/dev/null | head -5 | while read -r line; do
+            echo "   $line"
+        done
+
+        echo ""
+        latest=$(ls -t "$RESURRECT_DIR"/*.txt 2>/dev/null | head -1)
+        echo "🎯 Latest auto-save file: $(basename "$latest")"
+        echo "   📏 Size: $(ls -lah "$latest" | awk '{print $5}')"
+        echo "   📅 Date: $(stat -c %y "$latest" | cut -d' ' -f1,2)"
+    else
+        echo "   ❌ No .txt files found in resurrect directory"
+    fi
+else
+    echo "   ❌ Directory does not exist"
+fi
+
+echo ""
+echo "🏷️  Named Sessions Directory: $NAMED_DIR"
+if [ -d "$NAMED_DIR" ]; then
+    echo "   ✅ Directory exists"
+    echo "   📊 Files found: $(find "$NAMED_DIR" -name "*.txt" | wc -l)"
+
+    if [ "$(find "$NAMED_DIR" -name "*.txt" | wc -l)" -gt 0 ]; then
+        echo ""
+        echo "📋 Named session files:"
+        ls -lat "$NAMED_DIR"/*.txt 2>/dev/null | while read -r line; do
+            echo "   $line"
+        done
+    else
+        echo "   📭 No named session files"
+    fi
+else
+    echo "   ❌ Directory does not exist"
+fi
+
+echo ""
+echo "🔧 Resurrect Script Check:"
+restore_script="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh"
+if [ -f "$restore_script" ]; then
+    echo "   ✅ Restore script found: $restore_script"
+    echo "   🔑 Permissions: $(ls -la "$restore_script" | awk '{print $1}')"
+else
+    echo "   ❌ Restore script NOT found at: $restore_script"
+    echo "   💡 Checking alternative location..."
+    alt_script="$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+    if [ -f "$alt_script" ]; then
+        echo "   ✅ Found at alternative location: $alt_script"
+    else
+        echo "   ❌ Not found at alternative location either"
+    fi
+fi
+
+echo ""
+echo "🧪 Quick Tests:"
+echo ""
+
+# Test 1: Can we save a session?
+echo "Test 1: Saving a test session..."
+save_script="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/save.sh"
+if [ -f "$save_script" ]; then
+    "$save_script"
+    if [ $? -eq 0 ]; then
+        echo "   ✅ Save test successful"
+    else
+        echo "   ❌ Save test failed"
+    fi
+else
+    echo "   ❌ Save script not found"
+fi
+
+echo ""
+echo "Press any key to close..."
+read -t 30 -n 1 2>/dev/null || true

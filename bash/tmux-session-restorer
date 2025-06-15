@@ -1,0 +1,149 @@
+#!/bin/bash
+# ~/.local/bin/tmux-session-restorer
+# Working session restorer that avoids broken files
+
+RESURRECT_DIR="$HOME/.config/local/share/tmux/resurrect"
+NAMED_DIR="$HOME/.config/local/share/tmux/named-sessions"
+
+echo "🔄 TMux Session Restorer"
+echo "========================"
+echo ""
+
+# Function to check if a session file is valid (not too small)
+is_valid_session() {
+  local file="$1"
+  local size=$(stat -c%s "$file" 2>/dev/null || echo 0)
+  # Session files should be at least 500 bytes (144 bytes is clearly broken)
+  [ "$size" -gt 500 ]
+}
+
+# Function to restore a specific session by making it the "latest"
+restore_session() {
+  local session_file="$1"
+  local session_name="$2"
+
+  if [ ! -f "$session_file" ]; then
+    echo "❌ Session file not found: $session_file"
+    return 1
+  fi
+
+  if ! is_valid_session "$session_file"; then
+    local size=$(stat -c%s "$session_file" 2>/dev/null || echo 0)
+    echo "❌ Session file seems corrupted (only $size bytes): $session_name"
+    echo "💡 Try a different session"
+    return 1
+  fi
+
+  echo "🔄 Restoring session: $session_name"
+  echo "📏 File size: $(stat -c%s "$session_file") bytes (looks good)"
+
+  # Make this session file appear as the newest by copying with current timestamp
+  local new_latest="$RESURRECT_DIR/tmux_resurrect_$(date +%Y%m%dT%H%M%S).txt"
+  cp "$session_file" "$new_latest"
+
+  # Use tmux-resurrect to restore (it will pick our "latest" file)
+  local restore_script="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh"
+
+  if [ -f "$restore_script" ]; then
+    echo "🚀 Running restore..."
+    "$restore_script"
+
+    if [ $? -eq 0 ]; then
+      echo "✅ Session '$session_name' restored successfully!"
+    else
+      echo "❌ Restore failed"
+      return 1
+    fi
+  else
+    echo "❌ Restore script not found"
+    return 1
+  fi
+}
+
+# Show available sessions with file size info
+sessions=()
+session_files=()
+counter=1
+
+echo "📋 Available Sessions:"
+echo ""
+
+# Named sessions first (more reliable)
+if [ -d "$NAMED_DIR" ] && [ "$(ls -A "$NAMED_DIR" 2>/dev/null)" ]; then
+  echo "🏷️  Named Sessions:"
+  for file in "$NAMED_DIR"/*.txt; do
+    if [ -f "$file" ]; then
+      name=$(basename "$file" .txt)
+      size=$(stat -c%s "$file" 2>/dev/null || echo 0)
+      date=$(stat -c %y "$file" 2>/dev/null | cut -d' ' -f1)
+      status="✅"
+      if ! is_valid_session "$file"; then
+        status="❌ (corrupted)"
+      fi
+      echo "  $counter. $name - ${size}B - $date $status"
+      sessions+=("$name")
+      session_files+=("$file")
+      counter=$((counter + 1))
+    fi
+  done
+  echo ""
+fi
+
+# Auto-saves (show only valid ones)
+if [ -d "$RESURRECT_DIR" ]; then
+  echo "🕒 Valid Auto-saves:"
+  valid_count=0
+  for file in $(ls -t "$RESURRECT_DIR"/*.txt 2>/dev/null | head -5); do
+    if [ -f "$file" ] && is_valid_session "$file"; then
+      name=$(basename "$file")
+      size=$(stat -c%s "$file" 2>/dev/null || echo 0)
+      date=$(stat -c %y "$file" 2>/dev/null | cut -d' ' -f1,2 | cut -d':' -f1,2)
+      echo "  $counter. Auto-save ($date) - ${size}B ✅"
+      sessions+=("Auto ($date)")
+      session_files+=("$file")
+      counter=$((counter + 1))
+      valid_count=$((valid_count + 1))
+    fi
+  done
+
+  if [ $valid_count -eq 0 ]; then
+    echo "  ⚠️  No valid auto-saves found (all files too small/corrupted)"
+  fi
+fi
+
+echo ""
+
+if [ ${#sessions[@]} -eq 0 ]; then
+  echo "📭 No valid sessions found"
+  echo ""
+  echo "💡 Try saving a new session: Prefix + Ctrl+s"
+  echo "Press esc to close..."
+  read -t 5 -n 1 2>/dev/null || true
+  exit 0
+fi
+
+echo "⚡ Select session to restore:"
+echo "   0. Cancel"
+echo ""
+
+# Interactive selection
+while true; do
+  read -p "Enter number [1-$((counter - 1))] or 0 to cancel: " choice
+
+  if [ "$choice" = "0" ]; then
+    echo "👋 Cancelled"
+    exit 0
+  elif [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -lt $counter ]; then
+    selected_file="${session_files[$((choice - 1))]}"
+    selected_name="${sessions[$((choice - 1))]}"
+    echo ""
+    restore_session "$selected_file" "$selected_name"
+    break
+  else
+    echo "❌ Invalid choice. Enter 1-$((counter - 1)) or 0"
+  fi
+done
+
+echo ""
+echo "Press esc to close..."
+read -t 5 -n 1 2>/dev/null || true

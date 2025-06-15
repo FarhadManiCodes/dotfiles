@@ -1,0 +1,56 @@
+#!/bin/bash
+RESURRECT_DIR="$HOME/.config/local/share/tmux/resurrect"
+NAMED_DIR="$HOME/.config/local/share/tmux/named-sessions"
+
+echo "🗂️  Session Storage"
+echo "=================="
+echo ""
+
+# Quick stats
+total_auto=$(find "$RESURRECT_DIR" -name "*.txt" 2>/dev/null | wc -l)
+total_named=$(find "$NAMED_DIR" -name "*.txt" 2>/dev/null | wc -l)
+recent=$(find "$RESURRECT_DIR" -name "*.txt" -mtime -7 2>/dev/null | wc -l)
+old=$(find "$RESURRECT_DIR" -name "*.txt" -mtime +7 2>/dev/null | wc -l)
+auto_size=$(du -sh "$RESURRECT_DIR" 2>/dev/null | cut -f1)
+named_size=$(du -sh "$NAMED_DIR" 2>/dev/null | cut -f1)
+
+echo "📊 Auto sessions: $total_auto files ($auto_size) - Recent: $recent | Old: $old"
+
+# Show named sessions with age indicators
+if [ $total_named -gt 0 ]; then
+  echo "🏷️  Named sessions: $total_named files ($named_size)"
+  for file in "$NAMED_DIR"/*.txt; do
+    if [ -f "$file" ]; then
+      name=$(basename "$file" .txt)
+      if [ "$(find "$file" -mtime +7 2>/dev/null)" ]; then
+        echo "   • $name 🟡(old)"
+      else
+        echo "   • $name"
+      fi
+    fi
+  done
+else
+  echo "🏷️  Named sessions: 0 files"
+fi
+
+echo ""
+
+if [ $old -gt 0 ]; then
+  echo "🧹 Cleanup: $old old auto-save files (>7 days)"
+  echo ""
+  read -p "Delete old auto-saves? [y/N]: " -n 1 cleanup
+  echo ""
+  if [[ "$cleanup" =~ ^[Yy]$ ]]; then
+    find "$RESURRECT_DIR" -name "*.txt" -mtime +7 -delete 2>/dev/null
+    new_size=$(du -sh "$RESURRECT_DIR" 2>/dev/null | cut -f1)
+    echo "✅ Deleted $old files. Auto size now: $new_size"
+  else
+    echo "👍 No cleanup"
+  fi
+else
+  echo "✨ All auto-saves recent - no cleanup needed"
+fi
+
+echo ""
+echo "Press esc to close..."
+read -t 10 -n 1 2>/dev/null || true
