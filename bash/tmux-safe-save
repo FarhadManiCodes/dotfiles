@@ -1,0 +1,130 @@
+#!/bin/bash
+# ~/.local/bin/tmux-safe-save
+# Purpose: Safely save tmux session and ensure "last" points to valid file
+
+RESURRECT_DIR="$HOME/.config/local/share/tmux/resurrect"
+SAVE_SCRIPT="$HOME/.config/tmux/plugins/tmux-resurrect/scripts/save.sh"
+
+echo "💾 TMux Safe Session Saver"
+echo "=========================="
+
+# Check if save script exists
+if [ ! -f "$SAVE_SCRIPT" ]; then
+  echo "❌ tmux-resurrect save script not found at: $SAVE_SCRIPT"
+  echo "💡 Make sure tmux-resurrect plugin is installed"
+  exit 1
+fi
+
+# Check if resurrect directory exists
+if [ ! -d "$RESURRECT_DIR" ]; then
+  echo "📁 Creating resurrect directory: $RESURRECT_DIR"
+  mkdir -p "$RESURRECT_DIR"
+fi
+
+echo "📍 Resurrect directory: $RESURRECT_DIR"
+echo "🔧 Save script: $SAVE_SCRIPT"
+echo ""
+
+# Get the current latest file before saving (for comparison)
+BEFORE_FILES=($(ls -t "$RESURRECT_DIR"/tmux_resurrect_*.txt 2>/dev/null))
+BEFORE_COUNT=${#BEFORE_FILES[@]}
+
+echo "📊 Current session files: $BEFORE_COUNT"
+if [ $BEFORE_COUNT -gt 0 ]; then
+  echo "📄 Most recent: $(basename "${BEFORE_FILES[0]}")"
+fi
+echo ""
+
+echo "🔄 Running tmux-resurrect save..."
+
+# Run the save script and capture its output
+if "$SAVE_SCRIPT"; then
+  echo "✅ Save script completed"
+else
+  echo "❌ Save script failed with exit code $?"
+  exit 1
+fi
+
+echo ""
+echo "🔍 Checking save results..."
+
+# Get the current latest file after saving
+AFTER_FILES=($(ls -t "$RESURRECT_DIR"/tmux_resurrect_*.txt 2>/dev/null))
+AFTER_COUNT=${#AFTER_FILES[@]}
+
+if [ $AFTER_COUNT -le $BEFORE_COUNT ]; then
+  echo "⚠️  Warning: No new session file was created"
+  echo "💡 tmux-resurrect save may have failed"
+  exit 1
+fi
+
+# Check the newest file
+NEWEST_FILE="${AFTER_FILES[0]}"
+NEWEST_SIZE=$(stat -c%s "$NEWEST_FILE" 2>/dev/null || echo 0)
+
+echo "📄 New session file: $(basename "$NEWEST_FILE")"
+echo "📏 File size: $NEWEST_SIZE bytes"
+
+# Validate the save looks good
+if [ "$NEWEST_SIZE" -lt 100 ]; then
+  echo "❌ Warning: Save file seems too small ($NEWEST_SIZE bytes)"
+  echo "💡 This might indicate a problem with the session save"
+
+  # Don't update "last" if the save looks bad
+  echo "🛡️  Not updating 'last' symlink due to suspicious file size"
+  echo "📁 File saved as: $NEWEST_FILE"
+  echo "🔧 You can manually fix this later with: tmux-fix-last"
+  exit 1
+else
+  echo "✅ Save file looks good ($NEWEST_SIZE bytes)"
+fi
+
+echo ""
+echo "🔗 Updating 'last' symlink..."
+
+# Change to resurrect directory
+cd "$RESURRECT_DIR" || {
+  echo "❌ Cannot access resurrect directory"
+  exit 1
+}
+
+# Update the "last" symlink to point to our new file
+BASENAME_NEWEST=$(basename "$NEWEST_FILE")
+
+# Remove old symlink if it exists
+if [ -L "last" ] || [ -f "last" ]; then
+  rm -f "last"
+fi
+
+# Create new symlink
+if ln -sf "$BASENAME_NEWEST" "last"; then
+  echo "✅ Updated 'last' symlink -> $BASENAME_NEWEST"
+
+  # Verify the symlink points to the right file and get the target file size
+  if [ -f "last" ]; then
+    # Follow the symlink to get the actual file size
+    VERIFY_SIZE=$(stat -L -c%s "last" 2>/dev/null || echo 0)
+    VERIFY_TARGET=$(readlink "last" 2>/dev/null || echo "unknown")
+    echo "🔍 Verification: 'last' -> $VERIFY_TARGET ($VERIFY_SIZE bytes)"
+
+    # Double-check that we're pointing to the right file
+    if [ "$VERIFY_TARGET" = "$BASENAME_NEWEST" ] && [ "$VERIFY_SIZE" -eq "$NEWEST_SIZE" ]; then
+      echo "✅ Symlink verification successful"
+    else
+      echo "⚠️  Symlink verification warning - sizes don't match"
+      echo "    Expected: $BASENAME_NEWEST ($NEWEST_SIZE bytes)"
+      echo "    Got: $VERIFY_TARGET ($VERIFY_SIZE bytes)"
+    fi
+  fi
+else
+  echo "❌ Failed to update 'last' symlink"
+  exit 1
+fi
+
+echo ""
+echo "🎉 Safe save completed successfully!"
+echo "📁 Session saved: $(basename "$NEWEST_FILE")"
+echo "🔗 'last' symlink updated"
+echo "💾 Size: $NEWEST_SIZE bytes"
+echo ""
+echo "✅ tmux-resurrect should now restore this session reliably"

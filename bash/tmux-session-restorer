@@ -14,7 +14,7 @@ is_valid_session() {
   local file="$1"
   local size=$(stat -c%s "$file" 2>/dev/null || echo 0)
   # Session files should be at least 500 bytes (144 bytes is clearly broken)
-  [ "$size" -gt 500 ]
+  [ "$size" -gt 200 ]
 }
 
 # Function to restore a specific session by making it the "latest"

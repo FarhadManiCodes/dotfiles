@@ -1,7 +1,6 @@
 alias l.='ls -d .* --color=auto'
-alias d='dirs -v'
-for index ({1..9}) alias "$index"="cd +${index}"; unset index
-
+# alias d='dirs -v'
+# for index ({1..9}) alias "$index"="cd +${index}"; unset index
 
 # ==== alias fo eza =======
 alias ls='eza'
@@ -10,22 +9,81 @@ alias la='eza -la --icons --git'
 alias lt='eza --tree --icons'
 
 # Developer-Focused Aliases
-alias lsd='eza -D --icons'                    # directories only
-alias lsf='eza -f --icons'                    # files only
-alias lg='eza -l --icons --git --git-ignore'  # respect .gitignore
-alias lh='eza -la --icons --header'           # with header
-alias lr='eza -R --icons'                     # recursive
-alias lz='eza -l --icons --size-sort'         # sort by size
-alias lt2='eza --tree --level=2 --icons'      # tree depth 2
-alias lt3='eza --tree --level=3 --icons'      # tree depth 3
-alias lgrep='eza -la --icons | grep'          # quick filtering
+alias lsd='eza -D --icons'                   # directories only
+alias lsf='eza -f --icons'                   # files only
+alias lg='eza -l --icons --git --git-ignore' # respect .gitignore
+alias lh='eza -la --icons --header'          # with header
+alias lr='eza -R --icons'                    # recursive
+alias lz='eza -l --icons --size-sort'        # sort by size
+alias lt2='eza --tree --level=2 --icons'     # tree depth 2
+alias lt3='eza --tree --level=3 --icons'     # tree depth 3
+alias lgrep='eza -la --icons | grep'         # quick filtering
 
-alias cd="z"          # Replace cd with z
-alias cdi="zi"        # Interactive directory selection
-alias zz="z -"        # Jump to previous directory
+alias cd="z"   # Replace cd with z
+alias cdi="zi" # Interactive directory selection
+alias zz="z -" # Jump to previous directory
 
 # Jupyhter smart
-alias jls='jupyter-smart ls'           # List instances
-alias jlm='jupyter-log-monitor'           # List instances
-alias jl='tmux-jupyer-auto' 
+alias jls='jupyter-smart ls'    # List instances
+alias jlm='jupyter-log-monitor' # List instances
+alias jl='tmux-jupyer-auto'
 alias js='jupyer-smart'
+
+# tmux
+generate_session_name() {
+  local session_name=""
+
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # In git repo
+    local repo_name=$(basename "$(git rev-parse --show-toplevel)")
+    local branch=$(git branch --show-current 2>/dev/null)
+
+    if [ -n "$branch" ] && [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
+      # Feature branch: repo-branch
+      session_name="${repo_name}-${branch}"
+    else
+      # Main branch: just repo name
+      session_name="$repo_name"
+    fi
+  else
+    # Not in git: use folder name
+    session_name=$(basename "$PWD")
+  fi
+
+  # Clean name and handle duplicates
+  session_name=$(echo "$session_name" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-20)
+
+  # Add number if session exists
+  if tmux has-session -t "$session_name" 2>/dev/null; then
+    local counter=2
+    while tmux has-session -t "${session_name}-${counter}" 2>/dev/null; do
+      counter=$((counter + 1))
+    done
+    session_name="${session_name}-${counter}"
+  fi
+
+  echo "$session_name"
+}
+
+# Updated tmux-new
+alias tmux-new='
+SESSION_NAME=$(generate_session_name)
+tmux new-session -d -s "$SESSION_NAME"
+tmux attach-session -t "$SESSION_NAME"'
+
+alias tmux-start='echo "🚀 Starting tmux with session restoration..." && tmux kill-server 2>/dev/null; ~/.local/bin/tmux-fix-last 2>/dev/null; tmux new-session -d -s main; ~/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh 2>/dev/null; tmux attach-session -t main'
+
+# Force restart - always kills and restarts
+alias tmux-restart='
+SESSION_NAME=$(generate_session_name)
+echo "🔄 Force restart (killing all sessions)..."
+tmux kill-server 2>/dev/null
+~/.local/bin/tmux-fix-last 2>/dev/null
+tmux new-session -d -s "$SESSION_NAME"
+tmux attach-session -t "$SESSION_NAME"'
+# Quick restore for existing tmux
+
+alias tmux-restore='~/.local/bin/tmux-fix-last && ~/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh'
+
+# Check status
+alias tmux-status='echo "TMux Status:" && tmux list-sessions 2>/dev/null || echo "No tmux sessions running"'

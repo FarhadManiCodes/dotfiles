@@ -1,0 +1,140 @@
+#!/bin/bash
+# ~/.local/bin/tmux-fix-last
+# Purpose: Fix broken or empty "last" session symlink
+
+RESURRECT_DIR="$HOME/.config/local/share/tmux/resurrect"
+
+echo "🔧 TMux Session 'Last' File Fixer"
+echo "================================="
+
+# Create resurrect directory if it doesn't exist
+if [ ! -d "$RESURRECT_DIR" ]; then
+  echo "📁 Creating resurrect directory: $RESURRECT_DIR"
+  mkdir -p "$RESURRECT_DIR"
+fi
+
+cd "$RESURRECT_DIR" || {
+  echo "❌ Cannot access resurrect directory: $RESURRECT_DIR"
+  exit 1
+}
+
+echo "📍 Working in: $RESURRECT_DIR"
+echo ""
+
+# Check if "last" symlink exists
+if [ -L "last" ]; then
+  # Symlink exists - check what it points to
+  CURRENT_TARGET=$(readlink "last")
+  echo "🔗 Current 'last' symlink points to: $CURRENT_TARGET"
+
+  # Check if the target file actually exists
+  if [ -f "$CURRENT_TARGET" ]; then
+    CURRENT_SIZE=$(stat -c%s "$CURRENT_TARGET" 2>/dev/null || echo 0)
+    echo "📏 Target file size: $CURRENT_SIZE bytes"
+
+    # Check if file size is reasonable (at least 100 bytes for a valid session)
+    if [ "$CURRENT_SIZE" -ge 100 ]; then
+      echo "✅ Current 'last' file looks good ($CURRENT_SIZE bytes)"
+      echo "🎯 No action needed - symlink is pointing to a valid file"
+      exit 0
+    else
+      echo "⚠️  Target file is too small ($CURRENT_SIZE bytes) - likely corrupted"
+    fi
+  else
+    echo "❌ Target file '$CURRENT_TARGET' does not exist - broken symlink"
+  fi
+
+  echo "🔄 Need to find a better session file..."
+else
+  echo "❌ No 'last' symlink found"
+  echo "🔄 Need to create one..."
+fi
+
+echo ""
+
+# Find all session files and check their sizes
+echo "🔍 Scanning for valid session files..."
+VALID_FILES=()
+ALL_FILES=($(ls -1 tmux_resurrect_*.txt 2>/dev/null))
+
+if [ ${#ALL_FILES[@]} -eq 0 ]; then
+  echo "📭 No session files found in $RESURRECT_DIR"
+  echo "💡 Save a session first with: Prefix + Ctrl+s"
+  exit 1
+fi
+
+echo "📊 Found ${#ALL_FILES[@]} session file(s), checking validity..."
+
+for file in "${ALL_FILES[@]}"; do
+  if [ -f "$file" ]; then
+    size=$(stat -c%s "$file" 2>/dev/null || echo 0)
+    if [ "$size" -ge 100 ]; then
+      VALID_FILES+=("$file:$size")
+      echo "   ✅ $file ($size bytes) - Valid"
+    else
+      echo "   ❌ $file ($size bytes) - Too small"
+    fi
+  fi
+done
+
+if [ ${#VALID_FILES[@]} -eq 0 ]; then
+  echo ""
+  echo "❌ No valid session files found (all are too small or corrupted)"
+  echo "💡 Save a new session with: Prefix + Ctrl+s"
+  exit 1
+fi
+
+echo ""
+echo "🎯 Found ${#VALID_FILES[@]} valid session file(s)"
+
+# Sort valid files by size (largest first) to find the best one
+BEST_FILE=""
+BEST_SIZE=0
+
+for entry in "${VALID_FILES[@]}"; do
+  file="${entry%:*}"
+  size="${entry#*:}"
+
+  if [ "$size" -gt "$BEST_SIZE" ]; then
+    BEST_FILE="$file"
+    BEST_SIZE="$size"
+  fi
+done
+
+echo "🏆 Best session file: $BEST_FILE ($BEST_SIZE bytes)"
+echo ""
+
+# Create or update the "last" symlink
+echo "🔗 Updating 'last' symlink to point to: $BEST_FILE"
+
+# Remove existing symlink if it exists
+if [ -L "last" ] || [ -f "last" ]; then
+  rm -f "last"
+fi
+
+# Create new symlink
+if ln -sf "$BEST_FILE" "last"; then
+  echo "✅ Successfully created 'last' -> $BEST_FILE"
+
+  # Verify the symlink works - use -L to follow the link
+  if [ -f "last" ]; then
+    NEW_SIZE=$(stat -L -c%s "last" 2>/dev/null || echo 0)
+    NEW_TARGET=$(readlink "last" 2>/dev/null || echo "unknown")
+    echo "🔍 Verification: 'last' -> $NEW_TARGET ($NEW_SIZE bytes)"
+
+    if [ "$NEW_SIZE" -eq "$BEST_SIZE" ]; then
+      echo "🎉 tmux-resurrect should now work properly!"
+    else
+      echo "⚠️  Verification warning - size mismatch"
+    fi
+  else
+    echo "❌ Verification failed - symlink creation may have failed"
+    exit 1
+  fi
+else
+  echo "❌ Failed to create symlink"
+  exit 1
+fi
+
+echo ""
+echo "✅ Fix completed successfully!"
