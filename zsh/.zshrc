@@ -139,4 +139,5 @@ setopt PUSHD_SILENT
 # source alias
 source "$XDG_CONFIG_HOME/zsh/aliases"
 # source scripts
+source $DOTFILES/zsh/virtualenv.sh
 source $DOTFILES/zsh/scripts.sh

@@ -1,5 +1,5 @@
 # activate the python v_end on the start
-source "${HOME}/virtualenv/py_review/bin/activate"
+# source "${HOME}/virtualenv/py_review/bin/activate"
 . "$HOME/.cargo/env"
 # Go optimizations
 source "$HOME/.cargo/env"
