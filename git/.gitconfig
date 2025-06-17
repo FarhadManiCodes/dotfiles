@@ -53,5 +53,5 @@
     # Quick info
     info = "!echo \"Branch: $(git branch --show-current)\" && echo \"Last commit: $(git log -1 --pretty=format:'%h - %s (%cr)')\" && echo \"Files tracked: $(git ls-files | wc -l)\""
 
-[commit]
-    template = ~/.gitmessage
+[receive]
+    fsckObjects = true

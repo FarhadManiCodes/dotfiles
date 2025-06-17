@@ -46,9 +46,7 @@ mkdir -p "${XDG_CONFIG_HOME}/foot"
 ln -sf "${HOME}/dotfiles/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
 
 # git
-ln -sf "${HOME}/dotfiles/git/.gitconfig" "{$HOME}/"
-ln -sf "${HOME}/dotfiles/git/.gitmessage" "{$HOME}/"
-
+ln -sf "${HOME}/dotfiles/git/.gitconfig" "${HOME}/.gitconfig"
 #########
 # Fonts #
 #########
