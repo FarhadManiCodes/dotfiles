@@ -553,7 +553,7 @@ venv-help() {
   echo "======================================"
   echo "va [env]     - Activate environment (fuzzy select if no arg)"
   echo "vc <name>    - Create environment with template [ds|de|ml|basic]"
-  echo "vp           - Project environment (auto-detect/create)"
+  echo "vp           - Project environment (auto-detect/suggest creation)"
   echo "vd           - Deactivate current environment"
   echo "vl           - List environments and mappings"
   echo "vf [project] - Forget project mapping"
@@ -619,20 +619,19 @@ alias venv-remove='vr'
 
 # Add this function to auto-install when requirements.txt changes
 vs() {
-    if [ -z "$VIRTUAL_ENV" ]; then
-        echo "❌ No virtual environment active"
-        echo "💡 Use 'vp' to activate project environment first"
-        return 1
-    fi
-    
-    if [ -f "requirements.txt" ]; then
-        echo "📦 Syncing requirements.txt..."
-        pip install -r requirements.txt
-        echo "✅ Requirements synced"
-    else
-        echo "❌ No requirements.txt found"
-    fi
+  if [ -z "$VIRTUAL_ENV" ]; then
+    echo "❌ No virtual environment active"
+    echo "💡 Use 'vp' to activate project environment first"
+    return 1
+  fi
+
+  if [ -f "requirements.txt" ]; then
+    echo "📦 Syncing requirements.txt..."
+    pip install -r requirements.txt
+    echo "✅ Requirements synced"
+  else
+    echo "❌ No requirements.txt found"
+  fi
 }
 
 alias venv-sync='vs'
-

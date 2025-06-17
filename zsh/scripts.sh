@@ -61,5 +61,19 @@ tmux_simple_prompt() {
 
 tmux_simple_prompt
 
+git-project-info() {
+  echo "📊 Git + Project Info"
+  echo "===================="
+  project-info
+  echo ""
+  echo "🔀 Git Status:"
+  git status --short 2>/dev/null || echo "Not a git repository"
+  echo ""
+  echo "📦 DVC Status:"
+  dvc status 2>/dev/null || echo "No DVC repository"
+  echo ""
+  echo "🌳 Branch Info:"
+  git branch -v 2>/dev/null && git remote -v 2>/dev/null || echo "No git remotes"
+}
 # to zoxide to work
 eval "$(zoxide init zsh)"
