@@ -1,0 +1,57 @@
+[user]
+	name = Farhad Mani
+	email = frhdmani@gmail.com
+
+[core]
+	editor = vim
+    pager = delta
+
+[credential "https://github.com"]
+	helper =
+	helper = !/usr/bin/gh auth git-credential
+
+[credential "https://gist.github.com"]
+	helper =
+	helper = !/usr/bin/gh auth git-credential
+
+[mergetool]
+	prompt = false
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true  # use n and N to move between diff sections
+    dark = true      # or light = true, or omit for auto-detection
+    syntax-theme = OneHalfDark
+    line-numbers = true
+
+[merge]
+    conflictstyle = zdiff3
+	tool = vimdiff
+
+[alias]
+  prettylog = log --graph --abbrev-commit --decorate --format=format:'%C(bold magenta)%h%C(reset) - %C(bold cyan)%d%C(reset) %C(white)%s%C(reset) %C(dim)- %an%C(reset) %C(green)%ar%C(reset)'
+
+
+ # Data science essentials
+
+  lg = log --graph --pretty=format:'%C(yellow)%h%Creset %C(cyan)[%ad]%Creset %C(green)%s%Creset %C(bold blue)<%an>%Creset%C(red)%d%Creset' --date=short --abbrev-commit
+
+  lgd = log --graph --pretty=format:'%C(red)%h%C(reset) %C(yellow)%d%C(reset) %C(cyan)[%ad]%C(reset) %C(bold blue)<%an>%C(reset)%n%w(100,8,8)%C(green)%s%C(reset)%n' --abbrev-commit --date=short --name-only -10
+
+    # DVC integration
+    dvc-status = "!echo '=== Git Status ===' && git status -s && echo '\\n=== DVC Status ===' && dvc status"
+
+    # Experiment helpers
+    exp-start = "!f() { git checkout -b experiment/$(date +%Y%m%d)-${1}; }; f"
+    exp-list = branch --list 'experiment/*'
+
+    # Notebook cleaning
+    clean-notebooks = "!find . -name '*.ipynb' -exec jupyter nbconvert --clear-output --inplace {} +"
+
+    # Quick info
+    info = "!echo \"Branch: $(git branch --show-current)\" && echo \"Last commit: $(git log -1 --pretty=format:'%h - %s (%cr)')\" && echo \"Files tracked: $(git ls-files | wc -l)\""
+
+[commit]
+    template = ~/.gitmessage

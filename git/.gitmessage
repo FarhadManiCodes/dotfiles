@@ -1,0 +1,34 @@
+# type[optional scope]: description (50 chars max)
+# |<----  Using a Maximum Of 50 Characters  ---->|
+
+# Body: explain what and why (not how), 72 chars per line
+# |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->|
+
+# Footer: reference issues, breaking changes
+# Example: Closes #123, BREAKING CHANGE: API endpoint changed
+
+# --- COMMIT END ---
+# Types:
+#   feat:     New feature
+#   fix:      Bug fix
+#   docs:     Documentation changes
+#   style:    Formatting (no code change)
+#   refactor: Code restructuring
+#   perf:     Performance improvement
+#   test:     Adding/updating tests
+#   chore:    Build process or auxiliary tools
+#
+# Data Science Types:
+#   data:       Data acquisition, cleaning, preprocessing
+#   model:      Model architecture, training, hyperparameters
+#   experiment: Experiment setup, execution, analysis
+#   pipeline:   Data pipeline or workflow changes
+#   analysis:   Data analysis or exploration
+#   viz:        Visualization or plotting changes
+#
+# Examples:
+#   feat(model): add LSTM with attention mechanism
+#   data(customers): clean transaction data and handle nulls
+#   experiment: compare XGBoost vs Random Forest on dataset v2
+#   fix(pipeline): resolve memory leak in data processing
+#   model: improve accuracy by 5% with hyperparameter tuning
