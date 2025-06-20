@@ -62,5 +62,7 @@ tmux_simple_prompt() {
 tmux_simple_prompt
 
 source $DOTFILES/zsh/git-enhancements.sh
+source $DOTFILES/zsh/productivity/fzf-enhancements.sh
+
 # to zoxide to work
 eval "$(zoxide init zsh)"
