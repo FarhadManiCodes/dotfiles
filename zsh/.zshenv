@@ -23,14 +23,30 @@ export GOSUMDB=sum.golang.org
 export GOPATH=$HOME/go
 export CGO_ENABLED=0
 
-export PATH="$PATH:/home/farhad/install/fzf/bin"
 
 # fzf PATH and environment
 export PATH="$PATH:/home/farhad/install/fzf/bin"
 
 # fzf file discovery with fd (prioritized types)
 export FZF_DEFAULT_COMMAND='(fd -e py -e ipynb -e sql -e csv -e json -e yaml -e yml -e md -e sh -e toml -e env -e cfg -e log -e pkl -e pickle -e parquet -e xlsx -e xls -e h5 -e pt -e pth -e onnx --type f --hidden --follow --color=always --exclude .git --exclude .svn --exclude __pycache__ --exclude .pytest_cache --exclude .coverage --exclude .mypy_cache --exclude .tox --exclude dist --exclude build --exclude target --exclude .venv --exclude venv --exclude env --exclude .env.local --exclude .conda --exclude conda-env --exclude .ipynb_checkpoints --exclude .jupyter --exclude .dvc/cache --exclude mlruns --exclude wandb --exclude .tensorboard --exclude models/checkpoints --exclude .vscode --exclude .idea --exclude .DS_Store --exclude Thumbs.db --exclude .Trash --exclude .cache --exclude .tmp --exclude .temp --exclude node_modules --exclude .docker --exclude .torch --exclude data/raw --exclude data/cache --exclude data/processed; fd --type f --hidden --follow --color=always --exclude .git --exclude .svn --exclude __pycache__ --exclude .pytest_cache --exclude .coverage --exclude .mypy_cache --exclude .tox --exclude dist --exclude build --exclude target --exclude .venv --exclude venv --exclude env --exclude .env.local --exclude .conda --exclude conda-env --exclude .ipynb_checkpoints --exclude .jupyter --exclude .dvc/cache --exclude mlruns --exclude wandb --exclude .tensorboard --exclude models/checkpoints --exclude .vscode --exclude .idea --exclude .DS_Store --exclude Thumbs.db --exclude .Trash --exclude .cache --exclude .tmp --exclude .temp --exclude node_modules --exclude .docker --exclude .torch --exclude data/raw --exclude data/cache --exclude data/processed) 2>/dev/null | awk '"'"'!seen[$0]++'"'"
+# ===== FZF THEME SETTINGS =====
+export FZF_DEFAULT_OPTS='
+  --height 60%
+  --layout=reverse
+  --border=rounded
+  --info=inline
+  --prompt="❯ "
+  --pointer="❯"
+  --marker="❯"
+  --tiebreak=end
+  --ansi
+  --color=fg:#abb2bf,bg:#282c34,hl:#61afef
+  --color=fg+:#ffffff,bg+:#3e4451,hl+:#61afef
+  --color=info:#e5c07b,prompt:#61afef,pointer:#e06c75
+  --color=marker:#98c379,spinner:#e5c07b,header:#c678dd'
+
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+
 export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --color=always --exclude .git --exclude .svn --exclude __pycache__ --exclude .pytest_cache --exclude .coverage --exclude .mypy_cache --exclude .tox --exclude dist --exclude build --exclude target --exclude .venv --exclude venv --exclude env --exclude .env.local --exclude .conda --exclude conda-env --exclude .ipynb_checkpoints --exclude .jupyter --exclude .dvc/cache --exclude mlruns --exclude wandb --exclude .tensorboard --exclude models/checkpoints --exclude .vscode --exclude .idea --exclude .DS_Store --exclude Thumbs.db --exclude .Trash --exclude .cache --exclude .tmp --exclude .temp --exclude node_modules --exclude .docker --exclude .torch --exclude data/raw --exclude data/cache --exclude data/processed'
 
 # fzf preview with bat
