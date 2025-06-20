@@ -55,3 +55,7 @@
 
 [receive]
     fsckObjects = true
+[color "status"]
+	changed = red bold
+	added = green bold
+	untracked = yellow bold

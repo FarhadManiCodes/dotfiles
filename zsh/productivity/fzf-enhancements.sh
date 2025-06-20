@@ -427,14 +427,119 @@ fhist() {
   fi
 }
 # Git repository finder
-
 fgit() {
-  find . -name ".git" -type d |
-    sed 's|/.git||' |
-    fzf --preview 'cd {} && echo "\033[1;36m📊 Repository: $(basename {})\033[0m" && echo "\033[1;32m🌳 Branch: $(git branch --show-current)\033[0m" && echo "\033[1;33m📁 Status:\033[0m" && git -c color.status=always status --short --branch | head -5 && echo "\033[1;35m📜 Recent commits:\033[0m" && git log --oneline -3 --color=always' \
-      --ansi \
-      --preview-window=right:60% \
-      --header="🔍 Select git repository"
+  local original_dir="$PWD"
+
+  # Get repos with increased count limit
+  local repos=$(find . -maxdepth 6 -name ".git" -type d \
+    -not -path "*/{node_modules,.venv,venv,.cache,build,dist}/*" 2>/dev/null |
+    sed 's|/.git||' | head -100)
+
+  if [ -z "$repos" ]; then
+    echo "📭 No git repositories found"
+    return 1
+  fi
+
+  local repo_count=$(echo "$repos" | wc -l)
+  if [ "$repo_count" -eq 100 ]; then
+    echo "⚠️  Showing first 100 repos (found more). Consider running from a more specific directory."
+  fi
+
+  while true; do
+    local result=$(echo "$repos" |
+      fzf --preview 'cd {} 2>/dev/null && 
+                     echo "📂 $(basename {})" && 
+                     echo "🌳 $(timeout 2 git branch --show-current 2>/dev/null || echo "unknown")" && 
+                     echo "🌐 $(timeout 2 git remote -v 2>/dev/null | head -2 | sed "s/\t/ -> /" || echo "no remotes")" && 
+                     echo "" && echo "📊 Git Status:" && 
+                     timeout 3 git -c color.ui=always status --short --branch 2>/dev/null | head -8 || echo "  Could not load status" && 
+                     echo "" && echo "📜 Recent commits:" && 
+                     timeout 3 git log --oneline --color=always -5 2>/dev/null' \
+        --ansi --preview-window='right:60%' \
+        --expect 'ctrl-f,ctrl-l,ctrl-o' \
+        --header="🔍 Git Repos ($repo_count found) | Enter: navigate | Ctrl+F: fetch | Ctrl+L: lazygit | Ctrl+O: open")
+
+    local key=$(echo "$result" | head -1)
+    local selected=$(echo "$result" | tail -1)
+
+    [ -z "$selected" ] && break
+
+    case "$key" in
+      "ctrl-f")
+        cd "$selected"
+        echo "🔄 Fetching: $(basename "$selected")"
+        echo "🌐 $(git remote -v | sed 's/\t/ -> /')"
+
+        # Fetch only origin and upstream (5 second timeout)
+        local fetch_success=false
+
+        # Fetch origin if it exists
+        if git remote | grep -q "^origin$"; then
+          echo "📥 Fetching origin..."
+          if timeout 5 git fetch origin --quiet 2>/dev/null; then
+            echo "✅ Origin fetch successful"
+            fetch_success=true
+          else
+            echo "❌ Origin fetch failed"
+          fi
+        fi
+
+        # Fetch upstream if it exists and is different from origin
+        if git remote | grep -q "^upstream$"; then
+          echo "📥 Fetching upstream..."
+          if timeout 5 git fetch upstream --quiet 2>/dev/null; then
+            echo "✅ Upstream fetch successful"
+            fetch_success=true
+          else
+            echo "❌ Upstream fetch failed"
+          fi
+        fi
+
+        if [ "$fetch_success" = false ]; then
+          echo "❌ No successful fetches"
+        fi
+
+        # Show status for relevant remote branches only
+        echo ""
+        echo "📈 Remote status:"
+        for remote in origin upstream; do
+          if git remote | grep -q "^$remote$"; then
+            git branch -r | grep "^  $remote/" | grep -v "HEAD" | head -2 | while read branch; do
+              ahead=$(git rev-list --count --max-count=100 "$branch"..HEAD 2>/dev/null || echo "?")
+              behind=$(git rev-list --count --max-count=100 HEAD.."$branch" 2>/dev/null || echo "?")
+              ahead_display="$ahead"
+              behind_display="$behind"
+              [ "$ahead" = "100" ] && ahead_display="100+"
+              [ "$behind" = "100" ] && behind_display="100+"
+              echo "  vs $branch: $ahead_display ahead, $behind_display behind"
+            done
+          fi
+        done
+
+        echo ""
+        echo "📊 Current git status:"
+        git -c color.ui=always status --short --branch | head -8
+        echo ""
+        echo "Press any key to return to repository selection..."
+        read -n 1
+        echo ""
+        cd "$original_dir"
+        continue
+        ;;
+      "ctrl-l")
+        cd "$selected" && lazygit
+        break
+        ;;
+      "ctrl-o")
+        timeout 2 xdg-open "$selected" 2>/dev/null &
+        continue
+        ;;
+      *)
+        cd "$selected" && pwd
+        break
+        ;;
+    esac
+  done
 }
 
 # to find data
