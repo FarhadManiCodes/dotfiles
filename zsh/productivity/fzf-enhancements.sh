@@ -21,32 +21,31 @@ export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 # Enhanced Python file finder
 fp() {
   local result=$(fd --type f --extension py \
-    --exclude '*.pyc' --exclude '__pycache__' |
-    fzf --preview 'bat --theme=OneHalfDark --color=always --style=numbers,changes,header --line-range :300 {}' \
+    --exclude '*.pyc' --exclude '__pycache__' 2>/dev/null |
+    fzf --preview 'if command -v bat >/dev/null 2>&1; then bat --theme=OneHalfDark --color=always --style=numbers --line-range :50 {} 2>/dev/null; else head -30 {} 2>/dev/null; fi' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {}) 2>/dev/null || xdg-open $(dirname {}) 2>/dev/null || nautilus $(dirname {}) 2>/dev/null &)' \
-      --header 'Enter: edit, Ctrl+D: cd to folder, Ctrl+O: open folder')
+      --header 'Enter: edit, Ctrl+D: cd to folder')
 
   local key=$(echo "$result" | head -1)
   local file=$(echo "$result" | tail -1)
 
   if [ -n "$file" ]; then
     if [ "$key" = "ctrl-d" ]; then
-      cd "$(dirname "$file")"
-      pwd
+      cd "$(dirname "$file")" && pwd
     else
-      vim "$file"
+      ${EDITOR:-vim} "$file"
     fi
   fi
 }
 
 # Jupyter notebook finder
 fnb() {
-  local result=$(fd --type f --extension ipynb |
-    fzf --preview 'jq -r ".cells[] | .source[]" {} | bat --theme=OneHalfDark --language python --style=grid' \
+  local result=$(fd --type f --extension ipynb 2>/dev/null |
+    fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
+      --preview-window='right:30%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {}) 2>/dev/null || xdg-open $(dirname {}) 2>/dev/null || nautilus $(dirname {}) 2>/dev/null &)' \
-      --header 'Enter: open notebook, Ctrl+D: cd to folder only, Ctrl+O: open folder')
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
+      --header 'Enter: open notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
   local file=$(echo "$result" | tail -1)
@@ -55,18 +54,17 @@ fnb() {
     local dir=$(dirname "$file")
 
     if [ "$key" = "ctrl-d" ]; then
-      cd "$dir"
-      pwd
+      cd "$dir" && pwd
     else
       echo "📁 Changing to: $dir"
       cd "$dir"
 
       if [ -n "$TMUX" ]; then
         echo "🚀 Starting Jupyter in tmux..."
-        tmux-jupyter-auto
+        tmux-jupyter-auto 2>/dev/null || echo "tmux-jupyter-auto not available"
       else
         echo "📓 Starting Jupyter notebook..."
-        jupyter notebook "$(basename "$file")"
+        jupyter notebook "$(basename "$file")" 2>/dev/null || echo "Jupyter not available"
       fi
     fi
   fi
@@ -74,47 +72,47 @@ fnb() {
 
 # Live grep with preview
 frg() {
-  local result=$(rg --column --line-number --no-heading --smart-case . |
-    fzf --ansi --preview 'bat --theme=OneHalfDark --color=always --style=numbers,changes --highlight-line {2} {1}' \
+  local result=$(rg --column --line-number --no-heading --smart-case . 2>/dev/null |
+    fzf --ansi --preview 'file=$(echo {} | cut -d: -f1) && line=$(echo {} | cut -d: -f2) && if command -v bat >/dev/null 2>&1; then bat --theme=OneHalfDark --color=always --style=numbers --highlight-line $line --line-range $(($line-5)):$(($line+15)) "$file" 2>/dev/null; else sed -n "$(($line-2)),$(($line+2))p" "$file" 2>/dev/null; fi' \
+      --preview-window='right:60%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {1}) 2>/dev/null || xdg-open $(dirname {1}) 2>/dev/null || nautilus $(dirname {1}) 2>/dev/null &)' \
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname $(echo {} | cut -d: -f1)) 2>/dev/null &)' \
       --header 'Enter: edit file, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
   local match=$(echo "$result" | tail -1)
 
   if [ -n "$match" ]; then
-    local file=$(echo "$match" | awk -F: '{print $1}')
+    local file=$(echo "$match" | cut -d: -f1)
+    local line=$(echo "$match" | cut -d: -f2)
     if [ "$key" = "ctrl-d" ]; then
-      cd "$(dirname "$file")"
-      pwd
+      cd "$(dirname "$file")" && pwd
     else
-      vim "$file"
+      ${EDITOR:-vim} "+$line" "$file"
     fi
   fi
 }
 
 # Enhanced Python definition finder
 fpydef() {
-  local result=$(rg --vimgrep '^(class|def)\s+\w+' |
-    fzf --delimiter=':' --preview 'bat --theme=OneHalfDark --color=always --style=numbers,changes --highlight-line {2} {1}' \
+  local result=$(rg --vimgrep --type py '^(class|def)\s+\w+' 2>/dev/null |
+    fzf --delimiter=':' --preview 'file=$(echo {} | cut -d: -f1) && line=$(echo {} | cut -d: -f2) && if command -v bat >/dev/null 2>&1; then bat --theme=OneHalfDark --color=always --style=numbers --highlight-line $line --line-range $(($line-5)):$(($line+15)) "$file" 2>/dev/null; else sed -n "$(($line-2)),$(($line+5))p" "$file" 2>/dev/null; fi' \
+      --preview-window='right:60%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {1}) 2>/dev/null || xdg-open $(dirname {1}) 2>/dev/null || nautilus $(dirname {1}) 2>/dev/null &)' \
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname $(echo {} | cut -d: -f1)) 2>/dev/null &)' \
       --header 'Enter: jump to definition, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
   local match=$(echo "$result" | tail -1)
 
   if [ -n "$match" ]; then
-    local file=$(echo "$match" | awk -F: '{print $1}')
-    local line=$(echo "$match" | awk -F: '{print $2}')
-    local col=$(echo "$match" | awk -F: '{print $3}')
+    local file=$(echo "$match" | cut -d: -f1)
+    local line=$(echo "$match" | cut -d: -f2)
 
     if [ "$key" = "ctrl-d" ]; then
-      cd "$(dirname "$file")"
-      pwd
+      cd "$(dirname "$file")" && pwd
     else
-      vim "+call cursor($line,$col)" "$file"
+      ${EDITOR:-vim} "+$line" "$file"
     fi
   fi
 }
@@ -130,42 +128,52 @@ fdc() {
 
 # Requirements.txt viewer
 freq() {
-  local result=$(fd --type f 'requirements.*\.(txt|in)$' |
-    fzf --preview 'bat --theme=OneHalfDark --color=always {}' \
+  local result=$(fd --type f '(requirements.*\.(txt|in)$|pyproject\.toml$|environment\.ya?ml$|Pipfile$)' 2>/dev/null |
+    fzf --preview 'echo "📊 Lines: $(wc -l {} 2>/dev/null | cut -d" " -f1 || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "--- Content (first 50 lines) ---" && if command -v bat >/dev/null 2>&1; then bat --theme=OneHalfDark --color=always --style=numbers --line-range :50 {} 2>/dev/null; else head -50 {} 2>/dev/null; fi' \
+      --preview-window='right:60%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {}) 2>/dev/null || xdg-open $(dirname {}) 2>/dev/null || nautilus $(dirname {}) 2>/dev/null &)' \
-      --header 'Enter: edit requirements, Ctrl+D: cd to folder, Ctrl+O: open folder')
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
+      --header 'Enter: edit, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
   local file=$(echo "$result" | tail -1)
 
   if [ -n "$file" ]; then
     if [ "$key" = "ctrl-d" ]; then
-      cd "$(dirname "$file")"
-      pwd
+      cd "$(dirname "$file")" && pwd
     else
-      vim "$file"
+      ${EDITOR:-vim} "$file"
     fi
   fi
 }
 
 # Model file finder
 fmodel() {
-  local result=$(fd --type f -e h5 -e pt -e pth -e joblib -e onnx |
-    fzf --preview 'echo "Model File: {}" && echo "Size: $(ls -lh {} | awk "{print \$5}")" && echo "Type: $(file {} | cut -d: -f2)"' \
+  local result=$(fd --type f -e h5 -e pt -e pth -e joblib -e onnx -e pkl -e pickle -e pb -e tflite -e safetensors -e bin 2>/dev/null |
+    fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "🔍 Type: $(file {} 2>/dev/null | cut -d: -f2 | sed "s/^ *//" || echo "unknown")"' \
+      --preview-window='right:35%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {}) 2>/dev/null || xdg-open $(dirname {}) 2>/dev/null || nautilus $(dirname {}) 2>/dev/null &)' \
-      --header 'Enter: select model, Ctrl+D: cd to folder, Ctrl+O: open folder')
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
+      --header 'Enter: copy path, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
   local file=$(echo "$result" | tail -1)
 
   if [ -n "$file" ]; then
     if [ "$key" = "ctrl-d" ]; then
-      cd "$(dirname "$file")"
-      pwd
+      cd "$(dirname "$file")" && pwd
     else
-      echo "Selected model: $file"
+      # Copy to clipboard with Ubuntu support
+      if command -v wl-copy >/dev/null 2>&1; then
+        echo -n "$file" | wl-copy
+        echo "📋 Copied to clipboard (Wayland): $file"
+      elif command -v xclip >/dev/null 2>&1; then
+        echo -n "$file" | xclip -selection clipboard
+        echo "📋 Copied to clipboard (X11): $file"
+      else
+        echo "📁 Model path: $file"
+        echo "💡 No clipboard tool found (install wl-clipboard or xclip)"
+      fi
     fi
   fi
 }
@@ -173,35 +181,31 @@ fmodel() {
 # Enhanced Directory Browser - Tree Level 2
 fdir() {
   local dir=$(fd --type d --max-depth 3 \
-    --exclude .git \
-    --exclude __pycache__ \
-    --exclude .venv \
-    --exclude venv \
-    --exclude node_modules \
-    --exclude .pytest_cache \
-    --exclude .mypy_cache \
-    --exclude build \
-    --exclude dist \
-    --exclude "*.egg-info" \
-    --exclude .cache \
-    --exclude .tmp \
-    --exclude tmp |
-    fzf --preview 'echo "\033[1;36m📁 $(basename {})\033[0m" && echo "\033[1;33m📊 $(realpath {})\033[0m" && echo "" && if command -v eza >/dev/null 2>&1; then echo "\033[1;35m🌳 Structure:\033[0m" && eza --tree --level=2 --icons {} 2>/dev/null; else echo "\033[1;35m📋 Contents:\033[0m" && ls -la {} | head -10; fi' \
-      --preview-window=right:60% \
-      --header='📁 Select directory to navigate to')
+    --exclude .git --exclude __pycache__ --exclude .venv --exclude venv \
+    --exclude node_modules --exclude .pytest_cache --exclude .mypy_cache \
+    --exclude build --exclude dist --exclude "*.egg-info" --exclude .cache \
+    --exclude .tmp --exclude tmp 2>/dev/null |
+    fzf --preview 'echo "📁 Directory: $(basename {})" && files=$(find {} -maxdepth 1 -type f 2>/dev/null | wc -l) && dirs=$(find {} -maxdepth 1 -type d 2>/dev/null | wc -l) && dirs=$((dirs-1)) && echo "📄 Files: $files | 📁 Folders: $dirs" && echo "📊 Size: $(timeout 2 du -sh {} 2>/dev/null | cut -f1 || echo "unknown")" && echo "🔒 Permissions: $(ls -ld {} 2>/dev/null | cut -d" " -f1 || echo "unknown")" && echo "--- Tree Structure ---" && if command -v eza >/dev/null 2>&1; then eza --tree --level=2 --icons {} 2>/dev/null; else find {} -maxdepth 2 -type d 2>/dev/null | head -10 | sed "s|^{}/||" | sed "s|^|  |"; fi' \
+      --preview-window='right:50%' \
+      --expect 'ctrl-o' \
+      --header='📁 Select directory | Enter: navigate | Ctrl+O: open folder')
 
-  if [ -n "$dir" ]; then
-    cd "$dir"
-    echo "📁 Changed to: $(pwd)"
-    echo ""
+  local key=$(echo "$dir" | head -1)
+  local selected_dir=$(echo "$dir" | tail -1)
 
-    # Show quick overview after changing
-    if command -v eza >/dev/null 2>&1; then
-      echo "📋 Current directory contents:"
-      eza --long --header --icons --git 2>/dev/null || ls -la
+  if [ -n "$selected_dir" ]; then
+    if [ "$key" = "ctrl-o" ]; then
+      echo "🗂️ Opening folder: $selected_dir"
+      timeout 2 xdg-open "$selected_dir" 2>/dev/null &
     else
+      cd "$selected_dir" && pwd
+      echo ""
       echo "📋 Current directory contents:"
-      ls -la
+      if command -v eza >/dev/null 2>&1; then
+        eza --long --icons 2>/dev/null | head -10
+      else
+        ls -la | head -10
+      fi
     fi
   fi
 }
@@ -384,17 +388,21 @@ fproc() {
 fhist() {
   local selected=$(fc -l 1 |
     fzf --tac \
-      --preview 'cmd=$(echo {} | sed "s/^[[:space:]]*[0-9]*[[:space:]]*//") &&
-                   echo "\033[1;31m⚠️  Safety Check:\033[0m" &&
-                   case "$cmd" in
-                     *"rm -rf"*|*"sudo rm"*) echo "🚨 DESTRUCTIVE: Contains dangerous delete operations" ;;
-                     *"mkfs"*|*"dd if="*) echo "🚨 DESTRUCTIVE: Contains disk formatting/writing" ;;
-                     *">"*|*">>"*) echo "⚠️  File redirection: Will write to files" ;;
-                     *"sudo"*) echo "⚠️  Elevated privileges: Uses sudo" ;;
-                     *"curl"*|*"wget"*) echo "🌐 Network: Downloads content" ;;
-                     *) echo "✅ Appears safe" ;;
-                   esac' \
-      --preview-window=right:25% \
+      --preview 'cmd=$(echo {} | sed "s/^[[:space:]]*[0-9]*[[:space:]]*//") && 
+                   first_word=$(echo "$cmd" | awk "{print \$1}") && 
+                   echo "📝 Command: $cmd" && echo "" && echo "⚠️  Safety check:" && 
+                   if ! type "$first_word" >/dev/null 2>&1; then 
+                     echo "❓ Could not assess safety (unknown command: $first_word)" 
+                   else 
+                     case "$cmd" in 
+                       *"rm -rf"*|*"sudo rm"*|*"mkfs"*|*"dd if="*) echo "🚨 DANGEROUS command" ;; 
+                       *"sudo"*) echo "⚠️  Uses sudo" ;; 
+                       *">"*|*">>"*) echo "⚠️  File redirection" ;; 
+                       *"curl"*|*"wget"*) echo "🌐 Network download" ;; 
+                       *) echo "✅ Appears safe" ;; 
+                     esac 
+                   fi' \
+      --preview-window='right:40%' \
       --header='📚 Select command to edit and run')
 
   [[ -z "$selected" ]] && return 0
@@ -432,40 +440,15 @@ fgit() {
 # to find data
 fdata() {
   local result=$(fd --type f \
-    -e csv -e json -e parquet -e xlsx -e pkl -e h5 -e yaml -e yml -e tsv -e jsonl \
-    -e ndjson -e avro -e feather -e orc -e txt \
+    -e csv -e json -e parquet -e xlsx -e pkl -e pickle -e h5 -e hdf5 -e yaml -e yml \
+    -e tsv -e jsonl -e ndjson -e avro -e feather -e orc -e npy -e npz \
+    -e db -e sqlite -e sqlite3 -e arrow -e xml -e bson -e msgpack \
     --exclude __pycache__ --exclude .git --exclude node_modules --exclude .venv --exclude venv \
-    --exclude "*.tmp" --exclude "*.log" --exclude ".DS_Store" --exclude "*.cache" --exclude "__MACOSX" |
-    fzf --preview 'echo "📁 $(basename {})" && echo "📊 $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "" && 
-                   case "{}" in
-                     *.csv|*.tsv) 
-                       if command -v qsv >/dev/null 2>&1; then
-                         qsv table {} 2>/dev/null | head -10 || head -8 {} 2>/dev/null
-                       else
-                         head -8 {} 2>/dev/null
-                       fi ;;
-                     *.json|*.jsonl|*.ndjson)
-                       if command -v bat >/dev/null 2>&1; then
-                         bat --color=always --language=json --style=plain --line-range=:12 {} 2>/dev/null || head -8 {} 2>/dev/null
-                       else
-                         head -8 {} 2>/dev/null
-                       fi ;;
-                     *.yaml|*.yml)
-                       if command -v bat >/dev/null 2>&1; then
-                         bat --color=always --language=yaml --style=plain --line-range=:12 {} 2>/dev/null || head -8 {} 2>/dev/null
-                       else
-                         head -8 {} 2>/dev/null
-                       fi ;;
-                     *)
-                       if command -v bat >/dev/null 2>&1; then
-                         bat --color=always --style=plain --line-range=:10 {} 2>/dev/null || head -8 {} 2>/dev/null
-                       else
-                         head -8 {} 2>/dev/null
-                       fi ;;
-                   esac' \
-      --preview-window='right:40%' \
+    --exclude "*.tmp" --exclude "*.log" --exclude ".DS_Store" --exclude "*.cache" --exclude "__MACOSX" 2>/dev/null |
+    fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "--- Preview (30 lines) ---" && if command -v bat >/dev/null 2>&1; then bat --color=always --style=numbers --line-range=:30 {} 2>/dev/null; else head -30 {} 2>/dev/null; fi' \
+      --preview-window='right:50%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {}) 2>/dev/null || xdg-open $(dirname {}) 2>/dev/null &)' \
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
       --header '📊 Data Files | Enter: edit | Ctrl+D: cd | Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
@@ -473,62 +456,49 @@ fdata() {
 
   if [[ -n "$file" ]]; then
     if [[ "$key" = "ctrl-d" ]]; then
-      cd "$(dirname "$file")"
-      echo "📁 Changed to: $(pwd)"
-      echo "📁 File: $(basename "$file")"
+      cd "$(dirname "$file")" && pwd
     else
-      # Size-aware default action (the safety feature you wanted)
-      local size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null || echo "0")
+      # Size check for safety
+      local size=$(stat -c%s "$file" 2>/dev/null || echo "0")
       if [[ "$size" -gt 10000000 ]]; then
-        echo "🚨 Large file detected (>10MB) - navigating to folder for safety"
-        cd "$(dirname "$file")"
-        echo "📁 Location: $(pwd)"
-        echo "📁 File: $(basename "$file")"
+        echo "🚨 Large file (>10MB) - navigating to folder for safety"
+        cd "$(dirname "$file")" && pwd
       else
-        echo "✏️  Opening: $(basename "$file")"
-        vim "$file"
+        ${EDITOR:-vim} "$file"
       fi
     fi
   fi
 }
-
 # Enhanced general file finder
 ff() {
   local result=$(fd --type f \
-    -e py -e ipynb -e sql -e csv -e json -e yaml -e yml -e md -e sh -e toml \
-    -e txt -e js -e ts -e go -e rs -e jsx -e tsx -e vue -e php -e rb \
+    -e py -e ipynb -e sql -e csv -e json -e yaml -e yml -e md -e sh -e toml -e txt \
+    -e js -e go -e rs -e c -e cpp -e scala -e log \
+    -e env -e ini -e conf -e cfg -e dockerfile -e properties -e gitignore -e dockerignore \
+    -e lock -e makefile \
     --exclude .git --exclude __pycache__ --exclude .venv --exclude venv \
-    --exclude "*.tmp" --exclude "*.log" --exclude ".DS_Store" --exclude "*.cache" --exclude "__MACOSX" |
-    fzf --preview 'echo "📁 $(basename {})" && echo "📊 $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "" && 
-                   if command -v bat >/dev/null 2>&1; then
-                     bat --color=always --style=plain --line-range=:20 {} 2>/dev/null || head -15 {} 2>/dev/null
-                   else
-                     head -15 {} 2>/dev/null
-                   fi' \
-      --ansi \
+    --exclude "*.tmp" --exclude ".DS_Store" --exclude "*.cache" --exclude "__MACOSX" 2>/dev/null |
+    fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "--- Preview ---" && if command -v bat >/dev/null 2>&1; then bat --color=always --style=numbers --line-range=:30 {} 2>/dev/null; else head -30 {} 2>/dev/null; fi' \
+      --preview-window='right:50%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(open $(dirname {}) 2>/dev/null || xdg-open $(dirname {}) 2>/dev/null || nautilus $(dirname {}) 2>/dev/null &)' \
-      --header '📁 General Files | Enter: edit | Ctrl+D: cd | Ctrl+O: open folder')
+      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
+      --header '📁 Files | Enter: edit | Ctrl+D: cd | Ctrl+O: open folder')
 
   local key=$(echo "$result" | head -1)
   local file=$(echo "$result" | tail -1)
 
-  if [[ -n "$file" ]]; then
-    if [[ "$key" = "ctrl-d" ]]; then
-      cd "$(dirname "$file")"
-      echo "📁 Changed to: $(pwd)"
-      echo "📁 File: $(basename "$file")"
+  if [ -n "$file" ]; then
+    if [ "$key" = "ctrl-d" ]; then
+      cd "$(dirname "$file")" && pwd
     else
-      # Size-aware default action (safety check)
+      # Size check for safety
       local size=$(stat -c%s "$file" 2>/dev/null || echo "0")
-      if [[ "$size" -gt 10000000 ]]; then
-        echo "🚨 Large file detected (>10MB) - navigating to folder for safety"
-        cd "$(dirname "$file")"
-        echo "📁 Location: $(pwd)"
+      if [ "$size" -gt 10000000 ]; then
+        echo "🚨 Large file (>10MB) - navigating to folder for safety"
+        cd "$(dirname "$file")" && pwd
         echo "📁 File: $(basename "$file")"
       else
-        echo "✏️  Opening: $(basename "$file")"
-        "${EDITOR:-vim}" "$file"
+        ${EDITOR:-vim} "$file"
       fi
     fi
   fi
