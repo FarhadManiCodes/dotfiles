@@ -1,5 +1,5 @@
 # =============================================================================
-# OPTIMIZED Smart Project Detection & Environment Management
+# OPTIMIZED Virtual Environment Management with Shared Helper Functions
 # =============================================================================
 
 # Configuration
@@ -10,87 +10,109 @@ export ENV_PROJECT_MAP="$HOME/.env_project_map"
 [ ! -d "$VENV_HOME" ] && mkdir -p "$VENV_HOME"
 [ ! -f "$ENV_PROJECT_MAP" ] && touch "$ENV_PROJECT_MAP"
 
-# Performance: Cache for project detection and environment mappings
-typeset -A PROJECT_CACHE
-typeset -A ENV_CACHE
-typeset -A ENV_EXISTS_CACHE
+# Performance caches
+typeset -A PROJECT_CACHE ENV_CACHE ENV_EXISTS_CACHE
 
-# Optimized project detection with intelligent ordering and caching
-get_project_name() {
-  local dir="$PWD"
+# Check for conflicting aliases and remove them
+if alias vh >/dev/null 2>&1; then
+  unalias vh 2>/dev/null
+fi
 
-  # Check cache first (major speedup for repeated calls)
-  if [[ -n "${PROJECT_CACHE[$dir]:-}" ]]; then
-    echo "${PROJECT_CACHE[$dir]}"
-    return
+# =============================================================================
+# SHARED HELPER FUNCTIONS
+# =============================================================================
+
+# Unified environment discovery - used by va, vl, and other functions
+_discover_environments() {
+  local format="${1:-detailed}" # detailed|simple|fzf
+  local include_local="${2:-true}"
+  local environments=()
+  
+  # Conda environments
+  if command -v conda >/dev/null; then
+    while IFS= read -r line; do
+      local name=$(echo "$line" | awk '{print $1}')
+      local path=$(echo "$line" | awk '{print $2}')
+      case "$format" in
+        "fzf") environments+=("🅒 $name ($path)") ;;
+        "simple") environments+=("$name (conda)") ;;
+        "detailed") environments+=("🅒 $name - $path") ;;
+      esac
+    done < <(conda info --envs 2>/dev/null | awk '/^\w/ && $1!="base" {print $1 " " $2}')
   fi
-
-  local project_name=""
-  local result=""
-
-  # Method 1: Fast regex patterns FIRST (avoids expensive operations)
-  if [[ "$dir" =~ /projects/([^/]+) ]]; then
-    result="projects:${BASH_REMATCH[1]}"
-  elif [[ "$dir" =~ /work/([^/]+) ]]; then
-    result="work:${BASH_REMATCH[1]}"
-  elif [[ "$dir" =~ /dev/([^/]+) ]]; then
-    result="dev:${BASH_REMATCH[1]}"
-
-  # Method 2: Quick file checks (current directory only - faster)
-  elif [ -f ".project_name" ]; then
-    project_name=$(cat .project_name 2>/dev/null | tr -d '\n')
-    result="manual:$project_name"
-  elif [ -f "pyproject.toml" ]; then
-    # Quick name extraction (simplified regex)
-    local pyproject_name=$(grep -m1 -E "^name\s*=" pyproject.toml 2>/dev/null | sed 's/.*=\s*["\x27]\([^"\x27]*\)["\x27].*/\1/')
-    if [ -n "$pyproject_name" ]; then
-      result="pyproject:$pyproject_name"
-    else
-      result="pyproject:$(basename "$dir")"
-    fi
-  elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "Pipfile" ]; then
-    result="python:$(basename "$dir")"
-  elif [ -d "notebooks" ] && [ -d "data" ]; then
-    result="datascience:$(basename "$dir")"
-  elif [ -f "build.sbt" ] || [ -f "pom.xml" ]; then
-    result="scala:$(basename "$dir")"
-  elif [ -f "Dockerfile" ] || [ -f "docker-compose.yml" ]; then
-    result="docker:$(basename "$dir")"
-
-  # Method 3: Git (expensive - do LAST and cache aggressively)
-  elif git rev-parse --show-toplevel >/dev/null 2>&1; then
-    local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
-    if [ -n "$git_root" ]; then
-      result="git:$(basename "$git_root")"
-      # Cache git result for entire repository tree
-      PROJECT_CACHE["$git_root"]="$result"
-    fi
-  else
-    # Fallback
-    result="directory:$(basename "$dir")"
+  
+  # Virtual environments
+  if [ -d "$VENV_HOME" ]; then
+    for env_dir in "$VENV_HOME"/*; do
+      if [ -d "$env_dir" ]; then
+        local name=$(basename "$env_dir")
+        local projects=$(grep ":$name$" "$ENV_PROJECT_MAP" 2>/dev/null | cut -d: -f1 | tr '\n' ', ' | sed 's/,$//')
+        case "$format" in
+          "fzf") 
+            if [ -n "$projects" ]; then
+              environments+=("🐍 $name ($env_dir - used in: $projects)")
+            else
+              environments+=("🐍 $name ($env_dir)")
+            fi
+            ;;
+          "simple") environments+=("$name (venv)") ;;
+          "detailed")
+            if [ -n "$projects" ]; then
+              environments+=("🐍 $name → used in: $projects")
+            else
+              environments+=("🐍 $name")
+            fi
+            ;;
+        esac
+      fi
+    done
   fi
-
-  # Cache result for this directory
-  PROJECT_CACHE[$dir]="$result"
-  echo "$result"
+  
+  # Local environments (for fzf format)
+  if [[ "$format" == "fzf" && "$include_local" == "true" ]]; then
+    for local_env in venv .venv env; do
+      if [ -d "$local_env" ]; then
+        environments+=("📁 $local_env (local in $(basename "$PWD"))")
+      fi
+    done
+  fi
+  
+  printf '%s\n' "${environments[@]}"
 }
 
-# Optimized environment activation with existence caching
-_activate_env() {
+# Unified environment type detection with caching - improved
+_get_env_type() {
   local env_name="$1"
-
-  # Check if environment exists (with caching to avoid repeated checks)
-  if [[ -z "${ENV_EXISTS_CACHE[$env_name]:-}" ]]; then
-    if command -v conda >/dev/null && conda info --envs 2>/dev/null | grep -q "^$env_name "; then
-      ENV_EXISTS_CACHE[$env_name]="conda"
-    elif [ -d "$VENV_HOME/$env_name" ]; then
-      ENV_EXISTS_CACHE[$env_name]="venv"
-    else
-      ENV_EXISTS_CACHE[$env_name]="none"
+  
+  # Check cache first
+  if [[ -n "${ENV_EXISTS_CACHE[$env_name]:-}" ]]; then
+    echo "${ENV_EXISTS_CACHE[$env_name]}"
+    return
+  fi
+  
+  local type="none"
+  
+  # Check for virtual environment first (faster)
+  if [ -d "$VENV_HOME/$env_name" ]; then
+    type="venv"
+  # Then check conda (slower)
+  elif command -v conda >/dev/null 2>&1; then
+    if conda info --envs 2>/dev/null | grep -q "^$env_name "; then
+      type="conda"
     fi
   fi
+  
+  # Cache result
+  ENV_EXISTS_CACHE[$env_name]="$type"
+  echo "$type"
+}
 
-  case "${ENV_EXISTS_CACHE[$env_name]}" in
+# Unified environment activation
+_activate_environment() {
+  local env_name="$1"
+  local type=$(_get_env_type "$env_name")
+  
+  case "$type" in
     "conda")
       conda activate "$env_name" 2>/dev/null && echo "✅ Activated conda: $env_name"
       ;;
@@ -104,232 +126,77 @@ _activate_env() {
   esac
 }
 
-# Helper function to list environments (unchanged)
-_list_environments() {
-  echo "🅒 Conda environments:"
-  if command -v conda >/dev/null; then
-    conda info --envs 2>/dev/null | awk '/^\w/ && $1!="base" {print "  " $1}'
-  fi
-  echo ""
-  echo "🐍 Virtual environments:"
-  ls -1 "$VENV_HOME" 2>/dev/null | sed 's/^/  /' || echo "  (none found)"
-}
-
-# Ultra-fast environment lookup with caching
-_get_mapped_env() {
-  local project_name="$1"
-  local cache_key="env_map:$project_name"
-
-  # Check cache first (avoids file reads)
-  if [[ -n "${ENV_CACHE[$cache_key]:-}" ]]; then
-    echo "${ENV_CACHE[$cache_key]}"
-    return
-  fi
-
-  # Read from file only if not cached
-  local mapped_env=$(grep -m1 "^$project_name:" "$ENV_PROJECT_MAP" 2>/dev/null | cut -d: -f2)
-
-  # Cache result (even if empty)
-  ENV_CACHE[$cache_key]="${mapped_env:-}"
-  echo "$mapped_env"
-}
-
-# Enhanced va
-va() {
-  # Check if environment name was provided as argument
-  if [ $# -gt 0 ]; then
-    # Direct activation with provided argument
-    _activate_env "$1"
-    return
-  fi
-
-  # No arguments - show fuzzy selection
-  _va_interactive_select
-}
-
-# Enhanced interactive selection
-_va_interactive_select() {
-  # Require fzf for better UX
-  if ! command -v fzf >/dev/null; then
-    echo "📋 Available environments:"
-    _list_environments
-    echo "💡 Install fzf for better selection: va <env_name>"
-    return
-  fi
-
-  # Fast project and environment detection
-  local project_info=$(get_project_name)
-  local current_project="${project_info##*:}"
-  local suggested_env=$(_get_mapped_env "$current_project")
-
-  # Create environment list with enhanced preview
-  local selected
-  selected=$(
-    {
-      # Current project suggestion (if mapping exists)
-      if [ -n "$suggested_env" ]; then
-        echo "🎯 $suggested_env (suggested for $current_project)"
-      fi
-
-      # Conda environments
-      if command -v conda >/dev/null; then
-        conda info --envs 2>/dev/null | awk '/^\w/ && $1!="base" {print "🅒 " $1 " " $2}' | while read -r line; do
-          env_name=$(echo "$line" | awk '{print $2}')
-          env_path=$(echo "$line" | awk '{print $3}')
-          echo "🅒 $env_name ($env_path)"
-        done
-      fi
-
-      # Virtual environments from $VENV_HOME
-      if [ -d "$VENV_HOME" ]; then
-        for env in "$VENV_HOME"/*; do
-          if [ -d "$env" ]; then
-            local name=$(basename "$env")
-            local project=$(grep ":$name$" "$ENV_PROJECT_MAP" 2>/dev/null | cut -d: -f1)
-            if [ -n "$project" ]; then
-              echo "🐍 $name ($env - used in: $project)"
-            else
-              echo "🐍 $name ($env)"
-            fi
-          fi
-        done
-      fi
-
-      # Subdirectories with venv-like names (bonus feature!)
-      if [ -d "venv" ]; then
-        echo "📁 venv (local in $(basename "$PWD"))"
-      fi
-      if [ -d ".venv" ]; then
-        echo "📁 .venv (local in $(basename "$PWD"))"
-      fi
-      if [ -d "env" ]; then
-        echo "📁 env (local in $(basename "$PWD"))"
-      fi
-
-    } | fzf \
-      --prompt="🐍 Select environment: " \
-      --height=50% \
-      --preview='
-        env_name=$(echo {} | sed "s/^[🎯🅒🐍📁] *//" | awk "{print \$1}")
-        echo "🔍 Environment: $env_name"
-        echo ""
-        
-        # Show environment info based on type
-        case "{}" in
-          *🅒*)
-            echo "📦 Type: Conda Environment"
-            if command -v conda >/dev/null; then
-              conda list -n "$env_name" 2>/dev/null | head -10 || echo "Could not list packages"
-            fi
-            ;;
-          *🐍*)
-            echo "📦 Type: Virtual Environment"
-            env_path=$(echo {} | grep -o "(/[^)]*)" | tr -d "()")
-            if [ -f "$env_path/pyvenv.cfg" ]; then
-              echo "📋 Configuration:"
-              cat "$env_path/pyvenv.cfg" 2>/dev/null | head -5
-            fi
-            ;;
-          *📁*)
-            echo "📦 Type: Local Environment"
-            if [ -f "./venv/pyvenv.cfg" ] || [ -f "./.venv/pyvenv.cfg" ] || [ -f "./env/pyvenv.cfg" ]; then
-              echo "📋 Configuration:"
-              cat ./venv/pyvenv.cfg ./.venv/pyvenv.cfg ./env/pyvenv.cfg 2>/dev/null | head -5
-            fi
-            ;;
-        esac
-      ' \
-      --preview-window=right:40% \
-      --bind='ctrl-r:reload({})' |
-      sed 's/^[🎯🅒🐍📁] *//' | sed 's/ (.*//'
-  )
-
-  if [ -n "$selected" ]; then
-    # Handle local environments
-    case "$selected" in
-      "venv" | ".venv" | "env")
-        # Local environment activation
-        if [ -f "./$selected/bin/activate" ]; then
-          source "./$selected/bin/activate"
-          echo "✅ Activated local environment: $selected"
-        else
-          echo "❌ Local environment not found: $selected"
-        fi
-        ;;
-      *)
-        # Regular environment activation
-        _activate_env "$selected"
-        ;;
-    esac
-
-    # Remember this association (with caching) - only for regular envs
-    if [[ ! "$selected" =~ ^(venv|\.venv|env)$ ]] && [[ ! "$PWD" =~ ^/tmp ]] && [[ ! "$PWD" =~ ^/var ]]; then
-      grep -v "^$current_project:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" 2>/dev/null || true
-      echo "$current_project:$selected" >>"${ENV_PROJECT_MAP}.tmp"
-      mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
-      # Update cache
-      ENV_CACHE["env_map:$current_project"]="$selected"
-      echo "💾 Remembered: $current_project → $selected"
-    fi
+# Unified environment deactivation
+_deactivate_current() {
+  if [ -n "$CONDA_DEFAULT_ENV" ] && [ "$CONDA_DEFAULT_ENV" != "base" ]; then
+    conda deactivate && echo "✅ Deactivated conda environment"
+  elif [ -n "$VIRTUAL_ENV" ]; then
+    deactivate && echo "✅ Deactivated virtual environment"
+  else
+    echo "ℹ️  No active virtual environment"
   fi
 }
 
-
-# Helper function: Check if environment exists and offer activation
-_vc_check_existing() {
-  local env_path="$1"
-  local env_name="$2"
-  local activation_cmd="$3"
-
-  if [ -d "$env_path" ]; then
-    echo "⚠️  Environment '$env_name' already exists"
-    echo -n "Activate existing environment? [Y/n]: "
-    read REPLY
-    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-      eval "$activation_cmd"
-      echo "✅ Activated $env_name environment"
-    fi
-    return 0 # Environment exists
-  fi
-  return 1 # Environment doesn't exist
+# Shared requirements.txt handling
+_handle_requirements() {
+  local action="$1"        # install|check|sync
+  local template="$2"      # template name (optional)
+  local create_if_missing="${3:-false}"
+  
+  case "$action" in
+    "check")
+      [ -f "requirements.txt" ] && echo "found" || echo "not_found"
+      ;;
+    "install")
+      if [ -f "requirements.txt" ]; then
+        echo "📦 Installing from requirements.txt..."
+        pip install -r requirements.txt
+        return 0
+      elif [[ "$create_if_missing" == "true" ]]; then
+        echo "📝 No requirements.txt found, creating empty environment"
+        return 0
+      else
+        echo "❌ No requirements.txt found"
+        return 1
+      fi
+      ;;
+    "sync")
+      if [ -z "$VIRTUAL_ENV" ]; then
+        echo "❌ No virtual environment active"
+        echo "💡 Use 'vp' to activate project environment first"
+        return 1
+      fi
+      _handle_requirements "install"
+      ;;
+  esac
 }
 
-# Helper function: Install packages
-_vc_install_packages() {
+# Shared template installation
+_install_template() {
   local template="$1"
-
-  # Upgrade pip first
+  
+  # Always upgrade pip first
   pip install --upgrade pip setuptools wheel
-
-  # Handle empty environment
-  if [ -z "$template" ] || [ "$template" = "none" ]; then
-    if [ -f "requirements.txt" ]; then
-      echo "📦 Installing from requirements.txt..."
-      pip install -r requirements.txt
-    else
-      echo "✨ Empty environment created"
-      echo "💡 Install packages manually or add requirements.txt"
-    fi
-    return
-  fi
-
-  # Install template-specific packages + common linting tools
+  
   case "$template" in
+    ""|"none")
+      _handle_requirements "install" "" "true"
+      ;;
     "basic")
       echo "⚡ Installing basic development packages..."
       pip install requests black flake8 pytest pylint mypy
       ;;
-    "ds" | "data-science")
+    "ds"|"data-science")
       echo "📊 Installing data science packages..."
       pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly \
         black flake8 pylint mypy
       ;;
-    "de" | "data-engineering")
+    "de"|"data-engineering")
       echo "🔧 Installing data engineering packages..."
       pip install ipython jupyter pandas numpy polars duckdb sqlalchemy great-expectations requests pyarrow \
         black flake8 pylint mypy
       ;;
-    "ml" | "machine-learning")
+    "ml"|"machine-learning")
       echo "🤖 Installing ML packages..."
       pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly \
         black flake8 pylint mypy
@@ -341,60 +208,219 @@ _vc_install_packages() {
       return 1
       ;;
   esac
-
-  # Warn about requirements.txt conflict
-  if [ -f "requirements.txt" ]; then
+  
+  # Show requirements.txt conflict warning if applicable
+  if [[ "$template" != "" && "$template" != "none" ]] && [ -f "requirements.txt" ]; then
     echo "⚠️  Note: requirements.txt found but ignored (using $template template)"
-    echo "💡 Use 'vc ${name:-local} none' to install from requirements.txt instead"
+    echo "💡 Use template 'none' to install from requirements.txt instead"
   fi
 }
 
-# Main vc function
+# Shared project-environment association logic
+_associate_project_env() {
+  local project_name="$1" env_name="$2"
+  
+  # Skip temporary directories
+  [[ "$PWD" =~ ^(/tmp|/var) ]] && return
+  
+  # Update mapping file
+  [ -f "$ENV_PROJECT_MAP" ] && grep -v "^$project_name:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" || touch "${ENV_PROJECT_MAP}.tmp"
+  echo "$project_name:$env_name" >>"${ENV_PROJECT_MAP}.tmp"
+  mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
+  
+  # Update cache
+  ENV_CACHE["env_map:$project_name"]="$env_name"
+  echo "💾 Associated: $project_name → $env_name"
+}
+
+# Get current environment name
+_get_current_env() {
+  if [[ -n "$VIRTUAL_ENV" ]]; then
+    basename "$VIRTUAL_ENV"
+  elif [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]]; then
+    echo "$CONDA_DEFAULT_ENV"
+  fi
+}
+
+# =============================================================================
+# PROJECT DETECTION (OPTIMIZED)
+# =============================================================================
+
+get_project_name() {
+  local dir="$PWD"
+  
+  # Check cache first
+  if [[ -n "${PROJECT_CACHE[$dir]:-}" ]]; then
+    echo "${PROJECT_CACHE[$dir]}"
+    return
+  fi
+  
+  local result=""
+  
+  # Fast pattern matching first
+  if [[ "$dir" =~ /(projects|work|dev)/([^/]+) ]]; then
+    result="${BASH_REMATCH[1]}:${BASH_REMATCH[2]}"
+  elif [ -f ".project_name" ]; then
+    local name=$(cat .project_name 2>/dev/null | tr -d '\n')
+    result="manual:$name"
+  elif [ -f "pyproject.toml" ]; then
+    local name=$(grep -m1 -E "^name\s*=" pyproject.toml 2>/dev/null | sed 's/.*=\s*["\x27]\([^"\x27]*\)["\x27].*/\1/')
+    result="pyproject:${name:-$(basename "$dir")}"
+  elif [ -f "requirements.txt" ] || [ -f "setup.py" ] || [ -f "Pipfile" ]; then
+    result="python:$(basename "$dir")"
+  elif [ -d "notebooks" ] && [ -d "data" ]; then
+    result="datascience:$(basename "$dir")"
+  elif [ -f "build.sbt" ] || [ -f "pom.xml" ]; then
+    result="scala:$(basename "$dir")"
+  elif [ -f "Dockerfile" ] || [ -f "docker-compose.yml" ]; then
+    result="docker:$(basename "$dir")"
+  elif git rev-parse --show-toplevel >/dev/null 2>&1; then
+    local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    result="git:$(basename "$git_root")"
+    # Cache for entire repo
+    PROJECT_CACHE["$git_root"]="$result"
+  else
+    result="directory:$(basename "$dir")"
+  fi
+  
+  PROJECT_CACHE[$dir]="$result"
+  echo "$result"
+}
+
+_get_mapped_env() {
+  local project_name="$1"
+  local cache_key="env_map:$project_name"
+  
+  if [[ -n "${ENV_CACHE[$cache_key]:-}" ]]; then
+    echo "${ENV_CACHE[$cache_key]}"
+    return
+  fi
+  
+  local mapped_env=$(grep -m1 "^$project_name:" "$ENV_PROJECT_MAP" 2>/dev/null | cut -d: -f2)
+  ENV_CACHE[$cache_key]="${mapped_env:-}"
+  echo "$mapped_env"
+}
+
+# =============================================================================
+# MAIN FUNCTIONS (SIMPLIFIED)
+# =============================================================================
+
+# Enhanced va - activate environment
+va() {
+  if [ $# -gt 0 ]; then
+    _activate_environment "$1"
+    return
+  fi
+  
+  # Interactive selection with fzf
+  if ! command -v fzf >/dev/null; then
+    echo "📋 Available environments:"
+    _discover_environments "detailed"
+    echo "💡 Install fzf for better selection: va <env_name>"
+    return
+  fi
+  
+  # Get project suggestion
+  local project_info=$(get_project_name)
+  local current_project="${project_info##*:}"
+  local suggested_env=$(_get_mapped_env "$current_project")
+  
+  # Build environment list for fzf
+  local environments=()
+  if [ -n "$suggested_env" ]; then
+    environments+=("🎯 $suggested_env (suggested for $current_project)")
+  fi
+  
+  # Add all discovered environments
+  local discovered_envs=$(_discover_environments "fzf")
+  while IFS= read -r env; do
+    [[ -n "$env" ]] && environments+=("$env")
+  done <<< "$discovered_envs"
+  
+  # Select with fzf
+  local selected=$(printf '%s\n' "${environments[@]}" | \
+    fzf --prompt="🐍 Select environment: " --height=50% \
+        --preview='env_name=$(echo {} | sed "s/^[🎯🅒🐍📁] *//" | awk "{print \$1}"); echo "🔍 Environment: $env_name"' \
+        --preview-window=right:40% | \
+    sed 's/^[🎯🅒🐍📁] *//' | sed 's/ (.*//')
+  
+  if [ -n "$selected" ]; then
+    # Handle local environments
+    if [[ "$selected" =~ ^(venv|\.venv|env)$ ]]; then
+      if [ -f "./$selected/bin/activate" ]; then
+        source "./$selected/bin/activate"
+        echo "✅ Activated local environment: $selected"
+      else
+        echo "❌ Local environment not found: $selected"
+      fi
+    else
+      _activate_environment "$selected"
+      # Remember association for non-local environments
+      if [[ ! "$PWD" =~ ^(/tmp|/var) ]]; then
+        _associate_project_env "$current_project" "$selected"
+      fi
+    fi
+  fi
+}
+
+# Simplified vc - create environment
 vc() {
   local name="$1"
   local template="$2"
-
+  
   if [ -z "$name" ]; then
     echo "Usage: vc <env_name> [template] OR vc local [template]"
-    echo "Templates: basic, ds, de, ml, none (auto-detect if omitted)"
+    echo "Templates: basic, ds, de, ml, none"
     return 1
   fi
-
-  # Local environment
+  
+  # Handle local environment
   if [[ "$name" == "local" ]]; then
-    _vc_check_existing ".venv" "local" "source .venv/bin/activate" && return
-
+    if [ -d ".venv" ]; then
+      echo "⚠️  Local environment already exists"
+      printf "Activate existing? [Y/n]: "
+      read -r REPLY
+      if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+        source .venv/bin/activate
+        echo "✅ Activated local environment"
+      fi
+      return
+    fi
+    
     echo "🐍 Creating local environment: .venv"
     python3 -m venv .venv && source .venv/bin/activate
-    _vc_install_packages "$template"
-    echo "✅ Local environment created and activated!"
+    _install_template "$template"
+    echo "✅ Local environment created!"
     echo "💡 Add '.venv/' to your .gitignore"
     return
   fi
-
-  # Regular environment
-  _vc_check_existing "$VENV_HOME/$name" "$name" "_activate_env $name" && return
-
+  
+  # Handle named environment
+  local env_type=$(_get_env_type "$name")
+  if [[ "$env_type" != "none" ]]; then
+    echo "⚠️  Environment '$name' already exists"
+    printf "Activate existing? [Y/n]: "
+    read -r REPLY
+    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+      _activate_environment "$name"
+    fi
+    return
+  fi
+  
   echo "🐍 Creating environment: $name"
   python3 -m venv "$VENV_HOME/$name" && source "$VENV_HOME/$name/bin/activate"
-  _vc_install_packages "$template"
-
-  # Project association (only for regular environments)
+  _install_template "$template"
+  
+  # Associate with project
   local project_info=$(get_project_name)
   local current_project="${project_info##*:}"
-  if [[ ! "$PWD" =~ ^/tmp ]] && [[ ! "$PWD" =~ ^/var ]]; then
-    grep -v "^$current_project:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" 2>/dev/null || true
-    echo "$current_project:$name" >>"${ENV_PROJECT_MAP}.tmp"
-    mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
-    ENV_CACHE["env_map:$current_project"]="$name"
-    echo "💾 Associated with project: $current_project"
-  fi
-
+  _associate_project_env "$current_project" "$name"
+  
   ENV_EXISTS_CACHE[$name]="venv"
-  echo "✅ Environment '$name' created and activated!"
+  echo "✅ Environment '$name' created!"
 }
 
-# Optimized project environment function
+# Project environment - fixed logic  
 vp() {
   local project_info=$(get_project_name)
   local project_type="${project_info%%:*}"
@@ -405,347 +431,243 @@ vp() {
 
   if [[ -n "$mapped_env" ]]; then
     echo "🎯 Using mapped environment: $mapped_env"
-    _activate_env "$mapped_env"
+    _activate_environment "$mapped_env"
   elif [[ -d "$VENV_HOME/$project_name" ]]; then
     echo "🎯 Using project environment: $project_name"
-    _activate_env "$project_name"
+    _activate_environment "$project_name"
     # Auto-save mapping and cache it
-    echo "$project_name:$project_name" >>"$ENV_PROJECT_MAP"
-    ENV_CACHE["env_map:$project_name"]="$project_name"
+    _associate_project_env "$project_name" "$project_name"
   elif command -v conda >/dev/null && conda info --envs 2>/dev/null | grep -q "^$project_name "; then
     echo "🎯 Using conda environment: $project_name"
-    _activate_env "$project_name"
-    # Auto-save mapping and cache it
-    echo "$project_name:$project_name" >>"$ENV_PROJECT_MAP"
-    ENV_CACHE["env_map:$project_name"]="$project_name"
+    conda activate "$project_name" 2>/dev/null && echo "✅ Activated conda: $project_name"
+    # Auto-save mapping and cache it  
+    _associate_project_env "$project_name" "$project_name"
   else
     echo "❓ No environment found for: $project_name"
     echo "💡 Create with: vc $project_name [ds|de|ml|basic]"
   fi
 }
 
-# Quick deactivate (unchanged)
-vd() {
-  if [ -n "$VIRTUAL_ENV" ] || [ -n "$CONDA_DEFAULT_ENV" ]; then
-    if [ -n "$CONDA_DEFAULT_ENV" ] && [ "$CONDA_DEFAULT_ENV" != "base" ]; then
-      conda deactivate
-      echo "✅ Deactivated conda environment"
-    elif [ -n "$VIRTUAL_ENV" ]; then
-      deactivate
-      echo "✅ Deactivated virtual environment"
-    fi
-  else
-    echo "ℹ️  No active virtual environment"
-  fi
-}
+# Simplified vd - deactivate
+vd() { _deactivate_current; }
 
-# List environments with project mappings (unchanged)
+# Simplified vl - list environments
 vl() {
   echo "🐍 Virtual Environments & Project Mappings"
   echo "==========================================="
   echo ""
-
+  
   # Show current environment
-  if [ -n "$VIRTUAL_ENV" ]; then
-    echo "🟢 Currently active: $(basename "$VIRTUAL_ENV") (venv)"
-  elif [ -n "$CONDA_DEFAULT_ENV" ] && [ "$CONDA_DEFAULT_ENV" != "base" ]; then
-    echo "🟢 Currently active: $CONDA_DEFAULT_ENV (conda)"
+  local current=$(_get_current_env)
+  if [ -n "$current" ]; then
+    local type=$(_get_env_type "$current")
+    echo "🟢 Currently active: $current ($type)"
   else
     echo "⚪ No environment active"
   fi
   echo ""
-
-  # Conda environments
-  if command -v conda >/dev/null; then
-    echo "🅒 Conda environments:"
-    conda info --envs 2>/dev/null | awk '/^\w/ && $1!="base" {print "  " $1}'
-    echo ""
-  fi
-
-  # Virtual environments with project mappings
-  echo "🐍 Virtual environments:"
-  for env in "$VENV_HOME"/*; do
-    if [ -d "$env" ]; then
-      local name=$(basename "$env")
-      local projects=$(grep ":$name$" "$ENV_PROJECT_MAP" 2>/dev/null | cut -d: -f1 | tr '\n' ', ' | sed 's/,$//')
-      if [ -n "$projects" ]; then
-        echo "  $name → used in: $projects"
-      else
-        echo "  $name"
-      fi
-    fi
-  done
-
-  if [ -f "$ENV_PROJECT_MAP" ] && [ -s "$ENV_PROJECT_MAP" ]; then
+  
+  # List all environments
+  _discover_environments "detailed" "false"
+  
+  # Show project mappings if any exist
+  if [ -s "$ENV_PROJECT_MAP" ]; then
     echo ""
     echo "🗂️  Project mappings:"
     cat "$ENV_PROJECT_MAP" | sed 's/^/  /' | sed 's/:/ → /'
   fi
 }
 
-# Forget project-environment mapping (with cache invalidation)
-vf() {
-  local project="${1:-$(get_project_name | cut -d: -f2)}"
+# Simplified vs - sync requirements
+vs() { _handle_requirements "sync"; }
 
-  if grep -q "^$project:" "$ENV_PROJECT_MAP" 2>/dev/null; then
-    grep -v "^$project:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp"
-    mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
-    # Clear cache entry
-    unset ENV_CACHE["env_map:$project"]
-    echo "🗑️  Removed mapping for project: $project"
-  else
-    echo "ℹ️  No mapping found for project: $project"
-  fi
-}
-
-# Function to show project detection info (unchanged)
-show_project_info() {
-  local project_info=$(get_project_name)
-  local project_type="${project_info%%:*}"
-  local project_name="${project_info##*:}"
-
-  echo "🔍 Project Detection Results"
-  echo "============================"
-  echo "📁 Current directory: $PWD"
-  echo "📋 Project name: $project_name"
-  echo "🏷️  Detection method: $project_type"
-  echo ""
-
-  case "$project_type" in
-    "git")
-      echo "✅ Detected via Git repository"
-      echo "   Repository root: $(git rev-parse --show-toplevel 2>/dev/null)"
-      ;;
-    "pyproject")
-      echo "✅ Detected via pyproject.toml"
-      ;;
-    "python")
-      echo "✅ Detected via Python project files"
-      ;;
-    "datascience")
-      echo "✅ Detected via data science project structure"
-      ;;
-    "manual")
-      echo "✅ Manually set project name"
-      echo "   File: $PWD/.project_name"
-      ;;
-    "directory")
-      echo "⚠️  Fallback: using directory name"
-      echo "💡 Consider setting up git or adding project files"
-      ;;
-  esac
-
-  # Show environment mapping if exists
-  local mapped_env=$(_get_mapped_env "$project_name")
-  if [ -n "$mapped_env" ]; then
-    echo ""
-    echo "🔗 Environment mapping: $project_name → $mapped_env"
-  fi
-}
-
-# Function to manually set project name (unchanged)
-set_project_name() {
-  local name="$1"
-  if [ -z "$name" ]; then
-    read -p "Enter project name: " name
-  fi
-
-  if [ -n "$name" ]; then
-    echo "$name" >"$PWD/.project_name"
-    echo "✅ Project name set to: $name"
-    echo "🗑️  Remove with: rm .project_name"
-  fi
-}
-
-# OPTIMIZED auto-activation (minimal overhead)
-auto_activate_venv() {
-  # Early returns for maximum performance
-  [[ ! -o interactive ]] && return
-  [[ "$PWD" =~ ^/tmp ]] && return
-  [[ "$PWD" =~ ^/var ]] && return
-
-  # Fast project detection (with caching)
-  local project_info=$(get_project_name)
-  local project_name="${project_info##*:}"
-
-  # Fast current environment detection
-  local current_env=""
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    current_env=$(basename "$VIRTUAL_ENV")
-  elif [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]]; then
-    current_env="$CONDA_DEFAULT_ENV"
-  fi
-
-  # Skip if already in correct environment (most common case)
-  [[ "$current_env" == "$project_name" ]] && return
-
-  # Fast environment lookup (with caching)
-  local target_env=$(_get_mapped_env "$project_name")
-
-  # If no mapping, check for direct environment match
-  if [[ -z "$target_env" ]]; then
-    if [[ -d "$VENV_HOME/$project_name" ]]; then
-      target_env="$project_name"
-      # Cache this discovered mapping
-      ENV_CACHE["env_map:$project_name"]="$project_name"
-    else
-      return # Don't activate without clear mapping
-    fi
-  fi
-
-  # Switch environment if different
-  if [[ -n "$target_env" && "$target_env" != "$current_env" ]]; then
-    # Fast deactivation
-    [[ -n "$VIRTUAL_ENV" ]] && deactivate 2>/dev/null
-    [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]] && conda deactivate 2>/dev/null
-
-    # Fast activation (with minimal output)
-    case "${ENV_EXISTS_CACHE[$target_env]:-}" in
-      "venv" | "")
-        if [ -d "$VENV_HOME/$target_env" ]; then
-          source "$VENV_HOME/$target_env/bin/activate" 2>/dev/null
-          ENV_EXISTS_CACHE[$target_env]="venv"
-        fi
-        ;;
-      "conda")
-        conda activate "$target_env" 2>/dev/null
-        ;;
-    esac
-  fi
-}
-
-# Cache management functions (NEW)
-clear_env_cache() {
-  PROJECT_CACHE=()
-  ENV_CACHE=()
-  ENV_EXISTS_CACHE=()
-  echo "🗑️ Environment cache cleared"
-}
-
-cache_stats() {
-  echo "📊 Cache Statistics:"
-  echo "  Project cache: ${#PROJECT_CACHE[@]} entries"
-  echo "  Environment cache: ${#ENV_CACHE[@]} entries"
-  echo "  Environment exists cache: ${#ENV_EXISTS_CACHE[@]} entries"
-}
-
-# Performance debugging (NEW)
-debug_performance() {
-  echo "🔧 Performance Debug Mode"
-  echo "Project detection timing:"
-  time get_project_name
-  echo ""
-  echo "Environment lookup timing:"
-  local project_info=$(get_project_name)
-  local project_name="${project_info##*:}"
-  time _get_mapped_env "$project_name"
-  echo ""
-  cache_stats
-}
-
-# Auto-activation hook (optimized for zsh)
-if [[ -n "$ZSH_VERSION" ]]; then
-  autoload -U add-zsh-hook
-  add-zsh-hook chpwd auto_activate_venv
-  auto_activate_venv # Run once on startup
-fi
-
-# Aliases (including new cache management)
-alias project-info='show_project_info'
-alias set-project='set_project_name'
-alias venv-list='vl'
-alias venv-create='vc'
-alias venv-project='vp'
-alias venv-forget='vf'
-alias clear-cache='clear_env_cache'
-alias cache-stats='cache_stats'
-alias perf-debug='debug_performance'
-
-# Add this function to your .zshrc for quick help
-venv-help() {
-  echo "🐍 Virtual Environment Quick Reference"
-  echo "======================================"
-  echo "va [env]     - Activate environment (fuzzy select if no arg)"
-  echo "vc <name>    - Create environment with template [ds|de|ml|basic]"
-  echo "vp           - Project environment (auto-detect/suggest creation)"
-  echo "vd           - Deactivate current environment"
-  echo "vl           - List environments and mappings"
-  echo "vf [project] - Forget project mapping"
-  echo "vr <env>     - Remove environment"
-  echo "vs           - Sync requirements.txt"
-  echo ""
-  echo "🎯 Project & Cache:"
-  echo "project-info  - Show project detection details"
-  echo "cache-stats   - Show performance cache statistics"
-  echo "clear-cache   - Clear all caches"
-  echo "perf-debug    - Performance debugging"
-  echo ""
-  echo "🚀 TMux Integration:"
-  echo "Prefix + W    - Workspace layouts (auto-activates environment)"
-  echo "Prefix + v    - Quick project environment activation"
-}
-
-alias vh='venv-help'
-
-# Environment Cleanup/Removal
+# Environment removal - fixed logic
 vr() {
   local env_name="${1:-}"
-
+  
   if [ -z "$env_name" ]; then
     echo "Usage: vr <environment_name>"
     echo "💡 Use 'vl' to see available environments"
     return 1
   fi
 
-  # Check if environment exists
-  if [ -d "$VENV_HOME/$env_name" ]; then
-    echo "🗑️  Remove virtual environment: $env_name"
-    echo "📁 Location: $VENV_HOME/$env_name"
-    echo "⚠️  This cannot be undone!"
-    echo ""
-    read -p "Are you sure? [y/N]: " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      # Deactivate if currently active
-      if [ -n "$VIRTUAL_ENV" ] && [[ "$VIRTUAL_ENV" == *"$env_name" ]]; then
-        deactivate
-      fi
-
-      rm -rf "$VENV_HOME/$env_name"
-
-      # Remove from cache
-      unset ENV_EXISTS_CACHE["$env_name"]
-
-      # Remove from mappings
-      grep -v ":$env_name$" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" 2>/dev/null || true
-      mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP" 2>/dev/null || true
-
-      echo "✅ Environment '$env_name' removed"
-    else
-      echo "❌ Cancelled"
-    fi
-  else
-    echo "❌ Environment '$env_name' not found"
-  fi
-}
-
-alias venv-remove='vr'
-
-# Add this function to auto-install when requirements.txt changes
-vs() {
-  if [ -z "$VIRTUAL_ENV" ]; then
-    echo "❌ No virtual environment active"
-    echo "💡 Use 'vp' to activate project environment first"
+  # Check if venv exists (only remove venvs, not conda)
+  if [ ! -d "$VENV_HOME/$env_name" ]; then
+    echo "❌ Virtual environment '$env_name' not found in $VENV_HOME"
+    echo "💡 Available environments:"
+    _discover_environments "simple" "false"
     return 1
   fi
 
-  if [ -f "requirements.txt" ]; then
-    echo "📦 Syncing requirements.txt..."
-    pip install -r requirements.txt
-    echo "✅ Requirements synced"
+  echo "🗑️  Remove virtual environment: $env_name"
+  echo "📁 Location: $VENV_HOME/$env_name"
+  echo "⚠️  This cannot be undone!"
+  echo ""
+  printf "Are you sure? [y/N]: "
+  read -r REPLY
+
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    # Deactivate if currently active
+    if [ -n "$VIRTUAL_ENV" ] && [[ "$VIRTUAL_ENV" == *"$env_name" ]]; then
+      deactivate
+      echo "✅ Deactivated environment"
+    fi
+
+    # Remove the directory
+    rm -rf "$VENV_HOME/$env_name"
+
+    # Clean up caches and mappings
+    if [[ -n "${ENV_EXISTS_CACHE[$env_name]:-}" ]]; then
+      unset "ENV_EXISTS_CACHE[$env_name]"
+    fi
+    if [ -f "$ENV_PROJECT_MAP" ]; then
+      grep -v ":$env_name$" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" 2>/dev/null || true
+      mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP" 2>/dev/null || true
+    fi
+
+    echo "✅ Environment '$env_name' removed"
+    echo ""
+    printf "Run cleanup to remove any orphaned project mappings? [y/N]: "
+    read -r cleanup_reply
+    if [[ $cleanup_reply =~ ^[Yy]$ ]]; then
+      echo ""
+      cleanup_mappings
+    else
+      echo "💡 Tip: Run 'cleanup-mappings' later to clean orphaned project mappings"
+    fi
   else
-    echo "❌ No requirements.txt found"
+    echo "❌ Cancelled"
   fi
 }
 
-alias venv-sync='vs'
+# Forget project mapping
+vf() {
+  local project="${1:-$(get_project_name | cut -d: -f2)}"
+  
+  if grep -q "^$project:" "$ENV_PROJECT_MAP" 2>/dev/null; then
+    grep -v "^$project:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp"
+    mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
+    # Clear cache entry safely
+    if [[ -n "${ENV_CACHE[env_map:$project]:-}" ]]; then
+      unset "ENV_CACHE[env_map:$project]"
+    fi
+    echo "🗑️  Removed mapping for: $project"
+  else
+    echo "ℹ️  No mapping found for: $project"
+  fi
+}
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+show_project_info() {
+  local project_info=$(get_project_name)
+  local project_type="${project_info%%:*}"
+  local project_name="${project_info##*:}"
+  
+  echo "🔍 Project Detection Results"
+  echo "============================"
+  echo "📁 Directory: $PWD"
+  echo "📋 Name: $project_name"
+  echo "🏷️  Method: $project_type"
+  
+  local mapped_env=$(_get_mapped_env "$project_name")
+  [[ -n "$mapped_env" ]] && echo "🔗 Mapped to: $mapped_env"
+}
+
+clear_env_cache() {
+  PROJECT_CACHE=() ENV_CACHE=() ENV_EXISTS_CACHE=()
+  echo "🗑️ Environment cache cleared"
+}
+
+cache_stats() {
+  echo "📊 Cache Statistics:"
+  echo "  Project: ${#PROJECT_CACHE[@]} | Environment: ${#ENV_CACHE[@]} | Exists: ${#ENV_EXISTS_CACHE[@]}"
+}
+
+# Debug function to troubleshoot environment issues
+debug_env() {
+  local env_name="${1:-}"
+  if [ -z "$env_name" ]; then
+    echo "Usage: debug_env <environment_name>"
+    return 1
+  fi
+  
+  echo "🔍 Environment Debug: $env_name"
+  echo "================================"
+  echo "📁 VENV_HOME: $VENV_HOME"
+  echo "📁 Expected path: $VENV_HOME/$env_name"
+  echo "📂 Directory exists: $([ -d "$VENV_HOME/$env_name" ] && echo "✅ YES" || echo "❌ NO")"
+  echo ""
+  echo "🔍 Detection results:"
+  echo "  _get_env_type: $(_get_env_type "$env_name")"
+  echo ""
+  echo "🗺️  Project mappings mentioning '$env_name':"
+  grep "$env_name" "$ENV_PROJECT_MAP" 2>/dev/null || echo "  (none found)"
+  echo ""
+  echo "💾 Cache entries:"
+  echo "  ENV_EXISTS_CACHE[$env_name]: ${ENV_EXISTS_CACHE[$env_name]:-'(not cached)'}"
+}
+
+# OPTIMIZED auto-activation (minimal overhead)
+auto_activate_venv() {
+  # Early returns for performance
+  [[ ! -o interactive ]] && return
+  [[ "$PWD" =~ ^(/tmp|/var) ]] && return
+
+  local project_info=$(get_project_name)
+  local project_name="${project_info##*:}"
+  local current_env=""
+  
+  # Get current environment
+  if [[ -n "$VIRTUAL_ENV" ]]; then
+    current_env=$(basename "$VIRTUAL_ENV")
+  elif [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]]; then
+    current_env="$CONDA_DEFAULT_ENV"
+  fi
+
+  # Skip if already in correct environment
+  [[ "$current_env" == "$project_name" ]] && return
+
+  # Find target environment
+  local target_env=$(_get_mapped_env "$project_name")
+  [[ -z "$target_env" && -d "$VENV_HOME/$project_name" ]] && target_env="$project_name"
+
+  # Switch environment if needed
+  if [[ -n "$target_env" && "$target_env" != "$current_env" ]]; then
+    [[ -n "$current_env" ]] && { 
+      [[ -n "$VIRTUAL_ENV" ]] && deactivate 2>/dev/null
+      [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]] && conda deactivate 2>/dev/null
+    }
+    
+    case "${ENV_EXISTS_CACHE[$target_env]:-}" in
+      "venv"|"") [ -d "$VENV_HOME/$target_env" ] && source "$VENV_HOME/$target_env/bin/activate" 2>/dev/null ;;
+      "conda") conda activate "$target_env" 2>/dev/null ;;
+    esac
+  fi
+}
+
+# Auto-activation setup for zsh
+if [[ -n "$ZSH_VERSION" ]]; then
+  autoload -U add-zsh-hook
+  add-zsh-hook chpwd auto_activate_venv
+  auto_activate_venv
+fi
+
+# Aliases
+alias project-info='show_project_info'
+alias clear-cache='clear_env_cache'
+alias cache-stats='cache_stats'
+alias cleanup-mappings='cleanup_mappings'
+alias vh='venv_help'
+alias vh='echo "🐍 Virtual Environment Quick Reference
+======================================
+va [env]     - Activate environment (fuzzy select if no arg)
+vc <name>    - Create environment with template [ds|de|ml|basic]
+vp           - Project environment (auto-detect)
+vd           - Deactivate current environment
+vl           - List environments and mappings
+vf [project] - Forget project mapping
+vr <env>     - Remove environment
+vs           - Sync requirements.txt"'
