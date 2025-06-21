@@ -6,5 +6,5 @@ autocmd BufWritePre *.sql :ALEFix
 let g:ale_sql_sqlfluff_options = '--dialect postgres'
 
 " Dadbod mappings
-autocmd FileType sql nmap <buffer> <leader>r <Plug>(DB_Execute)
-autocmd FileType sql vmap <buffer> <leader>r <Plug>(DB_Execute)
+autocmd FileType sql nmap <buffer> <F5> :execute 'DB ' . getline('.')<CR>
+autocmd FileType sql vmap <buffer> <F5> :DB<CR>
