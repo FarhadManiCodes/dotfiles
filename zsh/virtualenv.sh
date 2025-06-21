@@ -134,7 +134,7 @@ _get_mapped_env() {
   echo "$mapped_env"
 }
 
-# Optimized interactive environment selection
+# Enhanced va
 va() {
   # Check if environment name was provided as argument
   if [ $# -gt 0 ]; then
@@ -147,9 +147,9 @@ va() {
   _va_interactive_select
 }
 
-# Helper function for interactive selection (optimized)
+# Enhanced interactive selection
 _va_interactive_select() {
-  # Smart selection with fzf
+  # Require fzf for better UX
   if ! command -v fzf >/dev/null; then
     echo "📋 Available environments:"
     _list_environments
@@ -162,7 +162,7 @@ _va_interactive_select() {
   local current_project="${project_info##*:}"
   local suggested_env=$(_get_mapped_env "$current_project")
 
-  # Create environment list and get selection (optimized)
+  # Create environment list with enhanced preview
   local selected
   selected=$(
     {
@@ -173,31 +173,97 @@ _va_interactive_select() {
 
       # Conda environments
       if command -v conda >/dev/null; then
-        conda info --envs 2>/dev/null | awk '/^\w/ && $1!="base" {print "🅒 " $1}'
+        conda info --envs 2>/dev/null | awk '/^\w/ && $1!="base" {print "🅒 " $1 " " $2}' | while read -r line; do
+          env_name=$(echo "$line" | awk '{print $2}')
+          env_path=$(echo "$line" | awk '{print $3}')
+          echo "🅒 $env_name ($env_path)"
+        done
       fi
 
-      # Virtual environments
+      # Virtual environments from $VENV_HOME
       if [ -d "$VENV_HOME" ]; then
         for env in "$VENV_HOME"/*; do
           if [ -d "$env" ]; then
             local name=$(basename "$env")
             local project=$(grep ":$name$" "$ENV_PROJECT_MAP" 2>/dev/null | cut -d: -f1)
             if [ -n "$project" ]; then
-              echo "🐍 $name (used in: $project)"
+              echo "🐍 $name ($env - used in: $project)"
             else
-              echo "🐍 $name"
+              echo "🐍 $name ($env)"
             fi
           fi
         done
       fi
-    } | fzf --prompt="Select environment: " --height=~40% | sed 's/^[🎯🅒🐍] *//' | sed 's/ (.*//'
+
+      # Subdirectories with venv-like names (bonus feature!)
+      if [ -d "venv" ]; then
+        echo "📁 venv (local in $(basename "$PWD"))"
+      fi
+      if [ -d ".venv" ]; then
+        echo "📁 .venv (local in $(basename "$PWD"))"
+      fi
+      if [ -d "env" ]; then
+        echo "📁 env (local in $(basename "$PWD"))"
+      fi
+
+    } | fzf \
+      --prompt="🐍 Select environment: " \
+      --height=50% \
+      --preview='
+        env_name=$(echo {} | sed "s/^[🎯🅒🐍📁] *//" | awk "{print \$1}")
+        echo "🔍 Environment: $env_name"
+        echo ""
+        
+        # Show environment info based on type
+        case "{}" in
+          *🅒*)
+            echo "📦 Type: Conda Environment"
+            if command -v conda >/dev/null; then
+              conda list -n "$env_name" 2>/dev/null | head -10 || echo "Could not list packages"
+            fi
+            ;;
+          *🐍*)
+            echo "📦 Type: Virtual Environment"
+            env_path=$(echo {} | grep -o "(/[^)]*)" | tr -d "()")
+            if [ -f "$env_path/pyvenv.cfg" ]; then
+              echo "📋 Configuration:"
+              cat "$env_path/pyvenv.cfg" 2>/dev/null | head -5
+            fi
+            ;;
+          *📁*)
+            echo "📦 Type: Local Environment"
+            if [ -f "./venv/pyvenv.cfg" ] || [ -f "./.venv/pyvenv.cfg" ] || [ -f "./env/pyvenv.cfg" ]; then
+              echo "📋 Configuration:"
+              cat ./venv/pyvenv.cfg ./.venv/pyvenv.cfg ./env/pyvenv.cfg 2>/dev/null | head -5
+            fi
+            ;;
+        esac
+      ' \
+      --preview-window=right:40% \
+      --bind='ctrl-r:reload({})' |
+      sed 's/^[🎯🅒🐍📁] *//' | sed 's/ (.*//'
   )
 
   if [ -n "$selected" ]; then
-    _activate_env "$selected"
+    # Handle local environments
+    case "$selected" in
+      "venv" | ".venv" | "env")
+        # Local environment activation
+        if [ -f "./$selected/bin/activate" ]; then
+          source "./$selected/bin/activate"
+          echo "✅ Activated local environment: $selected"
+        else
+          echo "❌ Local environment not found: $selected"
+        fi
+        ;;
+      *)
+        # Regular environment activation
+        _activate_env "$selected"
+        ;;
+    esac
 
-    # Remember this association (with caching)
-    if [[ ! "$PWD" =~ ^/tmp ]] && [[ ! "$PWD" =~ ^/var ]]; then
+    # Remember this association (with caching) - only for regular envs
+    if [[ ! "$selected" =~ ^(venv|\.venv|env)$ ]] && [[ ! "$PWD" =~ ^/tmp ]] && [[ ! "$PWD" =~ ^/var ]]; then
       grep -v "^$current_project:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" 2>/dev/null || true
       echo "$current_project:$selected" >>"${ENV_PROJECT_MAP}.tmp"
       mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
@@ -208,75 +274,123 @@ _va_interactive_select() {
   fi
 }
 
-# Quick environment creation (unchanged but optimized mapping)
-vc() {
-  local name="$1"
-  local template="${2:-basic}"
 
-  if [ -z "$name" ]; then
-    echo "Usage: vc <env_name> [template]"
-    echo "Templates: basic, ds (data science), de (data engineering), ml"
-    return 1
-  fi
+# Helper function: Check if environment exists and offer activation
+_vc_check_existing() {
+  local env_path="$1"
+  local env_name="$2"
+  local activation_cmd="$3"
 
-  if [ -d "$VENV_HOME/$name" ]; then
-    echo "⚠️  Environment '$name' already exists"
+  if [ -d "$env_path" ]; then
+    echo "⚠️  Environment '$env_name' already exists"
     echo -n "Activate existing environment? [Y/n]: "
     read REPLY
     if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-      _activate_env "$name"
+      eval "$activation_cmd"
+      echo "✅ Activated $env_name environment"
     fi
-    return
+    return 0 # Environment exists
   fi
+  return 1 # Environment doesn't exist
+}
 
-  echo "🐍 Creating virtual environment: $name"
-
-  # Create environment
-  python3 -m venv "$VENV_HOME/$name"
-  source "$VENV_HOME/$name/bin/activate"
+# Helper function: Install packages
+_vc_install_packages() {
+  local template="$1"
 
   # Upgrade pip first
   pip install --upgrade pip setuptools wheel
 
-  # Install packages based on template
+  # Handle empty environment
+  if [ -z "$template" ] || [ "$template" = "none" ]; then
+    if [ -f "requirements.txt" ]; then
+      echo "📦 Installing from requirements.txt..."
+      pip install -r requirements.txt
+    else
+      echo "✨ Empty environment created"
+      echo "💡 Install packages manually or add requirements.txt"
+    fi
+    return
+  fi
+
+  # Install template-specific packages + common linting tools
   case "$template" in
+    "basic")
+      echo "⚡ Installing basic development packages..."
+      pip install requests black flake8 pytest pylint mypy
+      ;;
     "ds" | "data-science")
       echo "📊 Installing data science packages..."
-      pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly
+      pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly \
+        black flake8 pylint mypy
       ;;
     "de" | "data-engineering")
       echo "🔧 Installing data engineering packages..."
-      pip install ipython jupyter pandas numpy polars duckdb sqlalchemy great-expectations
+      pip install ipython jupyter pandas numpy polars duckdb sqlalchemy great-expectations requests pyarrow \
+        black flake8 pylint mypy
       ;;
     "ml" | "machine-learning")
       echo "🤖 Installing ML packages..."
-      pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly tensorflow torch
-      ;;
-    "basic")
-      echo "⚡ Installing basic packages..."
-      pip install ipython jupyter requests
+      pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly \
+        black flake8 pylint mypy
+      echo "💡 Add deep learning later: pip install torch torchvision OR pip install tensorflow"
       ;;
     *)
-      echo "📦 Installing custom packages: $template"
-      pip install ipython jupyter $template
+      echo "❌ Unknown template: $template"
+      echo "Available templates: basic, ds, de, ml, none"
+      return 1
       ;;
   esac
 
-  # Remember association with current project (with caching)
+  # Warn about requirements.txt conflict
+  if [ -f "requirements.txt" ]; then
+    echo "⚠️  Note: requirements.txt found but ignored (using $template template)"
+    echo "💡 Use 'vc ${name:-local} none' to install from requirements.txt instead"
+  fi
+}
+
+# Main vc function
+vc() {
+  local name="$1"
+  local template="$2"
+
+  if [ -z "$name" ]; then
+    echo "Usage: vc <env_name> [template] OR vc local [template]"
+    echo "Templates: basic, ds, de, ml, none (auto-detect if omitted)"
+    return 1
+  fi
+
+  # Local environment
+  if [[ "$name" == "local" ]]; then
+    _vc_check_existing ".venv" "local" "source .venv/bin/activate" && return
+
+    echo "🐍 Creating local environment: .venv"
+    python3 -m venv .venv && source .venv/bin/activate
+    _vc_install_packages "$template"
+    echo "✅ Local environment created and activated!"
+    echo "💡 Add '.venv/' to your .gitignore"
+    return
+  fi
+
+  # Regular environment
+  _vc_check_existing "$VENV_HOME/$name" "$name" "_activate_env $name" && return
+
+  echo "🐍 Creating environment: $name"
+  python3 -m venv "$VENV_HOME/$name" && source "$VENV_HOME/$name/bin/activate"
+  _vc_install_packages "$template"
+
+  # Project association (only for regular environments)
   local project_info=$(get_project_name)
   local current_project="${project_info##*:}"
   if [[ ! "$PWD" =~ ^/tmp ]] && [[ ! "$PWD" =~ ^/var ]]; then
     grep -v "^$current_project:" "$ENV_PROJECT_MAP" >"${ENV_PROJECT_MAP}.tmp" 2>/dev/null || true
     echo "$current_project:$name" >>"${ENV_PROJECT_MAP}.tmp"
     mv "${ENV_PROJECT_MAP}.tmp" "$ENV_PROJECT_MAP"
-    # Update cache
     ENV_CACHE["env_map:$current_project"]="$name"
     echo "💾 Associated with project: $current_project"
   fi
 
-  # Cache that this environment exists
   ENV_EXISTS_CACHE[$name]="venv"
-
   echo "✅ Environment '$name' created and activated!"
 }
 
