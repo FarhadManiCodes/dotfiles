@@ -1,5 +1,4 @@
 # activate the python v_end on the start
-# source "${HOME}/virtualenv/py_review/bin/activate"
 . "$HOME/.cargo/env"
 # Go optimizations
 source "$HOME/.cargo/env"
@@ -61,7 +60,8 @@ tmux_simple_prompt() {
 
 tmux_simple_prompt
 
-source $DOTFILES/zsh/git-enhancements.sh
+source $DOTFILES/zsh/productivity/virtualenv.sh
+source $DOTFILES/zsh/productivity/git-enhancements.sh
 source $DOTFILES/zsh/productivity/fzf-enhancements.sh
 
 # to zoxide to work
