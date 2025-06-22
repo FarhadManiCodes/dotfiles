@@ -336,124 +336,6 @@ _ff_completion() {
 }
 
 # ============================================================================
-# CLI ENHANCEMENTS COMPLETIONS (cli-enhancements.sh integration)
-# ============================================================================
-
-# Completion for view (smart file viewer)
-_view_completion() {
-  local -a files
-  
-  # Prioritize data science files
-  if command -v fd >/dev/null; then
-    files=($(fd --type f -e py -e ipynb -e csv -e json -e yaml -e yml -e parquet -e pkl -e h5 -e sql -e md -e sh 2>/dev/null | head -20))
-  else
-    files=($(find . \( -name "*.py" -o -name "*.ipynb" -o -name "*.csv" -o -name "*.json" -o -name "*.yaml" -o -name "*.pkl" \) -type f 2>/dev/null | head -20))
-  fi
-  
-  # Add file type and size info
-  local -a enhanced_files
-  for file in $files; do
-    if [[ -f "$file" ]]; then
-      local size=$(ls -lh "$file" 2>/dev/null | awk '{print $5}' || echo "unknown")
-      local ext="${file##*.}"
-      case "$ext" in
-        py) enhanced_files+=("$file:Python ($size)") ;;
-        ipynb) enhanced_files+=("$file:Notebook ($size)") ;;
-        csv) enhanced_files+=("$file:CSV ($size)") ;;
-        json) enhanced_files+=("$file:JSON ($size)") ;;
-        parquet) enhanced_files+=("$file:Parquet ($size)") ;;
-        pkl|pickle) enhanced_files+=("$file:Pickle ($size)") ;;
-        h5|hdf5) enhanced_files+=("$file:HDF5 ($size)") ;;
-        *) enhanced_files+=("$file:$ext ($size)") ;;
-      esac
-    fi
-  done
-  
-  _describe 'data science files' enhanced_files
-}
-
-# Completion for peek (quick data file inspector)
-_peek_completion() {
-  if [[ $CURRENT -eq 2 ]]; then
-    # Files - same as view but focus on data files
-    _view_completion
-  elif [[ $CURRENT -eq 3 ]]; then
-    # Line count
-    local -a line_counts
-    line_counts=(
-      '5:First 5 lines'
-      '10:First 10 lines (default)'
-      '20:First 20 lines'
-      '50:First 50 lines'
-      '100:First 100 lines'
-    )
-    _describe 'line count' line_counts
-  fi
-}
-
-# Completion for search functions (smartsearch, searchdata, searchnb)
-_search_completion() {
-  if [[ $CURRENT -eq 2 ]]; then
-    # Search pattern - no completion, user types it
-    _message "search pattern"
-  elif [[ $CURRENT -eq 3 ]]; then
-    # Directory path
-    _path_files -/
-  fi
-}
-
-# Completion for overview
-_overview_completion() {
-  _path_files -/
-}
-
-# Completion for projects (no args needed, but we can suggest common project dirs)
-_projects_completion() {
-  local -a project_dirs
-  project_dirs=(
-    '.:Current directory'
-    '..:Parent directory'
-    '~:Home directory'
-    '~/projects:Projects folder'
-    '~/work:Work folder'
-    '~/dev:Development folder'
-  )
-  _describe 'search starting point' project_dirs
-}
-
-# Completion for gitdiff
-_gitdiff_completion() {
-  # Git file completion - show modified files
-  local -a git_files
-  if git rev-parse --git-dir >/dev/null 2>&1; then
-    git_files=($(git diff --name-only 2>/dev/null))
-    git_files+=($(git diff --cached --name-only 2>/dev/null))
-    if [[ ${#git_files[@]} -gt 0 ]]; then
-      _describe 'modified files' git_files
-    else
-      _files
-    fi
-  else
-    _files
-  fi
-}
-
-# Completion for gitlog
-_gitlog_completion() {
-  if [[ $CURRENT -eq 2 ]]; then
-    local -a counts
-    counts=(
-      '5:Last 5 commits'
-      '10:Last 10 commits (default)'
-      '20:Last 20 commits'
-      '50:Last 50 commits'
-      '100:Last 100 commits'
-    )
-    _describe 'commit count' counts
-  fi
-}
-
-# ============================================================================
 # GIT ENHANCEMENTS COMPLETIONS (git-enhancements.sh integration)
 # ============================================================================
 
@@ -522,9 +404,6 @@ _smart_project_completion() {
   if $has_data; then
     context_commands+=(
       'fdata:Browse data files'
-      'peek:Quick data file preview'
-      'view:Smart file viewer'
-      'searchdata:Search in data files'
     )
   fi
   
@@ -533,8 +412,6 @@ _smart_project_completion() {
       'fgit:Browse git repositories'
       'gstds:Git status (data science view)'
       'gci:Interactive commit'
-      'gitdiff:Enhanced git diff'
-      'gitlog:Interactive git log'
     )
   fi
   
@@ -542,51 +419,9 @@ _smart_project_completion() {
   context_commands+=(
     'tmux-new:Create new tmux session'
     'ff:Find files'
-    'overview:Directory analysis'
-    'projects:Find projects'
-    'smartsearch:Smart search'
   )
   
   _describe 'project commands' context_commands
-}
-
-# ============================================================================
-# ENHANCED FILE COMPLETIONS
-# ============================================================================
-
-# Data science file completion with intelligent filtering
-_ds_file_completion() {
-  local file_type="$1"
-  
-  case "$file_type" in
-    python)
-      if command -v fd >/dev/null; then
-        local -a python_files
-        python_files=($(fd -e py --type f 2>/dev/null))
-        _describe 'python files' python_files
-      else
-        _files -g "*.py"
-      fi
-      ;;
-    data)
-      _fdata_completion
-      ;;
-    notebook)
-      _fnb_completion
-      ;;
-    config)
-      if command -v fd >/dev/null; then
-        local -a config_files
-        config_files=($(fd -e yaml -e yml -e toml -e ini -e conf -e env --type f 2>/dev/null))
-        _describe 'config files' config_files
-      else
-        _files -g "*.{yaml,yml,toml,ini,conf,env}"
-      fi
-      ;;
-    *)
-      _files
-      ;;
-  esac
 }
 
 # ============================================================================
@@ -613,25 +448,10 @@ compdef _fdata_completion fdata
 compdef _fgit_completion fgit
 compdef _ff_completion ff
 
-# CLI enhancements (cli-enhancements.sh)
-compdef _view_completion view
-compdef _peek_completion peek
-compdef _search_completion smartsearch
-compdef _search_completion searchdata
-compdef _search_completion searchnb
-compdef _overview_completion overview
-compdef _projects_completion projects
-compdef _gitdiff_completion gitdiff
-compdef _gitlog_completion gitlog
-
 # Git enhancements (git-enhancements.sh)
 compdef _gci_completion gci
 
 # Context-aware completions for common tools
-compdef '_ds_file_completion data' bat
-compdef '_ds_file_completion python' vim
-
-# Smart project-aware completion
 compdef _smart_project_completion project-commands
 
 # ============================================================================
@@ -641,10 +461,6 @@ compdef _smart_project_completion project-commands
 # Enhanced completion for your custom aliases
 compdef _tmux_session_completion tmux-new
 compdef _jupyter_smart_completion js  # If you alias jupyter-smart to js
-
-# CLI enhancement aliases (from cli-enhancements.sh)
-compdef _overview_completion o      # alias o='overview'
-compdef _peek_completion p          # alias p='peek'
 
 # Python environment aware completions for tools that should check env status
 _python_env_completion() {

@@ -103,6 +103,11 @@ bindkey '^s' history-incremental-search-forward
 bindkey '^a' beginning-of-line
 bindkey '^e' end-of-line
 
+# Add this to prevent repeated expensive operations
+if [[ -n "${_ZSHRC_LOADED:-}" && -z "$TMUX" ]]; then
+  return
+fi
+export _ZSHRC_LOADED="true-$$-$(date +%s)"
 # ============================================================================
 # COMPLETIONS
 # ============================================================================
@@ -110,9 +115,9 @@ autoload -Uz compinit
 
 # Smart compinit - only run once per day for performance
 if [[ -n ~/.zcompdump(#qN.mh+24) ]]; then
-  compinit
+  compinit -d ~/.zcompdump
 else
-  compinit -C
+  compinit -C -d ~/.zcompdump
 fi
 
 # Completion styles
