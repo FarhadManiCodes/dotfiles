@@ -33,36 +33,100 @@ export FZF_DEFAULT_OPTS='
   --color=marker:#98c379,spinner:#e5c07b,header:#c678dd'
 
 # tmux to start automatically when you open a terminal
-# Safe tmux auto-attach function
-tmux_simple_prompt() {
-  # Only run if not already in tmux
-  [ -n "$TMUX" ] && return
+# ============================================================================
+# BASIC TMUX CONDITIONAL LOADING
+# ============================================================================
 
-  # Check if tmux is available
+# Basic function to decide if we should show tmux prompt
+should_load_tmux_basic() {
+  # Don't load if already in tmux
+  [[ -n "$TMUX" ]] && return 1
+
+  # Don't load if not interactive terminal
+  [[ ! -t 0 ]] && return 1
+
+  # Don't load in system directories (big performance saver)
+  [[ "$PWD" =~ ^(/tmp|/var|/proc|/sys|/dev|/run) ]] && return 1
+
+  # Don't load in IDE environments
+  [[ -n "$VSCODE_INJECTION" ]] && return 1
+  [[ -n "$INSIDE_EMACS" ]] && return 1
+
+  # Don't load for quick SSH tasks (optional - comment out if you want tmux over SSH)
+  [[ -n "$SSH_CONNECTION" && ! "$PWD" =~ (projects|work|dev) ]] && return 1
+
+  # Load tmux for everything else
+  return 0
+}
+
+# Basic tmux prompt (simplified version of your current function)
+basic_tmux_prompt() {
+  # Quick exit if tmux isn't available
   command -v tmux >/dev/null 2>&1 || return
 
-  # Skip in certain environments
-  [ -n "$INSIDE_EMACS" ] && return
-  [ -n "$VSCODE_INJECTION" ] && return
-
   if tmux list-sessions >/dev/null 2>&1; then
-    # Sessions exist - show them and do nothing
+    # Sessions exist - show them briefly
     echo "🔍 TMux sessions:"
-    tmux list-sessions -F "  📋 #{session_name} (#{session_windows} windows, created #{t:session_created})"
+    tmux list-sessions -F "  📋 #{session_name} (#{session_windows} windows)"
     echo ""
-    echo "💡 Use: tmux attach -t <name> or tmux-new (new session)"
+    echo "💡 Use: tmux attach -t <name> or tmux-new"
   else
-    # No sessions - auto-start
+    # No sessions - offer to start
     echo "🚀 No tmux sessions found, starting with restoration..."
     tmux-start
   fi
 }
 
-tmux_simple_prompt
+# ============================================================================
+# IMPLEMENTATION - Replace your current tmux_simple_prompt call with this:
+# ============================================================================
 
-source $DOTFILES/zsh/productivity/virtualenv.sh
-source $DOTFILES/zsh/productivity/git-enhancements.sh
-source $DOTFILES/zsh/productivity/fzf-enhancements.sh
+# OLD (in your scripts.sh):
+# tmux_simple_prompt
+
+# NEW (replace with this):
+if should_load_tmux_basic; then
+  basic_tmux_prompt
+fi
+# ====================== LAZY LOADING SETUP
+# Replace the source line in your scripts.sh with conditional loading:
+if [[ "$PWD" =~ (projects|work|learning|dev|\.py$|requirements\.txt|pyproject\.toml) ]] || [[ -n "$VIRTUAL_ENV" ]]; then
+  source "$DOTFILES/zsh/productivity/virtualenv.sh"
+fi
+# Only load git enhancements if we're in a git repo or likely to need them
+if git rev-parse --git-dir >/dev/null 2>&1 || [[ "$PWD" =~ (projects|work|dev) ]]; then
+  source "$DOTFILES/zsh/productivity/git-enhancements.sh"
+else
+  # Provide basic git aliases only
+  alias gs='git status'
+  alias ga='git add'
+  alias gc='git commit'
+  alias gp='git push'
+  alias gpu='git pull'
+fi
+
+# fzf 
+_setup_fzf_lazy_loading() {
+  command -v fzf >/dev/null 2>&1 || return
+
+  local _loaded=false
+  local functions=(fnb frg fdir fproc fhist fdata ff fgit fzf-enhanced)
+
+  _load_once() {
+    if [[ "$_loaded" == "false" ]]; then
+      source "$DOTFILES/zsh/productivity/fzf-enhancements.sh"
+      _loaded=true
+    fi
+  }
+
+  # Create all lazy functions in a loop
+  for func in "${functions[@]}"; do
+    eval "$func() { _load_once && $func \"\$@\"; }"
+  done
+}
+
+# Enable the lazy loading
+_setup_fzf_lazy_loading
 
 # to zoxide to work
 eval "$(zoxide init zsh)"

@@ -1,4 +1,6 @@
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+ZSH_PROFILE=true
+zmodload zsh/zprof
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -7,8 +9,10 @@ fi
 
 # If you come from bash you might have to change your $PATH.
 # export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
-
+# Simple disable for personal dev machine (adjust username as needed)
 # Path to your Oh My Zsh installation.
+# Disable slow SSH detection
+typeset -g POWERLEVEL9K_SSH=false
 export ZSH="$HOME/.oh-my-zsh"
 
 # Set name of the theme to load --- if set to "random", it will
@@ -82,7 +86,6 @@ plugins=(vi-mode
          gitignore
          zsh-syntax-highlighting
          last-working-dir
-         wd
          gh)
 #   git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions
 fpath+=${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions/src
@@ -139,3 +142,5 @@ setopt PUSHD_SILENT
 source "$XDG_CONFIG_HOME/zsh/aliases"
 # source scripts
 source $DOTFILES/zsh/scripts.sh
+# Save profiling results
+zprof > ~/.zsh_profile_output.txt
