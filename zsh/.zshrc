@@ -152,6 +152,16 @@ fi
 # ============================================================================
 # PLUGIN REPLACEMENTS
 # ============================================================================
+#
+# Autosuggestions (load early)
+if [[ -f ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  source ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+  ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+  ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=30
+  # ↑ Prevents lag on huge commands
+  ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#5c6370,underline"
+  # ↑ Subtle, doesn't interfere with completion menus
+fi
 
 # Fast syntax highlighting (replacement for zsh-syntax-highlighting)
 if [[ -f ~/.config/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ]]; then
@@ -168,6 +178,22 @@ if command -v gh >/dev/null 2>&1; then
     # Generate and cache completion
     eval "$(gh completion -s zsh)"
   fi
+fi
+
+# History substring search (perfect for complex commands)
+if [[ -f ~/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh ]]; then
+  source ~/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
+  # Vi-mode friendly bindings
+  bindkey '^[[A' history-substring-search-up
+  bindkey '^[[B' history-substring-search-down
+  bindkey -M vicmd 'k' history-substring-search-up
+  bindkey -M vicmd 'j' history-substring-search-down
+fi
+
+export FORGIT_NO_ALIASES=1  # ← Tells forgit "don't create ga, gd, glo"
+# Forgit (interactive git with fzf)
+if [[ -f ~/.config/zsh/plugins/forgit/forgit.plugin.zsh ]]; then
+  source ~/.config/zsh/plugins/forgit/forgit.plugin.zsh
 fi
 
 # ============================================================================
@@ -309,7 +335,3 @@ if [[ "$ZSH_PROFILE" == "true" ]]; then
   zprof > ~/.zsh_profile_output.txt
 fi
 
-# Success message
-if [[ -o interactive ]]; then
-  echo "🚀 Zsh loaded (Oh My Zsh free) - startup time improved!"
-fi

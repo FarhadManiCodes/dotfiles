@@ -671,3 +671,12 @@ vl           - List environments and mappings
 vf [project] - Forget project mapping
 vr <env>     - Remove environment
 vs           - Sync requirements.txt"'
+
+show-python-info() {
+  echo "🐍 Python Environment Info:"
+  echo "  Python: $(python --version 2>/dev/null || echo "Not found")"
+  echo "  Pip: $(pip --version 2>/dev/null || echo "Not found")"
+  echo "  Packages: $(pip list 2>/dev/null | wc -l || echo "Unknown")"
+  [[ -n "$VIRTUAL_ENV" ]] && echo "  Virtual Env: $(basename "$VIRTUAL_ENV")"
+  [[ -n "$CONDA_DEFAULT_ENV" ]] && echo "  Conda Env: $CONDA_DEFAULT_ENV"
+}

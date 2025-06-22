@@ -1,3 +1,4 @@
+#!/bin/zsh
 # activate the python v_end on the start
 . "$HOME/.cargo/env"
 # Go optimizations
@@ -36,7 +37,6 @@ export FZF_DEFAULT_OPTS='
 # ============================================================================
 # BASIC TMUX CONDITIONAL LOADING
 # ============================================================================
-
 # Basic function to decide if we should show tmux prompt
 should_load_tmux_basic() {
   # Don't load if already in tmux
@@ -59,7 +59,6 @@ should_load_tmux_basic() {
   return 0
 }
 
-# Basic tmux prompt (simplified version of your current function)
 basic_tmux_prompt() {
   # Quick exit if tmux isn't available
   command -v tmux >/dev/null 2>&1 || return
@@ -77,24 +76,26 @@ basic_tmux_prompt() {
   fi
 }
 
-# ============================================================================
-# IMPLEMENTATION - Replace your current tmux_simple_prompt call with this:
-# ============================================================================
-
-# OLD (in your scripts.sh):
-# tmux_simple_prompt
-
-# NEW (replace with this):
 if should_load_tmux_basic; then
   basic_tmux_prompt
 fi
-# ====================== LAZY LOADING SETUP
-# Replace the source line in your scripts.sh with conditional loading:
+
+# ============================================================================
+# PRODUCTIVITY SCRIPTS LOADING
+# ============================================================================
+
+# Load smart last working directory (always load - it's smart about when to activate)
+if [[ -f "$DOTFILES/zsh/productivity/last-working-dir.sh" ]]; then
+  source "$DOTFILES/zsh/productivity/last-working-dir.sh"
+fi
+
+# Load virtual environment management (conditional loading)
 if [[ "$PWD" =~ (projects|work|learning|dev|\.py$|requirements\.txt|pyproject\.toml) ]] || [[ -n "$VIRTUAL_ENV" ]]; then
   source "$DOTFILES/zsh/productivity/virtualenv.sh"
 fi
-# Only load git enhancements if we're in a git repo or likely to need them
-if git rev-parse --git-dir >/dev/null 2>&1 || [[ "$PWD" =~ (projects|work|dev) ]]; then
+
+# Load git enhancements (conditional loading)
+if git rev-parse --git-dir >/dev/null 2>&1 || [[ "$PWD" =~ (projects|work|dev|learning) ]]; then
   source "$DOTFILES/zsh/productivity/git-enhancements.sh"
 else
   # Provide basic git aliases only
@@ -105,7 +106,14 @@ else
   alias gpu='git pull'
 fi
 
-# fzf 
+# Load enhanced completions (after other productivity scripts so functions are available)
+if [[ -f "$DOTFILES/zsh/productivity/completions.sh" ]]; then
+  source "$DOTFILES/zsh/productivity/completions.sh"
+fi
+
+# ============================================================================
+# FZF LAZY LOADING SETUP
+# ============================================================================
 _setup_fzf_lazy_loading() {
   command -v fzf >/dev/null 2>&1 || return
 
@@ -128,5 +136,13 @@ _setup_fzf_lazy_loading() {
 # Enable the lazy loading
 _setup_fzf_lazy_loading
 
+# Load enhanced cli
+if [[ -f "$DOTFILES/zsh/productivity/cli-enhancements.sh" ]]; then
+  source "$DOTFILES/zsh/productivity/cli-enhancements.sh"
+fi
 # to zoxide to work
 eval "$(zoxide init zsh)"
+# Load enhanced completions
+if [[ -f "$DOTFILES/zsh/productivity/completions.sh" ]]; then
+  source "$DOTFILES/zsh/productivity/completions.sh"
+fi

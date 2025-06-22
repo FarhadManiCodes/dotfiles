@@ -87,3 +87,10 @@ alias tmux-restore='~/.local/bin/tmux-fix-last && ~/.config/tmux/plugins/tmux-re
 
 # Check status
 alias tmux-status='echo "TMux Status:" && tmux list-sessions 2>/dev/null || echo "No tmux sessions running"'
+
+# After forgit loads, manually create prefixed aliases
+alias fga='forgit::add'             # f + ga = interactive add
+alias fgd='forgit::diff'            # f + gd = interactive diff
+alias fglo='forgit::log'            # f + glo = interactive log
+alias fgco='forgit::checkout::file' # f + gco = interactive checkout
+alias fgss='forgit::stash::show'    # forgit stash show
