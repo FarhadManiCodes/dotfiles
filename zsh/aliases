@@ -94,3 +94,6 @@ alias fgd='forgit::diff'            # f + gd = interactive diff
 alias fglo='forgit::log'            # f + glo = interactive log
 alias fgco='forgit::checkout::file' # f + gco = interactive checkout
 alias fgss='forgit::stash::show'    # forgit stash show
+
+
+bindkey '^ ' autosuggest-accept
