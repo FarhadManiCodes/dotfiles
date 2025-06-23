@@ -1,40 +1,135 @@
 #!/bin/zsh
 # =============================================================================
-# OPTIMIZED DOTFILES SCRIPTS - Fixed for compatibility
+# HYBRID APPROACH - Simple loading + Smart virtual environment loading
 # =============================================================================
 
 # Early exit for non-interactive shells
 [[ $- != *i* ]] && return
 
-# Initialize cargo env (early setup)
+# =============================================================================
+# ENVIRONMENT CHECK
+# =============================================================================
+
+if [[ -z "$DOTFILES" ]]; then
+  if [[ -d "$HOME/dotfiles" ]]; then
+    export DOTFILES="$HOME/dotfiles"
+  else
+    echo "❌ Cannot find dotfiles directory!" >&2
+    return 1
+  fi
+fi
+
+if [[ ! -d "$DOTFILES" ]]; then
+  echo "❌ DOTFILES directory doesn't exist: $DOTFILES" >&2
+  return 1
+fi
+
+# =============================================================================
+# UTILITY FUNCTIONS
+# =============================================================================
+
+# Safe sourcing function
+safe_source() {
+  local file="$1"
+  local description="${2:-script}"
+
+  [[ ! -f "$file" ]] && return 1
+  [[ ! -r "$file" ]] && return 1
+
+  if ! (source "$file") >/dev/null 2>&1; then
+    echo "❌ Syntax error in $file" >&2
+    return 1
+  fi
+
+  if source "$file"; then
+    return 0
+  else
+    echo "❌ Failed to source: $description" >&2
+    return 1
+  fi
+}
+
+# Check if we should load virtual environment management
+should_load_virtualenv() {
+  # Load if already in a virtual environment
+  [[ -n "$VIRTUAL_ENV" ]] && return 0
+
+  # Load if in a Python project directory
+  [[ -f "requirements.txt" ]] && return 0
+  [[ -f "pyproject.toml" ]] && return 0
+  [[ -f "environment.yml" ]] && return 0
+  [[ -f "setup.py" ]] && return 0
+  [[ -f "Pipfile" ]] && return 0
+
+  # Load if in common development directories
+  [[ "$PWD" =~ (projects|work|dev|learning) ]] && return 0
+
+  # Load if local venv exists
+  [[ -d "venv" || -d ".venv" || -d "env" ]] && return 0
+
+  # Don't load otherwise
+  return 1
+}
+
+# Load virtual environment management with fallback
+load_virtualenv() {
+  if safe_source "$DOTFILES/zsh/productivity/virtualenv.sh" "virtual environment management"; then
+    _VIRTUALENV_LOADED=true
+    return 0
+  else
+    # Provide basic fallback functions
+    va() {
+      local env="${1:-}"
+      if [[ -z "$env" ]]; then
+        echo "Usage: va <environment_name>"
+        return 1
+      fi
+
+      for path in "$HOME/virtualenv/$env/bin/activate" "./venv/bin/activate" "./.venv/bin/activate"; do
+        if [[ -f "$path" ]]; then
+          source "$path"
+          echo "✅ Activated: $env"
+          return 0
+        fi
+      done
+
+      echo "❌ Environment not found: $env"
+      return 1
+    }
+
+    vd() {
+      if [[ -n "$VIRTUAL_ENV" ]]; then
+        deactivate
+        echo "✅ Deactivated virtual environment"
+      else
+        echo "ℹ️  No active virtual environment"
+      fi
+    }
+
+    vl() {
+      echo "🐍 Virtual Environments:"
+      [[ -d "$HOME/virtualenv" ]] && ls -1 "$HOME/virtualenv" 2>/dev/null | sed 's/^/  /'
+      [[ -d "./venv" ]] && echo "  venv (local)"
+      [[ -d "./.venv" ]] && echo "  .venv (local)"
+    }
+
+    return 1
+  fi
+}
+
+# =============================================================================
+# BASIC SETUP
+# =============================================================================
+
 [[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
 
 # =============================================================================
-# GLOBAL STATE & CONFIGURATION
+# FZF CONFIGURATION
 # =============================================================================
 
-# Loading state tracking
-typeset -g _GIT_ENHANCEMENTS_LOADED=false
-typeset -g _FZF_ENHANCEMENTS_LOADED=false
-typeset -g _VIRTUALENV_LOADED=false
-
-# Performance tracking
-typeset -A _DIR_CACHE
-typeset -g _LAST_PWD=""
-typeset -g DOTFILES_DEBUG=${DOTFILES_DEBUG:-false}
-
-# =============================================================================
-# FZF CONFIGURATION (Early setup for performance)
-# =============================================================================
-
-# Only setup FZF if available
 if command -v fzf >/dev/null 2>&1; then
-  # Shell integration
-  source <(fzf --zsh) 2>/dev/null || {
-    echo "⚠️  FZF shell integration failed" >&2
-  }
-  
-  # Enhanced FZF configuration
+  source <(fzf --zsh) 2>/dev/null
+
   export FZF_DEFAULT_OPTS='
     --height 60%
     --layout=reverse
@@ -58,302 +153,155 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 
 # =============================================================================
-# UTILITY FUNCTIONS
+# LOAD SCRIPTS (Hybrid Approach)
 # =============================================================================
 
-# Debug logging
-debug_log() {
-  [[ "$DOTFILES_DEBUG" == "true" ]] && echo "[DEBUG $(date '+%H:%M:%S')] $*" >&2
-}
+# State tracking for virtual environment
+typeset -g _VIRTUALENV_LOADED=false
 
-# Safe file sourcing
-safe_source() {
-  local file="$1" description="${2:-script}"
-  
-  if [[ ! -f "$file" ]]; then
-    debug_log "Missing $description: $file"
-    return 1
-  fi
-  
-  if [[ ! -r "$file" ]]; then
-    debug_log "Unreadable $description: $file"
-    return 1
-  fi
-  
-  # Quick syntax check
-  if ! (source "$file") >/dev/null 2>&1; then
-    echo "❌ Syntax error in $description: $file" >&2
-    return 1
-  fi
-  
-  source "$file"
-  debug_log "Loaded $description: $file"
-}
-
-# Fast directory context detection with caching
-get_dir_context() {
-  local dir="$PWD"
-  local cache_key="context:$dir"
-  
-  # Return cached result
-  if [[ -n "${_DIR_CACHE[$cache_key]:-}" ]]; then
-    echo "${_DIR_CACHE[$cache_key]}"
-    return
-  fi
-  
-  local context=""
-  
-  # Fast file checks
-  [[ -d ".git" ]] && context="${context}git,"
-  [[ -f "requirements.txt" || -f "pyproject.toml" || -f "environment.yml" ]] && context="${context}python,"
-  [[ -d "venv" || -d ".venv" ]] && context="${context}venv,"
-  [[ "$dir" =~ (projects|work|dev|learning) ]] && context="${context}dev,"
-  
-  # Cache and return
-  _DIR_CACHE[$cache_key]="${context%,}"
-  echo "${context%,}"
-}
-
-# =============================================================================
-# DYNAMIC LOADING FUNCTIONS
-# =============================================================================
-
-load_git_enhancements() {
-  [[ "$_GIT_ENHANCEMENTS_LOADED" == "true" ]] && return
-  
-  local context=$(get_dir_context)
-  if [[ "$context" == *"git"* ]] || [[ "$context" == *"dev"* ]]; then
-    if safe_source "$DOTFILES/zsh/productivity/git-enhancements.sh" "git enhancements"; then
-      _GIT_ENHANCEMENTS_LOADED=true
-      debug_log "Git enhancements loaded"
-    else
-      # Fallback to basic git aliases
-      alias gs='git status'
-      alias ga='git add'
-      alias gc='git commit --verbose'
-      alias gp='git push'
-      alias gpu='git pull'
-      debug_log "Using git fallback aliases"
-    fi
-  fi
-}
-
-load_virtualenv() {
-  [[ "$_VIRTUALENV_LOADED" == "true" ]] && return
-  
-  local context=$(get_dir_context)
-  if [[ "$context" == *"python"* ]] || [[ "$context" == *"venv"* ]] || [[ -n "$VIRTUAL_ENV" ]]; then
-    if safe_source "$DOTFILES/zsh/productivity/virtualenv.sh" "virtual environment management"; then
-      _VIRTUALENV_LOADED=true
-      debug_log "Virtual environment management loaded"
-    fi
-  fi
-}
-
-load_fzf_enhancements() {
-  [[ "$_FZF_ENHANCEMENTS_LOADED" == "true" ]] && return
-  
-  if command -v fzf >/dev/null 2>&1; then
-    if safe_source "$DOTFILES/zsh/productivity/fzf-enhancements.sh" "FZF enhancements"; then
-      _FZF_ENHANCEMENTS_LOADED=true
-      debug_log "FZF enhancements loaded"
-    fi
-  fi
-}
-
-# =============================================================================
-# TMUX AUTO-START (Simplified)
-# =============================================================================
-
-should_start_tmux() {
-  [[ -n "$TMUX" ]] && return 1
-  [[ ! -t 0 ]] && return 1
-  [[ "$PWD" =~ ^(/tmp|/var|/proc|/sys|/dev|/run) ]] && return 1
-  [[ -n "$VSCODE_INJECTION" || -n "$INSIDE_EMACS" ]] && return 1
-  return 0
-}
-
-smart_tmux_prompt() {
-  command -v tmux >/dev/null 2>&1 || return
-  
-  if tmux list-sessions >/dev/null 2>&1; then
-    echo "🔍 TMux sessions:"
-    tmux list-sessions -F "  📋 #{session_name} (#{session_windows} windows)"
-    echo "💡 Use: tmux attach -t <n> or tmux-new"
-  else
-    echo "🚀 Starting tmux with session restoration..."
-    tmux-start 2>/dev/null || echo "❌ Failed to start tmux"
-  fi
-}
-
-should_start_tmux && smart_tmux_prompt
-
-# =============================================================================
-# FZF LAZY LOADING (Bulletproof approach)
-# =============================================================================
-
-create_fzf_wrappers() {
-  command -v fzf >/dev/null 2>&1 || return
-  
-  local fzf_functions=(fnb frg fdir fproc fhist fdata ff fgit)
-  
-  for func in "${fzf_functions[@]}"; do
-    eval "
-    $func() {
-      if [[ \"\$_FZF_ENHANCEMENTS_LOADED\" != \"true\" ]]; then
-        load_fzf_enhancements
-      fi
-      
-      # Call the real function if it exists
-      if declare -f \"$func\" >/dev/null 2>&1; then
-        command $func \"\$@\"
-      else
-        echo \"❌ Function $func not available\" >&2
-        return 1
-      fi
-    }"
-  done
-}
-
-# =============================================================================
-# SCRIPT LOADING SEQUENCE (FIXED ORDER)
-# =============================================================================
-
-# 1. CRITICAL: Load last working directory FIRST (it sets up its own chpwd)
+# 1. Last Working Directory (ALWAYS LOAD - simple and safe)
 safe_source "$DOTFILES/zsh/productivity/last-working-dir.sh" "last working directory"
 
-# 2. Load based on initial directory context
-load_git_enhancements
-load_virtualenv
+# Auto-restore if in HOME
+if [[ "$PWD" == "$HOME" ]] && type lwd >/dev/null 2>&1; then
+  lwd 2>/dev/null
+fi
 
-# 3. Setup FZF wrappers
-create_fzf_wrappers
+# 2. Git Enhancements (ALWAYS LOAD - used everywhere in development)
+if safe_source "$DOTFILES/zsh/productivity/git-enhancements.sh" "git enhancements"; then
+  :
+else
+  # Basic git aliases fallback
+  alias gs='git status'
+  alias ga='git add'
+  alias gc='git commit --verbose'
+  alias gp='git push'
+  alias gpu='git pull'
+  alias gd='git diff'
+  alias gl='git log --oneline'
+fi
 
-# 4. Load CLI enhancements (small script, always safe to load)
-safe_source "$DOTFILES/zsh/productivity/cli-enhancements.sh" "CLI enhancements"
+# 3. Virtual Environment Management (CONDITIONAL LOAD - prevents cd errors)
+if should_load_virtualenv; then
+  load_virtualenv
+fi
 
-# 5. Initialize zoxide (fast operation)
-command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+# 4. FZF Enhancements (ALWAYS LOAD if FZF available - safe and useful)
+if command -v fzf >/dev/null 2>&1; then
+  safe_source "$DOTFILES/zsh/productivity/fzf-enhancements.sh" "FZF enhancements"
+fi
 
-# 6. Load completions last (after functions are available)
+# 5. Zoxide (ALWAYS LOAD - safe and fast)
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
+fi
+
+# 6. Custom Completions (ALWAYS LOAD - safe)
 safe_source "$DOTFILES/zsh/productivity/completions.sh" "custom completions"
 
 # =============================================================================
-# ENHANCED CHPWD HOOK (COOPERATIVE WITH LAST-WORKING-DIR)
+# SMART CHPWD HOOK (for virtual environment lazy loading)
 # =============================================================================
 
-# Our enhanced chpwd that works WITH the last-working-dir chpwd
-our_chpwd_hook() {
-  local current_dir="$PWD"
-  
-  # Skip if same directory
-  [[ "$current_dir" == "$_LAST_PWD" ]] && return
-  
-  # Get context efficiently
-  local context=$(get_dir_context)
-  local prev_context="${_DIR_CACHE[context:$_LAST_PWD]:-}"
-  
-  # Only do expensive operations if context changed
-  if [[ "$context" != "$prev_context" ]]; then
-    debug_log "Context changed: '$prev_context' -> '$context'"
-    
-    # Load modules based on new context
-    [[ "$context" == *"git"* ]] && load_git_enhancements
-    [[ "$context" == *"python"* ]] && load_virtualenv
+smart_chpwd_hook() {
+  # Only try to load virtualenv if not already loaded
+  if [[ "$_VIRTUALENV_LOADED" == "false" ]] && should_load_virtualenv; then
+    echo "🐍 Python project detected, loading virtual environment management..."
+    load_virtualenv
   fi
-  
-  _LAST_PWD="$current_dir"
-  
-  # Periodic cache cleanup
-  (( ${#_DIR_CACHE[@]} > 100 )) && {
-    debug_log "Cleaning cache (${#_DIR_CACHE[@]} entries)"
-    local -A new_cache
-    for key in "${(@k)_DIR_CACHE}"; do
-      [[ "$key" == "context:$PWD"* ]] && new_cache[$key]="${_DIR_CACHE[$key]}"
-    done
-    _DIR_CACHE=("${(@kv)new_cache}")
-  }
+
+  # Call auto_activate_venv if it's available (after virtualenv is loaded)
+  if [[ "$_VIRTUALENV_LOADED" == "true" ]] && type auto_activate_venv >/dev/null 2>&1; then
+    auto_activate_venv
+  fi
 }
 
-# =============================================================================
-# ZSH HOOKS SETUP (COOPERATIVE)
-# =============================================================================
-
+# Add our smart chpwd hook
 if [[ -n "$ZSH_VERSION" ]]; then
   autoload -U add-zsh-hook
-  
-  # Add our hook WITHOUT interfering with last-working-dir's chpwd
-  add-zsh-hook chpwd our_chpwd_hook
-  
-  # Call our hook once for initial setup
-  our_chpwd_hook
+  add-zsh-hook chpwd smart_chpwd_hook
+
+  # Run once for current directory
+  smart_chpwd_hook
 fi
 
 # =============================================================================
 # UTILITY COMMANDS
 # =============================================================================
 
-# Force reload everything
-reload_enhancements() {
-  echo "🔄 Reloading enhancements..."
-  _GIT_ENHANCEMENTS_LOADED=false
+# Show loading status
+loading_status() {
+  echo "📊 Dotfiles Status:"
+  echo "  DOTFILES: $DOTFILES"
+  echo "  Git enhancements: $(type gst >/dev/null 2>&1 && echo "✅" || echo "❌")"
+  echo "  Git (data science): $(type gstds >/dev/null 2>&1 && echo "✅" || echo "❌")"
+  echo "  Virtual env loaded: $_VIRTUALENV_LOADED"
+  echo "  Virtual env functions: $(type va >/dev/null 2>&1 && echo "✅" || echo "❌")"
+  echo "  FZF functions: $(type fnb >/dev/null 2>&1 && echo "✅" || echo "❌")"
+  echo "  Last working dir: $(type lwd >/dev/null 2>&1 && echo "✅" || echo "❌")"
+  echo "  Zoxide: $(type z >/dev/null 2>&1 && echo "✅" || echo "❌")"
+
+  # Context info
+  echo ""
+  echo "🔍 Current Context:"
+  echo "  Directory: $PWD"
+  echo "  Should load VE: $(should_load_virtualenv && echo "✅ YES" || echo "❌ NO")"
+
+  if [[ -n "$VIRTUAL_ENV" ]]; then
+    echo "  Active venv: $(basename "$VIRTUAL_ENV")"
+  fi
+
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    echo "  Git repo: $(basename "$(git rev-parse --show-toplevel)" 2>/dev/null)"
+  fi
+}
+
+# Test LWD functionality
+lwd_test() {
+  echo "🧪 Testing Last Working Directory:"
+
+  if type lwd >/dev/null 2>&1; then
+    echo "  ✅ lwd function exists"
+  else
+    echo "  ❌ lwd function missing"
+  fi
+
+  if type chpwd_last_working_dir >/dev/null 2>&1; then
+    echo "  ✅ chpwd_last_working_dir function exists"
+  else
+    echo "  ❌ chpwd_last_working_dir function missing"
+  fi
+
+  local cache_file="${ZSH_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/last-working-dir${SSH_USER:+.$SSH_USER}"
+  echo "  📁 Cache file: $cache_file"
+
+  if [[ -f "$cache_file" ]]; then
+    local saved_dir=$(cat "$cache_file" 2>/dev/null)
+    echo "  📂 Saved: $saved_dir"
+    echo "  ✅ Directory exists: $([ -d "$saved_dir" ] && echo "YES" || echo "NO")"
+  else
+    echo "  ⚠️  No cache file found"
+  fi
+}
+
+# Force load virtual environment
+load_virtualenv_now() {
+  echo "🐍 Force loading virtual environment management..."
+  if load_virtualenv; then
+    echo "✅ Virtual environment management loaded"
+  else
+    echo "❌ Failed to load virtual environment management"
+  fi
+}
+
+# Reload everything
+reload_scripts() {
+  echo "🔄 Reloading scripts..."
   _VIRTUALENV_LOADED=false
-  _FZF_ENHANCEMENTS_LOADED=false
-  _DIR_CACHE=()
-  
-  load_git_enhancements
-  load_virtualenv
-  load_fzf_enhancements
+  source "$DOTFILES/zsh/scripts.sh"
   echo "✅ Reload complete"
 }
 
-# Show loading status
-show_loading_status() {
-  echo "📊 Dynamic Loading Status:"
-  echo "  Git enhancements: $_GIT_ENHANCEMENTS_LOADED"
-  echo "  Virtual environment: $_VIRTUALENV_LOADED"
-  echo "  FZF enhancements: $_FZF_ENHANCEMENTS_LOADED"
-  echo "  Directory cache: ${#_DIR_CACHE[@]} entries"
-  echo "  Current context: $(get_dir_context)"
-  echo "  Debug mode: $DOTFILES_DEBUG"
-  echo ""
-  echo "🔧 Functions available:"
-  echo "  Last working dir: $(type smart_save_directory >/dev/null 2>&1 && echo "✅" || echo "❌")"
-  echo "  Auto venv: $(type auto_activate_venv >/dev/null 2>&1 && echo "✅" || echo "❌")"
-}
-
-# Test last working directory
-test_lwd() {
-  echo "🧪 Testing last working directory..."
-  
-  # Check if functions exist
-  if type smart_save_directory >/dev/null 2>&1; then
-    echo "✅ smart_save_directory function found"
-  else
-    echo "❌ smart_save_directory function missing"
-  fi
-  
-  if type lwd_status >/dev/null 2>&1; then
-    echo "✅ lwd_status function found"
-    lwd_status
-  else
-    echo "❌ lwd_status function missing"
-  fi
-  
-  # Test manual save
-  echo "📁 Testing manual save..."
-  if type lwd_save >/dev/null 2>&1; then
-    lwd_save
-  else
-    echo "❌ lwd_save function not available"
-  fi
-}
-
 # Aliases
-alias reload-enhancements='reload_enhancements'
-alias loading-status='show_loading_status'
-alias test-lwd='test_lwd'
-alias debug-on='export DOTFILES_DEBUG=true; echo "🐛 Debug enabled"'
-alias debug-off='export DOTFILES_DEBUG=false; echo "🐛 Debug disabled"'
-
-debug_log "Scripts.sh loaded successfully"
+alias loading_status='loading_status'
+alias load_ve='load_virtualenv_now'
