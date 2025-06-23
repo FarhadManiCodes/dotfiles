@@ -270,16 +270,16 @@ alias python=python3.13
 # CUSTOM CONFIGURATION (Your existing setup)
 # ============================================================================
 
-# Load your existing aliases
-if [[ -f "$XDG_CONFIG_HOME/zsh/aliases" ]]; then
-  source "$XDG_CONFIG_HOME/zsh/aliases"
-fi
 
 # Load your existing scripts
 if [[ -f "$DOTFILES/zsh/scripts.sh" ]]; then
   source "$DOTFILES/zsh/scripts.sh"
 fi
 
+# Load your existing aliases
+if [[ -f "$XDG_CONFIG_HOME/zsh/aliases" ]]; then
+  source "$XDG_CONFIG_HOME/zsh/aliases"
+fi
 # Load P10k config (matching your current setup)
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
