@@ -501,5 +501,3 @@ fzf-enhanced() {
       echo "  ⚙️  System: proc, dc" ;;
   esac
 }
-
-echo "✅ Enhanced FZF functions loaded!"
