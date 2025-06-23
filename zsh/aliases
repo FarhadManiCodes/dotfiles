@@ -30,30 +30,33 @@ alias jl='tmux-jupyer-auto'
 alias js='jupyer-smart'
 
 # tmux
+# Enhanced session name generator using smart project detection
 generate_session_name() {
   local session_name=""
 
+  # Get smart project name as base
+  local base_name=$(get_project_name)
+
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    # In git repo
-    local repo_name=$(basename "$(git rev-parse --show-toplevel)")
+    # In git repo - add branch info for feature branches
     local branch=$(git branch --show-current 2>/dev/null)
 
-    if [ -n "$branch" ] && [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
-      # Feature branch: repo-branch
-      session_name="${repo_name}-${branch}"
+    if [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" && "$branch" != "develop" ]]; then
+      # Feature branch: use base-branch format
+      session_name="${base_name}-${branch}"
     else
-      # Main branch: just repo name
-      session_name="$repo_name"
+      # Main/master/develop branch: just use base name
+      session_name="$base_name"
     fi
   else
-    # Not in git: use folder name
-    session_name=$(basename "$PWD")
+    # Not in git: just use base name
+    session_name="$base_name"
   fi
 
-  # Clean name and handle duplicates
+  # Clean name for tmux compatibility and limit length
   session_name=$(echo "$session_name" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-20)
 
-  # Add number if session exists
+  # Handle duplicates by adding counter
   if tmux has-session -t "$session_name" 2>/dev/null; then
     local counter=2
     while tmux has-session -t "${session_name}-${counter}" 2>/dev/null; do
@@ -64,7 +67,6 @@ generate_session_name() {
 
   echo "$session_name"
 }
-
 # Updated tmux-new
 alias tmux-new='
 SESSION_NAME=$(generate_session_name)

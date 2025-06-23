@@ -134,7 +134,9 @@ if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
 fi
 
-# 6. Custom Completions
+# 6. get project info 
+safe_source "$DOTFILES/zsh/productivity/project-detection.sh" "project detection" || echo "❌ Project detection failed"
+# 7. Custom Completions
 safe_source "$DOTFILES/zsh/productivity/completions.sh" "custom completions" || echo "❌ Custom completions failed"
 
 # =============================================================================

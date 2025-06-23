@@ -10,13 +10,13 @@
 _get_venv_names() {
   local central_venvs="${CENTRAL_VENVS:-$HOME/.central_venvs}"
   local -a envs
-  
+
   if [[ -d "$central_venvs" ]]; then
     for env_dir in "$central_venvs"/*; do
       [[ -d "$env_dir" ]] && envs+=("$(basename "$env_dir"):venv ($(du -sh "$env_dir" 2>/dev/null | cut -f1 || echo "?"))")
     done
   fi
-  
+
   printf '%s\n' "${envs[@]}"
 }
 
@@ -26,32 +26,70 @@ _va_completion() {
   while IFS= read -r line; do
     [[ -n "$line" ]] && envs+=("$line")
   done < <(_get_venv_names)
-  
+
   # Add current project suggestion
-  local project_name=$(basename "$PWD")
+  local project_name=$(get_project_name)
   envs+=("$project_name:suggested for current project")
-  
+
   _describe 'virtual environments' envs
 }
 
 # Completion for vc (create environment)
 _vc_completion() {
   if [[ $CURRENT -eq 2 ]]; then
-    # Environment name
+    # Environment name suggestions
     local -a suggestions
-    local project_name=$(basename "$PWD")
-    suggestions+=("$project_name:environment for current project")
-    suggestions+=("local:creates env named '$project_name'")
+    suggestions+=("local:Create local .venv environment")
+    
+    # Smart project name suggestion
+    local project_name=$(get_project_name)
+    local current_dir=$(basename "$PWD")
+    
+    if [[ "$project_name" != "$current_dir" ]]; then
+      suggestions+=("$project_name:Smart project name")
+      suggestions+=("$current_dir:Current directory name")
+    else
+      suggestions+=("$project_name:Project name")
+    fi
+    
+    # Add git repo name if different from project name
+    if is_project_type "git"; then
+      local git_name=""
+      local remote_url=$(git remote get-url origin 2>/dev/null)
+      if [[ -n "$remote_url" ]]; then
+        # Extract repo name from git remote
+        if [[ "$remote_url" =~ github\.com[:/]([^/]+)/([^/\.]+) ]]; then
+          git_name="${match[2]}"
+        elif [[ "$remote_url" =~ gitlab\.com[:/]([^/]+)/([^/\.]+) ]]; then
+          git_name="${match[2]}"
+        elif [[ "$remote_url" =~ bitbucket\.org[:/]([^/]+)/([^/\.]+) ]]; then
+          git_name="${match[2]}"
+        else
+          git_name=$(basename "$remote_url" .git 2>/dev/null)
+        fi
+      else
+        # Fallback to git root directory name
+        local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        [[ -n "$git_root" ]] && git_name=$(basename "$git_root")
+      fi
+      
+      # Only add if different from project name and current dir
+      if [[ -n "$git_name" && "$git_name" != "$project_name" && "$git_name" != "$current_dir" ]]; then
+        suggestions+=("$git_name:Git repository name")
+      fi
+    fi
+    
     _describe 'environment name' suggestions
+    
   elif [[ $CURRENT -eq 3 ]]; then
-    # Template
+    # Template type (same as before)
     local -a templates
     templates=(
-      'basic:Basic development packages'
-      'ds:Data Science stack (jupyter, pandas, etc.)'
-      'de:Data Engineering stack (polars, duckdb, etc.)'
-      'ml:Machine Learning stack'
-      'none:No template, use requirements.txt'
+      'basic:Basic development packages (requests, black, flake8, pytest, pylint, mypy)'
+      'ds:Data Science stack (ipython, jupyter, pandas, numpy, scipy, matplotlib, seaborn, scikit-learn, plotly)'
+      'de:Data Engineering stack (ipython, jupyter, pandas, polars, duckdb, sqlalchemy, great-expectations, requests, pyarrow)'
+      'ml:Machine Learning stack (ipython, jupyter, pandas, numpy, matplotlib, seaborn, scikit-learn, plotly)'
+      'none:No template, install from requirements.txt only'
     )
     _describe 'templates' templates
   fi
@@ -63,7 +101,7 @@ _vr_completion() {
   while IFS= read -r line; do
     [[ -n "$line" ]] && envs+=("$line")
   done < <(_get_venv_names)
-  
+
   _describe 'environments to remove' envs
 }
 
@@ -97,7 +135,7 @@ _jupyter_smart_completion() {
       '8892:Alternative port'
       '9000:Alternative port'
     )
-    
+
     # Add currently running instances
     if [[ -d "/tmp" ]]; then
       for pidfile in /tmp/jupyter-lab-$USER-*.pid; do
@@ -109,7 +147,7 @@ _jupyter_smart_completion() {
         fi
       done
     fi
-    
+
     _describe 'commands or ports' commands
   elif [[ $CURRENT -eq 3 ]]; then
     # Command for specific port
@@ -134,7 +172,7 @@ _jupyter_smart_completion() {
 
 _tmux_session_completion() {
   local -a sessions
-  
+
   # Get current tmux sessions
   if command -v tmux >/dev/null && tmux list-sessions >/dev/null 2>&1; then
     while IFS= read -r line; do
@@ -143,44 +181,75 @@ _tmux_session_completion() {
       sessions+=("$session_name:$session_info")
     done < <(tmux list-sessions 2>/dev/null)
   fi
-  
+
   _describe 'tmux sessions' sessions
 }
 
+# Enhanced completion for tmux-save-named-session
 _tmux_save_named_completion() {
   if [[ $CURRENT -eq 2 ]]; then
-    # Suggest session name based on current context
     local -a suggestions
     
-    # Current tmux session name
+    # Current tmux session name (if in tmux and renaming)
     if [[ -n "$TMUX" ]]; then
       local current_session=$(tmux display-message -p '#S' 2>/dev/null)
       if [[ -n "$current_session" ]]; then
-        suggestions+=("$current_session:current tmux session")
+        suggestions+=("$current_session:Current tmux session")
       fi
     fi
     
-    # Project-based name if get_project_name exists
-    if type get_project_name >/dev/null 2>&1; then
-      local project_info=$(get_project_name 2>/dev/null)
-      local project_name="${project_info##*:}"
-      if [[ -n "$project_name" ]]; then
-        suggestions+=("$project_name:based on current project")
-      fi
+    # Smart project name suggestion
+    local project_name=$(get_project_name)
+    local current_dir=$(basename "$PWD")
+    
+    # Only add if different from current session
+    if [[ -z "$current_session" || "$project_name" != "$current_session" ]]; then
+      suggestions+=("$project_name:Smart project name")
     fi
     
-    # Directory-based name
-    local dir_name=$(basename "$PWD")
-    suggestions+=("$dir_name:based on current directory")
+    # Current directory name (if different from project name and session)
+    if [[ "$current_dir" != "$project_name" && "$current_dir" != "$current_session" ]]; then
+      suggestions+=("$current_dir:Current directory name")
+    fi
+    
+    # Add git repo name if different from all above
+    if is_project_type "git"; then
+      local git_name=""
+      local remote_url=$(git remote get-url origin 2>/dev/null)
+      if [[ -n "$remote_url" ]]; then
+        # Extract repo name from git remote
+        if [[ "$remote_url" =~ github\.com[:/]([^/]+)/([^/\.]+) ]]; then
+          git_name="${match[2]}"
+        elif [[ "$remote_url" =~ gitlab\.com[:/]([^/]+)/([^/\.]+) ]]; then
+          git_name="${match[2]}"
+        elif [[ "$remote_url" =~ bitbucket\.org[:/]([^/]+)/([^/\.]+) ]]; then
+          git_name="${match[2]}"
+        else
+          git_name=$(basename "$remote_url" .git 2>/dev/null)
+        fi
+      else
+        # Fallback to git root directory name
+        local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        [[ -n "$git_root" ]] && git_name=$(basename "$git_root")
+      fi
+      
+      # Only add if different from all previous suggestions
+      if [[ -n "$git_name" && "$git_name" != "$project_name" && "$git_name" != "$current_dir" && "$git_name" != "$current_session" ]]; then
+        suggestions+=("$git_name:Git repository name")
+      fi
+    fi
     
     _describe 'session name' suggestions
   fi
 }
 
+# Register the completion
+compdef _tmux_save_named_enhanced_completion tmux-save-named-session
+
 _tmux_layout_completion() {
   local -a layouts
   local layout_dir="$HOME/.config/tmux/layouts"
-  
+
   if [[ -d "$layout_dir" ]]; then
     for layout in "$layout_dir"/*.sh; do
       if [[ -f "$layout" ]]; then
@@ -193,7 +262,7 @@ _tmux_layout_completion() {
       fi
     done
   fi
-  
+
   _describe 'tmux layouts' layouts
 }
 
@@ -209,7 +278,7 @@ _fnb_completion() {
   else
     notebooks=($(find . -name "*.ipynb" -type f 2>/dev/null | head -20))
   fi
-  
+
   # Add useful info about notebooks
   local -a enhanced_notebooks
   for notebook in $notebooks; do
@@ -218,7 +287,7 @@ _fnb_completion() {
       enhanced_notebooks+=("$notebook:$size")
     fi
   done
-  
+
   _describe 'jupyter notebooks' enhanced_notebooks
 }
 
@@ -230,7 +299,7 @@ _fdata_completion() {
   else
     data_files=($(find . \( -name "*.csv" -o -name "*.json" -o -name "*.parquet" -o -name "*.pkl" -o -name "*.h5" \) -type f 2>/dev/null | head -20))
   fi
-  
+
   # Add file size info
   local -a enhanced_files
   for file in $data_files; do
@@ -239,7 +308,7 @@ _fdata_completion() {
       enhanced_files+=("$file:$size")
     fi
   done
-  
+
   _describe 'data files' enhanced_files
 }
 
@@ -251,7 +320,7 @@ _fgit_completion() {
   else
     git_repos=($(find . -type d -name ".git" -maxdepth 3 2>/dev/null | sed 's|/.git$||' | head -20))
   fi
-  
+
   # Add branch info
   local -a enhanced_repos
   for repo in $git_repos; do
@@ -260,7 +329,7 @@ _fgit_completion() {
       enhanced_repos+=("$repo:on $branch")
     fi
   done
-  
+
   _describe 'git repositories' enhanced_repos
 }
 
@@ -313,18 +382,18 @@ _gci_completion() {
 # Smart completion that adapts based on current directory context
 _smart_project_completion() {
   local -a context_commands
-  
+
   # Check project type and suggest relevant commands
   local has_python=false
   local has_data=false
   local has_git=false
   local has_jupyter=false
-  
+
   [[ -f "requirements.txt" || -f "pyproject.toml" || -f "setup.py" ]] && has_python=true
   [[ -d "data" || -f *.csv(N) || -f *.parquet(N) || -f *.json(N) ]] && has_data=true
   [[ -d ".git" ]] && has_git=true
   [[ -d "notebooks" || -f *.ipynb(N) ]] && has_jupyter=true
-  
+
   if $has_python; then
     context_commands+=(
       'va:Activate virtual environment'
@@ -332,7 +401,7 @@ _smart_project_completion() {
       'vc:Create virtual environment'
     )
   fi
-  
+
   if $has_jupyter; then
     context_commands+=(
       'jupyter-smart:Start Jupyter Lab'
@@ -340,13 +409,13 @@ _smart_project_completion() {
       'fnb:Browse notebooks'
     )
   fi
-  
+
   if $has_data; then
     context_commands+=(
       'fdata:Browse data files'
     )
   fi
-  
+
   if $has_git; then
     context_commands+=(
       'fgit:Browse git repositories'
@@ -354,13 +423,13 @@ _smart_project_completion() {
       'gci:Interactive commit'
     )
   fi
-  
+
   # Always available
   context_commands+=(
     'tmux-new:Create new tmux session'
     'ff:Find files'
   )
-  
+
   _describe 'project commands' context_commands
 }
 
@@ -372,7 +441,6 @@ _smart_project_completion() {
 compdef _va_completion va
 compdef _vc_completion vc
 compdef _vr_completion vr
-compdef _vf_completion vf
 
 # Jupyter tools (jupyter-smart)
 compdef _jupyter_smart_completion jupyter-smart
@@ -408,7 +476,7 @@ _python_env_completion() {
     local -a python_commands
     python_commands=(
       'python:Python interpreter'
-      'pip:Package installer'  
+      'pip:Package installer'
       'pytest:Run tests'
       'black:Format code'
       'flake8:Lint code'
@@ -420,4 +488,3 @@ _python_env_completion() {
     _describe 'activate environment first' 'va:Activate virtual environment' 'vp:Project environment'
   fi
 }
-
