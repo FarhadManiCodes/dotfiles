@@ -340,3 +340,20 @@ if [[ "$ZSH_PROFILE" == "true" ]]; then
   zprof > ~/.zsh_profile_output.txt
 fi
 
+
+# direnv hook
+eval "$(direnv hook zsh)"
+
+# Centralized venv helper
+use_venv() {
+  local venv_name=${1:-$(basename $PWD)}
+  local venv_path="$HOME/.central_venvs/$venv_name"
+  
+  if [ ! -d "$venv_path" ]; then
+    echo "Creating new venv: $venv_name"
+    python -m venv "$venv_path"
+  fi
+  
+  echo "source $venv_path/bin/activate" > .envrc
+  direnv allow
+}
