@@ -1,323 +1,63 @@
 #!/bin/zsh
 # =============================================================================
-# Direnv-based Virtual Environment Management for Data Engineering/MLOps
-# Much simpler than the old approach - direnv handles the heavy lifting!
+# Optimized Direnv-based Virtual Environment Management
 # =============================================================================
 
-# Configuration
 export CENTRAL_VENVS="$HOME/.central_venvs"
-
-# Ensure central venvs directory exists
 [[ ! -d "$CENTRAL_VENVS" ]] && mkdir -p "$CENTRAL_VENVS"
 
 # =============================================================================
-# CORE FUNCTIONS - Simplified with direnv
+# CORE HELPER FUNCTIONS
 # =============================================================================
 
-# Create virtual environment and .envrc
-vc() {
-  local name="$1"
-  local template="$2"
-  
-  if [[ -z "$name" ]]; then
-    echo "Usage: vc <env_name> [template]"
-    echo "   or: vc local [template]  # creates env named after current directory"
-    echo "Templates: basic, ds (data-science), de (data-engineering), ml, none"
-    return 1
-  fi
-  
-  # Handle "local" - use directory name
-  if [[ "$name" == "local" ]]; then
-    name=$(basename "$PWD")
-    template="$2"
-  fi
-  
-  local venv_path="$CENTRAL_VENVS/$name"
-  
-  # Check if environment already exists
-  if [[ -d "$venv_path" ]]; then
-    echo "⚠️  Environment '$name' already exists at $venv_path"
-    echo "🔄 Setting up .envrc to use existing environment..."
-    _create_envrc "$name"
-    return 0
-  fi
-  
-  echo "🐍 Creating virtual environment: $name"
-  echo "📁 Location: $venv_path"
-  
-  # Create the virtual environment
-  if ! python3 -m venv "$venv_path"; then
-    echo "❌ Failed to create virtual environment"
-    return 1
-  fi
-  
-  # Create .envrc file
-  _create_envrc "$name"
-  
-  # Activate temporarily to install packages
-  source "$venv_path/bin/activate"
-  
-  # Install template packages
-  _install_template "$template"
-  
-  echo "✅ Environment '$name' created!"
-  echo "🔄 direnv will activate it automatically when you cd here"
-  echo "💡 Add '.envrc' to .gitignore if you don't want to version it"
+# Get environment path
+_env_path() { echo "$CENTRAL_VENVS/$1"; }
+
+# Check if environment exists
+_env_exists() { [[ -d "$(_env_path "$1")" ]]; }
+
+# Get environment name from .envrc
+_get_envrc_env() {
+  [[ -f ".envrc" ]] || return 1
+  grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p'
 }
 
-# Activate environment with smart .envrc handling
-va() {
-  # Interactive selection if no argument
-  if [[ $# -eq 0 ]]; then
-    if ! command -v fzf >/dev/null; then
-      echo "📋 Available environments:"
-      _list_environments
-      echo "💡 Usage: va <env_name>"
-      return 0
-    fi
-    
-    local selected=$(_list_environments | fzf --prompt="🐍 Select environment: " --height=40%)
-    [[ -z "$selected" ]] && return 0
-    
-    # Extract name from the formatted output
-    selected=$(echo "$selected" | awk '{print $2}')
+# Reload direnv safely
+_reload_direnv() {
+  if direnv allow . && direnv reload; then
+    echo "✅ Environment reloaded"
   else
-    local selected="$1"
+    echo "❌ Failed to reload direnv"
+    return 1
   fi
+}
+
+# Interactive environment selection
+_select_env() {
+  local prompt="${1:-🐍 Select environment: }"
   
-  local venv_path="$CENTRAL_VENVS/$selected"
-  
-  if [[ ! -d "$venv_path" ]]; then
-    echo "❌ Environment '$selected' not found"
-    echo "💡 Available environments:"
+  if ! command -v fzf >/dev/null; then
+    echo "📋 Available environments:"
     _list_environments
+    echo "💡 Install fzf for interactive selection"
     return 1
   fi
   
-  # Smart .envrc handling
-  if [[ -f ".envrc" ]]; then
-    # Get current environment from .envrc
-    local current_env=$(grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
-    
-    echo "📄 Found existing .envrc"
-    if [[ -n "$current_env" ]]; then
-      echo "🔗 Currently points to: $current_env"
-    else
-      echo "⚠️  .envrc format not recognized"
-    fi
-    echo "🎯 You want to use: $selected"
-    echo ""
-    
-    if [[ "$current_env" == "$selected" ]]; then
-      echo "✅ .envrc already points to the correct environment"
-      direnv allow . && direnv reload
-      return 0
-    fi
-    
-    echo "Choose an option:"
-    echo "  1) Override .envrc (make $selected the project default)"
-    echo "  2) Session only (don't change .envrc, manual activation)"
-    echo "  3) Cancel"
-    echo ""
-    printf "Choice [1-3]: "
-    read -r choice
-    
-    case "$choice" in
-      1)
-        echo "🔄 Updating .envrc to use: $selected"
-        _create_envrc "$selected"
-        ;;
-      2)
-        echo "🔧 Manual activation for this session only"
-        source "$venv_path/bin/activate"
-        echo "✅ Activated: $selected (session only)"
-        echo "💡 Use 'vd' to deactivate, or cd elsewhere to return to direnv environment"
-        ;;
-      *)
-        echo "❌ Cancelled"
-        return 0
-        ;;
-    esac
-  else
-    # No .envrc exists - create it automatically
-    echo "📄 No .envrc found in current directory"
-    echo "🎯 Creating .envrc for environment: $selected"
-    _create_envrc "$selected"
-    echo "✅ Environment will activate automatically with direnv"
-  fi
+  _list_environments | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
 }
 
-# Project environment - use or create .envrc based on project name
-vp() {
-  # Check if we already have .envrc
-  if [[ -f ".envrc" ]]; then
-    echo "📋 Found existing .envrc"
-    local current_env=$(grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
-    
-    if [[ -n "$current_env" ]]; then
-      echo "🔗 Currently configured for: $current_env"
-      if [[ -d "$CENTRAL_VENVS/$current_env" ]]; then
-        echo "✅ Environment exists - reloading direnv"
-        direnv allow . && direnv reload
-      else
-        echo "❌ Environment '$current_env' not found!"
-        echo "💡 Use 'va' to select a different environment or 'vc' to create it"
-      fi
-    else
-      echo "⚠️  .envrc format not recognized"
-      echo "💡 Use 'va' to set up a proper environment"
-    fi
-    return 0
-  fi
-  
-  # Detect project name
-  local project_name=$(basename "$PWD")
-  local venv_path="$CENTRAL_VENVS/$project_name"
-  
-  # Check if environment exists
-  if [[ -d "$venv_path" ]]; then
-    echo "🎯 Found existing environment: $project_name"
-    _create_envrc "$project_name"
-    echo "✅ Created .envrc for existing environment"
-  else
-    echo "❓ No environment found for project: $project_name"
-    echo "💡 Create with: vc $project_name [template]"
-    echo "💡 Or use: vc local [template] (creates env named '$project_name')"
-  fi
-}
-
-# Deactivate current environment
-vd() {
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    deactivate
-    echo "✅ Environment deactivated"
-  else
-    echo "ℹ️  No active virtual environment"
-  fi
-}
-
-# Remove .envrc (forget project association)
-vf() {
-  if [[ -f ".envrc" ]]; then
-    rm ".envrc"
-    echo "🗑️  Removed .envrc"
-    echo "🔄 Run 'direnv reload' or cd elsewhere to deactivate"
-  else
-    echo "ℹ️  No .envrc found in current directory"
-  fi
-}
-
-# Remove virtual environment completely
-vr() {
-  local env_name="$1"
-  
-  if [[ -z "$env_name" ]]; then
-    echo "Usage: vr <environment_name>"
-    echo "💡 Available environments:"
-    _list_environments
-    return 1
-  fi
-  
-  local venv_path="$CENTRAL_VENVS/$env_name"
-  
-  if [[ ! -d "$venv_path" ]]; then
-    echo "❌ Environment '$env_name' not found"
-    return 1
-  fi
-  
-  echo "🗑️  Remove virtual environment: $env_name"
-  echo "📁 Location: $venv_path"
-  echo "⚠️  This cannot be undone!"
-  echo ""
-  printf "Are you sure? [y/N]: "
-  read -r REPLY
-  
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    # Deactivate if currently active
-    if [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"$env_name" ]]; then
-      deactivate
-      echo "✅ Deactivated environment"
-    fi
-    
-    rm -rf "$venv_path"
-    echo "✅ Environment '$env_name' removed"
-    echo "💡 Any .envrc files referencing it will need manual cleanup"
-  else
-    echo "❌ Cancelled"
-  fi
-}
-
-# Sync requirements.txt
-vs() {
-  if [[ -z "$VIRTUAL_ENV" ]]; then
-    echo "❌ No active virtual environment"
-    echo "💡 Activate an environment first (cd to direnv directory or use 'va')"
-    return 1
-  fi
-  
-  if [[ -f "requirements.txt" ]]; then
-    echo "📦 Installing from requirements.txt..."
-    pip install -r requirements.txt
-  else
-    echo "❌ No requirements.txt found"
-  fi
-}
-
-# List environments
-vl() {
-  echo "🐍 Virtual Environments"
-  echo "======================="
-  echo ""
-  
-  # Show current environment
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    local current=$(basename "$VIRTUAL_ENV")
-    echo "🟢 Currently active: $current"
-    if [[ -f ".envrc" ]]; then
-      echo "   📄 Managed by direnv (.envrc present)"
-    else
-      echo "   🔧 Manually activated"
-    fi
-  else
-    echo "⚪ No environment active"
-  fi
-  echo ""
-  
-  # List all environments
-  echo "📁 Central environments ($CENTRAL_VENVS):"
-  _list_environments
-  
-  # Show current directory status
-  echo ""
-  echo "📂 Current directory: $(basename "$PWD")"
-  if [[ -f ".envrc" ]]; then
-    echo "   📄 .envrc present"
-    local env_name=$(grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
-    [[ -n "$env_name" ]] && echo "   🔗 Points to: $env_name"
-  else
-    echo "   ❌ No .envrc (not direnv-managed)"
-  fi
-}
-
-# =============================================================================
-# HELPER FUNCTIONS
-# =============================================================================
-
-# Create .envrc file
+# Create .envrc file and reload
 _create_envrc() {
   local env_name="$1"
-  local venv_path="$CENTRAL_VENVS/$env_name"
-  
   cat > .envrc << EOF
-# Auto-generated by vc - Virtual Environment: $env_name
-source $venv_path/bin/activate
+# Auto-generated - Virtual Environment: $env_name
+source $(_env_path "$env_name")/bin/activate
 EOF
-  
   direnv allow .
   echo "📄 Created .envrc pointing to: $env_name"
 }
 
-# List environments in a consistent format
+# List environments in consistent format
 _list_environments() {
   if [[ ! -d "$CENTRAL_VENVS" || -z "$(ls -A "$CENTRAL_VENVS" 2>/dev/null)" ]]; then
     echo "   (no environments found)"
@@ -335,19 +75,11 @@ _list_environments() {
 # Install template packages
 _install_template() {
   local template="$1"
-  
-  # Upgrade pip first
   pip install --upgrade pip setuptools wheel
   
   case "$template" in
     ""|"none")
-      # Try to install from requirements.txt if present
-      if [[ -f "requirements.txt" ]]; then
-        echo "📦 Installing from requirements.txt..."
-        pip install -r requirements.txt
-      else
-        echo "📝 Empty environment created (no template, no requirements.txt)"
-      fi
+      [[ -f "requirements.txt" ]] && pip install -r requirements.txt || echo "📝 Empty environment created"
       ;;
     "basic")
       echo "⚡ Installing basic development packages..."
@@ -355,134 +87,239 @@ _install_template() {
       ;;
     "ds"|"data-science")
       echo "📊 Installing data science packages..."
-      pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly \
-        black flake8 pylint mypy
+      pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy
       ;;
     "de"|"data-engineering")
       echo "🔧 Installing data engineering packages..."
-      pip install ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow \
-        black flake8 pylint mypy
+      pip install ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow black flake8 pylint mypy
       ;;
     "ml"|"machine-learning")
       echo "🤖 Installing ML packages..."
-      pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly \
-        black flake8 pylint mypy
-      echo "💡 Add deep learning later: pip install torch OR pip install tensorflow"
+      pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy
+      echo "💡 Add deep learning: pip install torch OR tensorflow"
       ;;
     *)
-      echo "❌ Unknown template: $template"
-      echo "Available templates: basic, ds, de, ml, none"
+      echo "❌ Unknown template: $template. Available: basic, ds, de, ml, none"
       return 1
       ;;
   esac
 }
 
 # =============================================================================
-# UTILITY FUNCTIONS
+# MAIN FUNCTIONS
 # =============================================================================
 
-# Show current project info
-show_project_info() {
-  echo "🔍 Project Environment Status"
-  echo "============================="
-  echo "📁 Directory: $PWD"
-  echo "📋 Project: $(basename "$PWD")"
+# Create virtual environment and .envrc
+vc() {
+  local name="$1" template="$2"
   
-  if [[ -f ".envrc" ]]; then
-    echo "📄 .envrc: Present"
-    local env_name=$(grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
-    if [[ -n "$env_name" ]]; then
-      echo "🔗 Environment: $env_name"
-      local venv_path="$CENTRAL_VENVS/$env_name"
-      if [[ -d "$venv_path" ]]; then
-        echo "✅ Environment exists"
-      else
-        echo "❌ Environment missing!"
-      fi
-    fi
-    echo "🔄 Direnv status: $(direnv status)"
-  else
-    echo "📄 .envrc: Not found"
-    echo "💡 Use 'vp' to set up project environment"
+  [[ -z "$name" ]] && {
+    echo "Usage: vc <env_name> [template] | vc local [template]"
+    echo "Templates: basic, ds, de, ml, none"
+    return 1
+  }
+  
+  # Handle "local" - use directory name
+  [[ "$name" == "local" ]] && { name=$(basename "$PWD"); template="$2"; }
+  
+  local venv_path="$(_env_path "$name")"
+  
+  # Handle existing environment
+  if _env_exists "$name"; then
+    echo "⚠️  Environment '$name' exists. Setting up .envrc..."
+    _create_envrc "$name"
+    return 0
   fi
   
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo "🟢 Active: $(basename "$VIRTUAL_ENV")"
+  echo "🐍 Creating virtual environment: $name at $venv_path"
+  
+  python3 -m venv "$venv_path" || { echo "❌ Failed to create environment"; return 1; }
+  _create_envrc "$name"
+  
+  # Install packages
+  source "$venv_path/bin/activate"
+  _install_template "$template"
+  
+  echo "✅ Environment '$name' created!"
+  echo "💡 Add '.envrc' to .gitignore if needed"
+}
+
+# Activate environment with smart .envrc handling
+va() {
+  local selected="$1"
+  
+  # Interactive selection if no argument
+  [[ -z "$selected" ]] && { selected=$(_select_env); [[ -z "$selected" ]] && return 0; }
+  
+  # Validate environment exists
+  if ! _env_exists "$selected"; then
+    echo "❌ Environment '$selected' not found"
+    echo "💡 Available environments:"
+    _list_environments
+    return 1
+  fi
+  
+  # Smart .envrc handling
+  if [[ -f ".envrc" ]]; then
+    local current_env=$(_get_envrc_env)
+    echo "📄 Found existing .envrc"
+    [[ -n "$current_env" ]] && echo "🔗 Currently points to: $current_env"
+    echo "🎯 You want to use: $selected"
+    
+    [[ "$current_env" == "$selected" ]] && { echo "✅ Already configured correctly"; _reload_direnv; return 0; }
+    
+    echo -e "\n1) Override .envrc (make $selected project default)\n2) Session only (manual activation)\n3) Cancel"
+    printf "Choice [1-3]: "; read -r choice
+    
+    case "$choice" in
+      1) echo "🔄 Updating .envrc..."; _create_envrc "$selected" ;;
+      2) source "$(_env_path "$selected")/bin/activate"; echo "✅ Session activation: $selected" ;;
+      *) echo "❌ Cancelled"; return 0 ;;
+    esac
   else
-    echo "⚪ No active environment"
+    echo "📄 Creating .envrc for: $selected"
+    _create_envrc "$selected"
   fi
 }
 
-# Find orphaned .envrc files (point to non-existent environments)
-check_envrc_health() {
-  echo "🔍 Checking .envrc files for broken references..."
-  local found_issues=0
+# Project environment management
+vp() {
+  local current_env=$(_get_envrc_env)
   
-  # Search for .envrc files in current directory and subdirectories
+  if [[ -n "$current_env" ]]; then
+    echo "📋 Found .envrc pointing to: $current_env"
+    if _env_exists "$current_env"; then
+      _reload_direnv
+    else
+      echo "❌ Environment '$current_env' not found!"
+      echo "💡 Use 'va' to select different environment or 'vc' to create it"
+    fi
+    return 0
+  fi
+  
+  # No .envrc - try to set up project environment
+  local project_name=$(basename "$PWD")
+  
+  if _env_exists "$project_name"; then
+    echo "🎯 Found environment: $project_name"
+    _create_envrc "$project_name"
+  else
+    echo "❓ No environment for project: $project_name"
+    echo "💡 Create with: vc $project_name [template] or vc local [template]"
+  fi
+}
+
+# Simple functions
+vd() { 
+  [[ -n "$VIRTUAL_ENV" ]] && { deactivate; echo "✅ Environment deactivated"; } || echo "ℹ️  No active environment"
+}
+
+vf() { 
+  [[ -f ".envrc" ]] && { rm ".envrc"; echo "🗑️  Removed .envrc"; } || echo "ℹ️  No .envrc found"
+}
+
+vs() {
+  [[ -z "$VIRTUAL_ENV" ]] && { echo "❌ No active environment. Activate first."; return 1; }
+  [[ -f "requirements.txt" ]] && { echo "📦 Installing requirements..."; pip install -r requirements.txt; } || echo "❌ No requirements.txt"
+}
+
+# Remove environment
+vr() {
+  local env_name="$1"
+  [[ -z "$env_name" ]] && { echo "Usage: vr <environment_name>"; _list_environments; return 1; }
+  
+  if ! _env_exists "$env_name"; then
+    echo "❌ Environment '$env_name' not found"
+    return 1
+  fi
+  
+  echo "🗑️  Remove: $env_name at $(_env_path "$env_name")"
+  printf "⚠️  Cannot be undone! Continue? [y/N]: "; read -r REPLY
+  
+  [[ $REPLY =~ ^[Yy]$ ]] || { echo "❌ Cancelled"; return 0; }
+  
+  # Deactivate if active
+  [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"$env_name" ]] && { deactivate; echo "✅ Deactivated"; }
+  
+  rm -rf "$(_env_path "$env_name")"
+  echo "✅ Environment '$env_name' removed"
+}
+
+# List environments and status
+vl() {
+  echo "🐍 Virtual Environments\n======================="
+  
+  # Current status
+  if [[ -n "$VIRTUAL_ENV" ]]; then
+    local current=$(basename "$VIRTUAL_ENV")
+    local managed=$([[ -f ".envrc" ]] && echo "direnv" || echo "manual")
+    echo "🟢 Active: $current ($managed)"
+  else
+    echo "⚪ No environment active"
+  fi
+  
+  echo -e "\n📁 Central environments ($CENTRAL_VENVS):"
+  _list_environments
+  
+  # Current directory info
+  local current_env=$(_get_envrc_env)
+  echo -e "\n📂 Current directory: $(basename "$PWD")"
+  if [[ -n "$current_env" ]]; then
+    echo "   📄 .envrc → $current_env"
+  else
+    echo "   ❌ No .envrc (not direnv-managed)"
+  fi
+}
+
+# =============================================================================
+# UTILITIES
+# =============================================================================
+
+show_project_info() {
+  echo "🔍 Project Environment Status\n============================="
+  echo "📁 Directory: $PWD\n📋 Project: $(basename "$PWD")"
+  
+  local current_env=$(_get_envrc_env)
+  if [[ -n "$current_env" ]]; then
+    echo "📄 .envrc → $current_env"
+    _env_exists "$current_env" && echo "✅ Environment exists" || echo "❌ Environment missing!"
+    echo "🔄 Direnv: $(direnv status)"
+  else
+    echo "📄 No .envrc found\n💡 Use 'vp' to set up project environment"
+  fi
+  
+  [[ -n "$VIRTUAL_ENV" ]] && echo "🟢 Active: $(basename "$VIRTUAL_ENV")" || echo "⚪ No active environment"
+}
+
+check_envrc_health() {
+  echo "🔍 Checking .envrc files..."
+  local issues=0
+  
   while IFS= read -r -d '' envrc_file; do
     local dir=$(dirname "$envrc_file")
     local env_name=$(grep -o 'source.*activate' "$envrc_file" 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
     
     if [[ -n "$env_name" ]]; then
-      local venv_path="$CENTRAL_VENVS/$env_name"
-      if [[ ! -d "$venv_path" ]]; then
-        echo "❌ $dir/.envrc → $env_name (missing)"
-        ((found_issues++))
+      if _env_exists "$env_name"; then
+        echo "✅ $dir/.envrc → $env_name"
       else
-        echo "✅ $dir/.envrc → $env_name (ok)"
+        echo "❌ $dir/.envrc → $env_name (missing)"
+        ((issues++))
       fi
     else
       echo "⚠️  $dir/.envrc (unrecognized format)"
-      ((found_issues++))
+      ((issues++))
     fi
   done < <(find . -name ".envrc" -type f -print0 2>/dev/null)
   
-  if [[ $found_issues -eq 0 ]]; then
-    echo "✅ All .envrc files are healthy"
-  else
-    echo "⚠️  Found $found_issues issue(s)"
-  fi
+  ((issues == 0)) && echo "✅ All .envrc files healthy" || echo "⚠️  Found $issues issue(s)"
 }
-
-# =============================================================================
-# ALIASES AND HELP
-# =============================================================================
-
-alias project-info='show_project_info'
-alias check-envrc='check_envrc_health'
-
-# Help function
-venv_help() {
-  echo "🐍 Direnv-based Virtual Environment Quick Reference"
-  echo "=================================================="
-  echo "vc <name> [template]  - Create environment + .envrc"
-  echo "vc local [template]   - Create env named after current dir"
-  echo "va [env]             - Activate environment (or reload direnv)"
-  echo "vp                   - Set up project environment"
-  echo "vd                   - Deactivate current environment"
-  echo "vf                   - Remove .envrc (forget project)"
-  echo "vr <env>             - Remove environment completely"
-  echo "vs                   - Sync requirements.txt"
-  echo "vl                   - List environments and status"
-  echo ""
-  echo "Templates: basic, ds (data-science), de (data-engineering), ml, none"
-  echo ""
-  echo "💡 How it works:"
-  echo "   • Environments stored in: $CENTRAL_VENVS"
-  echo "   • direnv automatically activates/deactivates based on .envrc"
-  echo "   • .envrc files can be gitignored or versioned per project needs"
-  echo ""
-  echo "Utilities:"
-  echo "project-info    - Show current project environment status"
-  echo "check-envrc     - Find broken .envrc references"
-}
-
-alias vh='venv_help'
 
 show_python_info() {
   echo "🐍 Python Environment Info:"
   echo "  Python: $(python --version 2>/dev/null || echo "Not found")"
   echo "  Pip: $(pip --version 2>/dev/null || echo "Not found")"
+  
   if [[ -n "$VIRTUAL_ENV" ]]; then
     echo "  Virtual Env: $(basename "$VIRTUAL_ENV")"
     echo "  Packages: $(pip list 2>/dev/null | wc -l || echo "Unknown")"
@@ -491,9 +328,41 @@ show_python_info() {
     echo "  Virtual Env: None active"
   fi
   
-  if command -v direnv >/dev/null; then
-    echo "  Direnv: $(direnv version)"
-  else
-    echo "  Direnv: Not found"
-  fi
+  echo "  Direnv: $(command -v direnv >/dev/null && direnv version || echo "Not found")"
 }
+
+venv_help() {
+  cat << 'EOF'
+🐍 Direnv-based Virtual Environment Quick Reference
+==================================================
+vc <name> [template]   - Create environment + .envrc
+vc local [template]    - Create env named after current dir  
+va [env]               - Activate environment (always shows selector if no arg)
+vp                     - Project environment (reload .envrc or set up new)
+vd                     - Deactivate current environment
+vf                     - Remove .envrc (forget project)
+vr <env>               - Remove environment completely
+vs                     - Sync requirements.txt
+vl                     - List environments and status
+
+Templates: basic, ds (data-science), de (data-engineering), ml, none
+
+💡 How it works:
+   • Environments stored in: ~/.central_venvs/
+   • direnv automatically activates/deactivates based on .envrc
+   • va: choose any environment (smart .envrc handling)
+   • vp: project-specific environment management
+
+Utilities:
+project-info    - Show current project environment status
+check-envrc     - Find broken .envrc references
+EOF
+}
+
+# =============================================================================
+# ALIASES
+# =============================================================================
+
+alias project-info='show_project_info'
+alias check-envrc='check_envrc_health'
+alias vh='venv_help'

@@ -6,131 +6,71 @@
 # VIRTUAL ENVIRONMENT COMPLETIONS (virtualenv.sh integration)
 # ============================================================================
 
-# Completion for va (virtual environment activation)
+# Helper to get environment names from central location
+_get_venv_names() {
+  local central_venvs="${CENTRAL_VENVS:-$HOME/.central_venvs}"
+  local -a envs
+  
+  if [[ -d "$central_venvs" ]]; then
+    for env_dir in "$central_venvs"/*; do
+      [[ -d "$env_dir" ]] && envs+=("$(basename "$env_dir"):venv ($(du -sh "$env_dir" 2>/dev/null | cut -f1 || echo "?"))")
+    done
+  fi
+  
+  printf '%s\n' "${envs[@]}"
+}
+
+# Completion for va (activate environment)
 _va_completion() {
   local -a envs
-  local env_dir="$HOME/virtualenv"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && envs+=("$line")
+  done < <(_get_venv_names)
   
-  # Add virtualenv environments
-  if [[ -d "$env_dir" ]]; then
-    for env in "$env_dir"/*(/N); do
-      local env_name=$(basename "$env")
-      # Check if there's a project mapping for this env
-      local projects=""
-      if [[ -f "$HOME/.env_project_map" ]]; then
-        projects=$(grep ":$env_name$" "$HOME/.env_project_map" 2>/dev/null | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
-      fi
-      if [[ -n "$projects" ]]; then
-        envs+=("$env_name:venv (used in: $projects)")
-      else
-        envs+=("$env_name:venv")
-      fi
-    done
-  fi
-  
-  # Add conda environments
-  if command -v conda >/dev/null; then
-    local conda_envs
-    conda_envs=($(conda env list 2>/dev/null | awk 'NR>2 && $1!="base" {print $1}'))
-    for env in $conda_envs; do
-      envs+=("$env:conda")
-    done
-  fi
-  
-  # Add local environments
-  for local_env in venv .venv env; do
-    if [[ -d "$local_env" ]]; then
-      envs+=("$local_env:local (in $(basename "$PWD"))")
-    fi
-  done
+  # Add current project suggestion
+  local project_name=$(basename "$PWD")
+  envs+=("$project_name:suggested for current project")
   
   _describe 'virtual environments' envs
 }
 
-# Completion for vc (virtual environment creation)
+# Completion for vc (create environment)
 _vc_completion() {
   if [[ $CURRENT -eq 2 ]]; then
-    # Environment name suggestions
+    # Environment name
     local -a suggestions
-    suggestions+=("local:Create local .venv environment")
-    
-    # Suggest current directory name
-    local current_project=$(basename "$PWD")
-    if [[ "$current_project" != "$HOME" ]]; then
-      suggestions+=("$current_project:Environment named after current directory")
-    fi
-    
-    # Suggest based on project type if get_project_name exists
-    if type get_project_name >/dev/null 2>&1; then
-      local project_info=$(get_project_name 2>/dev/null || echo "directory:$(basename "$PWD")")
-      local project_name="${project_info##*:}"
-      if [[ "$project_name" != "$(basename "$PWD")" ]]; then
-        suggestions+=("$project_name:Environment based on project detection")
-      fi
-    fi
-    
+    local project_name=$(basename "$PWD")
+    suggestions+=("$project_name:environment for current project")
+    suggestions+=("local:creates env named '$project_name'")
     _describe 'environment name' suggestions
   elif [[ $CURRENT -eq 3 ]]; then
-    # Template type (matching your virtualenv.sh exactly)
+    # Template
     local -a templates
     templates=(
-      'basic:Basic development packages (requests, black, flake8, pytest, pylint, mypy)'
-      'ds:Data Science stack (ipython, jupyter, pandas, numpy, scipy, matplotlib, seaborn, scikit-learn, plotly)'
-      'de:Data Engineering stack (ipython, jupyter, pandas, polars, duckdb, sqlalchemy, great-expectations, requests, pyarrow)'
-      'ml:Machine Learning stack (ipython, jupyter, pandas, numpy, matplotlib, seaborn, scikit-learn, plotly)'
-      'none:No template, install from requirements.txt only'
+      'basic:Basic development packages'
+      'ds:Data Science stack (jupyter, pandas, etc.)'
+      'de:Data Engineering stack (polars, duckdb, etc.)'
+      'ml:Machine Learning stack'
+      'none:No template, use requirements.txt'
     )
     _describe 'templates' templates
   fi
 }
 
-# Completion for vr (virtual environment removal) - only venvs
+# Completion for vr (remove environment)
 _vr_completion() {
   local -a envs
-  local env_dir="$HOME/virtualenv"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && envs+=("$line")
+  done < <(_get_venv_names)
   
-  # Only show venv environments (vr doesn't remove conda environments)
-  if [[ -d "$env_dir" ]]; then
-    for env in "$env_dir"/*(/N); do
-      local env_name=$(basename "$env")
-      # Show which projects use this environment
-      local projects=""
-      if [[ -f "$HOME/.env_project_map" ]]; then
-        projects=$(grep ":$env_name$" "$HOME/.env_project_map" 2>/dev/null | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
-      fi
-      if [[ -n "$projects" ]]; then
-        envs+=("$env_name:used in: $projects")
-      else
-        envs+=("$env_name:unused")
-      fi
-    done
-  fi
-  
-  _describe 'virtual environments to remove' envs
+  _describe 'environments to remove' envs
 }
 
-# Completion for vf (forget project mapping)
-_vf_completion() {
-  local -a projects
-  local map_file="$HOME/.env_project_map"
-  
-  if [[ -f "$map_file" ]]; then
-    while IFS=: read -r project env; do
-      projects+=("$project:mapped to $env")
-    done < "$map_file"
-  fi
-  
-  # Add current project as option if get_project_name exists
-  if type get_project_name >/dev/null 2>&1; then
-    local project_info=$(get_project_name 2>/dev/null)
-    local current_project="${project_info##*:}"
-    if [[ -n "$current_project" ]]; then
-      projects+=("$current_project:current project")
-    fi
-  fi
-  
-  _describe 'projects with mappings' projects
-}
+# Register the completions
+compdef _va_completion va
+compdef _vc_completion vc
+compdef _vr_completion vr
 
 # ============================================================================
 # JUPYTER COMPLETIONS (jupyter-smart integration)
