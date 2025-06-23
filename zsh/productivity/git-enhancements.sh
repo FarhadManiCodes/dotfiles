@@ -335,6 +335,9 @@ alias gpu='git pull'
 alias gexp='git exp-start' # Start new experiment branch
 alias gexpl='git exp-list' # List experiment branches
 
+# Feature managment aliases
+alias gfc='git feature-create'
+alias gfl='git feature-list'
 # ============================================================================
 # FUNCTIONS - Advanced Git Operations
 # ============================================================================

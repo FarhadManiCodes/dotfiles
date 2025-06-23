@@ -52,6 +52,10 @@
 
     # Quick info
     info = "!echo \"Branch: $(git branch --show-current)\" && echo \"Last commit: $(git log -1 --pretty=format:'%h - %s (%cr)')\" && echo \"Files tracked: $(git ls-files | wc -l)\""
+    # quick feature branch creation
+	feature-create = "!f() {\n  base_branch=$(git branch --list main | grep main && echo main || echo master);\n  git checkout \"$base_branch\" && git pull origin \"$base_branch\" && git checkout -b feature/\"$1\";\n}; f"
+	feature-list = !git branch -a --list \"*feature/*\"
+
 
 [receive]
     fsckObjects = true
