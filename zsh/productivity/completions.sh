@@ -40,18 +40,18 @@ _vc_completion() {
     # Environment name suggestions
     local -a suggestions
     suggestions+=("local:Create local .venv environment")
-    
+
     # Smart project name suggestion
     local project_name=$(get_project_name)
     local current_dir=$(basename "$PWD")
-    
+
     if [[ "$project_name" != "$current_dir" ]]; then
       suggestions+=("$project_name:Smart project name")
       suggestions+=("$current_dir:Current directory name")
     else
       suggestions+=("$project_name:Project name")
     fi
-    
+
     # Add git repo name if different from project name
     if is_project_type "git"; then
       local git_name=""
@@ -72,15 +72,15 @@ _vc_completion() {
         local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
         [[ -n "$git_root" ]] && git_name=$(basename "$git_root")
       fi
-      
+
       # Only add if different from project name and current dir
       if [[ -n "$git_name" && "$git_name" != "$project_name" && "$git_name" != "$current_dir" ]]; then
         suggestions+=("$git_name:Git repository name")
       fi
     fi
-    
+
     _describe 'environment name' suggestions
-    
+
   elif [[ $CURRENT -eq 3 ]]; then
     # Template type (same as before)
     local -a templates
@@ -189,7 +189,7 @@ _tmux_session_completion() {
 _tmux_save_named_completion() {
   if [[ $CURRENT -eq 2 ]]; then
     local -a suggestions
-    
+
     # Current tmux session name (if in tmux and renaming)
     if [[ -n "$TMUX" ]]; then
       local current_session=$(tmux display-message -p '#S' 2>/dev/null)
@@ -197,21 +197,21 @@ _tmux_save_named_completion() {
         suggestions+=("$current_session:Current tmux session")
       fi
     fi
-    
+
     # Smart project name suggestion
     local project_name=$(get_project_name)
     local current_dir=$(basename "$PWD")
-    
+
     # Only add if different from current session
     if [[ -z "$current_session" || "$project_name" != "$current_session" ]]; then
       suggestions+=("$project_name:Smart project name")
     fi
-    
+
     # Current directory name (if different from project name and session)
     if [[ "$current_dir" != "$project_name" && "$current_dir" != "$current_session" ]]; then
       suggestions+=("$current_dir:Current directory name")
     fi
-    
+
     # Add git repo name if different from all above
     if is_project_type "git"; then
       local git_name=""
@@ -232,13 +232,13 @@ _tmux_save_named_completion() {
         local git_root=$(git rev-parse --show-toplevel 2>/dev/null)
         [[ -n "$git_root" ]] && git_name=$(basename "$git_root")
       fi
-      
+
       # Only add if different from all previous suggestions
       if [[ -n "$git_name" && "$git_name" != "$project_name" && "$git_name" != "$current_dir" && "$git_name" != "$current_session" ]]; then
         suggestions+=("$git_name:Git repository name")
       fi
     fi
-    
+
     _describe 'session name' suggestions
   fi
 }
@@ -378,59 +378,218 @@ _gci_completion() {
 # ============================================================================
 # CONTEXT-AWARE COMPLETIONS
 # ============================================================================
+smart-project() {
+  if [[ $# -eq 0 ]]; then
+    # No arguments - show help/available commands
+    echo "🎯 Smart Project Command Center"
+    echo "=============================="
+    echo "Usage: smart-project <command>"
+    echo ""
+    echo "💡 Use TAB completion to see available commands for this project"
+    echo "Example: smart-project <TAB>"
+    echo ""
+    echo "📁 Current project: $(get_project_name)"
+    echo "🏷️  Project types:"
+    is_project_type "python" && echo "  ✅ Python"
+    is_project_type "data" && echo "  ✅ Data" 
+    is_project_type "jupyter" && echo "  ✅ Jupyter"
+    is_project_type "git" && echo "  ✅ Git"
+    is_project_type "docker" && echo "  ✅ Docker"
+    return
+  fi
+  
+  # Execute the command passed as arguments
+  "$@"
+}
 
-# Smart completion that adapts based on current directory context
+# Enhanced smart project completion - context-aware command center
 _smart_project_completion() {
   local -a context_commands
-
-  # Check project type and suggest relevant commands
-  local has_python=false
-  local has_data=false
-  local has_git=false
-  local has_jupyter=false
-
-  [[ -f "requirements.txt" || -f "pyproject.toml" || -f "setup.py" ]] && has_python=true
-  [[ -d "data" || -f *.csv(N) || -f *.parquet(N) || -f *.json(N) ]] && has_data=true
-  [[ -d ".git" ]] && has_git=true
-  [[ -d "notebooks" || -f *.ipynb(N) ]] && has_jupyter=true
-
-  if $has_python; then
-    context_commands+=(
-      'va:Activate virtual environment'
-      'vp:Project virtual environment'
-      'vc:Create virtual environment'
-    )
+  local project_name=$(get_project_name)
+  
+  # ==========================================================================
+  # PROJECT STATUS & INFO
+  # ==========================================================================
+  context_commands+=("project-info:🔍 Show project: $project_name")
+  
+  # ==========================================================================
+  # ENVIRONMENT MANAGEMENT (if Python project)
+  # ==========================================================================
+  if is_project_type "python"; then
+    # Check current environment status
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+      local current_env=$(basename "$VIRTUAL_ENV")
+      context_commands+=("vd:🔴 Deactivate $current_env")
+      context_commands+=("vs:🔄 Sync requirements.txt")
+    elif [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]]; then
+      context_commands+=("vd:🔴 Deactivate $CONDA_DEFAULT_ENV")
+    else
+      context_commands+=("vp:🎯 Activate project environment")
+      context_commands+=("va:🐍 Choose virtual environment")
+      context_commands+=("vc:⚡ Create new environment")
+    fi
   fi
-
-  if $has_jupyter; then
-    context_commands+=(
-      'jupyter-smart:Start Jupyter Lab'
-      'tmux-jupyter-auto:Jupyter in tmux'
-      'fnb:Browse notebooks'
-    )
+  
+  # ==========================================================================
+  # JUPYTER & NOTEBOOKS (if Jupyter project)
+  # ==========================================================================
+  if is_project_type "jupyter"; then
+    context_commands+=("jupyter-smart:📓 Start Jupyter Lab")
+    context_commands+=("tmux-jupyter-auto:📊 Jupyter in tmux window")
+    context_commands+=("fnb:🔍 Browse notebooks")
+    
+    # Check for specific notebook types
+    if [[ -d "notebooks" ]]; then
+      context_commands+=("fdir notebooks:📁 Browse notebooks folder")
+    fi
   fi
-
-  if $has_data; then
-    context_commands+=(
-      'fdata:Browse data files'
-    )
+  
+  # ==========================================================================
+  # DATA OPERATIONS (if data project)  
+  # ==========================================================================
+  if is_project_type "data"; then
+    context_commands+=("fdata:📊 Browse data files")
+    
+    # Specific data operations based on what's present
+    if [[ -d "data" ]]; then
+      context_commands+=("fdir data:📁 Browse data folder")
+    fi
+    if [[ -f *.csv(N) ]]; then
+      context_commands+=("csv-preview:📋 Preview CSV files")
+    fi
+    if [[ -f *.parquet(N) ]]; then
+      context_commands+=("parquet-info:💾 Inspect Parquet files")
+    fi
   fi
-
-  if $has_git; then
-    context_commands+=(
-      'fgit:Browse git repositories'
-      'gstds:Git status (data science view)'
-      'gci:Interactive commit'
-    )
+  
+  # ==========================================================================
+  # GIT OPERATIONS (if git project)
+  # ==========================================================================
+  if is_project_type "git"; then
+    # Check git status and suggest accordingly
+    local git_status=$(git status --porcelain 2>/dev/null)
+    if [[ -n "$git_status" ]]; then
+      # Uncommitted changes
+      if is_project_type "data" || is_project_type "jupyter"; then
+        context_commands+=("gstds:📊 Git status (data science view)")
+      else
+        context_commands+=("gst:📋 Git status")
+      fi
+      context_commands+=("gci:💬 Interactive commit")
+      context_commands+=("fga:➕ Interactive add")
+      context_commands+=("fgd:🔍 Interactive diff")
+    else
+      # Clean working directory
+      context_commands+=("git-pull:📥 Pull updates")
+      context_commands+=("git-branch:🌿 Manage branches")
+    fi
+    
+    # Always available git commands
+    context_commands+=("fgit:🌳 Browse repositories")
+    if command -v lazygit >/dev/null; then
+      context_commands+=("lazygit:🚀 Full git interface")
+    fi
   fi
+  
+  # ==========================================================================
+  # PROJECT-SPECIFIC WORKFLOWS
+  # ==========================================================================
+  
+  # Data Science workflows
+  if is_project_type "jupyter" && is_project_type "data"; then
+    context_commands+=("analysis-layout:📊 Data analysis tmux layout")
+    if [[ -f "requirements.txt" ]]; then
+      context_commands+=("profile-env:📈 Profile current environment")
+    fi
+  fi
+  
+  # Data Engineering workflows  
+  if is_project_type "python" && is_project_type "data" && ! is_project_type "jupyter"; then
+    context_commands+=("etl-layout:🔧 ETL development tmux layout")
+    if [[ -f "dvc.yaml" ]] || [[ -f ".dvc" ]]; then
+      context_commands+=("dvc-status:📦 DVC pipeline status")
+    fi
+  fi
+  
+  # Docker workflows
+  if is_project_type "docker"; then
+    if [[ -f "docker-compose.yml" ]] || [[ -f "docker-compose.yaml" ]]; then
+      context_commands+=("docker-up:🐳 Start containers")
+      context_commands+=("docker-logs:📜 View container logs")
+    fi
+    if [[ -f "Dockerfile" ]]; then
+      context_commands+=("docker-build:🔨 Build container")
+    fi
+  fi
+  
+  # ==========================================================================
+  # DEVELOPMENT TOOLS (always available)
+  # ==========================================================================
+  context_commands+=("ff:📄 Find files")
+  context_commands+=("fdir:📁 Browse directories")
+  context_commands+=("frg:🔍 Live grep search")
+  
+  # ==========================================================================
+  # SESSION MANAGEMENT
+  # ==========================================================================
+  if [[ -n "$TMUX" ]]; then
+    local current_session=$(tmux display-message -p '#S' 2>/dev/null)
+    context_commands+=("tmux-save:💾 Save session as $project_name")
+  else
+    context_commands+=("tmux-new:📺 Create tmux session")
+  fi
+  
+  # ==========================================================================
+  # SYSTEM & MONITORING (if complex project)
+  # ==========================================================================
+  if is_project_type "docker" || is_project_type "data"; then
+    context_commands+=("fproc:⚙️ Browse processes")
+    if [[ -n "$VIRTUAL_ENV" ]] || [[ -n "$CONDA_DEFAULT_ENV" ]]; then
+      context_commands+=("show-python-info:🐍 Python environment info")
+    fi
+  fi
+  
+  # Describe commands with project context
+  local description="commands for $project_name"
+  _describe "$description" context_commands
+}
 
-  # Always available
-  context_commands+=(
-    'tmux-new:Create new tmux session'
-    'ff:Find files'
-  )
+# Helper functions for the commands suggested above
+csv-preview() {
+  if command -v bat >/dev/null; then
+    find . -name "*.csv" -type f | head -5 | while read file; do
+      echo "📊 $file"
+      head -10 "$file" | bat --language csv
+      echo ""
+    done
+  else
+    find . -name "*.csv" -type f | head -5 | while read file; do
+      echo "📊 $file"
+      head -10 "$file"
+      echo ""
+    done
+  fi
+}
 
-  _describe 'project commands' context_commands
+parquet-info() {
+  find . -name "*.parquet" -type f | head -5 | while read file; do
+    echo "💾 $file"
+    ls -lh "$file"
+    echo ""
+  done
+}
+
+profile-env() {
+  echo "🐍 Python Environment Profile"
+  echo "============================="
+  python --version
+  pip --version
+  echo ""
+  echo "📦 Installed packages: $(pip list | wc -l)"
+  echo "📊 Environment: ${VIRTUAL_ENV:-${CONDA_DEFAULT_ENV:-system}}"
+  if [[ -f "requirements.txt" ]]; then
+    echo "📋 Requirements file: $(wc -l < requirements.txt) packages"
+  fi
 }
 
 # ============================================================================
@@ -460,7 +619,7 @@ compdef _ff_completion ff
 compdef _gci_completion gci
 
 # Context-aware completions for common tools
-compdef _smart_project_completion project-commands
+compdef _smart_project_completion smart_project
 
 # ============================================================================
 # COMPLETION ENHANCEMENTS FOR EXISTING TOOLS
@@ -468,7 +627,7 @@ compdef _smart_project_completion project-commands
 
 # Enhanced completion for your custom aliases
 compdef _tmux_session_completion tmux-new
-compdef _jupyter_smart_completion js  # If you alias jupyter-smart to js
+compdef _jupyter_smart_completion js # If you alias jupyter-smart to js
 
 # Python environment aware completions for tools that should check env status
 _python_env_completion() {
