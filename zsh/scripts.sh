@@ -32,15 +32,15 @@ fi
 safe_source() {
   local file="$1"
   local description="${2:-script}"
-  
+
   [[ ! -f "$file" ]] && return 1
   [[ ! -r "$file" ]] && return 1
-  
+
   if ! (source "$file") >/dev/null 2>&1; then
     echo "❌ Syntax error in $file" >&2
     return 1
   fi
-  
+
   if source "$file"; then
     return 0
   else
@@ -61,18 +61,18 @@ safe_source() {
 
 if command -v direnv >/dev/null 2>&1; then
   eval "$(direnv hook zsh)"
-  
+
   # Centralized venv helper
   use_venv() {
     local venv_name=${1:-$(basename $PWD)}
     local venv_path="$HOME/.central_venvs/$venv_name"
-    
+
     if [ ! -d "$venv_path" ]; then
       echo "Creating new venv: $venv_name"
       python -m venv "$venv_path"
     fi
-    
-    echo "source $venv_path/bin/activate" > .envrc
+
+    echo "source $venv_path/bin/activate" >.envrc
     direnv allow
   }
 fi
@@ -83,7 +83,7 @@ fi
 
 if command -v fzf >/dev/null 2>&1; then
   source <(fzf --zsh) 2>/dev/null
-  
+
   export FZF_DEFAULT_OPTS='
     --height 60%
     --layout=reverse
@@ -110,9 +110,11 @@ fi
 # LOAD ALL SCRIPTS
 # =============================================================================
 
+# 0. get project info
+safe_source "$DOTFILES/zsh/productivity/project-detection.sh" "project detection" || echo "❌ Project detection failed"
+
 # 1. Last Working Directory
 safe_source "$DOTFILES/zsh/productivity/last-working-dir.sh" "last working directory" || echo "❌ Last working directory failed"
-
 # Auto-restore if in HOME
 if [[ "$PWD" == "$HOME" ]] && type lwd >/dev/null 2>&1; then
   lwd 2>/dev/null
@@ -134,11 +136,10 @@ if command -v zoxide >/dev/null 2>&1; then
   eval "$(zoxide init zsh)"
 fi
 
-# 6. get project info 
-safe_source "$DOTFILES/zsh/productivity/project-detection.sh" "project detection" || echo "❌ Project detection failed"
-# 7. Custom Completions
+# 6. Custom Completions
 safe_source "$DOTFILES/zsh/productivity/completions.sh" "custom completions" || echo "❌ Custom completions failed"
-
+# 7. tmux smart start
+safe_source "$DOTFILES/zsh/productivity/tmux_smart_start.sh" "tmux smart start" || echo "❌ Tmux smart start faild"
 # =============================================================================
 # UTILITY COMMANDS
 # =============================================================================
@@ -155,20 +156,20 @@ loading_status() {
   echo "  FZF functions: $(type fnb >/dev/null 2>&1 && echo "✅" || echo "❌")"
   echo "  Last working dir: $(type lwd >/dev/null 2>&1 && echo "✅" || echo "❌")"
   echo "  Zoxide: $(type z >/dev/null 2>&1 && echo "✅" || echo "❌")"
-  
+
   # Environment info
   if [[ -n "$VIRTUAL_ENV" ]]; then
     echo "  Active venv: $(basename "$VIRTUAL_ENV")"
   fi
-  
+
   if [[ -n "$DIRENV_DIR" ]]; then
     echo "  Direnv active: $(basename "$DIRENV_DIR")"
   fi
-  
+
   if git rev-parse --git-dir >/dev/null 2>&1; then
     echo "  Git repo: $(basename "$(git rev-parse --show-toplevel)" 2>/dev/null)"
   fi
-  
+
   # Show central venvs
   if [[ -d "$HOME/.central_venvs" ]]; then
     local venv_count=$(ls -1 "$HOME/.central_venvs" 2>/dev/null | wc -l)
