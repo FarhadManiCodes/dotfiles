@@ -1,299 +1,329 @@
-# Optimized tmux smart start using existing project detection functions
+#!/usr/bin/zsh
+# TMux Smart Start - Fixed Integration Version
+# This version properly integrates with layout scripts
 
 # Ensure project detection functions are available
-if ! type get_project_name >/dev/null 2>&1 || ! type is_project_type >/dev/null 2>&1 || ! type get_project_types >/dev/null 2>&1; then
-  # Try to load project detection functions
+if ! type get_project_name >/dev/null 2>&1 || ! type get_project_types >/dev/null 2>&1; then
   local project_detection_script=""
-  
-  # Look for project detection script in common locations
+
   for location in \
     "$DOTFILES/zsh/productivity/project-detection.sh" \
-    "$HOME/.config/zsh/project-detection.sh" \
+    "$HOME/.config/zsh/productivity/project-detection.sh" \
     "$HOME/dotfiles/zsh/productivity/project-detection.sh"; do
     if [[ -f "$location" ]]; then
       project_detection_script="$location"
       break
     fi
   done
-  
+
   if [[ -n "$project_detection_script" ]]; then
     echo "🔧 Loading project detection from: $project_detection_script"
     source "$project_detection_script"
   else
     echo "❌ Project detection functions not found"
-    echo "💡 Create project-detection.sh with your is_project_type and get_project_name functions"
     return 1
   fi
-  
-  # Verify functions are now available
-  if ! type get_project_name >/dev/null 2>&1; then
-    echo "❌ get_project_name function still not available after loading"
+
+  if ! type get_project_name >/dev/null 2>&1 || ! type get_project_types >/dev/null 2>&1; then
+    echo "❌ Project detection functions not available after loading"
     return 1
   fi
 fi
 
-# Generate session name based on project context
-generate_session_name() {
-  local session_name=""
-
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    # In git repo
-    local repo_name=$(basename "$(git rev-parse --show-toplevel)")
-    local branch=$(git branch --show-current 2>/dev/null)
-
-    if [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" ]]; then
-      # Feature branch: repo-branch
-      session_name="${repo_name}-${branch}"
-    else
-      # Main branch: just repo name
-      session_name="$repo_name"
-    fi
-  else
-    # Not in git: use folder name
+# Get clean session name from project detection
+get_session_name() {
+  local session_name=$(get_project_name 2>/dev/null)
+  
+  if [[ -z "$session_name" ]]; then
     session_name=$(basename "$PWD")
   fi
-
-  # Clean name and handle duplicates
+  
+  # Clean name for tmux compatibility
   session_name=$(echo "$session_name" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-20)
-
-  # Add number if session exists
-  if tmux has-session -t "$session_name" 2>/dev/null; then
-    local counter=2
-    while tmux has-session -t "${session_name}-${counter}" 2>/dev/null; do
-      counter=$((counter + 1))
-    done
-    session_name="${session_name}-${counter}"
-  fi
-
+  
   echo "$session_name"
 }
 
-# Enhanced should_start_tmux (unchanged - already optimized)
+# Check if should auto-start tmux
 should_start_tmux() {
   [[ -n "$TMUX" ]] && return 1
   [[ ! -t 0 ]] && return 1
   [[ "$PWD" =~ ^(/tmp|/var|/proc|/sys|/dev|/run) ]] && return 1
   [[ -n "$VSCODE_INJECTION" || -n "$INSIDE_EMACS" ]] && return 1
-  
+
   local current_dir=$(basename "$PWD")
   case "$current_dir" in
-    "Downloads"|"Desktop"|"Documents"|"Pictures"|"Music"|"Videos"|"Public") return 1 ;;
+    "Downloads" | "Desktop" | "Documents" | "Pictures" | "Music" | "Videos" | "Public") return 1 ;;
   esac
-  
-  # Only auto-start in home if it looks like a project
+
   [[ "$PWD" == "$HOME" ]] && [[ ! -f ".project_name" && ! -f "pyproject.toml" && ! -f "package.json" && ! -d ".git" ]] && return 1
-  
+
   return 0
 }
 
-# Centralized project type and layout detection (zsh-compatible)
-_detect_project_layout() {
-  local detected_types=($(get_project_types))
-  local project_type=""
-  local layout_choice=""
-  local emoji=""
+# Determine best layout for project (priority order)
+detect_layout() {
+  local detected_types=($(get_project_types 2>/dev/null))
+  [[ $? -ne 0 ]] && return 1
+
+  # Convert to associative lookup for faster checking
+  local -A type_map
+  for type in "${detected_types[@]}"; do
+    type_map[$type]=1
+  done
+
+  # Priority-based layout selection (exact order as specified)
   
-  # Helper function to check if array contains element (zsh-compatible)
-  _has_type() {
-    local target="$1"
-    local type
-    for type in "${detected_types[@]}"; do
-      [[ "$type" == "$target" ]] && return 0
-    done
-    return 1
-  }
-  
-  # Priority order for layout selection (most specific first)
-  if _has_type "ml_training"; then
-    project_type="ml"
-    layout_choice="ml_training"
-    emoji="🤖"
-  elif _has_type "etl"; then
-    project_type="de"
-    layout_choice="etl"
-    emoji="🔧"
-  elif _has_type "sql"; then
-    project_type="db"
-    layout_choice="database"
-    emoji="🗄️"
-  elif _has_type "jupyter" && _has_type "data"; then
-    project_type="ds"
-    layout_choice="analysis"
-    emoji="📊"
-  elif _has_type "python" && _has_type "data"; then
-    project_type="de"
-    layout_choice="analysis"
-    emoji="📊"
-  elif _has_type "python"; then
-    project_type="py"
-    layout_choice="developer"
-    emoji="🐍"
-  elif _has_type "docker"; then
-    project_type="docker"
-    layout_choice="docker"
-    emoji="🐳"
-  elif _has_type "git"; then
-    project_type="git"
-    layout_choice="git"
-    emoji="🌳"
+  # 1. 🤖 ML Training (highest priority)
+  if [[ -n "${type_map[ml_training]}" ]]; then
+    echo "ml_training"
+    return 0
   fi
   
-  # Return results via variables (to avoid subshell)
-  DETECTED_PROJECT_TYPE="$project_type"
-  DETECTED_LAYOUT="$layout_choice"
-  DETECTED_EMOJI="$emoji"
-}
-
-# Apply layout based on choice
-_apply_layout() {
-  local session_name="$1"
-  local layout_choice="$2"
-  local silent="${3:-false}"
+  # 2. 🔧 ETL/Data Engineering  
+  if [[ -n "${type_map[etl]}" ]]; then
+    echo "etl"
+    return 0
+  fi
   
-  case "$layout_choice" in
-    "analysis")
-      [[ "$silent" != "true" ]] && echo "📊 + analysis layout"
-      (sleep 1 && ~/.config/tmux/layouts/analysis_layout.sh "$session_name") &
-      ;;
-    "ml_training")
-      [[ "$silent" != "true" ]] && echo "🤖 + ML training layout"
-      (sleep 1 && ~/.config/tmux/layouts/ml_training_layout.sh "$session_name") &
-      ;;
-    "database")
-      [[ "$silent" != "true" ]] && echo "🗄️ + database layout"
-      (sleep 1 && ~/.config/tmux/layouts/database_layout.sh "$session_name") &
-      ;;
-    "etl")
-      [[ "$silent" != "true" ]] && echo "🔧 + ETL layout"
-      (sleep 1 && ~/.config/tmux/layouts/etl_layout.sh "$session_name") &
-      ;;
-    "developer")
-      [[ "$silent" != "true" ]] && echo "🐍 + developer layout"
-      (sleep 1 && ~/.config/tmux/layouts/developer_layout.sh "$session_name") &
-      ;;
-    "docker")
-      [[ "$silent" != "true" ]] && echo "🐳 + docker layout"
-      (sleep 1 && ~/.config/tmux/layouts/docker_layout.sh "$session_name") &
-      ;;
-    "git")
-      [[ "$silent" != "true" ]] && echo "🌳 + git layout"
-      (sleep 1 && ~/.config/tmux/layouts/git_layout.sh "$session_name") &
-      ;;
-  esac
+  # 3. 📊 Data Science (jupyter + data combination, or analysis type)
+  if [[ -n "${type_map[jupyter]}" && -n "${type_map[data]}" ]]; then
+    echo "analysis"
+    return 0
+  fi
+  
+  # 4. 🗄️ SQL/Database
+  if [[ -n "${type_map[sql]}" ]]; then
+    echo "database"
+    return 0
+  fi
+  
+  # 5. 🐍 Python (includes python + data combinations)
+  if [[ -n "${type_map[python]}" ]]; then
+    echo "developer"
+    return 0
+  fi
+  
+  # 6. 🐳 Docker
+  if [[ -n "${type_map[docker]}" ]]; then
+    echo "docker"
+    return 0
+  fi
+  
+  # 7. 🌳 Git (lowest priority)
+  if [[ -n "${type_map[git]}" ]]; then
+    echo "git"
+    return 0
+  fi
+  
+  # Fallback to basic if no specific type detected
+  echo "basic"
 }
 
-# Get layout description for user prompts
-_get_layout_description() {
-  local layout="$1"
-  case "$layout" in
-    "ml_training") echo "🤖 Use ML training layout? [y/N]: " ;;
-    "analysis") echo "📊 Use analysis layout? [y/N]: " ;;
-    "etl") echo "🔧 Use ETL layout? [y/N]: " ;;
-    "database") echo "🗄️ Use database layout? [y/N]: " ;;
-    "developer") echo "🐍 Use developer layout? [y/N]: " ;;
-    "docker") echo "🐳 Use docker layout? [y/N]: " ;;
-    "git") echo "🌳 Use git layout? [y/N]: " ;;
-    *) echo "" ;;
-  esac
+# Create new session with smart layout (SIMPLIFIED VERSION)
+tmux-new-smart() {
+  local force_layout="$1"
+  local final_session_name="$2"
+
+  # Generate the smart session name we want
+  if [[ -z "$final_session_name" ]]; then
+    final_session_name=$(get_session_name)
+  fi
+
+  echo "🎯 Target session name: $final_session_name"
+
+  # Check if target name already exists
+  if tmux has-session -t "$final_session_name" 2>/dev/null; then
+    echo "⚠️  Session '$final_session_name' already exists - attaching"
+    if [[ -n "$TMUX" ]]; then
+      tmux switch-client -t "$final_session_name"
+    else
+      tmux attach-session -t "$final_session_name"
+    fi
+    return
+  fi
+
+  # Detect layout
+  local layout_choice="${force_layout:-$(detect_layout)}"
+  echo "🎨 Detected layout: $layout_choice"
+  
+  if [[ -z "$layout_choice" || "$layout_choice" == "basic" ]]; then
+    echo "🚀 Creating basic tmux session: $final_session_name"
+    tmux new-session -s "$final_session_name" -c "$PWD"
+    return
+  fi
+
+  # Find layout script
+  local layout_script=""
+  for location in \
+    "$HOME/dotfile/tmux/layouts/${layout_choice}_layout.sh" \
+    "$HOME/.config/tmux/layouts/${layout_choice}_layout.sh" \
+    "$DOTFILES/tmux/layouts/${layout_choice}_layout.sh" \
+    "$HOME/dotfiles/tmux/layouts/${layout_choice}_layout.sh"; do
+    if [[ -f "$location" ]]; then
+      layout_script="$location"
+      break
+    fi
+  done
+
+  if [[ -z "$layout_script" ]]; then
+    echo "⚠️  Layout script not found: ${layout_choice}_layout.sh"
+    echo "💡 Searched locations:"
+    echo "   - $HOME/dotfile/tmux/layouts/${layout_choice}_layout.sh"
+    echo "   - $HOME/.config/tmux/layouts/${layout_choice}_layout.sh"
+    echo "   - $DOTFILES/tmux/layouts/${layout_choice}_layout.sh"  
+    echo "   - $HOME/dotfiles/tmux/layouts/${layout_choice}_layout.sh"
+    echo "💡 Creating basic tmux session instead"
+    tmux new-session -s "$final_session_name" -c "$PWD"
+    return
+  fi
+
+  if [[ ! -x "$layout_script" ]]; then
+    echo "⚠️  Layout script not executable: $layout_script"
+    echo "💡 Fix with: chmod +x $layout_script"
+    echo "💡 Creating basic tmux session instead"
+    tmux new-session -s "$final_session_name" -c "$PWD"
+    return
+  fi
+
+  echo "🎨 Using layout script: $layout_script"
+  echo "🚀 Creating session with $layout_choice layout..."
+
+  # Set environment variable to prevent layout script from auto-attaching
+  export TMUX_SMART_START=1
+  
+  # Run the layout script with session name parameter
+  echo "📋 Running: $layout_script '$final_session_name'"
+  
+  if "$layout_script" "$final_session_name"; then
+    echo "✅ Layout script completed successfully"
+    
+    # Verify session was created
+    if tmux has-session -t "$final_session_name" 2>/dev/null; then
+      echo "✅ Session '$final_session_name' created successfully"
+      
+      # Attach to the session
+      if [[ -n "$TMUX" ]]; then
+        echo "🔀 Switching to session..."
+        tmux switch-client -t "$final_session_name"
+      else
+        echo "🎯 Attaching to session..."
+        tmux attach-session -t "$final_session_name"
+      fi
+    else
+      echo "❌ Session not found after layout script execution"
+      echo "💡 Creating basic session as fallback"
+      tmux new-session -s "$final_session_name" -c "$PWD"
+    fi
+  else
+    echo "❌ Layout script failed (exit code: $?)"
+    echo "💡 Creating basic session as fallback"
+    tmux new-session -s "$final_session_name" -c "$PWD"
+  fi
+  
+  # Clean up environment variable
+  unset TMUX_SMART_START
 }
 
-# Optimized smart tmux prompt
+# Smart tmux prompt (shows existing sessions and offers layout)
 smart_tmux_prompt() {
   command -v tmux >/dev/null 2>&1 || return
-  
-  local project_name=$(get_project_name)
-  project_name="${project_name##*:}"  # Extract just the name part
-  
-  # Detect project type and layout
-  _detect_project_layout
-  
-  echo "🎯 $project_name${DETECTED_PROJECT_TYPE:+ ($DETECTED_EMOJI $DETECTED_PROJECT_TYPE)}"
-  
-  # Find project sessions (simplified)
-  local project_sessions=""
-  if tmux list-sessions >/dev/null 2>&1; then
-    project_sessions=$(tmux list-sessions 2>/dev/null | grep -E "^($project_name|$project_name-|.*-$project_name):")
+
+  local project_name
+  project_name=$(get_project_name 2>/dev/null)
+  if [[ $? -ne 0 || -z "$project_name" ]]; then
+    echo "❌ Could not detect project name"
+    return 1
   fi
+
+  local layout_choice=$(detect_layout)
+
+  # Show project info with emoji
+  local emoji=""
+  case "$layout_choice" in
+    "ml_training") emoji="🤖" ;;
+    "etl") emoji="🔧" ;;
+    "database") emoji="🗄️" ;;
+    "analysis") emoji="📊" ;;
+    "developer") emoji="🐍" ;;
+    "docker") emoji="🐳" ;;
+    "git") emoji="🌳" ;;
+  esac
+
+  echo "🎯 $project_name${emoji:+ ($emoji $layout_choice)}"
+
+  # Check for existing sessions
+  if tmux list-sessions >/dev/null 2>&1; then
+    # Look for project-related sessions
+    local project_sessions=$(tmux list-sessions 2>/dev/null | grep -E "^($project_name|$project_name-|.*-$project_name):")
+
+    if [[ -n "$project_sessions" ]]; then
+      echo "🔍 Project sessions:"
+      echo "$project_sessions" | head -2 | sed 's/^/  🎯 /'
+
+      # Show other sessions (max 2)
+      local other_sessions=$(tmux list-sessions 2>/dev/null | grep -vE "^($project_name|$project_name-|.*-$project_name):" | head -2)
+      [[ -n "$other_sessions" ]] && echo "📋 Others:" && echo "$other_sessions" | sed 's/^/  /'
+
+      echo "💡 tmux attach -t $project_name"
+      return
+    fi
+  fi
+
+  # No existing sessions found - check if we should auto-create
   
-  if [[ -n "$project_sessions" ]]; then
-    # Show project sessions
-    echo "🔍 Project sessions:"
-    echo "$project_sessions" | head -2 | sed 's/^/  🎯 /'
-    
-    # Show other sessions (max 2)
-    local other_sessions=$(tmux list-sessions 2>/dev/null | grep -vE "^($project_name|$project_name-|.*-$project_name):" | head -2)
-    [[ -n "$other_sessions" ]] && echo "📋 Others:" && echo "$other_sessions" | sed 's/^/  /'
-    
-    echo "💡 tmux attach -t $project_name"
-    
-  elif tmux list-sessions >/dev/null 2>&1; then
-    echo "📋 Sessions:"
+  # If .projectrc exists, auto-create session without prompting
+  if type _is_projectrc_fresh >/dev/null 2>&1 && _is_projectrc_fresh 2>/dev/null; then
+    echo "✅ Project configured (.projectrc found)"
+    echo "🚀 Auto-creating tmux session: $project_name with $layout_choice layout..."
+    echo ""
+    tmux-new-smart "$layout_choice" "$project_name"
+    return
+  fi
+
+  # No .projectrc - show manual options
+  if tmux list-sessions >/dev/null 2>&1; then
+    echo "📋 Existing sessions:"
     tmux list-sessions -F "  #{session_name} (#{session_windows}w)" | head -3
     echo "💡 tmux attach  |  tmux-new"
-    
   else
-    echo "🚀 No sessions - creating $project_name"
-    
-    # Auto-create with smart layout
-    local session_name=$(generate_session_name)
-    tmux new-session -d -s "$session_name" -c "$PWD"
-    
-    # Apply layout if detected
-    [[ -n "$DETECTED_LAYOUT" ]] && _apply_layout "$session_name" "$DETECTED_LAYOUT"
-    
-    echo "✅ Attaching to $session_name"
-    sleep 1
-    tmux attach-session -t "$session_name"
+    echo "🚀 No sessions - would create '$project_name' with $layout_choice layout"
+    echo "💡 Run: tmux-new"
+    echo "💡 Or setup project config: project-setup"
   fi
 }
 
-# Optimized tmux-new
+# Enhanced tmux-new command
 tmux-new-enhanced() {
-  local suggested_name=$(generate_session_name)
+  local suggested_name=$(get_session_name)
   echo -n "🎯 Session name [$suggested_name]: "
   read -r custom_name
   local session_name="${custom_name:-$suggested_name}"
-  
-  if tmux has-session -t "$session_name" 2>/dev/null; then
-    echo "⚠️  Exists - attaching to $session_name"
-    tmux attach-session -t "$session_name"
-    return
-  fi
-  
-  tmux new-session -d -s "$session_name" -c "$PWD"
-  
-  # Detect project layout
-  _detect_project_layout
-  
-  # Offer layout if detected
-  if [[ -n "$DETECTED_LAYOUT" ]]; then
-    local layout_prompt=$(_get_layout_description "$DETECTED_LAYOUT")
-    if [[ -n "$layout_prompt" ]]; then
-      echo -n "$layout_prompt"
-      read -r -n 1 choice && echo
-      if [[ $choice =~ ^[Yy]$ ]]; then
-        _apply_layout "$session_name" "$DETECTED_LAYOUT"
-      fi
+
+  # Offer layout choice
+  local suggested_layout=$(detect_layout)
+  if [[ -n "$suggested_layout" && "$suggested_layout" != "basic" ]]; then
+    echo -n "🎨 Use $suggested_layout layout? [Y/n]: "
+    read -r -n 1 choice && echo
+    if [[ $choice =~ ^[Nn]$ ]]; then
+      suggested_layout="basic"
     fi
   fi
-  
-  tmux attach-session -t "$session_name"
+
+  tmux-new-smart "$suggested_layout" "$session_name"
 }
 
-# Enhanced session info (bonus utility)
+# Session info utility  
 tmux-project-info() {
-  local project_name=$(get_project_name)
-  project_name="${project_name##*:}"
-  
-  _detect_project_layout
-  
-  echo "🎯 Project: $project_name"
-  echo "🔍 Type: ${DETECTED_EMOJI:-❓} ${DETECTED_PROJECT_TYPE:-unknown}"
-  echo "🎨 Layout: ${DETECTED_LAYOUT:-default}"
+  local project_name=$(get_project_name 2>/dev/null)
+  local layout_choice=$(detect_layout)
+
+  echo "🎯 Project: ${project_name:-unknown}"
+  echo "🎨 Suggested layout: $layout_choice"
   echo "📁 Path: $PWD"
   echo ""
   echo "🔧 Detected features:"
-  local types=($(get_project_types))
+  local types=($(get_project_types 2>/dev/null))
   for type in "${types[@]}"; do
     case "$type" in
       "python") echo "  🐍 Python" ;;
@@ -304,12 +334,11 @@ tmux-project-info() {
       "ml_training") echo "  🤖 ML Training" ;;
       "docker") echo "  🐳 Docker" ;;
       "git") echo "  🌳 Git repository" ;;
-      "config") echo "  ⚙️ Configuration" ;;
     esac
   done
-  
+
   # Show related sessions
-  if tmux list-sessions >/dev/null 2>&1; then
+  if tmux list-sessions >/dev/null 2>&1 && [[ -n "$project_name" ]]; then
     local related_sessions=$(tmux list-sessions 2>/dev/null | grep -E "^($project_name|$project_name-|.*-$project_name):")
     if [[ -n "$related_sessions" ]]; then
       echo ""
@@ -319,10 +348,67 @@ tmux-project-info() {
   fi
 }
 
-# Keep existing alias structure
-alias tmux-new-basic='tmux-new'
+# Debug function to test integration
+tmux-debug-integration() {
+  echo "🔧 TMux Smart Start Integration Debug"
+  echo "====================================="
+  
+  echo "📁 Current directory: $PWD"
+  echo "🎯 Project name: $(get_project_name 2>/dev/null || echo 'FAILED')"
+  echo "🏷️  Project types: $(get_project_types 2>/dev/null || echo 'FAILED')"
+  echo "🎨 Detected layout: $(detect_layout 2>/dev/null || echo 'FAILED')"
+  echo "🔖 Session name: $(get_session_name 2>/dev/null || echo 'FAILED')"
+  
+  # Check .projectrc status
+  echo ""
+  echo "💾 Project Configuration:"
+  if type _is_projectrc_fresh >/dev/null 2>&1 && _is_projectrc_fresh 2>/dev/null; then
+    echo "  ✅ .projectrc found and fresh (will auto-start tmux)"
+  else
+    local project_root=$(_get_project_root 2>/dev/null)
+    if [[ -f "$project_root/.projectrc" ]]; then
+      echo "  ⚠️  .projectrc found but stale (manual start required)"
+    else
+      echo "  ❌ No .projectrc found (manual start required)"
+      echo "  💡 Run 'project-setup' to enable auto-start"
+    fi
+  fi
+  
+  echo ""
+  echo "🎯 Layout Priority Order:"
+  echo "  1. 🤖 ML Training → ml_training_layout.sh"
+  echo "  2. 🔧 ETL/Data Engineering → etl_layout.sh"
+  echo "  3. 📊 Data Science → analysis_layout.sh"
+  echo "  4. 🗄️ SQL/Database → database_layout.sh"
+  echo "  5. 🐍 Python → developer_layout.sh"
+  echo "  6. 🐳 Docker → docker_layout.sh"
+  echo "  7. 🌳 Git → git_layout.sh"
+  
+  echo ""
+  echo "📂 Layout script locations:"
+  local layout_choice=$(detect_layout 2>/dev/null)
+  for location in \
+    "$HOME/dotfile/tmux/layouts/${layout_choice}_layout.sh" \
+    "$HOME/.config/tmux/layouts/${layout_choice}_layout.sh" \
+    "$DOTFILES/tmux/layouts/${layout_choice}_layout.sh" \
+    "$HOME/dotfiles/tmux/layouts/${layout_choice}_layout.sh"; do
+    if [[ -f "$location" ]]; then
+      echo "  ✅ $location"
+      [[ -x "$location" ]] && echo "     (executable)" || echo "     (NOT executable)"
+    else
+      echo "  ❌ $location"
+    fi
+  done
+  
+  echo ""
+  echo "💡 To test: tmux-new-smart (or just open new terminal if .projectrc exists)"
+}
+
+# Aliases
 alias tmux-new='tmux-new-enhanced'
 alias tmux-info='tmux-project-info'
+alias tmux-smart='smart_tmux_prompt'
+alias tmux-debug='tmux-debug-integration'
 
-# Auto-start trigger (unchanged)
+# Auto-start trigger
 should_start_tmux && smart_tmux_prompt
