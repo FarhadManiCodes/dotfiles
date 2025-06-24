@@ -62,3 +62,6 @@ zsdoc/data
 # Initialized files
 *.ini
 *.basic
+
+# project info
+*.projectrc
