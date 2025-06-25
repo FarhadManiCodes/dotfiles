@@ -20,7 +20,7 @@ tmux send-keys "jupyter lab --no-browser --ip=0.0.0.0 --port=8888" Enter
 # Top-right (pane 2): Quick Python analysis
 tmux select-pane -t 2
 tmux send-keys "# Quick data profiling and stats" Enter
-tmux send-keys "ipython" Enter
+tmux send-keys "ptipython" Enter
 tmux send-keys "import pandas as pd, numpy as np, seaborn as sns, matplotlib.pyplot as plt" Enter
 tmux send-keys "import ydata_profiling as pp  # for data profiling" Enter
 tmux send-keys "plt.style.use('seaborn-v0_8')" Enter
@@ -30,22 +30,51 @@ tmux select-pane -t 3
 tmux send-keys "# File operations and quick previews" Enter
 tmux send-keys "ls -la *.csv *.json *.parquet 2>/dev/null || echo 'No data files found'" Enter
 
-# Window 2: Data Preview & Stats
+# Window 2: Data Preview & Discovery
 tmux new-window -n "preview" -c "$PWD"
+
+# Split into left (60%) and right (40%)
+tmux split-window -h -p 40 -c "$PWD"
+
+# Split the right side vertically for DuckDB (top) and Python (bottom)
+tmux select-pane -t 1
 tmux split-window -v -p 50 -c "$PWD"
 
-# Top (pane 1): Data file previews
+# Split the left side horizontally for fdata-preview (top 90%) and shell (bottom 10%)
+tmux select-pane -t 0
+tmux split-window -v -p 10 -c "$PWD"
+
+# Now we have 4 panes:
+# Pane 0: fdata-preview (top-left, 90% of left)
+# Pane 1: shell (bottom-left, 10% of left)
+# Pane 2: DuckDB (top-right)
+# Pane 3: Python (bottom-right)
+
+# Pane 0: Enhanced data browser
+tmux select-pane -t 0
+tmux send-keys "clear" Enter
+
+# Source the specialized fzf data script
+tmux send-keys "source '$DOTFILES/zsh/specials/fzf_data.sh'" Enter
+tmux send-keys "clear" Enter
+tmux send-keys "fdata-preview" Enter
+
+# Pane 1: Tiny shell for quick commands
 tmux select-pane -t 1
-tmux send-keys "# Data file previews - use commands like:" Enter
-tmux send-keys "# head -n 20 data.csv | column -t -s," Enter
-tmux send-keys "# python -c \"import pandas as pd; print(pd.read_csv('data.csv').info())\"" Enter
+tmux send-keys "clear" Enter
 
-# Bottom (pane 2): Statistical analysis
+# Pane 2: DuckDB environment with actual data loading
 tmux select-pane -t 2
-tmux send-keys "# Statistical analysis and data quality checks" Enter
-tmux send-keys "python" Enter
-tmux send-keys "import pandas as pd, numpy as np" Enter
+tmux send-keys "clear" Enter
+tmux send-keys "echo '🦆 DuckDB Quick Query Environment'" Enter
 
+# Pane 3: Clean Python environment
+tmux select-pane -t 3
+tmux send-keys "clear" Enter
+tmux send-keys "ptipython" Enter
+
+# Return to main data browser
+tmux select-pane -t 0
 # Window 3: Visualization
 tmux new-window -n "viz" -c "$PWD"
 tmux split-window -h -p 50 -c "$PWD"
@@ -53,7 +82,7 @@ tmux split-window -h -p 50 -c "$PWD"
 # Left (pane 1): Python plotting
 tmux select-pane -t 1
 tmux send-keys "# Python visualization" Enter
-tmux send-keys "python" Enter
+tmux send-keys "ptpython" Enter
 tmux send-keys "import matplotlib.pyplot as plt, seaborn as sns, plotly.express as px" Enter
 
 # Right (pane 2): R for advanced stats
