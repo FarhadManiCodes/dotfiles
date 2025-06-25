@@ -6,8 +6,8 @@ alias l.='ls -d .* --color=auto'
 alias ls='eza'
 alias ll='eza -l --icons --git'
 alias la='eza -la --icons --git'
-alias lt='eza --tree --icons'
-
+alias lt='eza -T -a -L 3 --icons --ignore-glob=".git"'
+alias treez='eza -T -a -L 3 --icons --ignore-glob=".git,node_modules,__pycache__,.mypy_cache,.pytest_cache,.venv,venv,.idea,dist,build,target,.DS_Store,.next,.nuxt,.parcel-cache,.cache,coverage,*.egg-info,*.log,*.lock"'
 # Developer-Focused Aliases
 alias lsd='eza -D --icons'                   # directories only
 alias lsf='eza -f --icons'                   # files only
