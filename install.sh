@@ -80,6 +80,10 @@ mkdir -p "${XDG_CONFIG_HOME}/lazygit"
 ln -sf "${HOME}/dotfiles/lazygit/config.yml" "${XDG_CONFIG_HOME}/lazygit/config.yml"
 echo "Lazygit configured"
 
+# =========== duckdb ===============
+echo "Setting up DuckDB""
+ln -sf "${HOME}/dotfiles/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
+
 #########
 # Fonts #
 #########

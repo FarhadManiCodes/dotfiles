@@ -139,7 +139,9 @@ fi
 # 6. Custom Completions
 safe_source "$DOTFILES/zsh/productivity/completions.sh" "custom completions" || echo "❌ Custom completions failed"
 # 7. tmux smart start
-safe_source "$DOTFILES/zsh/productivity/tmux_smart_start.sh" "tmux smart start" || echo "❌ Tmux smart start faild"
+safe_source "$DOTFILES/zsh/productivity/tmux_smart_start.sh" "tmux smart start" || echo "❌ Tmux smart start failed"
+# 8. duckdb
+safe_source "$DOTFILES/zsh/productivity/duckdb.sh" "duckdb" || echo "❌ DuckDB start failed"
 # =============================================================================
 # UTILITY COMMANDS
 # =============================================================================

@@ -1,0 +1,78 @@
+-- DuckDB Global Configuration
+-- Location: ~/.duckdbrc
+-- This file is automatically loaded by DuckDB
+
+-- ============================================================================
+-- DISPLAY SETTINGS (matches your terminal aesthetic)
+-- ============================================================================
+
+-- Custom prompt - clean pipe cursor (matches your vim/terminal theme)
+.prompt '| '
+
+-- Better table formatting
+.mode table
+.headers on
+.width auto
+.timer on
+
+-- ============================================================================
+-- PERFORMANCE SETTINGS
+-- ============================================================================
+
+SET memory_limit = '2GB';
+SET threads = 4;
+SET enable_progress_bar = true;
+SET enable_progress_bar_print = true;
+SET max_print_length = 1000;
+
+-- Better date/time formatting
+SET Calendar = 'ISO';
+SET DateStyle = 'ISO';
+
+-- ============================================================================
+-- GLOBAL MACROS (available everywhere)
+-- ============================================================================
+
+-- Quick table overview
+CREATE OR REPLACE MACRO describe_all() AS TABLE
+SELECT
+    table_name,
+    COUNT(*) as column_count
+FROM information_schema.columns
+GROUP BY table_name
+ORDER BY table_name;
+
+-- Advanced column profiling
+CREATE OR REPLACE MACRO profile_column(table_name, column_name) AS TABLE
+SELECT
+    $column_name as column_name,
+    COUNT(*) as total_rows,
+    COUNT($column_name) as non_null_count,
+    COUNT(*) - COUNT($column_name) as null_count,
+    ROUND((COUNT($column_name) * 100.0 / COUNT(*)), 2) as non_null_percentage,
+    COUNT(DISTINCT $column_name) as distinct_count,
+    MIN($column_name) as min_value,
+    MAX($column_name) as max_value
+FROM query_table($table_name);
+
+-- Quick random sample
+CREATE OR REPLACE MACRO sample(table_name, n := 5) AS TABLE
+SELECT * FROM query_table($table_name)
+USING SAMPLE $n;
+
+-- ============================================================================
+-- STARTUP MESSAGE
+-- ============================================================================
+.print ""
+.print "🦆 DuckDB (Global Configuration)"
+.print "================================"
+.print ""
+.print "💡 Global macros available:"
+.print "   describe_all()                 - Overview of all tables"
+.print "   profile_column('table', 'col') - Advanced column statistics"
+.print "   sample('table', 10)            - Random sample"
+.print ""
+.print "🎨 Custom | prompt enabled (matches your terminal theme)"
+.print ""
+.print "💡 For project data, use 'duck' command in directories with ./data/"
+.print ""

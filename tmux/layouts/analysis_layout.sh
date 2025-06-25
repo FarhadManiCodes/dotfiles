@@ -57,11 +57,21 @@ tmux send-keys "fdata-preview" Enter
 tmux select-pane -t 1
 tmux send-keys "clear" Enter
 
-# Pane 2: DuckDB environment with actual data loading
+# Pane 2: DuckDB environment with data setup
 tmux select-pane -t 2
 tmux send-keys "clear" Enter
-tmux send-keys "echo '🦆 DuckDB Quick Query Environment'" Enter
+tmux send-keys "echo '🦆 Setting up DuckDB environment...'" Enter
 
+# Check if the load script exists and is executable
+if [[ -f "$DOTFILES/zsh/specials/load_data_duckdb.sh" ]]; then
+  tmux send-keys "bash '$DOTFILES/zsh/specials/load_data_duckdb.sh'" Enter
+  tmux send-keys "duck" Enter
+else
+  tmux send-keys "echo '❌ DuckDB setup script not found'" Enter
+  tmux send-keys "echo '💡 Expected: \$DOTFILES/zsh/specials/load_data_duckdb.sh'" Enter
+  tmux send-keys "echo ''" Enter
+  tmux send-keys "echo '📋 Manual DuckDB available: duckdb'" Enter
+fi
 # Pane 3: Clean Python environment
 tmux select-pane -t 3
 tmux send-keys "clear" Enter
