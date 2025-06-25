@@ -158,7 +158,7 @@ fdata-preview() {
     -e yaml -e yml \
     --exclude __pycache__ --exclude .git --exclude .venv \
     2>/dev/null | \
-  fzf --height=95% \
+  fzf --height=99% \
     --preview='source "$DOTFILES/zsh/specials/fzf_data.sh" && _analyze_data_file {}' \
     --preview-window='down:75%:wrap' \
     --bind='ctrl-d:execute(cd $(dirname {}) && pwd)+abort' \

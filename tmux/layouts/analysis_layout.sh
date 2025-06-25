@@ -40,15 +40,9 @@ tmux split-window -h -p 40 -c "$PWD"
 tmux select-pane -t 1
 tmux split-window -v -p 50 -c "$PWD"
 
-# Split the left side horizontally for fdata-preview (top 90%) and shell (bottom 10%)
+# Split the left side horizontally for fdata-preview (top 95%) and shell (bottom 5%)
 tmux select-pane -t 0
-tmux split-window -v -p 10 -c "$PWD"
-
-# Now we have 4 panes:
-# Pane 0: fdata-preview (top-left, 90% of left)
-# Pane 1: shell (bottom-left, 10% of left)
-# Pane 2: DuckDB (top-right)
-# Pane 3: Python (bottom-right)
+tmux split-window -v -p 5 -c "$PWD"
 
 # Pane 0: Enhanced data browser
 tmux select-pane -t 0
