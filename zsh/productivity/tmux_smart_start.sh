@@ -33,14 +33,14 @@ fi
 # Get clean session name from project detection
 get_session_name() {
   local session_name=$(get_project_name 2>/dev/null)
-  
+
   if [[ -z "$session_name" ]]; then
     session_name=$(basename "$PWD")
   fi
-  
+
   # Clean name for tmux compatibility
   session_name=$(echo "$session_name" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-20)
-  
+
   echo "$session_name"
 }
 
@@ -68,7 +68,7 @@ detect_layout() {
     echo "$PROJECTRC_LAYOUT"
     return 0
   fi
-  
+
   # Fall back to live detection
   local detected_types=($(get_project_types 2>/dev/null))
   [[ $? -ne 0 ]] && return 1
@@ -80,49 +80,49 @@ detect_layout() {
   done
 
   # Priority-based layout selection (exact order as specified)
-  
+
   # 1. 🤖 ML Training (highest priority)
   if [[ -n "${type_map[ml_training]}" ]]; then
     echo "ml_training"
     return 0
   fi
-  
-  # 2. 🔧 ETL/Data Engineering  
+
+  # 2. 🔧 ETL/Data Engineering
   if [[ -n "${type_map[etl]}" ]]; then
     echo "etl"
     return 0
   fi
-  
+
   # 3. 📊 Data Science (jupyter + data combination, or analysis type)
   if [[ -n "${type_map[jupyter]}" && -n "${type_map[data]}" ]]; then
     echo "analysis"
     return 0
   fi
-  
+
   # 4. 🗄️ SQL/Database
   if [[ -n "${type_map[sql]}" ]]; then
     echo "database"
     return 0
   fi
-  
+
   # 5. 🐍 Python (includes python + data combinations)
   if [[ -n "${type_map[python]}" ]]; then
     echo "developer"
     return 0
   fi
-  
+
   # 6. 🐳 Docker
   if [[ -n "${type_map[docker]}" ]]; then
     echo "docker"
     return 0
   fi
-  
+
   # 7. 🌳 Git (lowest priority)
   if [[ -n "${type_map[git]}" ]]; then
     echo "git"
     return 0
   fi
-  
+
   # Fallback to basic if no specific type detected
   echo "basic"
 }
@@ -139,49 +139,49 @@ detect_layout_live() {
   done
 
   # Priority-based layout selection (exact order as specified)
-  
+
   # 1. 🤖 ML Training (highest priority)
   if [[ -n "${type_map[ml_training]}" ]]; then
     echo "ml_training"
     return 0
   fi
-  
-  # 2. 🔧 ETL/Data Engineering  
+
+  # 2. 🔧 ETL/Data Engineering
   if [[ -n "${type_map[etl]}" ]]; then
     echo "etl"
     return 0
   fi
-  
+
   # 3. 📊 Data Science (jupyter + data combination, or analysis type)
   if [[ -n "${type_map[jupyter]}" && -n "${type_map[data]}" ]]; then
     echo "analysis"
     return 0
   fi
-  
+
   # 4. 🗄️ SQL/Database
   if [[ -n "${type_map[sql]}" ]]; then
     echo "database"
     return 0
   fi
-  
+
   # 5. 🐍 Python (includes python + data combinations)
   if [[ -n "${type_map[python]}" ]]; then
     echo "developer"
     return 0
   fi
-  
+
   # 6. 🐳 Docker
   if [[ -n "${type_map[docker]}" ]]; then
     echo "docker"
     return 0
   fi
-  
+
   # 7. 🌳 Git (lowest priority)
   if [[ -n "${type_map[git]}" ]]; then
     echo "git"
     return 0
   fi
-  
+
   # Fallback to basic if no specific type detected
   echo "basic"
 }
@@ -212,7 +212,7 @@ tmux-new-smart() {
   # Detect layout
   local layout_choice="${force_layout:-$(detect_layout)}"
   echo "🎨 Detected layout: $layout_choice"
-  
+
   if [[ -z "$layout_choice" || "$layout_choice" == "basic" ]]; then
     echo "🚀 Creating basic tmux session: $final_session_name"
     tmux new-session -s "$final_session_name" -c "$PWD"
@@ -237,7 +237,7 @@ tmux-new-smart() {
     echo "💡 Searched locations:"
     echo "   - $HOME/dotfile/tmux/layouts/${layout_choice}_layout.sh"
     echo "   - $HOME/.config/tmux/layouts/${layout_choice}_layout.sh"
-    echo "   - $DOTFILES/tmux/layouts/${layout_choice}_layout.sh"  
+    echo "   - $DOTFILES/tmux/layouts/${layout_choice}_layout.sh"
     echo "   - $HOME/dotfiles/tmux/layouts/${layout_choice}_layout.sh"
     echo "💡 Creating basic tmux session instead"
     tmux new-session -s "$final_session_name" -c "$PWD"
@@ -257,17 +257,17 @@ tmux-new-smart() {
 
   # Set environment variable to prevent layout script from auto-attaching
   export TMUX_SMART_START=1
-  
+
   # Run the layout script with session name parameter
   echo "📋 Running: $layout_script '$final_session_name'"
-  
+
   if "$layout_script" "$final_session_name"; then
     echo "✅ Layout script completed successfully"
-    
+
     # Verify session was created
     if tmux has-session -t "$final_session_name" 2>/dev/null; then
       echo "✅ Session '$final_session_name' created successfully"
-      
+
       # Attach to the session
       if [[ -n "$TMUX" ]]; then
         echo "🔀 Switching to session..."
@@ -286,7 +286,7 @@ tmux-new-smart() {
     echo "💡 Creating basic session as fallback"
     tmux new-session -s "$final_session_name" -c "$PWD"
   fi
-  
+
   # Clean up environment variable
   unset TMUX_SMART_START
 }
@@ -354,18 +354,18 @@ smart_tmux_prompt() {
   fi
 
   # No existing sessions found - check if we should auto-create
-  
+
   # If .projectrc exists, auto-create session without prompting
   if [[ -f "$project_root/.projectrc" ]]; then
     echo "✅ Project configured (.projectrc found)"
-    
+
     # Show if layout was cached or live-detected
     if _load_projectrc 2>/dev/null && [[ -n "$PROJECTRC_LAYOUT" ]]; then
       echo "📋 Using cached layout: $layout_choice"
     else
       echo "🔍 Using live-detected layout: $layout_choice"
     fi
-    
+
     echo "🚀 Auto-creating tmux session: $project_name with $layout_choice layout..."
     echo ""
     tmux-new-smart "$layout_choice" "$project_name"
@@ -404,7 +404,7 @@ tmux-new-enhanced() {
   tmux-new-smart "$suggested_layout" "$session_name"
 }
 
-# Session info utility  
+# Session info utility
 tmux-project-info() {
   local project_name=$(get_project_name 2>/dev/null)
   local layout_choice=$(detect_layout)
@@ -443,22 +443,22 @@ tmux-project-info() {
 tmux-debug-integration() {
   echo "🔧 TMux Smart Start Integration Debug"
   echo "====================================="
-  
+
   echo "📁 Current directory: $PWD"
   echo "🎯 Project name: $(get_project_name 2>/dev/null || echo 'FAILED')"
   echo "🏷️  Project types: $(get_project_types 2>/dev/null || echo 'FAILED')"
-  
+
   # Show both cached and live layout detection
   local cached_layout=$(detect_layout 2>/dev/null || echo 'FAILED')
   local live_layout=$(detect_layout_live 2>/dev/null || echo 'FAILED')
-  
+
   echo "🎨 Layout (cached): $cached_layout"
   if [[ "$cached_layout" != "$live_layout" ]]; then
     echo "🔍 Layout (live): $live_layout"
   fi
-  
+
   echo "🔖 Session name: $(get_session_name 2>/dev/null || echo 'FAILED')"
-  
+
   # Check .projectrc status
   echo ""
   echo "💾 Project Configuration:"
@@ -473,7 +473,7 @@ tmux-debug-integration() {
       else
         echo "     Layout: Not cached (will be updated on next run)"
       fi
-      
+
       if _is_projectrc_fresh 2>/dev/null; then
         echo "     Status: Fresh (auto-start enabled)"
       else
@@ -486,7 +486,7 @@ tmux-debug-integration() {
     echo "  ❌ No .projectrc found (manual start required)"
     echo "  💡 Run 'project-setup' to enable auto-start and caching"
   fi
-  
+
   echo ""
   echo "🎯 Layout Priority Order:"
   echo "  1. 🤖 ML Training → ml_training_layout.sh"
@@ -496,7 +496,7 @@ tmux-debug-integration() {
   echo "  5. 🐍 Python → developer_layout.sh"
   echo "  6. 🐳 Docker → docker_layout.sh"
   echo "  7. 🌳 Git → git_layout.sh"
-  
+
   echo ""
   echo "📂 Layout script locations:"
   local layout_choice="$cached_layout"
@@ -512,7 +512,7 @@ tmux-debug-integration() {
       echo "  ❌ $location"
     fi
   done
-  
+
   echo ""
   echo "💡 Layout Caching:"
   echo "   - First run: Detects layout and caches in .projectrc"
@@ -527,4 +527,9 @@ alias project-setup='project-setup'
 alias detect-layout-live='detect_layout_live'
 
 # Auto-start trigger
-should_start_tmux && smart_tmux_prompt
+if should_start_tmux; then
+  smart_tmux_prompt
+fi
+
+# Always return success to avoid sourcing errors when already in tmux
+true
