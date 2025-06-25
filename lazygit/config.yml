@@ -1,105 +1,59 @@
-# Lazygit Configuration - Optimized for Your Data Engineering Setup
+# Lazygit Configuration with Data Engineering/MLOps Enhancements
 # Location: ~/.config/lazygit/config.yml
 
 gui:
-  # Theme matching your One Dark setup
+  # Theme and appearance
   theme:
     lightTheme: false
-    # These colors match your vim/terminal One Dark theme
-    activeBorderColor: ['#61afef', 'bold']      # Blue accent (matches your vim)
-    inactiveBorderColor: ['#3e4451']            # Muted gray
-    optionsTextColor: ['#e06c75']               # Red for options
-    selectedLineBgColor: ['#2c323c']            # Slightly lighter bg for selection
-    selectedRangeBgColor: ['#2c323c']           # Same for ranges
-    cherryPickedCommitBgColor: ['#c678dd']      # Purple for cherry-picked
-    cherryPickedCommitFgColor: ['#ffffff']      # White text
-    unstagedChangesColor: ['#e06c75']           # Red for unstaged
-    defaultFgColor: ['#abb2bf']                 # Default One Dark foreground
-
-  # Layout settings optimized for your workflow
-  sidePanelWidth: 0.3333                        # Good balance for data files
-  expandFocusedSidePanel: false                 # Keep consistent layout
-  mainPanelSplitMode: 'flexible'                # Better for diff viewing
-  splitDiff: 'auto'                             # Auto-split for staged/unstaged
-
-  # Display settings
-  showFileTree: true                            # Tree view for complex data projects
-  showCommandLog: true                          # Useful for debugging git commands
-  showBottomLine: true                          # Keep shortcuts visible
-  showRandomTip: false                          # Turn off tips (you know git well)
-
-  # Commit display
+    activeBorderColor:
+      - '#61afef'
+      - bold
+    inactiveBorderColor:
+      - '#3e4451'
+    optionsTextColor:
+      - '#e06c75'
+    selectedLineBgColor:
+      - '#2c323c'
+    selectedRangeBgColor:
+      - '#2c323c'
+    cherryPickedCommitBgColor:
+      - '#c678dd'
+    cherryPickedCommitFgColor:
+      - '#ffffff'
+    unstagedChangesColor:
+      - '#e06c75'
+    defaultFgColor:
+      - '#abb2bf'
+  # Window configuration
+  splitDiff: auto
+  skipRewordInEditorWarning: false
+  skipStashWarning: false
+  sidePanelWidth: 0.3333
+  expandFocusedSidePanel: false
+  mainPanelSplitMode: flexible
+  language: auto
+  timeFormat: 02 Jan 06 15:04 MST
+  shortTimeFormat: 15:04
   commitLength:
     show: true
-
-  # Time format
-  timeFormat: '02 Jan 06 15:04 MST'
-  shortTimeFormat: '15:04'
-
-# Git-specific settings optimized for your workflow
-git:
-  # Paging with delta (which you already use)
-  paging:
-    colorArg: always
-    pager: 'delta --dark --paging=never --line-numbers --navigate'
-    useConfig: false
-
-  # Commit settings for better data science commits
-  commit:
-    signOff: false
-    verbose: true                               # Show diff in commit message editor
-
-  # Auto-fetch for team collaboration
-  autoFetch: true
-  autoRefresh: true
-  fetchAll: false                               # Only fetch current remote
-
-  # Push settings
-  push:
-    autoSetUpstream: true                       # Auto-setup upstream branches
-
-  # Better diff algorithm for data files
-  diffAlgorithm: 'histogram'                    # Better for structured data
-
-  # Branch and log commands
-  branchLogCmd: 'git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --'
-  allBranchesLogCmd: 'git log --graph --all --color=always --abbrev-commit --decorate --date=relative --pretty=medium'
-
-# OS integration (optimized for your Linux setup)
-os:
-  # Use delta for diffs (you already have it configured)
-  diffCommand: 'delta --paging=never --line-numbers'
-
-  # Editor settings (you use vim)
-  editCommand: 'vim'
-  editCommandTemplate: '{{editor}} +{{line}} {{filename}}'
-
-  # File opening (Linux with xdg-open)
-  openCommand: 'xdg-open {{filename}}'
-
-  # Shell integration for your zsh functions
-  shellFunctionsFile: '~/.config/zsh/aliases'   # Where your aliases live
-
-# Custom commands for your data engineering workflow
+# Custom commands for data engineering workflow
 customCommands:
-  # Your existing gci function - the main integration!
+  # Interactive commit using your existing gci function
   - key: 'C'
     command: 'zsh -c "source $DOTFILES/zsh/productivity/git-enhancements.sh && gci"'
-    description: 'Interactive commit (your gci function)'
+    description: 'Interactive commit with DS/MLOps types'
     context: 'files'
     loadingText: 'Opening interactive commit...'
-    subprocess: true
-
-  # Your existing gstds function
+    output: terminal
+  # Quick data science status (your existing gstds function)
   - key: 'S'
     command: 'zsh -c "source $DOTFILES/zsh/productivity/git-enhancements.sh && gstds"'
-    description: 'Data Science Git Status (your gstds)'
+    description: 'Data Science Git Status'
     context: 'global'
     loadingText: 'Loading DS status...'
-    subprocess: true
-
-  # DVC integration (if you use it)
-  - key: 'ctrl+d'
+    output: terminal
+  # DVC integration
+  - key: 'v'
     prompts:
       - type: 'menu'
         title: 'DVC Commands'
@@ -120,64 +74,161 @@ customCommands:
     context: 'global'
     description: 'DVC operations'
     loadingText: 'Running DVC command...'
-
-  # Virtual environment info (using your setup)
-  - key: 'ctrl+e'
-    command: 'echo "🐍 Virtual Env: ${VIRTUAL_ENV:+$(basename $VIRTUAL_ENV)}${CONDA_DEFAULT_ENV:+$CONDA_DEFAULT_ENV}" && echo "📁 Project: $(basename $PWD)" && echo "🌳 Branch: $(git branch --show-current)"'
-    description: 'Show environment & project info'
-    context: 'global'
-    subprocess: true
-
-  # Clean notebooks (for your .ipynb files)
-  - key: 'ctrl+n'
-    command: 'find . -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \; && echo "✅ Cleaned notebook outputs"'
+  # Clean notebooks (remove output)
+  - key: 'N'
+    command: 'find . -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \;'
     description: 'Clean notebook outputs'
     context: 'global'
-    confirm: true
     loadingText: 'Cleaning notebooks...'
-
-  # Quick experiment branch (for your ML work)
-  - key: 'ctrl+x'
+    confirm: true
+  # Quick push with upstream setup
+  - key: 'P'
+    prompts:
+      - type: 'confirm'
+        title: 'Push to origin?'
+        body: 'This will push current branch to origin and set upstream if needed'
+    command: 'git push -u origin $(git branch --show-current)'
+    context: 'global'
+    description: 'Push with upstream'
+    loadingText: 'Pushing to origin...'
+  # Experiment branch creation
+  - key: 'X'
     prompts:
       - type: 'input'
         title: 'Experiment name'
         initialValue: 'exp-'
-    command: 'git checkout -b {{.Form.ExperimentName}} && echo "🧪 Created experiment branch: {{.Form.ExperimentName}}"'
+    command: 'git checkout -b {{.Form.ExperimentName}}'
     context: 'global'
     description: 'Create experiment branch'
-    loadingText: 'Creating experiment...'
-
-# Refresh settings optimized for team work
+    loadingText: 'Creating experiment branch...'
+git:
+  # Paging and diff settings
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
+    useConfig: false
+  # Commit settings
+  commit:
+    signOff: false
+    verbose: true
+  # Merge settings
+  merging:
+    manualCommit: false
+    args: '--no-ff'
+  # Pull settings
+  pull:
+    mode: 'merge'
+  # Push setting
+  push:
+    autoSetUpstream: true
+  # Skip hooks for performance (enable when needed)
+  skipHookPrefix: WIP
+  # Auto-fetch
+  autoFetch: true
+  autoRefresh: true
+  fetchAll: false
+  # Branch settings
+  branchLogCmd: 'git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --'
+  # Better diff algorithm
+  diffAlgorithm: 'histogram'
+  allBranchesLogCmds:
+    - git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium
+# File handling
+os:
+  # Use delta for diffs if available, fallback to less
+  diffCommand: 'delta --paging=never'
+  # Edit with your preferred editor
+  editCommand: 'vim'
+  editCommandTemplate: '{{editor}} +{{line}} {{filename}}'
+  openCommand: 'xdg-open {{filename}}'
+# Refresh settings
 refresher:
-  refreshInterval: 10                           # Refresh every 10 seconds
-  fetchInterval: 60                             # Fetch every minute
-
-# Disable quit confirmation (you're experienced)
+  refreshInterval: 10
+  fetchInterval: 60
+# Confirmation settings
 confirmOnQuit: false
 quitOnTopLevelReturn: false
-
-# Key bindings - minimal changes, mostly using defaults
+# Key bindings (custom additions)
 keybinding:
   universal:
-    # Keep most defaults, just ensure these important ones
     quit: 'q'
     quit-alt1: '<c-c>'
     return: '<esc>'
+    quitWithoutChangingDirectory: 'Q'
     togglePanel: '<tab>'
+    prevItem: '<up>'
+    nextItem: '<down>'
+    prevItem-alt: 'k'
+    nextItem-alt: 'j'
+    prevPage: ','
+    nextPage: '.'
+    gotoTop: '<'
+    gotoBottom: '>'
+    scrollLeft: 'H'
+    scrollRight: 'L'
+    prevBlock: '<left>'
+    nextBlock: '<right>'
+    prevBlock-alt: 'h'
+    nextBlock-alt: 'l'
+    jumpToBlock: ['1', '2', '3', '4', '5']
+    nextMatch: 'n'
+    prevMatch: 'N'
+    optionMenu: 'x'
+    optionMenu-alt1: '?'
+    select: '<space>'
+    goInto: '<enter>'
+    openRecentRepos: '<c-r>'
     confirm: '<enter>'
-    executeCustomCommand: ':'
+    confirm-alt1: 'y'
+    remove: 'd'
+    new: 'n'
+    edit: 'e'
+    openFile: 'o'
+    scrollUpMain: '<pgup>'
+    scrollDownMain: '<pgdown>'
+    scrollUpMain-alt1: 'K'
+    scrollDownMain-alt1: 'J'
+    scrollUpMain-alt2: '<c-u>'
+    scrollDownMain-alt2: '<c-d>'
+    executeShellCommand: ':'
+    createRebaseOptionsMenu: 'm'
+    pushFiles: 'P'
+    pullFiles: 'p'
     refresh: 'R'
-
+    createPatchOptionsMenu: '<c-p>'
+    nextTab: ']'
+    prevTab: '['
+    nextScreenMode: '+'
+    prevScreenMode: '_'
+    undo: 'z'
+    redo: '<c-z>'
+    filteringMenu: '<c-s>'
+    diffingMenu: 'W'
+    diffingMenu-alt: '<c-e>'
+    copyToClipboard: '<c-o>'
+    submitEditorText: '<enter>'
+    appendNewline: '<a-enter>'
+    extrasMenu: '@'
+    toggleWhitespaceInDiffView: '<c-w>'
+  # Files panel bindings
   files:
-    # Override default 'c' to use your gci function via 'C'
-    commitChanges: 'c'                          # Keep lowercase for quick commits
-    commitChangesWithEditor: 'C'                # Your custom gci function
-    viewResetOptions: 'D'
-    toggleStagedAll: 'a'
+    commitChanges: 'c'
+    commitChangesWithoutHook: 'w'
+    amendLastCommit: 'A'
+    commitChangesWithEditor: 'C' # This will be overridden by our custom command
+    ignoreFile: 'i'
     refreshFiles: 'r'
+    stashAllChanges: 's'
+    viewStashOptions: 'S'
+    toggleStagedAll: 'a'
+    viewResetOptions: 'D'
     fetch: 'f'
-
-# Performance settings
+    toggleTreeView: '`'
+    openMergeTool: 'M'
+    openStatusFilter: '<c-b>'
+# Show command log
+showCommandLog: true
+# Update checking
 update:
-  method: 'prompt'                              # Prompt for updates
-  days: 14                                      # Check every 2 weeks
+  method: prompt
+  days: 14
