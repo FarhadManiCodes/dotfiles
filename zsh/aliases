@@ -29,64 +29,17 @@ alias jlm='jupyter-log-monitor' # List instances
 alias jl='tmux-jupyer-auto'
 alias js='jupyer-smart'
 
-# tmux
-# Enhanced session name generator using smart project detection
-generate_session_name() {
-  local session_name=""
-
-  # Get smart project name as base
-  local base_name=$(get_project_name)
-
-  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    # In git repo - add branch info for feature branches
-    local branch=$(git branch --show-current 2>/dev/null)
-
-    if [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" && "$branch" != "develop" ]]; then
-      # Feature branch: use base-branch format
-      session_name="${base_name}-${branch}"
-    else
-      # Main/master/develop branch: just use base name
-      session_name="$base_name"
-    fi
-  else
-    # Not in git: just use base name
-    session_name="$base_name"
-  fi
-
-  # Clean name for tmux compatibility and limit length
-  session_name=$(echo "$session_name" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-20)
-
-  # Handle duplicates by adding counter
-  if tmux has-session -t "$session_name" 2>/dev/null; then
-    local counter=2
-    while tmux has-session -t "${session_name}-${counter}" 2>/dev/null; do
-      counter=$((counter + 1))
-    done
-    session_name="${session_name}-${counter}"
-  fi
-
-  echo "$session_name"
-}
-# Updated tmux-new
-alias tmux-new='
-SESSION_NAME=$(generate_session_name)
-tmux new-session -d -s "$SESSION_NAME"
-tmux attach-session -t "$SESSION_NAME"'
-
-alias tmux-start='echo "🚀 Starting tmux with session restoration..." && tmux kill-server 2>/dev/null; ~/.local/bin/tmux-fix-last 2>/dev/null; tmux new-session -d -s main; ~/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh 2>/dev/null; tmux attach-session -t main'
-
+# tmux related =======================
+alias tmux-new='tmux-new-enhanced'
+alias tmux-info='tmux-project-info'
+alias tmux-smart='smart_tmux_prompt'
+alias tmux-debug='tmux-debug-integration'
 # Force restart - always kills and restarts
-alias tmux-restart='
-SESSION_NAME=$(generate_session_name)
-echo "🔄 Force restart (killing all sessions)..."
+alias tmux-restart='echo "🔄 Force restart (killing all sessions)..."
 tmux kill-server 2>/dev/null
-~/.local/bin/tmux-fix-last 2>/dev/null
-tmux new-session -d -s "$SESSION_NAME"
-tmux attach-session -t "$SESSION_NAME"'
+tmux-new-enhanced'
 # Quick restore for existing tmux
-
 alias tmux-restore='~/.local/bin/tmux-fix-last && ~/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh'
-
 # Check status
 alias tmux-status='echo "TMux Status:" && tmux list-sessions 2>/dev/null || echo "No tmux sessions running"'
 
@@ -96,6 +49,5 @@ alias fgd='forgit::diff'            # f + gd = interactive diff
 alias fglo='forgit::log'            # f + glo = interactive log
 alias fgco='forgit::checkout::file' # f + gco = interactive checkout
 alias fgss='forgit::stash::show'    # forgit stash show
-
 
 bindkey '^ ' autosuggest-accept

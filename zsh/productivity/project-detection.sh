@@ -6,12 +6,6 @@
 # 2. Git repository root 
 # 3. Current directory
 #
-# Examples:
-# /my-monorepo/              ← git root
-# /my-monorepo/frontend/     ← has .projectrc → frontend project  
-# /my-monorepo/backend/      ← has .projectrc → backend project
-# /my-monorepo/shared/       ← no .projectrc → uses git root (my-monorepo)
-# /my-monorepo/backend/src/deep/  ← finds .projectrc 2 levels up in backend/
 
 # Get the project root directory (priority: .projectrc > git root > current directory)
 _get_project_root() {
@@ -104,6 +98,65 @@ _is_projectrc_fresh() {
   return 0
 }
 
+# Detect project layout based on priority system (for project-detection.sh)
+_detect_project_layout() {
+  local detected_types=($(get_project_types 2>/dev/null))
+  [[ $? -ne 0 ]] && return 1
+
+  # Convert to associative lookup for faster checking
+  local -A type_map
+  for type in "${detected_types[@]}"; do
+    type_map[$type]=1
+  done
+
+  # Priority-based layout selection (exact order as specified)
+  
+  # 1. 🤖 ML Training (highest priority)
+  if [[ -n "${type_map[ml_training]}" ]]; then
+    echo "ml_training"
+    return 0
+  fi
+  
+  # 2. 🔧 ETL/Data Engineering  
+  if [[ -n "${type_map[etl]}" ]]; then
+    echo "etl"
+    return 0
+  fi
+  
+  # 3. 📊 Data Science (jupyter + data combination)
+  if [[ -n "${type_map[jupyter]}" && -n "${type_map[data]}" ]]; then
+    echo "analysis"
+    return 0
+  fi
+  
+  # 4. 🗄️ SQL/Database
+  if [[ -n "${type_map[sql]}" ]]; then
+    echo "database"
+    return 0
+  fi
+  
+  # 5. 🐍 Python (includes python + data combinations)
+  if [[ -n "${type_map[python]}" ]]; then
+    echo "developer"
+    return 0
+  fi
+  
+  # 6. 🐳 Docker
+  if [[ -n "${type_map[docker]}" ]]; then
+    echo "docker"
+    return 0
+  fi
+  
+  # 7. 🌳 Git (lowest priority)
+  if [[ -n "${type_map[git]}" ]]; then
+    echo "git"
+    return 0
+  fi
+  
+  # Fallback to basic if no specific type detected
+  echo "basic"
+}
+
 # Load from .projectrc in project root
 _load_projectrc() {
   local project_root=$(_get_project_root)
@@ -112,7 +165,7 @@ _load_projectrc() {
   [[ ! -f "$projectrc_file" ]] && return 1
   
   # Simple key=value format
-  unset PROJECTRC_NAME PROJECTRC_TYPES
+  unset PROJECTRC_NAME PROJECTRC_TYPES PROJECTRC_LAYOUT
   while IFS='=' read -r key value || [[ -n "$key" ]]; do
     # Skip comments and empty lines
     [[ "$key" =~ ^[[:space:]]*# ]] && continue
@@ -125,6 +178,9 @@ _load_projectrc() {
       "PROJECT_TYPES") 
         PROJECTRC_TYPES="$value"
         ;;
+      "PROJECT_LAYOUT")
+        PROJECTRC_LAYOUT="$value"
+        ;;
     esac
   done < "$projectrc_file"
   
@@ -135,6 +191,7 @@ _load_projectrc() {
 _save_projectrc() {
   local name="$1"
   local types="$2"
+  local layout="$3"
   local project_root=$(_get_project_root)
   local projectrc_file="$project_root/.projectrc"
   
@@ -144,6 +201,7 @@ _save_projectrc() {
 # Delete this file to force re-detection
 PROJECT_NAME=$name
 PROJECT_TYPES=$types
+PROJECT_LAYOUT=$layout
 GENERATED=$(date '+%Y-%m-%d %H:%M:%S')
 DETECTED_FROM=$PWD
 EOF
@@ -156,8 +214,9 @@ EOF
     echo "📁 From current location: $relative_path"
   fi
   
-  echo "💡 This .projectrc now defines your project boundary"
+  echo "💡 This .projectrc now defines your project boundary and caches layout: $layout"
 }
+
 
 # Fast project type detection (git-aware)
 _detect_project_types_fast() {
@@ -372,22 +431,57 @@ project-setup() {
   local name=$(get_project_name)
   local types=($(get_project_types))
   local types_string="${(j: :)types}"
+  local layout=$(_detect_project_layout)  # Detect layout for caching
   
   echo ""
   echo "📋 Project: $name"
   echo "🏷️  Types: $types_string"
+  echo "🎨 Layout: $layout"
+  
+  # Show layout meaning with emoji
+  case "$layout" in
+    "ml_training") echo "   🤖 ML Training - Machine Learning projects" ;;
+    "etl") echo "   🔧 ETL/Data Engineering - Data pipelines and ETL" ;;
+    "analysis") echo "   📊 Data Science - Jupyter notebooks and data analysis" ;;
+    "database") echo "   🗄️ Database - SQL projects and databases" ;;
+    "developer") echo "   🐍 Python - General Python development" ;;
+    "docker") echo "   🐳 Docker - Containerized applications" ;;
+    "git") echo "   🌳 Git - Version control repositories" ;;
+    "basic") echo "   📁 Basic - Standard terminal layout" ;;
+  esac
   
   if [[ ! -f "$project_root/.projectrc" ]]; then
     echo ""
     echo -n "💾 Save configuration to .projectrc in project root? [Y/n]: "
     read -r reply
     if [[ $reply =~ ^[Yy]$ ]] || [[ -z $reply ]]; then
-      _save_projectrc "$name" "$types_string"
+      _save_projectrc "$name" "$types_string" "$layout"
       echo "💡 Next time detection will be instant from anywhere in the project!"
       echo "💡 .projectrc now defines the project boundary (searchable up to 2 levels)"
+      echo "💡 Layout ($layout) is cached for consistent tmux sessions"
     fi
   else
     echo "✅ Using existing .projectrc in project root"
+    
+    # Check if layout is missing and update if needed
+    if _load_projectrc 2>/dev/null && [[ -z "$PROJECTRC_LAYOUT" ]]; then
+      echo ""
+      echo "🔄 Updating .projectrc with layout cache..."
+      _save_projectrc "$PROJECTRC_NAME" "$PROJECTRC_TYPES" "$layout"
+      echo "💡 Layout ($layout) added to existing configuration"
+    elif _load_projectrc 2>/dev/null && [[ "$PROJECTRC_LAYOUT" != "$layout" ]]; then
+      echo ""
+      echo "⚠️  Cached layout ($PROJECTRC_LAYOUT) differs from detected layout ($layout)"
+      echo -n "🔄 Update cached layout to current detection? [Y/n]: "
+      read -r reply
+      if [[ $reply =~ ^[Yy]$ ]] || [[ -z $reply ]]; then
+        _save_projectrc "$PROJECTRC_NAME" "$PROJECTRC_TYPES" "$layout"
+        echo "💡 Layout cache updated to: $layout"
+      else
+        echo "💡 Keeping cached layout: $PROJECTRC_LAYOUT"
+      fi
+    fi
+    
     if [[ "$PWD" != "$project_root" ]]; then
       echo "📍 Config location: $(realpath --relative-to="$PWD" "$project_root/.projectrc" 2>/dev/null || echo "$project_root/.projectrc")"
     fi
@@ -395,9 +489,45 @@ project-setup() {
   
   echo ""
   echo "🎯 Suggested environment: vc $name"
-  [[ " ${types[*]} " =~ " ml_training " ]] && echo "🤖 ML layout: tmux-new (will suggest ML training layout)"
-  [[ " ${types[*]} " =~ " etl " ]] && echo "🔧 ETL layout: tmux-new (will suggest ETL layout)"
-  [[ " ${types[*]} " =~ " jupyter " ]] && echo "📊 Analysis layout: tmux-new (will suggest analysis layout)"
+  
+  # Show layout-specific suggestions
+  case "$layout" in
+    "ml_training") 
+      echo "🤖 ML Training layout: Auto-starts with specialized ML environment"
+      echo "   • GPU monitoring • Training logs • Model checkpoints • Experiments"
+      ;;
+    "etl") 
+      echo "🔧 ETL layout: Auto-starts with data engineering tools"
+      echo "   • Pipeline monitoring • Data quality • Logs • Orchestration"
+      ;;
+    "analysis") 
+      echo "📊 Data Science layout: Auto-starts with analysis environment"
+      echo "   • Jupyter server • Data exploration • Visualization • Research"
+      ;;
+    "database") 
+      echo "🗄️ Database layout: Auto-starts with database tools"
+      echo "   • SQL client • Query optimization • Schema management • Monitoring"
+      ;;
+    "developer") 
+      echo "🐍 Python layout: Auto-starts with development environment"
+      echo "   • Code editor • Testing • Debugging • Virtual environment"
+      ;;
+    "docker") 
+      echo "🐳 Docker layout: Auto-starts with container management"
+      echo "   • Container monitoring • Logs • Build process • Services"
+      ;;
+    "git") 
+      echo "🌳 Git layout: Auto-starts with version control tools"
+      echo "   • Git status • Interactive staging • Branch management • History"
+      ;;
+    "basic")
+      echo "📁 Basic layout: Standard terminal environment"
+      echo "   • Single window • General purpose • No specialized tools"
+      ;;
+  esac
+  
+  echo ""
+  echo "💡 Next terminal session will auto-start tmux with $layout layout"
 }
 
 # Quick project info (git-aware)
@@ -414,13 +544,19 @@ pinfo() {
   echo "📁 Root: $project_root"
   
   if [[ -f "$project_root/.projectrc" ]]; then
+    if _load_projectrc 2>/dev/null && [[ -n "$PROJECTRC_LAYOUT" ]]; then
+      echo "🎨 Layout: $PROJECTRC_LAYOUT (cached)"
+    else
+      echo "🎨 Layout: $(_detect_project_layout) (live)"
+    fi
     echo "💾 Cached in .projectrc"
   else
+    echo "🎨 Layout: $(_detect_project_layout) (live)"
     echo "🔍 Live detection"
   fi
 }
 
-# Test function (shows priority system with 2-level limit)
+# Test function
 test_project_detection() {
   local project_root=$(_get_project_root)
   
@@ -456,6 +592,18 @@ test_project_detection() {
   echo ""
   echo "📋 Name: $(get_project_name)"
   echo "🏷️  Types: $(get_project_types)"
+  
+  # Show both cached and live layout
+  local live_layout=$(_detect_project_layout)
+  echo "🎨 Layout (live): $live_layout"
+  
+  if [[ -f "$project_root/.projectrc" ]] && _load_projectrc 2>/dev/null && [[ -n "$PROJECTRC_LAYOUT" ]]; then
+    echo "🎨 Layout (cached): $PROJECTRC_LAYOUT"
+    if [[ "$PROJECTRC_LAYOUT" != "$live_layout" ]]; then
+      echo "⚠️  Cached and live layouts differ!"
+    fi
+  fi
+  
   echo ""
   
   if git rev-parse --git-dir >/dev/null 2>&1; then
@@ -482,15 +630,33 @@ test_project_detection() {
     esac
   done
   
+  echo ""
+  echo "🎯 Layout Priority System:"
+  echo "  1. 🤖 ML Training → ml_training_layout.sh"
+  echo "  2. 🔧 ETL/Data Engineering → etl_layout.sh"
+  echo "  3. 📊 Data Science → analysis_layout.sh"
+  echo "  4. 🗄️ SQL/Database → database_layout.sh"
+  echo "  5. 🐍 Python → developer_layout.sh"
+  echo "  6. 🐳 Docker → docker_layout.sh"
+  echo "  7. 🌳 Git → git_layout.sh"
+  
   if [[ -f "$project_root/.projectrc" ]]; then
     echo ""
     echo "💾 .projectrc found at: $project_root/.projectrc"
+    if _load_projectrc 2>/dev/null; then
+      echo "   Name: $PROJECTRC_NAME"
+      echo "   Types: $PROJECTRC_TYPES"
+      if [[ -n "$PROJECTRC_LAYOUT" ]]; then
+        echo "   Layout: $PROJECTRC_LAYOUT (cached)"
+      else
+        echo "   Layout: Not cached (run project-setup to update)"
+      fi
+    fi
   else
     echo ""
-    echo "💡 Run 'project-setup' to create .projectrc in project root"
+    echo "💡 Run 'project-setup' to create .projectrc with layout caching"
   fi
 }
-
 alias project-info='pinfo'
 alias project-test='test_project_detection'
 

@@ -61,8 +61,74 @@ should_start_tmux() {
   return 0
 }
 
-# Determine best layout for project (priority order)
+# Determine best layout for project (priority order) - with caching
 detect_layout() {
+  # Check .projectrc cache first
+  if _is_projectrc_fresh 2>/dev/null && _load_projectrc 2>/dev/null && [[ -n "$PROJECTRC_LAYOUT" ]]; then
+    echo "$PROJECTRC_LAYOUT"
+    return 0
+  fi
+  
+  # Fall back to live detection
+  local detected_types=($(get_project_types 2>/dev/null))
+  [[ $? -ne 0 ]] && return 1
+
+  # Convert to associative lookup for faster checking
+  local -A type_map
+  for type in "${detected_types[@]}"; do
+    type_map[$type]=1
+  done
+
+  # Priority-based layout selection (exact order as specified)
+  
+  # 1. 🤖 ML Training (highest priority)
+  if [[ -n "${type_map[ml_training]}" ]]; then
+    echo "ml_training"
+    return 0
+  fi
+  
+  # 2. 🔧 ETL/Data Engineering  
+  if [[ -n "${type_map[etl]}" ]]; then
+    echo "etl"
+    return 0
+  fi
+  
+  # 3. 📊 Data Science (jupyter + data combination, or analysis type)
+  if [[ -n "${type_map[jupyter]}" && -n "${type_map[data]}" ]]; then
+    echo "analysis"
+    return 0
+  fi
+  
+  # 4. 🗄️ SQL/Database
+  if [[ -n "${type_map[sql]}" ]]; then
+    echo "database"
+    return 0
+  fi
+  
+  # 5. 🐍 Python (includes python + data combinations)
+  if [[ -n "${type_map[python]}" ]]; then
+    echo "developer"
+    return 0
+  fi
+  
+  # 6. 🐳 Docker
+  if [[ -n "${type_map[docker]}" ]]; then
+    echo "docker"
+    return 0
+  fi
+  
+  # 7. 🌳 Git (lowest priority)
+  if [[ -n "${type_map[git]}" ]]; then
+    echo "git"
+    return 0
+  fi
+  
+  # Fallback to basic if no specific type detected
+  echo "basic"
+}
+
+# Live layout detection (bypasses cache)
+detect_layout_live() {
   local detected_types=($(get_project_types 2>/dev/null))
   [[ $? -ne 0 ]] && return 1
 
@@ -236,6 +302,25 @@ smart_tmux_prompt() {
     return 1
   fi
 
+  # Check for existing sessions first
+  local existing_sessions=""
+  if tmux list-sessions >/dev/null 2>&1; then
+    # Look for project-related sessions
+    existing_sessions=$(tmux list-sessions 2>/dev/null | grep -E "^($project_name|$project_name-|.*-$project_name):")
+  fi
+
+  # If .projectrc exists but no layout is cached, and no sessions running, update it
+  local project_root=$(_get_project_root 2>/dev/null)
+  if [[ -f "$project_root/.projectrc" && -z "$existing_sessions" ]]; then
+    if _load_projectrc 2>/dev/null && [[ -z "$PROJECTRC_LAYOUT" ]]; then
+      echo "🔄 Updating .projectrc with detected layout..."
+      local detected_layout=$(detect_layout_live)
+      local project_types=$(get_project_types 2>/dev/null)
+      _save_projectrc "$PROJECTRC_NAME" "$project_types" "$detected_layout"
+      echo ""
+    fi
+  fi
+
   local layout_choice=$(detect_layout)
 
   # Show project info with emoji
@@ -253,28 +338,34 @@ smart_tmux_prompt() {
   echo "🎯 $project_name${emoji:+ ($emoji $layout_choice)}"
 
   # Check for existing sessions
-  if tmux list-sessions >/dev/null 2>&1; then
-    # Look for project-related sessions
-    local project_sessions=$(tmux list-sessions 2>/dev/null | grep -E "^($project_name|$project_name-|.*-$project_name):")
+  if [[ -n "$existing_sessions" ]]; then
+    echo "🔍 Project sessions:"
+    echo "$existing_sessions" | head -2 | sed 's/^/  🎯 /'
 
-    if [[ -n "$project_sessions" ]]; then
-      echo "🔍 Project sessions:"
-      echo "$project_sessions" | head -2 | sed 's/^/  🎯 /'
-
-      # Show other sessions (max 2)
-      local other_sessions=$(tmux list-sessions 2>/dev/null | grep -vE "^($project_name|$project_name-|.*-$project_name):" | head -2)
-      [[ -n "$other_sessions" ]] && echo "📋 Others:" && echo "$other_sessions" | sed 's/^/  /'
-
-      echo "💡 tmux attach -t $project_name"
-      return
+    # Show other sessions (max 2)
+    local other_sessions=""
+    if tmux list-sessions >/dev/null 2>&1; then
+      other_sessions=$(tmux list-sessions 2>/dev/null | grep -vE "^($project_name|$project_name-|.*-$project_name):" | head -2)
     fi
+    [[ -n "$other_sessions" ]] && echo "📋 Others:" && echo "$other_sessions" | sed 's/^/  /'
+
+    echo "💡 tmux attach -t $project_name"
+    return
   fi
 
   # No existing sessions found - check if we should auto-create
   
   # If .projectrc exists, auto-create session without prompting
-  if type _is_projectrc_fresh >/dev/null 2>&1 && _is_projectrc_fresh 2>/dev/null; then
+  if [[ -f "$project_root/.projectrc" ]]; then
     echo "✅ Project configured (.projectrc found)"
+    
+    # Show if layout was cached or live-detected
+    if _load_projectrc 2>/dev/null && [[ -n "$PROJECTRC_LAYOUT" ]]; then
+      echo "📋 Using cached layout: $layout_choice"
+    else
+      echo "🔍 Using live-detected layout: $layout_choice"
+    fi
+    
     echo "🚀 Auto-creating tmux session: $project_name with $layout_choice layout..."
     echo ""
     tmux-new-smart "$layout_choice" "$project_name"
@@ -356,22 +447,44 @@ tmux-debug-integration() {
   echo "📁 Current directory: $PWD"
   echo "🎯 Project name: $(get_project_name 2>/dev/null || echo 'FAILED')"
   echo "🏷️  Project types: $(get_project_types 2>/dev/null || echo 'FAILED')"
-  echo "🎨 Detected layout: $(detect_layout 2>/dev/null || echo 'FAILED')"
+  
+  # Show both cached and live layout detection
+  local cached_layout=$(detect_layout 2>/dev/null || echo 'FAILED')
+  local live_layout=$(detect_layout_live 2>/dev/null || echo 'FAILED')
+  
+  echo "🎨 Layout (cached): $cached_layout"
+  if [[ "$cached_layout" != "$live_layout" ]]; then
+    echo "🔍 Layout (live): $live_layout"
+  fi
+  
   echo "🔖 Session name: $(get_session_name 2>/dev/null || echo 'FAILED')"
   
   # Check .projectrc status
   echo ""
   echo "💾 Project Configuration:"
-  if type _is_projectrc_fresh >/dev/null 2>&1 && _is_projectrc_fresh 2>/dev/null; then
-    echo "  ✅ .projectrc found and fresh (will auto-start tmux)"
-  else
-    local project_root=$(_get_project_root 2>/dev/null)
-    if [[ -f "$project_root/.projectrc" ]]; then
-      echo "  ⚠️  .projectrc found but stale (manual start required)"
+  local project_root=$(_get_project_root 2>/dev/null)
+  if [[ -f "$project_root/.projectrc" ]]; then
+    if _load_projectrc 2>/dev/null; then
+      echo "  ✅ .projectrc found"
+      echo "     Name: $PROJECTRC_NAME"
+      echo "     Types: $PROJECTRC_TYPES"
+      if [[ -n "$PROJECTRC_LAYOUT" ]]; then
+        echo "     Layout: $PROJECTRC_LAYOUT (cached)"
+      else
+        echo "     Layout: Not cached (will be updated on next run)"
+      fi
+      
+      if _is_projectrc_fresh 2>/dev/null; then
+        echo "     Status: Fresh (auto-start enabled)"
+      else
+        echo "     Status: Stale (manual start required)"
+      fi
     else
-      echo "  ❌ No .projectrc found (manual start required)"
-      echo "  💡 Run 'project-setup' to enable auto-start"
+      echo "  ⚠️  .projectrc found but unreadable"
     fi
+  else
+    echo "  ❌ No .projectrc found (manual start required)"
+    echo "  💡 Run 'project-setup' to enable auto-start and caching"
   fi
   
   echo ""
@@ -386,7 +499,7 @@ tmux-debug-integration() {
   
   echo ""
   echo "📂 Layout script locations:"
-  local layout_choice=$(detect_layout 2>/dev/null)
+  local layout_choice="$cached_layout"
   for location in \
     "$HOME/dotfile/tmux/layouts/${layout_choice}_layout.sh" \
     "$HOME/.config/tmux/layouts/${layout_choice}_layout.sh" \
@@ -401,14 +514,17 @@ tmux-debug-integration() {
   done
   
   echo ""
+  echo "💡 Layout Caching:"
+  echo "   - First run: Detects layout and caches in .projectrc"
+  echo "   - Subsequent runs: Uses cached layout for consistency"
+  echo "   - Manual override: Delete .projectrc to re-detect"
+  echo ""
   echo "💡 To test: tmux-new-smart (or just open new terminal if .projectrc exists)"
 }
 
 # Aliases
-alias tmux-new='tmux-new-enhanced'
-alias tmux-info='tmux-project-info'
-alias tmux-smart='smart_tmux_prompt'
-alias tmux-debug='tmux-debug-integration'
+alias project-setup='project-setup'
+alias detect-layout-live='detect_layout_live'
 
 # Auto-start trigger
 should_start_tmux && smart_tmux_prompt
