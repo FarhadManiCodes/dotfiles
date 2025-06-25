@@ -41,7 +41,7 @@ mkdir -p "${HOME}/.config/zsh/completions"
 # Generate GitHub CLI completions if available
 if command -v gh >/dev/null 2>&1; then
   echo "📝 Generating GitHub CLI completions..."
-  gh completion -s zsh > "${HOME}/.config/zsh/completions/_gh" 2>/dev/null || true
+  gh completion -s zsh >"${HOME}/.config/zsh/completions/_gh" 2>/dev/null || true
 fi
 
 echo "✅ Zsh configured"
@@ -70,9 +70,15 @@ ln -sf "${HOME}/dotfiles/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
 echo "✅ foot configured"
 
 # ============ git ==============================
-echo "🌿 Setting up Git..."
+echo " Setting up Git..."
 ln -sf "${HOME}/dotfiles/git/.gitconfig" "${HOME}/.gitconfig"
 echo "✅ Git configured"
+
+# ============ lazygit ======================================
+echo "Setting up lazygit..."
+mkdir -p "${XDG_CONFIG_HOME}/lazygit"
+ln -sf "${HOME}/dotfiles/lazygit/config.yml" "${XDG_CONFIG_HOME}/lazygit/config.yml"
+echo "Lazygit configured"
 
 #########
 # Fonts #
