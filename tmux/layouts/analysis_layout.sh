@@ -81,7 +81,44 @@ tmux send-keys "import pandas as pd, numpy as np" Enter
 
 # Return to main data browser
 tmux select-pane -t 0
+# ================= Window 3: Data Profiling =======================
+tmux new-window -n "profiling" -c "$PWD"
 
+# Split into top (30%) and bottom (70%)
+tmux split-window -v -p 70 -c "$PWD"
+
+# Top pane (30%): Enhanced data browser
+tmux select-pane -t 0
+tmux send-keys "clear" Enter
+tmux send-keys "echo '📊 Enhanced Data Discovery'" Enter
+tmux send-keys "echo '========================'" Enter
+tmux send-keys "echo 'Controls: Ctrl+P to send to profiler below'" Enter
+tmux send-keys "echo ''" Enter
+
+# Source the enhanced fzf data script
+
+tmux send-keys "source '$DOTFILES/zsh/specials/fzf_data.sh'" Enter
+tmux send-keys "fdata-preview 'right:60%'" Enter
+# Bottom pane (70%): DataProfiler environment
+tmux select-pane -t 1
+tmux send-keys "clear" Enter
+tmux send-keys "echo '🔬 DataProfiler Environment'" Enter
+tmux send-keys "echo '==========================='" Enter
+tmux send-keys "ptpython" Enter
+tmux send-keys "import json" Enter
+tmux send-keys "import pandas as pd" Enter
+tmux send-keys "from dataprofiler import Data, Profiler" Enter
+tmux send-keys "print('🔬 DataProfiler ready!')" Enter
+tmux send-keys "print('💡 Usage:')" Enter
+tmux send-keys "print('  data = Data(\"file.csv\")')" Enter
+tmux send-keys "print('  profile = Profiler(data)')" Enter
+tmux send-keys "print('  report = profile.report()')" Enter
+tmux send-keys "print('  print(report)')" Enter
+tmux send-keys "print('')" Enter
+tmux send-keys "print('📁 Waiting for file from browser above (Ctrl+P)...')" Enter
+
+# Return to data browser (top pane)
+tmux select-pane -t 0
 # ================= Window 4: Data Quality =======================
 tmux new-window -n "quality" -c "$PWD"
 tmux split-window -v -p 50 -c "$PWD"

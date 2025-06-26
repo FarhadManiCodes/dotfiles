@@ -7,17 +7,17 @@
 # Simple file analyzer
 _analyze_data_file() {
   local file="$1"
-  
+
   echo "📁 $(basename "$file")"
   echo "📊 $(ls -lh "$file" 2>/dev/null | awk '{print $5}' || echo 'unknown')"
   echo "📅 $(ls -l "$file" 2>/dev/null | awk '{print $6, $7, $8}' || echo 'unknown')"
   echo ""
-  
+
   local ext="${file##*.}"
   ext=$(echo "$ext" | tr '[:upper:]' '[:lower:]')
-  
+
   case "$ext" in
-    csv|tsv)
+    csv | tsv)
       echo "📊 CSV Quick Stats:"
       if command -v qsv >/dev/null 2>&1; then
         local rows=$(qsv count "$file" 2>/dev/null || echo '?')
@@ -25,7 +25,7 @@ _analyze_data_file() {
         echo "Rows: $rows | Columns: $cols"
         echo "Headers: $(qsv headers "$file" 2>/dev/null | head -3 | tr '\n' ', ' | sed 's/, $//' || echo 'Error reading headers')"
       else
-        local rows=$(wc -l < "$file" 2>/dev/null || echo '?')
+        local rows=$(wc -l <"$file" 2>/dev/null || echo '?')
         local cols=$(head -1 "$file" 2>/dev/null | tr ',' '\n' | wc -l || echo '?')
         echo "Rows: $rows | Columns: $cols"
         echo "Headers: $(head -1 "$file" 2>/dev/null | cut -d',' -f1-3 || echo 'Error reading headers')"
@@ -38,13 +38,13 @@ _analyze_data_file() {
         head -20 "$file"
       fi
       ;;
-    json|jsonl)
+    json | jsonl)
       echo "📄 JSON Info:"
       if command -v jq >/dev/null 2>&1; then
         echo "Structure: $(jq -r 'keys[]?' "$file" 2>/dev/null | head -3 | tr '\n' ' ')..."
         echo "Size: $(jq length "$file" 2>/dev/null || echo '?') items"
       else
-        echo "Lines: $(wc -l < "$file" 2>/dev/null || echo '?')"
+        echo "Lines: $(wc -l <"$file" 2>/dev/null || echo '?')"
       fi
       echo ""
       echo "📄 File Preview:"
@@ -54,7 +54,7 @@ _analyze_data_file() {
         head -20 "$file"
       fi
       ;;
-    xlsx|xls)
+    xlsx | xls)
       echo "📊 Excel Info:"
       if command -v python3 >/dev/null 2>&1; then
         python3 -c "
@@ -102,7 +102,7 @@ except Exception as e:
         echo "Binary parquet file"
       fi
       ;;
-    pkl|pickle)
+    pkl | pickle)
       echo "🥒 Pickle Info:"
       if command -v python3 >/dev/null 2>&1; then
         python3 -c "
@@ -124,9 +124,9 @@ except Exception as e:
       echo "📄 Binary File Preview:"
       echo "Binary pickle file - use python for object inspection"
       ;;
-    yaml|yml)
+    yaml | yml)
       echo "📄 YAML Info:"
-      echo "Lines: $(wc -l < "$file" 2>/dev/null || echo '?')"
+      echo "Lines: $(wc -l <"$file" 2>/dev/null || echo '?')"
       if command -v yq >/dev/null 2>&1; then
         echo "Keys: $(yq eval 'keys | join(", ")' "$file" 2>/dev/null | head -c 50)..."
       fi
@@ -150,23 +150,34 @@ except Exception as e:
 }
 
 # Main data browser with inline preview
+
 fdata-preview() {
+  local preview_window="${1:-down:75%:wrap}" # Use argument or default
+  local extra_bindings=""
+  local header_text='📊 Data Browser | Enter: edit | Ctrl+D: cd | Ctrl+V: copy | Ctrl+O: folder'
+
+  # Add profiler binding if we're in tmux and using bottom preview
+  if [[ -n "$TMUX" && "$preview_window" == *"down"* ]]; then
+    extra_bindings="--bind 'ctrl-p:execute(tmux select-pane -t 1 && tmux send-keys \"file_path=\\\"{}\\\"\" Enter)+abort'"
+    header_text='📊 Data Browser | Enter: edit | Ctrl+D: cd | Ctrl+V: copy | Ctrl+O: folder | Ctrl+P: profile'
+  fi
+
   fd --type f \
     -e csv -e tsv -e json -e jsonl \
     -e parquet -e xlsx -e xls \
     -e pkl -e pickle -e h5 -e hdf5 \
     -e yaml -e yml \
     --exclude __pycache__ --exclude .git --exclude .venv \
-    2>/dev/null | \
-  fzf --height=99% \
-    --preview='source "$DOTFILES/zsh/specials/fzf_data.sh" && _analyze_data_file {}' \
-    --preview-window='down:75%:wrap' \
-    --bind='ctrl-d:execute(cd $(dirname {}) && pwd)+abort' \
-    --bind='ctrl-v:execute(echo {} | wl-copy 2>/dev/null || echo {} | xclip -sel c 2>/dev/null)' \
-    --bind='ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)' \
-    --header='📊 Data Browser | Enter: edit | Ctrl+D: cd | Ctrl+V: copy | Ctrl+O: folder'
+    2>/dev/null |
+    fzf --height=99% \
+      --preview='source "$DOTFILES/zsh/specials/fzf_data.sh" && _analyze_data_file {}' \
+      --preview-window="$preview_window" \
+      --bind='ctrl-d:execute(cd $(dirname {}) && pwd)+abort' \
+      --bind='ctrl-v:execute(echo {} | wl-copy 2>/dev/null || echo {} | xclip -sel c 2>/dev/null)' \
+      --bind='ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)' \
+      $extra_bindings \
+      --header="$header_text"
 }
-
 # Quick stats function
 data-quick-stats() {
   local file="$1"
