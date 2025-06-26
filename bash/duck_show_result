@@ -1,218 +1,30 @@
 #!/bin/bash
-# Duck Show Result - Multi-Format Auto-Detection
-# File: ~/.local/bin/duck-show-result
+RESULT_FILE="/tmp/duck_result.csv"
+[[ ! -f "$RESULT_FILE" ]] && { echo "❌ No result file"; exit 1; }
+[[ ! -s "$RESULT_FILE" ]] && { echo "📭 Empty result"; exit 1; }
 
-RESULT_FILE="/tmp/duck_result"
-
-# Check if file exists and has content
-[[ ! -f "$RESULT_FILE" ]] && { echo "❌ No result file found at $RESULT_FILE"; exit 1; }
-[[ ! -s "$RESULT_FILE" ]] && { echo "📭 Result file is empty"; exit 1; }
-
-# Function to detect file format
-detect_format() {
-    local file="$1"
+if [[ -n "$TMUX" ]]; then
+    # In tmux - use popup with rich
+    lines=$(wc -l < "$RESULT_FILE")
+    popup_height=$((lines + 8))  # Extra space for rich formatting
+    [[ $popup_height -gt 35 ]] && popup_height=35
+    [[ $popup_height -lt 12 ]] && popup_height=12
     
-    # Check for Parquet magic bytes (PAR1 at start and end)
-    if head -c 4 "$file" 2>/dev/null | grep -q "PAR1"; then
-        echo "parquet"
-        return
-    fi
-    
-    # Check first non-empty line for JSON patterns
-    local first_line=$(head -1 "$file" 2>/dev/null | sed 's/^[[:space:]]*//')
-    if [[ "$first_line" =~ ^[\{\[] ]]; then
-        echo "json"
-        return
-    fi
-    
-    # Check if it looks like CSV (has commas and multiple lines)
-    if head -2 "$file" 2>/dev/null | grep -q ','; then
-        echo "csv"
-        return
-    fi
-    
-    # Check with file command as fallback
-    local file_output=$(file "$file" 2>/dev/null)
-    if echo "$file_output" | grep -qi "json"; then
-        echo "json"
-    elif echo "$file_output" | grep -qi "csv\|comma"; then
-        echo "csv"  
-    elif echo "$file_output" | grep -qi "parquet"; then
-        echo "parquet"
+    if command -v rich >/dev/null 2>&1; then
+        tmux display-popup -S fg=green -w 95% -h ${popup_height} \
+            -T "🦆 Query Results" \
+            "rich '$RESULT_FILE' --csv --no-wrap"
     else
-        # Default to CSV if unsure (most common DuckDB export)
-        echo "csv"
+        # Fallback to bat if rich not available
+        tmux display-popup -S fg=green -w 90% -h ${popup_height} \
+            -T "🦆 Query Results" \
+            "bat --language=csv --style=grid --paging=never '$RESULT_FILE'"
     fi
-}
-
-# Function to display with format-specific handling
-display_file() {
-    local file="$1"
-    local format="$2"
-    local title="🦆 Query Results ($format)"
-    
-    case "$format" in
-        "csv")
-            display_csv "$file" "$title"
-            ;;
-        "json") 
-            display_json "$file" "$title"
-            ;;
-        "parquet")
-            display_parquet "$file" "$title"
-            ;;
-        *)
-            display_generic "$file" "🦆 Query Results (unknown format)"
-            ;;
-    esac
-}
-
-# CSV display function
-display_csv() {
-    local file="$1"
-    local title="$2"
-    
-    if [[ -n "$TMUX" ]]; then
-        # In tmux - use popup
-        local lines=$(wc -l < "$file")
-        local popup_height=$((lines + 8))
-        [[ $popup_height -gt 35 ]] && popup_height=35
-        [[ $popup_height -lt 12 ]] && popup_height=12
-        
-        if command -v rich >/dev/null 2>&1; then
-            tmux display-popup -S fg=green -w 95% -h ${popup_height} \
-                -T "$title" \
-                "rich '$file' --csv --pager"
-        else
-            # Fallback to bat
-            tmux display-popup -S fg=green -w 90% -h ${popup_height} \
-                -T "$title" \
-                "bat --language=csv --style=grid --paging=never '$file'"
-        fi
+else
+    # Outside tmux - full rich display
+    if command -v rich >/dev/null 2>&1; then
+        rich "$RESULT_FILE" --csv
     else
-        # Outside tmux
-        if command -v rich >/dev/null 2>&1; then
-            rich "$file" --csv
-        else
-            bat --language=csv --style=grid "$file"
-        fi
+        bat --language=csv --style=grid "$RESULT_FILE"
     fi
-}
-
-# JSON display function  
-display_json() {
-    local file="$1"
-    local title="$2"
-    
-    if [[ -n "$TMUX" ]]; then
-        # In tmux - use popup
-        local lines=$(wc -l < "$file")
-        local popup_height=$((lines + 8))
-        [[ $popup_height -gt 35 ]] && popup_height=35
-        [[ $popup_height -lt 12 ]] && popup_height=12
-        
-        if command -v rich >/dev/null 2>&1; then
-            tmux display-popup -S fg=cyan -w 95% -h ${popup_height} \
-                -T "$title" \
-                "rich '$file' --json"
-        elif command -v jq >/dev/null 2>&1; then
-            # Fallback to jq with bat
-            tmux display-popup -S fg=cyan -w 90% -h ${popup_height} \
-                -T "$title" \
-                "jq . '$file' | bat --language=json --style=grid --paging=never"
-        else
-            # Basic fallback
-            tmux display-popup -S fg=cyan -w 90% -h ${popup_height} \
-                -T "$title" \
-                "bat --language=json --style=grid --paging=never '$file'"
-        fi
-    else
-        # Outside tmux
-        if command -v rich >/dev/null 2>&1; then
-            rich "$file" --json
-        elif command -v jq >/dev/null 2>&1; then
-            jq . "$file" | bat --language=json --style=grid
-        else
-            bat --language=json --style=grid "$file"
-        fi
-    fi
-}
-
-# Parquet display function
-display_parquet() {
-    local file="$1" 
-    local title="$2"
-    
-    # Parquet requires special handling since rich doesn't support it directly
-    # Try to convert to CSV using DuckDB for display
-    
-    local temp_csv="/tmp/duck_parquet_display.csv"
-    
-    if command -v duckdb >/dev/null 2>&1; then
-        # Convert Parquet to CSV using DuckDB for display
-        if duckdb -c "COPY (SELECT * FROM '$file') TO '$temp_csv' (HEADER, DELIMITER ',');" 2>/dev/null; then
-            # Successfully converted, display as CSV
-            display_csv "$temp_csv" "$title"
-            # Clean up temp file
-            rm -f "$temp_csv"
-            return
-        fi
-    fi
-    
-    # Fallback: try parquet-tools if available
-    if command -v parquet-tools >/dev/null 2>&1; then
-        if [[ -n "$TMUX" ]]; then
-            tmux display-popup -S fg=yellow -w 95% -h 30 \
-                -T "$title" \
-                "parquet-tools head '$file'"
-        else
-            echo "📊 $title"
-            parquet-tools head "$file"
-        fi
-        return
-    fi
-    
-    # Final fallback: show file info and first few bytes
-    if [[ -n "$TMUX" ]]; then
-        tmux display-popup -S fg=yellow -w 80% -h 20 \
-            -T "$title" \
-            "echo 'Parquet file detected but no viewer available'; echo ''; file '$file'; echo ''; echo 'File size:'; ls -lh '$file'"
-    else
-        echo "📊 $title"
-        echo "Parquet file detected but no direct viewer available"
-        echo ""
-        file "$file"
-        echo ""
-        echo "File size: $(ls -lh "$file" | awk '{print $5}')"
-        echo ""
-        echo "💡 Install 'parquet-tools' for better Parquet viewing"
-        echo "💡 Or use DuckDB to export as CSV/JSON for viewing"
-    fi
-}
-
-# Generic file display fallback
-display_generic() {
-    local file="$1"
-    local title="$2"
-    
-    if [[ -n "$TMUX" ]]; then
-        tmux display-popup -S fg=white -w 90% -h 25 \
-            -T "$title" \
-            "head -20 '$file' | bat --style=grid --paging=never"
-    else
-        echo "$title"
-        if command -v bat >/dev/null 2>&1; then
-            bat --style=grid "$file"
-        else
-            cat "$file"
-        fi
-    fi
-}
-
-# Main execution
-echo "🔍 Detecting file format..."
-FORMAT=$(detect_format "$RESULT_FILE")
-echo "📋 Format detected: $FORMAT"
-
-# Display the file with appropriate formatting
-display_file "$RESULT_FILE" "$FORMAT"
+fi
