@@ -1,0 +1,293 @@
+#!/bin/bash
+# Duck Watch Script - Super Simple Auto-Truncation
+# File: ~/.local/bin/duck-watch
+
+RESULT_FILE="/tmp/duck_result.csv"
+WATCH_FLAG="/tmp/duck_watch_active"
+WATCH_LOG="/tmp/duck_watch.log"
+
+show_usage() {
+    echo "🦆 Duck Auto Display - Super Simple Edition"
+    echo "==========================================="
+    echo ""
+    echo "Usage:"
+    echo "  duck-watch start    - Start background watcher"
+    echo "  duck-watch stop     - Stop background watcher"
+    echo "  duck-watch status   - Check if watcher is running"
+    echo "  duck-watch show     - Manually show last result"
+    echo ""
+    echo "Simple Logic:"
+    echo "  ✨ File has content + changed → Show it + Clear it"
+    echo "  🧹 File empty → Ignore it completely"
+    echo "  🔄 No complex state tracking"
+    echo ""
+    echo "Workflow:"
+    echo "  1. duck-watch start"
+    echo "  2. duck"
+    echo "  3. COPY (...) TO '/tmp/duck_result.csv' (HEADER);"
+    echo "  4. Results show once, then file cleared!"
+}
+
+# Check if process is actually running
+is_process_running() {
+    local pid="$1"
+    [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+# Get current watcher PID from flag file
+get_watcher_pid() {
+    [[ -f "$WATCH_FLAG" ]] && cat "$WATCH_FLAG" 2>/dev/null
+}
+
+# Clean up stale files
+cleanup_stale() {
+    echo "🧹 Cleaning up stale files..."
+    rm -f "$WATCH_FLAG" "$WATCH_LOG"
+}
+
+start_watcher() {
+    local existing_pid=$(get_watcher_pid)
+
+    # Check if already running
+    if [[ -n "$existing_pid" ]] && is_process_running "$existing_pid"; then
+        echo "⚠️  Duck watcher already running (PID: $existing_pid)"
+        echo "💡 Use 'duck-watch stop' to stop it first"
+        return 1
+    fi
+
+    # Clean up any stale files
+    [[ -f "$WATCH_FLAG" ]] && cleanup_stale
+
+    echo "🚀 Starting duck result watcher (super simple logic)..."
+    echo "💡 Export queries with: COPY (...) TO '/tmp/duck_result.csv' (HEADER);"
+
+    # Create the background watcher script
+    cat > /tmp/duck_watcher_$$.sh << 'WATCHER_EOF'
+#!/bin/bash
+RESULT_FILE="/tmp/duck_result.csv"
+WATCH_FLAG="/tmp/duck_watch_active"
+WATCH_LOG="/tmp/duck_watch.log"
+
+# Log function
+log_msg() {
+    echo "$(date '+%H:%M:%S') $1" >> "$WATCH_LOG"
+}
+
+log_msg "Duck watcher started - super simple logic (PID: $$)"
+
+# Track last known file state (size + mtime combined)
+last_file_signature=""
+
+get_file_signature() {
+    if [[ -f "$RESULT_FILE" ]] && [[ -s "$RESULT_FILE" ]]; then
+        # File exists and has content - create signature from size + mtime
+        local size=$(stat -c %s "$RESULT_FILE" 2>/dev/null || stat -f %z "$RESULT_FILE" 2>/dev/null || echo "0")
+        local mtime=$(stat -c %Y "$RESULT_FILE" 2>/dev/null || stat -f %m "$RESULT_FILE" 2>/dev/null || echo "0")
+        echo "${size}-${mtime}"
+    else
+        # File doesn't exist or is empty
+        echo "empty"
+    fi
+}
+
+while [[ -f "$WATCH_FLAG" ]]; do
+    # Check if we should still be running
+    flag_pid=$(cat "$WATCH_FLAG" 2>/dev/null)
+    if [[ "$flag_pid" != "$$" ]]; then
+        log_msg "PID mismatch, stopping"
+        break
+    fi
+
+    # Get current file signature
+    current_signature=$(get_file_signature)
+
+    # Only process if:
+    # 1. File signature changed
+    # 2. File actually has content (not "empty")
+    if [[ "$current_signature" != "$last_file_signature" ]] && [[ "$current_signature" != "empty" ]]; then
+        log_msg "New results detected (signature: $current_signature)"
+
+        # Give DuckDB a moment to finish writing
+        sleep 0.3
+
+        # Display the results
+        if duck-show-result 2>/dev/null; then
+            log_msg "Results displayed successfully"
+        else
+            log_msg "Failed to display results"
+        fi
+
+        # Wait a moment, then immediately clear the file
+        sleep 0.5
+
+        # Clear the file (truncate to 0 bytes)
+        if truncate -s 0 "$RESULT_FILE" 2>/dev/null || > "$RESULT_FILE"; then
+            log_msg "File cleared, ready for next query"
+        else
+            log_msg "Warning: Failed to clear file"
+        fi
+
+        # Update our tracking (will be "empty" after truncation)
+        last_file_signature=$(get_file_signature)
+
+    elif [[ "$current_signature" != "$last_file_signature" ]] && [[ "$current_signature" == "empty" ]]; then
+        # File became empty (either deleted or truncated) - just update tracking silently
+        last_file_signature="empty"
+    fi
+
+    # Check every 0.5 seconds
+    sleep 0.5
+done
+
+log_msg "Duck watcher stopped"
+rm -f "$WATCH_FLAG"
+WATCHER_EOF
+
+    # Make the watcher script executable
+    chmod +x /tmp/duck_watcher_$$.sh
+
+    # Start the watcher in the background
+    /tmp/duck_watcher_$$.sh &
+    local watcher_pid=$!
+
+    # Store the PID
+    echo "$watcher_pid" > "$WATCH_FLAG"
+
+    # Initialize log
+    echo "$(date '+%H:%M:%S') Duck watcher started - super simple logic" > "$WATCH_LOG"
+
+    # Wait a moment to ensure it started successfully
+    sleep 1
+
+    if is_process_running "$watcher_pid"; then
+        echo "✅ Duck watcher started successfully (PID: $watcher_pid)"
+        echo "🧹 Auto-clear enabled (immediate after display)"
+        echo "📋 Log file: $WATCH_LOG"
+    else
+        echo "❌ Failed to start duck watcher"
+        cleanup_stale
+        return 1
+    fi
+
+    # Clean up the temporary script
+    rm -f /tmp/duck_watcher_$$.sh
+}
+
+stop_watcher() {
+    local pid=$(get_watcher_pid)
+
+    if [[ -z "$pid" ]]; then
+        echo "💤 No duck watcher running"
+        cleanup_stale
+        return 0
+    fi
+
+    if ! is_process_running "$pid"; then
+        echo "💤 Duck watcher not running (stale PID: $pid)"
+        cleanup_stale
+        return 0
+    fi
+
+    echo "🛑 Stopping duck watcher (PID: $pid)..."
+
+    if kill "$pid" 2>/dev/null; then
+        # Wait for graceful shutdown
+        for i in {1..10}; do
+            if ! is_process_running "$pid"; then
+                echo "✅ Duck watcher stopped"
+                cleanup_stale
+                return 0
+            fi
+            sleep 0.5
+        done
+
+        # Force kill if still running
+        kill -9 "$pid" 2>/dev/null
+        echo "✅ Duck watcher force stopped"
+    fi
+
+    cleanup_stale
+}
+
+check_status() {
+    local pid=$(get_watcher_pid)
+
+    if [[ -z "$pid" ]] || ! is_process_running "$pid"; then
+        echo "💤 Duck watcher not running"
+        echo "💡 Start with: duck-watch start"
+        return 1
+    fi
+
+    echo "✅ Duck watcher is running (PID: $pid)"
+    echo "🧠 Logic: File has content + changed → Show + Clear"
+
+    # Show current file state
+    if [[ -f "$RESULT_FILE" ]] && [[ -s "$RESULT_FILE" ]]; then
+        local size=$(ls -lh "$RESULT_FILE" 2>/dev/null | awk '{print $5}')
+        local rows=$(wc -l < "$RESULT_FILE" 2>/dev/null || echo "?")
+        echo "📊 Current results: $size, $rows rows (ready to display)"
+    else
+        echo "📭 File empty/missing (ready for new export)"
+    fi
+
+    # Show recent log entries
+    if [[ -f "$WATCH_LOG" ]]; then
+        echo ""
+        echo "📋 Recent activity:"
+        tail -3 "$WATCH_LOG" | sed 's/^/   /'
+    fi
+
+    echo ""
+    echo "💡 Export with: COPY (...) TO '/tmp/duck_result.csv' (HEADER);"
+
+    return 0
+}
+
+manual_show() {
+    if [[ -f "$RESULT_FILE" ]] && [[ -s "$RESULT_FILE" ]]; then
+        echo "📊 Showing current results..."
+        duck-show-result
+    else
+        echo "📭 No results to show (file empty or missing)"
+        echo "💡 Export some data first with:"
+        echo "   COPY (SELECT ...) TO '/tmp/duck_result.csv' (HEADER);"
+    fi
+}
+
+# Main command handling
+case "$1" in
+    "start")
+        start_watcher
+        ;;
+    "stop")
+        stop_watcher
+        ;;
+    "status")
+        check_status
+        ;;
+    "show")
+        manual_show
+        ;;
+    "restart")
+        echo "🔄 Restarting duck watcher..."
+        stop_watcher
+        sleep 2
+        start_watcher
+        ;;
+    "clean")
+        echo "🧹 Cleaning up all duck watch files..."
+        local pid=$(get_watcher_pid)
+        [[ -n "$pid" ]] && is_process_running "$pid" && kill "$pid" 2>/dev/null
+        cleanup_stale
+        rm -f /tmp/duck_result*.csv /tmp/duck_watcher_*.sh
+        echo "✅ Cleanup complete"
+        ;;
+    "" | "help" | "-h" | "--help")
+        show_usage
+        ;;
+    *)
+        echo "❌ Unknown command: $1"
+        echo "💡 Try: duck-watch help"
+        exit 1
+        ;;
+esac
