@@ -66,7 +66,7 @@ tmux send-keys "echo '🦆 Setting up DuckDB environment...'" Enter
 if [[ -f "$DOTFILES/zsh/specials/load_data_duckdb.sh" ]]; then
   tmux send-keys "bash '$DOTFILES/zsh/specials/load_data_duckdb.sh'" Enter
   tmux send-keys "duck" Enter
-  tmux send-keys ".output /tmp/duck_result.csv" Enter
+  tmux send-keys ".output /tmp/duck_result" Enter
   tmux send-keys ".mode csv" Enter
   tmux send-keys ".header on" Enter
 else

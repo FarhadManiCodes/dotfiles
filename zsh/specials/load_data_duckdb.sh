@@ -268,8 +268,7 @@ cat >>"$SETUP_FILE" <<'EOF'
 .print ""
 .print "💡 Exit DuckDB: .quit or Ctrl+D"
 .print ""
-.output /tmp/duck_result.csv
-.mode csv
+.output /tmp/duck_result
 .headers on
 EOF
 
