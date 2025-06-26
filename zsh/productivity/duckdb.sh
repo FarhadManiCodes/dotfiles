@@ -13,16 +13,16 @@ duck() {
   case "$action" in
     "" | "start")
       if [[ -f ".duckdb_setup.sql" ]]; then
-        echo "🦆 Starting DuckDB with data loaded..."
+        echo "🦆 Starting DuckDB with global config + project data loaded..."
         duckdb -init .duckdb_setup.sql
       else
         echo "❌ No .duckdb_setup.sql found"
         echo "💡 Run: duck setup"
-        echo "💡 Or start fresh: duck clean"
+        echo "💡 Or start with global config only: duck clean"
       fi
       ;;
     "clean" | "fresh")
-      echo "🦆 Starting fresh DuckDB session (global config)..."
+      echo "🦆 Starting DuckDB with global config only (no project data)..."
       duckdb
       ;;
     "setup" | "refresh")
@@ -38,29 +38,70 @@ duck() {
         grep -o 'CREATE VIEW [a-zA-Z0-9_]* AS' .duckdb_setup.sql | sed 's/CREATE VIEW /  • /' | sed 's/ AS//' 2>/dev/null || echo "  (no tables found)"
         echo ""
         echo "Generated: $(head -2 .duckdb_setup.sql | tail -1 | sed 's/-- Generated: //')"
+        if [[ -f "$HOME/.duckdbrc" ]]; then
+          echo "Global config: ✅ ~/.duckdbrc included"
+        else
+          echo "Global config: ❌ ~/.duckdbrc not found"
+        fi
       else
         echo "❌ No setup file found"
         echo "💡 Run: duck setup"
       fi
       ;;
+    "config")
+      echo "🔧 DuckDB Configuration Status:"
+      echo ""
+      if [[ -f "$HOME/.duckdbrc" ]]; then
+        echo "✅ Global config: ~/.duckdbrc"
+        echo "   Size: $(ls -lh ~/.duckdbrc | awk '{print $5}')"
+        echo "   Modified: $(ls -l ~/.duckdbrc | awk '{print $6, $7, $8}')"
+        echo ""
+        echo "📋 Contents preview:"
+        head -10 ~/.duckdbrc | sed 's/^/   /'
+        local lines=$(wc -l <~/.duckdbrc)
+        if [[ $lines -gt 10 ]]; then
+          echo "   ... and $((lines - 10)) more lines"
+        fi
+      else
+        echo "❌ No global config: ~/.duckdbrc"
+        echo "💡 Create one to customize your DuckDB experience"
+        echo "💡 Example:"
+        echo "   .prompt 'duckdb> '"
+        echo "   .headers on"
+        echo "   .mode table"
+      fi
+      echo ""
+      if [[ -f ".duckdb_setup.sql" ]]; then
+        echo "✅ Project setup: .duckdb_setup.sql"
+        echo "   Uses global config: $(grep -q ".read ~/.duckdbrc" .duckdb_setup.sql && echo "Yes" || echo "No")"
+      else
+        echo "❌ No project setup: .duckdb_setup.sql"
+      fi
+      ;;
     "help" | "-h" | "--help")
-      echo "🦆 Duck - DuckDB Helper"
-      echo "======================"
+      echo "🦆 Duck - DuckDB Helper with Global Config Support"
+      echo "=================================================="
       echo ""
       echo "Usage: duck [command]"
       echo ""
       echo "Commands:"
-      echo "  duck              - Start DuckDB with data loaded (default)"
+      echo "  duck              - Start DuckDB with global config + project data (default)"
       echo "  duck start        - Same as above"
-      echo "  duck clean        - Start fresh DuckDB (no data loaded)"
+      echo "  duck clean        - Start DuckDB with global config only (no project data)"
       echo "  duck setup        - Generate/refresh data setup"
-      echo "  duck info         - Show available tables"
+      echo "  duck info         - Show available tables and config status"
+      echo "  duck config       - Show configuration details"
       echo "  duck help         - Show this help"
       echo ""
+      echo "Configuration Priority:"
+      echo "  1. Global config (~/.duckdbrc) - ALWAYS loaded"
+      echo "  2. Project data (./data/*.csv, etc.) - if setup exists"
+      echo ""
       echo "Examples:"
-      echo "  duck              # Start with your data loaded"
-      echo "  duck clean        # Start empty DuckDB"
+      echo "  duck              # Start with global config + project data"
+      echo "  duck clean        # Start with global config only"
       echo "  duck setup        # Refresh if you added new files"
+      echo "  duck config       # Check your configuration status"
       ;;
     *)
       echo "❌ Unknown command: $action"
@@ -68,7 +109,6 @@ duck() {
       ;;
   esac
 }
-
 # ============================================================================
 # COLORIZED OUTPUT FUNCTIONS
 # ============================================================================
@@ -360,3 +400,15 @@ if command -v compdef >/dev/null 2>&1; then
 
   compdef _duck_table_completion duck-peek duck-stats
 fi
+
+# Add this to your duckdb.sh file
+duck-show() {
+    local query="$1"
+    [[ -z "$query" ]] && { echo "Usage: duck-show 'SQL query'"; return 1; }
+    
+    local duck_cmd="duckdb"
+    [[ -f ".duckdb_setup.sql" ]] && duck_cmd="duckdb -init .duckdb_setup.sql"
+    
+    echo "$query" | $duck_cmd -csv > /tmp/duck_result.csv
+    duck-show-result
+}

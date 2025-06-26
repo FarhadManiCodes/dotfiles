@@ -7,7 +7,7 @@
 -- ============================================================================
 
 -- Custom prompt - clean pipe cursor (matches your vim/terminal theme)
-.prompt '| '
+.prompt '🦆 '
 
 -- Better table formatting
 .mode table
