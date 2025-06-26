@@ -9,27 +9,22 @@ tmux new-session -d -s "$SESSION_NAME" -c "$PWD"
 
 # ================ Window 1: Interactive Analysis ========================================
 tmux rename-window "interactive"
-tmux split-window -h -p 30 -c "$PWD" # Right sidebar 30%
-tmux split-window -v -p 70 -c "$PWD" # Split right side
+tmux split-window -h -p 45 -c "$PWD" # Right sidebar 40%
 
-# Main pane (pane 1): Jupyter Lab
-tmux select-pane -t 1
+# Main pane (pane 1):
+tmux select-pane -t 0
 tmux send-keys "# Starting Jupyter Lab for interactive analysis" Enter
-tmux send-keys "jupyter-smart" Enter
-
-tmux send-keys "bash ~/.local/bin/tmux-jupyter-auto" Enter
+tmux send-keys "zsh '$HOME/.local/bin/tmux-jupyter-auto'" Enter
 # Top-right (pane 2): Quick Python analysis
-tmux select-pane -t 2
+tmux select-pane -t 1
 tmux send-keys "# Quick data profiling and stats" Enter
 tmux send-keys "ptipython" Enter
-tmux send-keys "import pandas as pd, numpy as np, seaborn as sns, matplotlib.pyplot as plt" Enter
-tmux send-keys "import ydata_profiling as pp  # for data profiling" Enter
-tmux send-keys "plt.style.use('seaborn-v0_8')" Enter
-
-# Bottom-right (pane 3): File browser and utils
-tmux select-pane -t 3
-tmux send-keys "# File operations and quick previews" Enter
-tmux send-keys "ls -la *.csv *.json *.parquet 2>/dev/null || echo 'No data files found'" Enter
+tmux send-keys "import pandas as pd, numpy as np" Enter
+tmux send-keys "from pathlib import Path" Enter
+tmux send-keys "import json  # For JSON data exploration" Enter
+tmux send-keys "print('📊 Data analysis ready')" Enter
+# tmux send-keys "import ydata_profiling as pp  # for data profiling" Enter
+# tmux send-keys "plt.style.use('seaborn-v0_8')" Enter
 
 # ======================= Window 2: Data Preview & Discovery =======================================================
 tmux new-window -n "preview" -c "$PWD"
@@ -43,7 +38,7 @@ tmux split-window -v -p 50 -c "$PWD"
 
 # Split the left side horizontally for fdata-preview (top 95%) and shell (bottom 5%)
 tmux select-pane -t 0
-tmux split-window -v -p 5 -c "$PWD"
+tmux split-window -v -p 10 -c "$PWD"
 
 # Pane 0: Enhanced data browser
 tmux select-pane -t 0
