@@ -18,6 +18,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 # Go PATH and environment
 export PATH=$PATH:/usr/local/go/bin
+export PATH=$PATH:$HOME/go/bin
 export GOPROXY=https://proxy.golang.org,direct
 export GOSUMDB=sum.golang.org
 export GOPATH=$HOME/go

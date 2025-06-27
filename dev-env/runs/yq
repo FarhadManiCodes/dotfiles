@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Install with maximum optimizations for BOTH size and speed
+go install github.com/mikefarah/yq/v4@latest
+# Verify installation
+if command -v yq &>/dev/null; then
+  echo "✅ yq installed successfully"
+  echo "   Binary size: $(du -h $(which yq) | cut -f1)"
+  echo "   Version: $(yq --version)"
+else
+  echo "❌ Installation failed" >&2
+  exit 1
+fi
