@@ -98,7 +98,7 @@ tmux send-keys "echo ''" Enter
 # Source the enhanced fzf data script
 
 tmux send-keys "source '$DOTFILES/zsh/specials/fzf_data.sh'" Enter
-tmux send-keys "fdata-preview 'right:60%'" Enter
+tmux send-keys "fdata-preview 'fdata-preview --multi right:60%'" Enter
 # Bottom pane (70%): DataProfiler environment
 tmux select-pane -t 1
 tmux send-keys "clear" Enter

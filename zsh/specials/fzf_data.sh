@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
 # =============================================================================
-# Enhanced FZF Data Browser - CLEAN & SIMPLE VERSION
+# Enhanced FZF Data Browser - PHASE 1
 # Location: $DOTFILES/zsh/specials/fzf_data.sh
 # =============================================================================
 
@@ -150,16 +150,80 @@ except Exception as e:
 }
 
 # Main data browser with inline preview
-
 fdata-preview() {
-  local preview_window="${1:-down:75%:wrap}" # Use argument or default
-  local extra_bindings=""
+  local preview_window="${1:-down:75%:wrap}"
+  local multi_mode="false"
+
+  if [[ "$1" == "--multi" ]]; then
+    multi_mode="true"
+    preview_window="${2:-down:75%:wrap}"
+  fi
+
   local header_text='📊 Data Browser | Enter: edit | Ctrl+D: cd | Ctrl+V: copy | Ctrl+O: folder'
 
-  # Add profiler binding if we're in tmux and using bottom preview
+  # Change header for multi mode
+  if [[ "$multi_mode" == "true" ]]; then
+    header_text='📊 Data Browser (Multi-Select) | Enter: edit | Ctrl+D: cd | Ctrl+V: copy | Ctrl+O: folder'
+  fi
+
+  # Base bindings (always present)
+  local bindings=(
+    'ctrl-d:execute(cd $(dirname {}) && pwd)+abort'
+    'ctrl-v:execute(echo {} | wl-copy 2>/dev/null || echo {} | xclip -sel c 2>/dev/null)'
+    'ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)'
+  )
+
+  # Add profiler binding only if we're in tmux and using bottom preview
   if [[ -n "$TMUX" && "$preview_window" == *"down"* ]]; then
-    extra_bindings="--bind 'ctrl-p:execute(tmux select-pane -t 1 && tmux send-keys \"file_path=\\\"{}\\\"\" Enter)+abort'"
-    header_text='📊 Data Browser | Enter: edit | Ctrl+D: cd | Ctrl+V: copy | Ctrl+O: folder | Ctrl+P: profile'
+    if [[ "$multi_mode" == "true" ]]; then
+      # Multi-select mode: handle both single and multiple selections
+      bindings+=('ctrl-r:execute(
+        if [[ "{+}" != "{}" ]]; then
+          count=$(echo "{+}" | wc -w)
+          echo "📊 Multi-file profiling: $count files"
+          echo "{+}" | tr " " "\n" | while read file; do 
+            [[ -n "$file" ]] && echo "  • $(basename "$file")"
+          done
+          echo ""
+          echo "🚀 Ready for batch profiling!"
+          # Save selections to environment variable
+          export FDATA_SELECTED=$(echo "{+}" | tr " " ":")
+        else
+          echo "📊 Single file profiling: $(basename "{}")"
+          echo "🔄 Would profile: {}"
+          # Clear selections and set single file
+          export FDATA_SELECTED="{}"
+        fi
+        echo ""
+        echo "Press any key to return..."
+        read -n 1
+      )')
+    else
+      # Single-select mode: simple profiling
+      bindings+=('ctrl-r:execute(
+        echo "📊 Single file profiling: $(basename "{}")"
+        echo "🔄 Would profile: {}"
+        export FDATA_SELECTED="{}"
+        echo ""
+        echo "Press any key to return..."
+        read -n 1
+      )')
+    fi
+    header_text="${header_text} | Ctrl+R: profile"
+  fi
+
+  # Build fzf options array
+  local fzf_options=(
+    --height=99%
+    --preview='source "$DOTFILES/zsh/specials/fzf_data.sh" && _analyze_data_file {}'
+    --preview-window="$preview_window"
+    "${bindings[@]/#/--bind=}"
+    --header="$header_text"
+  )
+
+  # Add --multi flag if in multi mode
+  if [[ "$multi_mode" == "true" ]]; then
+    fzf_options+=(--multi)
   fi
 
   fd --type f \
@@ -169,15 +233,9 @@ fdata-preview() {
     -e yaml -e yml \
     --exclude __pycache__ --exclude .git --exclude .venv \
     2>/dev/null |
-    fzf --height=99% \
-      --preview='source "$DOTFILES/zsh/specials/fzf_data.sh" && _analyze_data_file {}' \
-      --preview-window="$preview_window" \
-      --bind='ctrl-d:execute(cd $(dirname {}) && pwd)+abort' \
-      --bind='ctrl-v:execute(echo {} | wl-copy 2>/dev/null || echo {} | xclip -sel c 2>/dev/null)' \
-      --bind='ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)' \
-      $extra_bindings \
-      --header="$header_text"
+    fzf "${fzf_options[@]}"
 }
+
 # Quick stats function
 data-quick-stats() {
   local file="$1"
