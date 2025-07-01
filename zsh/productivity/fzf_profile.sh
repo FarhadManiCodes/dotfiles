@@ -1,27 +1,25 @@
 #!/usr/bin/env zsh
 # =============================================================================
-# Enhanced FZF Profile Selection System - Phases 2 & 3
+# Enhanced FZF Profile Selection System - Phases 2 & 3 (FIXED VERSION)
 # Location: $DOTFILES/zsh/productivity/fzf_profile.sh
 # =============================================================================
 
-# Global configuration arrays (populated by load-profiling-config)
-typeset -A PROFILING_REPORTS      # report_name -> description
-typeset -A PROFILING_FILE_TYPES   # report_name -> "csv,json,parquet"
-typeset -A PROFILING_BATCH_SUITES # suite_name -> "report1,report2,report3"
-typeset -A PROFILING_SETTINGS     # setting_name -> value
-
-# Global file type to reports mapping (built from individual reports)
-typeset -A FILE_TYPE_PROFILES     # file_type -> "report1,report2,report3"
-
-# Global arrays for discovered profiles (populated by discover_profiles)
-typeset -A DISCOVERED_PROFILES        # profiler_name -> "/path/to/file.py"
-typeset -A PROFILE_METADATA          # profiler_name -> "config_desc|file_types|docstring_preview"
+# =============================================================================
+# CRITICAL FIX: GLOBAL ARRAY DECLARATIONS (Must be at top)
+# =============================================================================
+typeset -gA PROFILING_REPORTS      # report_name -> description
+typeset -gA PROFILING_FILE_TYPES   # report_name -> "csv,json,parquet"
+typeset -gA PROFILING_BATCH_SUITES # suite_name -> "report1,report2,report3"
+typeset -gA PROFILING_SETTINGS     # setting_name -> value
+typeset -gA FILE_TYPE_PROFILES     # file_type -> "report1,report2,report3"
+typeset -gA DISCOVERED_PROFILES    # profiler_name -> "/path/to/file.py"
+typeset -gA PROFILE_METADATA       # profiler_name -> "config_desc|file_types|docstring_preview"
 
 # =============================================================================
 # PHASE 2: CONFIGURATION LOADING FUNCTIONS
 # =============================================================================
 
-# Load configuration with cascade: tools -> user -> defaults
+# Load configuration with cascade: tools -> user -> defaults (FIXED)
 load-profiling-config() {
   echo "🔧 Loading profiling configuration..."
   echo "📋 Priority: Tools config > User config > Built-in defaults"
@@ -35,6 +33,13 @@ load-profiling-config() {
     echo "  • Manual: https://github.com/mikefarah/yq/releases"
     return 1
   fi
+  
+  # CRITICAL FIX: Ensure all arrays are properly declared
+  typeset -gA PROFILING_REPORTS
+  typeset -gA PROFILING_FILE_TYPES
+  typeset -gA PROFILING_BATCH_SUITES
+  typeset -gA PROFILING_SETTINGS
+  typeset -gA FILE_TYPE_PROFILES
   
   # Clear existing configuration
   PROFILING_REPORTS=()
@@ -77,18 +82,23 @@ load-profiling-config() {
   echo "   Tools directory: $profiling_dir"
 }
 
-# Load built-in default configuration
+# Load built-in default configuration (FIXED)
 _load_default_config() {
   echo "🔧 Loading default configuration..."
+  
+  # CRITICAL FIX: Ensure array is accessible
+  typeset -gA PROFILING_SETTINGS
   
   # Default settings (essential baseline)
   PROFILING_SETTINGS[profiling_dir]="$HOME/projects/profiling"
   PROFILING_SETTINGS[results_dir]="/tmp/profiling_results"
   PROFILING_SETTINGS[default_sample_size]="10000"
   PROFILING_SETTINGS[batch_session_prefix]="profiling-batch"
+  
+  echo "✅ Default settings loaded (${#PROFILING_SETTINGS[@]} items)"
 }
 
-# YAML parser using yq (FIXED - removed file_extensions parsing)
+# YAML parser using yq (FIXED)
 _parse_config_file() {
   local config_file="$1"
   
@@ -98,6 +108,12 @@ _parse_config_file() {
   fi
   
   echo "📄 Parsing: $config_file"
+  
+  # CRITICAL FIX: Ensure arrays are accessible in this function
+  typeset -gA PROFILING_REPORTS
+  typeset -gA PROFILING_FILE_TYPES
+  typeset -gA PROFILING_BATCH_SUITES
+  typeset -gA PROFILING_SETTINGS
   
   # Parse reports section
   if yq eval '.reports' "$config_file" >/dev/null 2>&1; then
@@ -132,29 +148,33 @@ _parse_config_file() {
     done
   fi
   
-  # Parse settings section (FIXED yq approach)
+  # Parse settings section (FIXED - simplified approach)
   if yq eval '.settings' "$config_file" >/dev/null 2>&1; then
     echo "  ⚙️  Parsing settings..."
     
-    # Use yq to flatten all scalar values into key=value format
-    while IFS='=' read -r key value; do
-      [[ -n "$key" && -n "$value" ]] || continue
-      
-      # Expand environment variables safely
-      if [[ "$value" =~ \$ ]]; then
-        value=$(eval echo "\"$value\"" 2>/dev/null) || value="$value"
+    # Get all setting keys first, then process each one
+    local settings_keys=($(yq eval '.settings | keys | .[]' "$config_file" 2>/dev/null))
+    for key in "${settings_keys[@]}"; do
+      local value=$(yq eval ".settings.$key" "$config_file" 2>/dev/null)
+      if [[ -n "$value" && "$value" != "null" ]]; then
+        # Expand environment variables safely
+        if [[ "$value" =~ \$ ]]; then
+          value=$(eval echo "\"$value\"" 2>/dev/null) || value="$value"
+        fi
+        PROFILING_SETTINGS[$key]="$value"
+        echo "    ✅ $key = $value"
       fi
-      
-      PROFILING_SETTINGS[$key]="$value"
-      echo "    ✅ $key = $value"
-      
-    done < <(yq eval '.settings | paths(scalars) as $p | {"key": ($p | join("_")), "value": getpath($p)} | .key + "=" + (.value | tostring)' "$config_file" 2>/dev/null)
+    done
   fi
 }
 
 # FIXED: Build file type mapping ONLY from individual report file_types
 _build_file_type_mapping() {
   echo "🔗 Building file type mappings from individual reports..."
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA FILE_TYPE_PROFILES
+  typeset -gA PROFILING_FILE_TYPES
   
   # Clear existing mapping
   FILE_TYPE_PROFILES=()
@@ -224,9 +244,16 @@ except Exception:
   echo "$docstring"
 }
 
-# Discover all available profiles
+# Discover all available profiles (FIXED)
 discover_profiles() {
   echo "🔍 Discovering available profiles..."
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA DISCOVERED_PROFILES
+  typeset -gA PROFILE_METADATA
+  typeset -gA PROFILING_REPORTS
+  typeset -gA PROFILING_FILE_TYPES
+  typeset -gA PROFILING_SETTINGS
   
   # Clear existing discoveries
   DISCOVERED_PROFILES=()
@@ -284,6 +311,9 @@ is_profile_compatible() {
   local profile_name="$1"
   local file_extensions="$2"  # Space-separated list like "csv json"
   
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA PROFILING_FILE_TYPES
+  
   # Get profile's supported file types
   local profile_file_types="${PROFILING_FILE_TYPES[$profile_name]:-}"
   
@@ -306,9 +336,13 @@ is_profile_compatible() {
   return 1
 }
 
-# Get compatible profiles for given files
+# Get compatible profiles for given files (FIXED)
 get_compatible_profiles() {
   local files=("$@")
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA DISCOVERED_PROFILES
+  typeset -gA PROFILING_FILE_TYPES
   
   # Extract unique file extensions
   local extensions=()
@@ -338,9 +372,12 @@ get_compatible_profiles() {
   printf '%s\n' "${compatible_profiles[@]}"
 }
 
-# Get compatible batch suites for given files  
+# Get compatible batch suites for given files (FIXED)
 get_compatible_batch_suites() {
   local files=("$@")
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA PROFILING_BATCH_SUITES
   
   # Get compatible individual profiles first
   local compatible_profiles=($(get_compatible_profiles "$@" 2>/dev/null))
@@ -379,6 +416,11 @@ get_compatible_batch_suites() {
 _generate_profile_preview() {
   local item="$1"
   local selected_files="$2"  # Passed as environment variable or parameter
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA PROFILING_BATCH_SUITES
+  typeset -gA DISCOVERED_PROFILES
+  typeset -gA PROFILE_METADATA
   
   # Check if this is a batch suite (starts with 🔄)
   if [[ "$item" == "🔄 "* ]]; then
@@ -431,265 +473,7 @@ _generate_profile_preview() {
   echo "     $selected_files --report $profile_name"
 }
 
-# Main profile selection function
-fdata-profile() {
-  local files=("$@")
-  
-  if [[ ${#files[@]} -eq 0 ]]; then
-    echo "Usage: fdata-profile file1 [file2...]"
-    echo "Example: fdata-profile data.csv config.json"
-    return 1
-  fi
-  
-  # Ensure configuration is loaded
-  if [[ ${#PROFILING_REPORTS[@]} -eq 0 ]]; then
-    echo "🔧 Loading configuration..."
-    load-profiling-config || return 1
-  fi
-  
-  # Discover available profiles
-  discover_profiles || return 1
-  
-  if [[ ${#DISCOVERED_PROFILES[@]} -eq 0 ]]; then
-    echo "❌ No profiles discovered"
-    echo "💡 Check: ${PROFILING_SETTINGS[profiling_dir]}/reports/"
-    return 1
-  fi
-  
-  # Get compatible profiles and batch suites
-  local compatible_profiles=($(get_compatible_profiles "${files[@]}" 2>/dev/null))
-  
-  # Determine mode: single file vs multi-file
-  local show_batch_suites=false
-  if [[ ${#files[@]} -gt 1 ]]; then
-    show_batch_suites=true
-    echo "🔄 Multi-file mode: showing batch suites too"
-  else
-    echo "📄 Single-file mode: individual profiles only"
-  fi
-  
-  # Build selection list
-  local selection_list=()
-  
-  # Add individual profiles
-  for profile in "${compatible_profiles[@]}"; do
-    selection_list+=("$profile")
-  done
-  
-  # Add batch suites if multi-file mode
-  if [[ "$show_batch_suites" == "true" ]]; then
-    local compatible_suites=($(get_compatible_batch_suites "${files[@]}" 2>/dev/null))
-    for suite in "${compatible_suites[@]}"; do
-      selection_list+=("🔄 $suite")  # Prefix to distinguish batch suites
-    done
-  fi
-  
-  if [[ ${#selection_list[@]} -eq 0 ]]; then
-    echo "❌ No compatible profiles found for file types"
-    echo "📁 Files: ${(j:, :)files}"
-    echo "💡 Available profiles: ${(j:, :)${(@k)DISCOVERED_PROFILES}}"
-    return 1
-  fi
-  
-  # Export files for preview function
-  export FDATA_SELECTED_FILES="${(j: :)files}"
-  
-  # Show selection with fzf
-  local selected
-  selected=$(printf '%s\n' "${selection_list[@]}" | \
-    fzf --height=80% \
-        --preview="source \"$DOTFILES/zsh/productivity/fzf_profile.sh\" && _generate_profile_preview {} \"\$FDATA_SELECTED_FILES\"" \
-        --preview-window="right:60%" \
-        --header="🔍 Select profiler for: ${(j:, :)files} | ${#selection_list[@]} compatible" \
-        --prompt="Profile: " \
-        --border=rounded)
-  
-  unset FDATA_SELECTED_FILES
-  
-  if [[ -z "$selected" ]]; then
-    echo "❌ No profile selected"
-    return 1
-  fi
-  
-  echo "✅ Selected: $selected"
-  echo "💡 Phase 4 will implement actual execution"
-  
-  # TODO: Phase 4 will replace this with actual execution
-  if [[ "$selected" == "🔄 "* ]]; then
-    echo "🔄 Would run batch suite: ${selected#🔄 }"
-  else
-    echo "🔄 Would run individual profile: $selected"
-  fi
-}
-
-# =============================================================================
-# DEBUG AND STATUS FUNCTIONS (kept accessible)
-# =============================================================================
-
-# Show current configuration status
-show-profiling-config() {
-  echo "🔧 Profiling Configuration Status"
-  echo "================================="
-  echo ""
-  
-  # Check if configuration is loaded
-  if [[ ${#PROFILING_REPORTS[@]} -eq 0 ]]; then
-    echo "❌ Configuration not loaded"
-    echo "💡 Run: load-profiling-config"
-    return 1
-  fi
-  
-  echo "📋 Reports (${#PROFILING_REPORTS[@]}):"
-  for report in "${(@k)PROFILING_REPORTS}"; do
-    local file_types="${PROFILING_FILE_TYPES[$report]:-unknown}"
-    echo "  • $report: ${PROFILING_REPORTS[$report]}"
-    echo "    📄 File types: $file_types"
-  done
-  
-  echo ""
-  echo "📦 Batch Suites (${#PROFILING_BATCH_SUITES[@]}):"
-  for suite in "${(@k)PROFILING_BATCH_SUITES}"; do
-    echo "  • $suite: ${PROFILING_BATCH_SUITES[$suite]}"
-  done
-  
-  echo ""
-  echo "📁 File Type Mappings (${#FILE_TYPE_PROFILES[@]}):"
-  for file_type in "${(@k)FILE_TYPE_PROFILES}"; do
-    echo "  • $file_type: ${FILE_TYPE_PROFILES[$file_type]}"
-  done
-  
-  echo ""
-  echo "⚙️  Settings:"
-  for setting in "${(@k)PROFILING_SETTINGS}"; do
-    echo "  • $setting: ${PROFILING_SETTINGS[$setting]}"
-  done
-}
-
-# Test configuration with sample files
-test-profiling-config() {
-  echo "🧪 Testing Configuration System"
-  echo "==============================="
-  echo ""
-  
-  # Load configuration
-  load-profiling-config
-  echo ""
-  
-  # Test file type detection
-  echo "📊 Testing file type detection:"
-  local test_files="data.csv:info.json:records.parquet"
-  echo "Test files: $test_files"
-  echo ""
-  
-  echo "Available profiles:"
-  get-available-profiles "$test_files"
-  echo ""
-  
-  echo "Available batch suites:"
-  get-available-batch-suites "$test_files"
-  echo ""
-  
-  # Show configuration status
-  show-profiling-config
-}
-
-# Test the discovery and compatibility system
-test-profile-discovery() {
-  echo "🧪 Testing Profile Discovery System"
-  echo "=================================="
-  echo ""
-  
-  # Load config
-  load-profiling-config
-  echo ""
-  
-  # Discover profiles
-  discover_profiles
-  echo ""
-  
-  # Test compatibility
-  echo "🔍 Testing compatibility:"
-  local test_files=("data.csv" "config.json" "records.parquet")
-  echo "Test files: ${(j:, :)test_files}"
-  echo ""
-  
-  echo "Compatible profiles:"
-  get_compatible_profiles "${test_files[@]}"
-  echo ""
-  
-  echo "Compatible batch suites:"  
-  get_compatible_batch_suites "${test_files[@]}"
-  echo ""
-  
-  echo "🎯 Testing profile selection UI:"
-  echo "Run: fdata-profile data.csv config.json"
-}
-
-# =============================================================================
-# LEGACY COMPATIBILITY FUNCTIONS (from Phase 2)
-# =============================================================================
-
-# Get available profiles for given file types (legacy format)
-get-available-profiles() {
-  local file_list="$1"  # Colon-separated list like "file1.csv:file2.json"
-  
-  if [[ -z "$file_list" ]]; then
-    echo "Usage: get-available-profiles file1.csv:file2.json"
-    return 1
-  fi
-  
-  # Convert to array format and call new function
-  local files=(${(s.:.)file_list})
-  get_compatible_profiles "${files[@]}"
-}
-
-# Get available batch suites for given file types (legacy format)
-get-available-batch-suites() {
-  local file_list="$1"
-  
-  if [[ -z "$file_list" ]]; then
-    echo "Usage: get-available-batch-suites file1.csv:file2.json"
-    return 1
-  fi
-  
-  # Convert to array format and call new function
-  local files=(${(s.:.)file_list})
-  get_compatible_batch_suites "${files[@]}"
-}
-
-# =============================================================================
-# TAB COMPLETION SUPPORT
-# =============================================================================
-
-# Completion function for fdata-profile
-_fdata_profile_completion() {
-  local context curcontext="$curcontext" state line
-  typeset -A opt_args
-
-  _arguments -C \
-    '*:files:_files -g "*.csv *.tsv *.json *.jsonl *.parquet *.xlsx *.xls *.pkl *.pickle *.h5 *.hdf5 *.yaml *.yml"'
-}
-
-# Advanced completion with profile names
-_fdata_profile_advanced_completion() {
-  local context curcontext="$curcontext" state line
-  typeset -A opt_args
-
-  _arguments -C \
-    '--help[Show help]' \
-    '--list[List available profiles]' \
-    '--config[Show configuration]' \
-    '*:files:_files -g "*.csv *.tsv *.json *.jsonl *.parquet *.xlsx *.xls *.pkl *.pickle *.h5 *.hdf5 *.yaml *.yml"'
-}
-
-# Register completion
-compdef _fdata_profile_completion fdata-profile
-
-# =============================================================================
-# ENHANCED MAIN FUNCTION WITH COMPLETION SUPPORT
-# =============================================================================
-
-# Enhanced fdata-profile with additional options
+# Main profile selection function (FIXED)
 fdata-profile() {
   # Handle special flags first
   case "$1" in
@@ -880,6 +664,191 @@ fdata-profile() {
     echo "🔄 Would run individual profile: $selected"
   fi
 }
+
+# =============================================================================
+# DEBUG AND STATUS FUNCTIONS
+# =============================================================================
+
+# Show current configuration status (FIXED)
+show-profiling-config() {
+  echo "🔧 Profiling Configuration Status"
+  echo "================================="
+  echo ""
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA PROFILING_REPORTS
+  typeset -gA PROFILING_FILE_TYPES
+  typeset -gA PROFILING_BATCH_SUITES
+  typeset -gA PROFILING_SETTINGS
+  typeset -gA FILE_TYPE_PROFILES
+  
+  # Check if configuration is loaded
+  if [[ ${#PROFILING_REPORTS[@]} -eq 0 ]]; then
+    echo "❌ Configuration not loaded"
+    echo "💡 Run: load-profiling-config"
+    return 1
+  fi
+  
+  echo "📋 Reports (${#PROFILING_REPORTS[@]}):"
+  for report in "${(@k)PROFILING_REPORTS}"; do
+    local file_types="${PROFILING_FILE_TYPES[$report]:-unknown}"
+    echo "  • $report: ${PROFILING_REPORTS[$report]}"
+    echo "    📄 File types: $file_types"
+  done
+  
+  echo ""
+  echo "📦 Batch Suites (${#PROFILING_BATCH_SUITES[@]}):"
+  for suite in "${(@k)PROFILING_BATCH_SUITES}"; do
+    echo "  • $suite: ${PROFILING_BATCH_SUITES[$suite]}"
+  done
+  
+  echo ""
+  echo "📁 File Type Mappings (${#FILE_TYPE_PROFILES[@]}):"
+  for file_type in "${(@k)FILE_TYPE_PROFILES}"; do
+    echo "  • $file_type: ${FILE_TYPE_PROFILES[$file_type]}"
+  done
+  
+  echo ""
+  echo "⚙️  Settings:"
+  for setting in "${(@k)PROFILING_SETTINGS}"; do
+    echo "  • $setting: ${PROFILING_SETTINGS[$setting]}"
+  done
+}
+
+# Test configuration with sample files (FIXED)
+test-profiling-config() {
+  echo "🧪 Testing Configuration System"
+  echo "==============================="
+  echo ""
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA PROFILING_REPORTS
+  typeset -gA PROFILING_FILE_TYPES
+  typeset -gA PROFILING_BATCH_SUITES
+  typeset -gA PROFILING_SETTINGS
+  typeset -gA FILE_TYPE_PROFILES
+  
+  # Load configuration
+  load-profiling-config
+  echo ""
+  
+  # Test file type detection
+  echo "📊 Testing file type detection:"
+  local test_files="data.csv:info.json:records.parquet"
+  echo "Test files: $test_files"
+  echo ""
+  
+  echo "Available profiles:"
+  get-available-profiles "$test_files"
+  echo ""
+  
+  echo "Available batch suites:"
+  get-available-batch-suites "$test_files"
+  echo ""
+  
+  # Show configuration status
+  show-profiling-config
+}
+
+# Test the discovery and compatibility system (FIXED)
+test-profile-discovery() {
+  echo "🧪 Testing Profile Discovery System"
+  echo "=================================="
+  echo ""
+  
+  # CRITICAL FIX: Ensure arrays are accessible
+  typeset -gA PROFILING_REPORTS
+  typeset -gA PROFILING_FILE_TYPES
+  typeset -gA PROFILING_BATCH_SUITES
+  typeset -gA PROFILING_SETTINGS
+  typeset -gA DISCOVERED_PROFILES
+  typeset -gA PROFILE_METADATA
+  
+  # Load config
+  load-profiling-config
+  echo ""
+  
+  # Discover profiles
+  discover_profiles
+  echo ""
+  
+  # Test compatibility
+  echo "🔍 Testing compatibility:"
+  local test_files=("data.csv" "config.json" "records.parquet")
+  echo "Test files: ${(j:, :)test_files}"
+  echo ""
+  
+  echo "Compatible profiles:"
+  get_compatible_profiles "${test_files[@]}"
+  echo ""
+  
+  echo "Compatible batch suites:"  
+  get_compatible_batch_suites "${test_files[@]}"
+  echo ""
+  
+  echo "🎯 Testing profile selection UI:"
+  echo "Run: fdata-profile data.csv config.json"
+}
+
+# =============================================================================
+# LEGACY COMPATIBILITY FUNCTIONS (from Phase 2)
+# =============================================================================
+
+# Get available profiles for given file types (legacy format)
+get-available-profiles() {
+  local file_list="$1"  # Colon-separated list like "file1.csv:file2.json"
+  
+  if [[ -z "$file_list" ]]; then
+    echo "Usage: get-available-profiles file1.csv:file2.json"
+    return 1
+  fi
+  
+  # Convert to array format and call new function
+  local files=(${(s.:.)file_list})
+  get_compatible_profiles "${files[@]}"
+}
+
+# Get available batch suites for given file types (legacy format)
+get-available-batch-suites() {
+  local file_list="$1"
+  
+  if [[ -z "$file_list" ]]; then
+    echo "Usage: get-available-batch-suites file1.csv:file2.json"
+    return 1
+  fi
+  
+  # Convert to array format and call new function
+  local files=(${(s.:.)file_list})
+  get_compatible_batch_suites "${files[@]}"
+}
+
+# =============================================================================
+# TAB COMPLETION SUPPORT
+# =============================================================================
+
+# Completion function for fdata-profile
+_fdata_profile_completion() {
+  local context curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '*:files:_files -g "*.csv *.tsv *.json *.jsonl *.parquet *.xlsx *.xls *.pkl *.pickle *.h5 *.hdf5 *.yaml *.yml"'
+}
+
+# Advanced completion with profile names
+_fdata_profile_advanced_completion() {
+  local context curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '--help[Show help]' \
+    '--list[List available profiles]' \
+    '--config[Show configuration]' \
+    '*:files:_files -g "*.csv *.tsv *.json *.jsonl *.parquet *.xlsx *.xls *.pkl *.pickle *.h5 *.hdf5 *.yaml *.yml"'
+}
+
+# Register completion
+compdef _fdata_profile_completion fdata-profile
 
 # =============================================================================
 # ALIASES AND HELPERS (accessible from main shell)
