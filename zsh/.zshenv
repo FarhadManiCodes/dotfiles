@@ -65,3 +65,8 @@ export BAT_THEME="OneHalfDark"
 export _ZO_ECHO=1           # Print matched directory before jumping
 export _ZO_RESOLVE_SYMLINKS=1  # Resolve symlinks when adding paths
 export _ZO_FZF_OPTS="--height=40% --layout=reverse --border"  # Customize fzf if using zi
+
+# node.js
+export NVM_DIR="$HOME/.config/nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
