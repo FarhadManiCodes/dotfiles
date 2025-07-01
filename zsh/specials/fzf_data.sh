@@ -191,9 +191,9 @@ fdata-preview() {
       bindings+=('ctrl-r:execute(
         if tmux select-pane -t +1 2>/dev/null; then
           if [[ "{+}" != "{}" ]]; then
-            tmux send-keys "source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {+}" Enter
+            tmux send-keys "cd \"$PWD\" && source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {+}" Enter
           else
-            tmux send-keys "source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {}" Enter
+            tmux send-keys "cd \"$PWD\" && source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {}" Enter
           fi
         else
           echo "❌ No next pane available"
@@ -202,7 +202,7 @@ fdata-preview() {
     else
       bindings+=('ctrl-r:execute(
         if tmux select-pane -t +1 2>/dev/null; then
-          tmux send-keys "source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {}" Enter
+          tmux send-keys "cd \"$PWD\" && source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {}" Enter
         else
           echo "❌ No next pane available"
         fi
