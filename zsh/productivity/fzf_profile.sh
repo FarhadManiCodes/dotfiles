@@ -800,6 +800,11 @@ fdata-profile() {
         echo ""
         echo "Options:"
         echo "  --multi, -m    Enable multi-profile selection mode"
+        echo ""
+        echo "Interactive Keys:"
+        echo "  Ctrl-R         Switch from single to multi-select mode"
+        echo "  Tab            Select multiple profiles (in multi-select mode)"
+        echo "  Enter          Confirm selection and execute"
         return 0
         ;;
       --list)
@@ -918,6 +923,10 @@ fdata-profile() {
   if [[ "$multi_profile_mode" == "true" ]]; then
     fzf_options+=(--multi)
     header_text="🔍 Multi-select: Tab to select profiles, Enter to confirm | Files: ${(j:, :)files} | ${#selection_list[@]} compatible"
+  else
+    # Add keybinding for single mode to switch to multi mode
+    header_text="$header_text | Ctrl-R: Switch to multi-select mode"
+    fzf_options+=(--bind="ctrl-r:abort")
   fi
   
   fzf_options+=(--header="$header_text")
@@ -925,8 +934,16 @@ fdata-profile() {
   # Show selection with fzf
   local selected
   selected=$(printf '%s\n' "${selection_list[@]}" | fzf "${fzf_options[@]}")
+  local fzf_exit_code=$?
   
   unset FDATA_SELECTED_FILES
+  
+  # Handle Ctrl-R keybinding (fzf exits with code 130 when --bind abort is triggered)
+  if [[ $fzf_exit_code -eq 130 ]] && [[ "$multi_profile_mode" != "true" ]]; then
+    echo "🔄 Switching to multi-select mode..."
+    fdata-profile --multi "${files[@]}"
+    return $?
+  fi
   
   if [[ -z "$selected" ]]; then
     echo "❌ No profile selected"
