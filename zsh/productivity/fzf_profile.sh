@@ -98,7 +98,8 @@ _load_default_config() {
   echo "✅ Default settings loaded (${#PROFILING_SETTINGS[@]} items)"
 }
 
-# YAML parser using yq (FIXED)
+# Enhanced _parse_config_file function - SIMPLE VERSION
+
 _parse_config_file() {
   local config_file="$1"
   
@@ -107,57 +108,71 @@ _parse_config_file() {
     return 1
   fi
   
-  echo "📄 Parsing: $config_file"
+  echo "📄 Parsing (enhanced): $config_file"
   
-  # CRITICAL FIX: Ensure arrays are accessible in this function
-  typeset -gA PROFILING_REPORTS
-  typeset -gA PROFILING_FILE_TYPES
-  typeset -gA PROFILING_BATCH_SUITES
-  typeset -gA PROFILING_SETTINGS
-  
-  # Parse reports section
+  # Parse reports section with nested support
   if yq eval '.reports' "$config_file" >/dev/null 2>&1; then
-    echo "  📋 Parsing reports..."
-    local -a report_names
-    report_names=($(yq eval '.reports | keys | .[]' "$config_file" 2>/dev/null))
-    for report in "${report_names[@]}"; do
-      # Get description
-      local description=$(yq eval ".reports.$report.description" "$config_file" 2>/dev/null)
-      if [[ -n "$description" && "$description" != "null" ]]; then
-        PROFILING_REPORTS[$report]="$description"
-      fi
+    echo "  📋 Parsing reports (nested structure support)..."
+    
+    # Handle nested structure: reports.test.line_count, etc.
+    # First, get all top-level keys under reports (like "test")
+    local top_level_keys=($(yq eval '.reports | keys | .[]' "$config_file" 2>/dev/null))
+    
+    for top_key in "${top_level_keys[@]}"; do
+      echo "    🔍 Processing top-level key: $top_key"
       
-      # Get file types for this report
-      local report_file_types=$(yq eval ".reports.$report.file_types | join(\",\")" "$config_file" 2>/dev/null)
-      if [[ -n "$report_file_types" && "$report_file_types" != "null" ]]; then
-        PROFILING_FILE_TYPES[$report]="$report_file_types"
-      fi
+      # Check if this top-level key contains nested reports
+      local nested_keys=($(yq eval ".reports.$top_key | keys | .[]" "$config_file" 2>/dev/null))
+      
+      for nested_key in "${nested_keys[@]}"; do
+        # Build profile name: test + line_count = test_line_count
+        local profile_name="${top_key}_${nested_key}"
+        echo "      📝 Processing: $top_key.$nested_key → $profile_name"
+        
+        # Get description
+        local description=$(yq eval ".reports.$top_key.$nested_key.description" "$config_file" 2>/dev/null)
+        if [[ -n "$description" && "$description" != "null" ]]; then
+          PROFILING_REPORTS[$profile_name]="$description"
+          echo "        ✅ Description: $description"
+        fi
+        
+        # Get file types
+        local file_types_raw=$(yq eval ".reports.$top_key.$nested_key.file_types" "$config_file" 2>/dev/null)
+        if [[ -n "$file_types_raw" && "$file_types_raw" != "null" ]]; then
+          # Convert array to comma-separated string
+          local file_types=$(echo "$file_types_raw" | yq eval 'join(",")' - 2>/dev/null)
+          if [[ -n "$file_types" && "$file_types" != "null" ]]; then
+            PROFILING_FILE_TYPES[$profile_name]="$file_types"
+            echo "        📄 File types: $file_types"
+          fi
+        fi
+      done
     done
   fi
   
-  # Parse batch_profiles section
+  # Parse batch_profiles section (unchanged)
   if yq eval '.batch_profiles' "$config_file" >/dev/null 2>&1; then
     echo "  📦 Parsing batch_profiles..."
-    local -a batch_suite_names
-    batch_suite_names=($(yq eval '.batch_profiles | keys | .[]' "$config_file" 2>/dev/null))
+    local batch_suite_names=($(yq eval '.batch_profiles | keys | .[]' "$config_file" 2>/dev/null))
     for suite in "${batch_suite_names[@]}"; do
       local suite_reports=$(yq eval ".batch_profiles.$suite.reports | join(\",\")" "$config_file" 2>/dev/null)
       if [[ -n "$suite_reports" && "$suite_reports" != "null" ]]; then
         PROFILING_BATCH_SUITES[$suite]="$suite_reports"
+        echo "    ✅ Batch suite: $suite → $suite_reports"
       fi
     done
   fi
   
-  # Parse settings section (FIXED - simplified approach)
+  # Parse settings section (simplified)
   if yq eval '.settings' "$config_file" >/dev/null 2>&1; then
     echo "  ⚙️  Parsing settings..."
     
-    # Get all setting keys first, then process each one
+    # Get all settings keys and process them individually
     local settings_keys=($(yq eval '.settings | keys | .[]' "$config_file" 2>/dev/null))
     for key in "${settings_keys[@]}"; do
       local value=$(yq eval ".settings.$key" "$config_file" 2>/dev/null)
       if [[ -n "$value" && "$value" != "null" ]]; then
-        # Expand environment variables safely
+        # Expand environment variables if present
         if [[ "$value" =~ \$ ]]; then
           value=$(eval echo "\"$value\"" 2>/dev/null) || value="$value"
         fi
@@ -167,7 +182,6 @@ _parse_config_file() {
     done
   fi
 }
-
 # FIXED: Build file type mapping ONLY from individual report file_types
 _build_file_type_mapping() {
   echo "🔗 Building file type mappings from individual reports..."
@@ -474,6 +488,7 @@ _generate_profile_preview() {
 }
 
 # Main profile selection function (FIXED)
+
 fdata-profile() {
   # Handle special flags first
   case "$1" in
@@ -486,63 +501,26 @@ fdata-profile() {
       echo "  fdata-profile --list                      # List available profiles"
       echo "  fdata-profile --config                    # Show configuration"
       echo "  fdata-profile --help                      # Show this help"
-      echo ""
-      echo "Examples:"
-      echo "  fdata-profile data.csv                    # Single file profiling"
-      echo "  fdata-profile *.csv                       # Multiple CSV files"
-      echo "  fdata-profile data.csv config.json        # Mixed file types"
-      echo ""
-      echo "Supported file types:"
-      echo "  CSV/TSV: .csv, .tsv"
-      echo "  JSON: .json, .jsonl"
-      echo "  Parquet: .parquet"
-      echo "  Excel: .xlsx, .xls"
-      echo "  Pickle: .pkl, .pickle"
-      echo "  HDF5: .h5, .hdf5"
-      echo "  YAML: .yaml, .yml"
-      echo ""
-      echo "Tab completion is available for file names in current directory."
       return 0
       ;;
     --list)
       echo "📋 Available Profiles"
-      echo "===================="
-      
-      # Ensure configuration is loaded
       if [[ ${#PROFILING_REPORTS[@]} -eq 0 ]]; then
-        echo "🔧 Loading configuration..."
-        load-profiling-config >/dev/null 2>&1 || {
-          echo "❌ Failed to load configuration"
-          return 1
-        }
+        load-profiling-config >/dev/null 2>&1
       fi
-      
-      # Discover profiles
       discover_profiles >/dev/null 2>&1
       
       if [[ ${#DISCOVERED_PROFILES[@]} -eq 0 ]]; then
         echo "❌ No profiles found"
-        echo "💡 Check: ${PROFILING_SETTINGS[profiling_dir]}/reports/"
         return 1
       fi
       
-      echo "Individual profiles:"
       for profile in "${(@k)DISCOVERED_PROFILES}"; do
         local desc="${PROFILING_REPORTS[$profile]:-No description}"
         local file_types="${PROFILING_FILE_TYPES[$profile]:-all}"
-        echo "  • $profile"
-        echo "    📄 $desc"
-        echo "    🎯 File types: $file_types"
-        echo ""
+        echo "  • $profile - $desc"
+        echo "    File types: $file_types"
       done
-      
-      if [[ ${#PROFILING_BATCH_SUITES[@]} -gt 0 ]]; then
-        echo "Batch suites:"
-        for suite in "${(@k)PROFILING_BATCH_SUITES}"; do
-          echo "  • $suite: ${PROFILING_BATCH_SUITES[$suite]}"
-        done
-      fi
-      
       return 0
       ;;
     --config)
@@ -555,13 +533,7 @@ fdata-profile() {
   
   if [[ ${#files[@]} -eq 0 ]]; then
     echo "Usage: fdata-profile file1 [file2...]"
-    echo "Examples:"
-    echo "  fdata-profile data.csv"
-    echo "  fdata-profile *.csv"
-    echo "  fdata-profile data.csv config.json"
-    echo ""
     echo "Use 'fdata-profile --help' for more information"
-    echo "Use 'fdata-profile --list' to see available profiles"
     return 1
   fi
   
@@ -578,8 +550,6 @@ fdata-profile() {
     for file in "${missing_files[@]}"; do
       echo "  • $file"
     done
-    echo ""
-    echo "💡 Use tab completion to select existing files"
     return 1
   fi
   
@@ -594,7 +564,6 @@ fdata-profile() {
   
   if [[ ${#DISCOVERED_PROFILES[@]} -eq 0 ]]; then
     echo "❌ No profiles discovered"
-    echo "💡 Check: ${PROFILING_SETTINGS[profiling_dir]}/reports/"
     return 1
   fi
   
@@ -622,15 +591,13 @@ fdata-profile() {
   if [[ "$show_batch_suites" == "true" ]]; then
     local compatible_suites=($(get_compatible_batch_suites "${files[@]}" 2>/dev/null))
     for suite in "${compatible_suites[@]}"; do
-      selection_list+=("🔄 $suite")  # Prefix to distinguish batch suites
+      selection_list+=("🔄 $suite")
     done
   fi
   
   if [[ ${#selection_list[@]} -eq 0 ]]; then
     echo "❌ No compatible profiles found for file types"
     echo "📁 Files: ${(j:, :)files}"
-    echo "💡 Available profiles: ${(j:, :)${(@k)DISCOVERED_PROFILES}}"
-    echo "💡 Use 'fdata-profile --list' to see all profiles and their file types"
     return 1
   fi
   
@@ -654,14 +621,37 @@ fdata-profile() {
     return 1
   fi
   
+  # ENHANCED OUTPUT SECTION
+  echo ""
   echo "✅ Selected: $selected"
-  echo "💡 Phase 4 will implement actual execution"
-  
-  # TODO: Phase 4 will replace this with actual execution
+  echo ""
+  echo "📁 Input files (${#files[@]}):"
+  local counter=1
+  for file in "${files[@]}"; do
+    local size=$(ls -lh "$file" 2>/dev/null | awk '{print $5}' || echo "?")
+    local ext="${file##*.}"
+    echo "   $counter. $(basename "$file") ($ext, $size)"
+    counter=$((counter + 1))
+done
+  echo ""
+  echo "🎯 Execution Plan:"
   if [[ "$selected" == "🔄 "* ]]; then
-    echo "🔄 Would run batch suite: ${selected#🔄 }"
+    local suite_name="${selected#🔄 }"
+    local suite_reports="${PROFILING_BATCH_SUITES[$suite_name]:-unknown}"
+    echo "   Type: Batch suite"
+    echo "   Suite: $suite_name"
+    echo "   Reports: $suite_reports"
+    echo ""
+    echo "💡 Phase 4 will implement actual execution"
+    echo "🔄 Would run batch suite '$suite_name' on ${#files[@]} file(s)"
   else
-    echo "🔄 Would run individual profile: $selected"
+    echo "   Type: Individual profile"
+    echo "   Profile: $selected"
+    echo "   Description: ${PROFILING_REPORTS[$selected]:-unknown}"
+    echo "   File types: ${PROFILING_FILE_TYPES[$selected]:-unknown}"
+    echo ""
+    echo "💡 Phase 4 will implement actual execution"
+    echo "🔄 Would run individual profile '$selected' on ${#files[@]} file(s)"
   fi
 }
 

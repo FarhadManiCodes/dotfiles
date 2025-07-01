@@ -150,6 +150,7 @@ except Exception as e:
 }
 
 # Main data browser with inline preview (UPDATED with explicit sourcing)
+
 fdata-preview() {
   local preview_window="${1:-down:75%:wrap}"
   local multi_mode="false"
@@ -182,34 +183,54 @@ fdata-preview() {
     'ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)'
   )
 
-  # FIXED: Add profile selection binding with explicit sourcing
-  if [[ "$multi_mode" == "true" ]]; then
-    # Multi-select mode: pass all selected files to fdata-profile
-    bindings+=('ctrl-r:execute(
-      echo "🔄 Loading profile selection system..."
-      source "$DOTFILES/zsh/productivity/fzf_profile.sh" || { echo "❌ Failed to load profile system"; read; exit 1; }
-      if [[ "{+}" != "{}" ]]; then
-        echo "🔄 Running profiler selection for selected files..."
-        fdata-profile {+} < /dev/tty > /dev/tty
-      else
-        echo "📄 Running profiler selection for single file..."
-        fdata-profile {} < /dev/tty > /dev/tty
-      fi
-      echo ""
-      echo "Press Enter to return to file browser..."
-      read
-    )+abort')
+  # Enhanced Ctrl+R binding with tmux support
+
+  if [[ -n "$TMUX" ]]; then
+    # In tmux - switch to next pane and run profile selection there
+    if [[ "$multi_mode" == "true" ]]; then
+      bindings+=('ctrl-r:execute(
+        if tmux select-pane -t +1 2>/dev/null; then
+          if [[ "{+}" != "{}" ]]; then
+            tmux send-keys "source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {+}" Enter
+          else
+            tmux send-keys "source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {}" Enter
+          fi
+        else
+          echo "❌ No next pane available"
+        fi
+      )+abort')
+    else
+      bindings+=('ctrl-r:execute(
+        if tmux select-pane -t +1 2>/dev/null; then
+          tmux send-keys "source $DOTFILES/zsh/productivity/fzf_profile.sh && fdata-profile {}" Enter
+        else
+          echo "❌ No next pane available"
+        fi
+      )+abort')
+    fi
   else
-    # Single-select mode: pass single file to fdata-profile
-    bindings+=('ctrl-r:execute(
-      echo "🔄 Loading profile selection system..."
-      source "$DOTFILES/zsh/productivity/fzf_profile.sh" || { echo "❌ Failed to load profile system"; read; exit 1; }
-      echo "📄 Running profiler selection for: $(basename {})"
-      fdata-profile {} < /dev/tty > /dev/tty
-      echo ""
-      echo "Press Enter to return to file browser..."
-      read
-    )+abort')
+    # Not in tmux - use original behavior
+    if [[ "$multi_mode" == "true" ]]; then
+      bindings+=('ctrl-r:execute(
+        source "$DOTFILES/zsh/productivity/fzf_profile.sh"
+        if [[ "{+}" != "{}" ]]; then
+          fdata-profile {+}
+        else
+          fdata-profile {}
+        fi
+        echo ""
+        echo "Press Enter to return..."
+        read
+      )+abort')
+    else
+      bindings+=('ctrl-r:execute(
+        source "$DOTFILES/zsh/productivity/fzf_profile.sh"
+        fdata-profile {}
+        echo ""
+        echo "Press Enter to return..."
+        read
+      )+abort')
+    fi
   fi
 
   # Build fzf options array
@@ -238,7 +259,6 @@ fdata-preview() {
   # Clean up environment variables
   unset FDATA_SOURCE FDATA_WORKING_DIR FDATA_SELECTION_MODE FDATA_TMUX_SESSION FDATA_TMUX_WINDOW
 }
-
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
