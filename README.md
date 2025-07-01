@@ -21,7 +21,7 @@ This repository configures and enhances the following tools and environments:
     - `delta` (diff viewer)
     - `direnv` (per-directory environment variables)
     - `docker` (containerization)
-    - `etz` (time zone converter)
+    - `etza` (better ls)
     - `fd-find` (fast find alternative)
     - `foot` (terminal emulator)
     - `fzf` (fuzzy finder)
