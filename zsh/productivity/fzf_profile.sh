@@ -429,22 +429,13 @@ get_compatible_batch_suites() {
 # Generate preview for profile selection
 _generate_profile_preview() {
   local item="$1"
-  local selected_files="$2"  # Passed as environment variable or parameter
-  
-  # CRITICAL FIX: Ensure arrays are accessible
-  typeset -gA PROFILING_BATCH_SUITES
-  typeset -gA DISCOVERED_PROFILES
-  typeset -gA PROFILE_METADATA
+  local selected_files="$2"
   
   # Check if this is a batch suite (starts with 🔄)
   if [[ "$item" == "🔄 "* ]]; then
     local suite_name="${item#🔄 }"
-    local suite_reports="${PROFILING_BATCH_SUITES[$suite_name]:-}"
-    local suite_desc="Batch suite"  # TODO: Could add suite descriptions to config
-    
     echo "📦 Batch Suite: $suite_name"
-    echo "📋 Reports: $suite_reports"
-    echo "📄 Description: $suite_desc"
+    echo "📄 Description: Batch processing suite"
     echo ""
     echo "💻 Would execute batch processing:"
     echo "   python profile_runner.py --batch $suite_name \\"
@@ -452,41 +443,110 @@ _generate_profile_preview() {
     return
   fi
   
-  # Individual profile preview
+  # Individual profile preview - SMART FILE DETECTION
   local profile_name="$item"
-  local py_file="${DISCOVERED_PROFILES[$profile_name]:-}"
+  
+  # Get profiling directory (use default if not set)
+  local profiling_dir="${PROFILING_SETTINGS[profiling_dir]:-$HOME/projects/profiling}"
+  local reports_dir="$profiling_dir/reports"
+  
+  echo "📋 Profile: $profile_name"
+  
+  # Try to find the Python file - multiple strategies
+  local py_file=""
+  
+  # Strategy 1: Flat structure (test_line_count.py)
+  local flat_path="$reports_dir/${profile_name}.py"
+  if [[ -f "$flat_path" ]]; then
+    py_file="$flat_path"
+    echo "✅ Found (flat): $(basename "$py_file")"
+  else
+    # Strategy 2: Nested structure (test/line_count.py)
+    # Split on first underscore: test_line_count → test + line_count
+    if [[ "$profile_name" == *"_"* ]]; then
+      local first_part="${profile_name%%_*}"      # test
+      local rest_part="${profile_name#*_}"        # line_count
+      local nested_path="$reports_dir/${first_part}/${rest_part}.py"
+      
+      if [[ -f "$nested_path" ]]; then
+        py_file="$nested_path"
+        echo "✅ Found (nested): $first_part/$(basename "$py_file")"
+      fi
+    fi
+  fi
+  
+  # If still not found, try different split points for complex names
+  if [[ -z "$py_file" && "$profile_name" == *"_"* ]]; then
+    # Try splitting at different underscores for names like test_basic_stats
+    local name_parts=(${(s:_:)profile_name})  # Split into array
+    
+    if [[ ${#name_parts[@]} -gt 2 ]]; then
+      # Try test_basic/stats.py, test/basic_stats.py, etc.
+      for i in {1..$((${#name_parts[@]}-1))}; do
+        local dir_part="${(j:_:)name_parts[1,$i]}"        # test_basic, test
+        local file_part="${(j:_:)name_parts[$((i+1)),-1]}" # stats, basic_stats
+        local complex_path="$reports_dir/${dir_part}/${file_part}.py"
+        
+        if [[ -f "$complex_path" ]]; then
+          py_file="$complex_path"
+          echo "✅ Found (complex): $dir_part/$(basename "$py_file")"
+          break
+        fi
+      done
+    fi
+  fi
   
   if [[ -z "$py_file" ]]; then
-    echo "❌ Profile not found: $profile_name"
+    echo "❌ File not found for profile: $profile_name"
+    echo ""
+    echo "🔍 Searched locations:"
+    echo "   • $reports_dir/${profile_name}.py (flat)"
+    if [[ "$profile_name" == *"_"* ]]; then
+      local first_part="${profile_name%%_*}"
+      local rest_part="${profile_name#*_}"
+      echo "   • $reports_dir/${first_part}/${rest_part}.py (nested)"
+    fi
+    echo ""
+    echo "💡 Check your profiling directory: $reports_dir"
     return
   fi
   
-  # Get metadata
-  local metadata="${PROFILE_METADATA[$profile_name]:-||}"
-  local config_desc="${metadata%%|*}"
-  local file_types="${metadata#*|}"
-  file_types="${file_types%%|*}"
+  # Show file information
+  echo "📁 Location: $py_file"
+  local size=$(ls -lh "$py_file" 2>/dev/null | awk '{print $5}' || echo "?")
+  local modified=$(ls -l "$py_file" 2>/dev/null | awk '{print $6, $7, $8}' || echo "?")
+  echo "📊 Size: $size | Modified: $modified"
   
-  echo "📋 $profile_name - $config_desc"
-  echo "📄 File types: $file_types"
-  echo "🗂️  Source: $py_file"
-  
-  # Extract docstring on-demand
-  local docstring=$(extract_docstring "$py_file" 8)
+  # Extract docstring directly
   echo ""
   echo "📝 Docstring:"
-  if [[ -n "$docstring" ]]; then
-    echo "$docstring" | sed 's/^/   /'
+  local docstring_output=$(python3 -c "
+import ast
+try:
+    with open('$py_file', 'r') as f:
+        tree = ast.parse(f.read())
+    docstring = ast.get_docstring(tree)
+    if docstring:
+        lines = docstring.split('\n')[:6]  # First 6 lines for preview
+        for line in lines:
+            print('   ' + line.strip())
+    else:
+        print('   (No docstring found)')
+except Exception as e:
+    print('   (Error reading file)')
+" 2>/dev/null)
+  
+  if [[ -n "$docstring_output" ]]; then
+    echo "$docstring_output"
   else
-    echo "   (No docstring available)"
+    echo "   (Could not extract docstring)"
   fi
   
   echo ""
   echo "💻 Would execute:"
   echo "   python $(dirname "$py_file")/../profile_runner.py \\"
-  echo "     $selected_files --report $profile_name"
+  echo "     --report $profile_name --files $selected_files"
 }
-
 # Main profile selection function (FIXED)
 
 fdata-profile() {
