@@ -328,6 +328,51 @@ _generate_profile_preview() {
     local suite_name="${item#🔄 }"
     echo "📦 Batch Suite: $suite_name"
     echo ""
+    
+    # Read configuration directly (preview runs in subprocess, no access to parent vars)
+    local profiling_dir="${PROFILING_SETTINGS[profiling_dir]:-$HOME/projects/profiling}"
+    local config_file="$profiling_dir/config.yml"
+    local user_config="$HOME/.config/profiling/config.yml"
+    
+    # Try to find a config file to read from
+    local config_to_read=""
+    if [[ -f "$config_file" ]]; then
+      config_to_read="$config_file"
+    elif [[ -f "$user_config" ]]; then
+      config_to_read="$user_config"
+    fi
+    
+    if [[ -n "$config_to_read" && -x "$(command -v yq)" ]]; then
+      # Read batch suite reports directly from config
+      local suite_reports=$(yq eval ".batch_profiles.$suite_name.reports | join(\",\")" "$config_to_read" 2>/dev/null)
+      local suite_description=$(yq eval ".batch_profiles.$suite_name.description" "$config_to_read" 2>/dev/null)
+      
+      # Show description if available
+      if [[ -n "$suite_description" && "$suite_description" != "null" ]]; then
+        echo "📄 Description: $suite_description"
+        echo ""
+      fi
+      
+      if [[ -n "$suite_reports" && "$suite_reports" != "null" ]]; then
+        local profilers=(${(s:,:)suite_reports})
+        echo "📋 Individual Profilers (${#profilers[@]}):"
+        local counter=1
+        for profiler in "${profilers[@]}"; do
+          profiler=$(echo "$profiler" | tr -d ' ')  # Remove whitespace
+          [[ -z "$profiler" ]] && continue
+          echo "   $counter. $profiler"
+          counter=$((counter + 1))
+        done
+        echo ""
+      else
+        echo "❌ No profilers configured for this batch suite"
+        echo ""
+      fi
+    else
+      echo "❌ No configuration file found or yq not available"
+      echo ""
+    fi
+    
     echo "💻 Command: python profile_runner.py --batch $suite_name --files $selected_files"
     return
   fi
