@@ -1,6 +1,5 @@
-start_time=$(date +%s.%N)
-  source "$DOTFILES/zsh/productivity/fzf_profile.sh" >/dev/null 2>&1
-  local fzf_profile_time=$(echo "$(date +%s.%#!/usr/bin/env zsh
+#!/usr/bin/env zsh
+
 # =============================================================================
 # Profile System Validation Script
 # Location: $DOTFILES/zsh/specials/validate_profile_system.sh
@@ -157,17 +156,19 @@ validate_fzf_data_functions() {
   
   local fzf_data="$DOTFILES/zsh/specials/fzf_data.sh"
   
-  # Source the file in current shell
-  if source "$fzf_data" 2>/dev/null; then
-    test_pass "fzf_data.sh sourced successfully"
+  # Run checks in a subshell and capture pass/fail messages
+  local results
+  results=$( (
+    source "$fzf_data" 2>/dev/null || { echo "FAIL:fzf_data.sh failed to source"; exit 0; }
+    echo "PASS:fzf_data.sh sourced successfully"
     
     # Check Phase 1 functions
     local phase1_functions=("_analyze_data_file" "fdata-preview" "fdata-tools-status" "fdata-help")
     for func in "${phase1_functions[@]}"; do
       if type "$func" >/dev/null 2>&1; then
-        test_pass "Function $func is available"
+        echo "PASS:Function $func is available"
       else
-        test_fail "Function $func is not available"
+        echo "FAIL:Function $func is not available"
       fi
     done
     
@@ -175,15 +176,21 @@ validate_fzf_data_functions() {
     local phase23_functions=("load-profiling-config" "fdata-profile" "discover_profiles")
     for func in "${phase23_functions[@]}"; do
       if type "$func" >/dev/null 2>&1; then
-        test_fail "Function $func should not be in fzf_data.sh (moved to fzf_profile.sh)"
+        echo "FAIL:Function $func should not be in fzf_data.sh (moved to fzf_profile.sh)"
       else
-        test_pass "Function $func correctly not in fzf_data.sh"
+        echo "PASS:Function $func correctly not in fzf_data.sh"
       fi
     done
-    
-  else
-    test_fail "Failed to source fzf_data.sh"
-  fi
+  ) )
+  
+  # Process results in the parent shell to update counters
+  echo "$results" | while IFS=':' read -r result_status message; do
+    if [[ "$result_status" == "PASS" ]]; then
+      test_pass "$message"
+    else
+      test_fail "$message"
+    fi
+  done
 }
 
 validate_fzf_profile_functions() {
@@ -191,17 +198,19 @@ validate_fzf_profile_functions() {
   
   local fzf_profile="$DOTFILES/zsh/productivity/fzf_profile.sh"
   
-  # Source the file in current shell
-  if source "$fzf_profile" 2>/dev/null; then
-    test_pass "fzf_profile.sh sourced successfully"
+  # Run checks in a subshell and capture pass/fail messages
+  local results
+  results=$( (
+    source "$fzf_profile" 2>/dev/null || { echo "FAIL:fzf_profile.sh failed to source"; exit 0; }
+    echo "PASS:fzf_profile.sh sourced successfully"
     
     # Check Phase 2 functions
     local phase2_functions=("load-profiling-config" "show-profiling-config" "test-profiling-config")
     for func in "${phase2_functions[@]}"; do
       if type "$func" >/dev/null 2>&1; then
-        test_pass "Phase 2 function $func is available"
+        echo "PASS:Phase 2 function $func is available"
       else
-        test_fail "Phase 2 function $func is not available"
+        echo "FAIL:Phase 2 function $func is not available"
       fi
     done
     
@@ -209,9 +218,9 @@ validate_fzf_profile_functions() {
     local phase3_functions=("fdata-profile" "discover_profiles" "get_compatible_profiles")
     for func in "${phase3_functions[@]}"; do
       if type "$func" >/dev/null 2>&1; then
-        test_pass "Phase 3 function $func is available"
+        echo "PASS:Phase 3 function $func is available"
       else
-        test_fail "Phase 3 function $func is not available"
+        echo "FAIL:Phase 3 function $func is not available"
       fi
     done
     
@@ -219,9 +228,9 @@ validate_fzf_profile_functions() {
     local completion_functions=("_fdata_profile_completion")
     for func in "${completion_functions[@]}"; do
       if type "$func" >/dev/null 2>&1; then
-        test_pass "Completion function $func is available"
+        echo "PASS:Completion function $func is available"
       else
-        test_fail "Completion function $func is not available"
+        echo "FAIL:Completion function $func is not available"
       fi
     done
     
@@ -229,15 +238,21 @@ validate_fzf_profile_functions() {
     local phase1_functions=("_analyze_data_file" "fdata-preview")
     for func in "${phase1_functions[@]}"; do
       if type "$func" >/dev/null 2>&1; then
-        test_fail "Function $func should not be in fzf_profile.sh (belongs in fzf_data.sh)"
+        echo "FAIL:Function $func should not be in fzf_profile.sh (belongs in fzf_data.sh)"
       else
-        test_pass "Function $func correctly not in fzf_profile.sh"
+        echo "PASS:Function $func correctly not in fzf_profile.sh"
       fi
     done
-    
-  else
-    test_fail "Failed to source fzf_profile.sh"
-  fi
+  ) )
+  
+  # Process results in the parent shell to update counters
+  echo "$results" | while IFS=':' read -r result_status message; do
+    if [[ "$result_status" == "PASS" ]]; then
+      test_pass "$message"
+    else
+      test_fail "$message"
+    fi
+  done
 }
 
 # =============================================================================
@@ -246,48 +261,61 @@ validate_fzf_profile_functions() {
 
 validate_configuration_system() {
   test_start "Configuration System"
-  
-  # Source profile system
-  source "$DOTFILES/zsh/productivity/fzf_profile.sh" 2>/dev/null || {
-    test_fail "Cannot source fzf_profile.sh for configuration tests"
-    return 1
-  }
-  
-  # Test configuration loading
-  test_info "Testing configuration loading..."
-  
-  # Capture output
-  local config_output
-  config_output=$(load-profiling-config 2>&1)
-  local config_result=$?
-  
-  if [[ $config_result -eq 0 ]]; then
-    test_pass "load-profiling-config executed successfully"
-    
-    # Check if arrays are populated
-    if [[ ${#PROFILING_SETTINGS[@]} -gt 0 ]]; then
-      test_pass "PROFILING_SETTINGS array populated (${#PROFILING_SETTINGS[@]} items)"
-    else
-      test_warn "PROFILING_SETTINGS array is empty"
-    fi
-    
-    # Test profiling directory
-    local profiling_dir="${PROFILING_SETTINGS[profiling_dir]:-}"
-    if [[ -n "$profiling_dir" ]]; then
-      test_pass "Profiling directory configured: $profiling_dir"
-      if [[ -d "$profiling_dir" ]]; then
-        test_pass "Profiling directory exists"
+
+  local results
+  results=$( (
+    # Source profile system
+    source "$DOTFILES/zsh/productivity/fzf_profile.sh" 2>/dev/null || {
+      echo "FAIL:Cannot source fzf_profile.sh for configuration tests"
+      exit
+    }
+
+    # Test configuration loading
+    test_info "Testing configuration loading..."
+
+    # Execute in the current (sub)shell to modify its environment
+    load-profiling-config >/dev/null 2>&1
+    local config_result=$?
+
+    if [[ $config_result -eq 0 ]]; then
+      echo "PASS:load-profiling-config executed successfully"
+
+      if [[ ${#PROFILING_SETTINGS[@]} -gt 0 ]]; then
+        echo "PASS:PROFILING_SETTINGS array populated (${#PROFILING_SETTINGS[@]} items)"
       else
-        test_warn "Profiling directory doesn't exist: $profiling_dir"
+        echo "FAIL:PROFILING_SETTINGS array is empty after loading"
+      fi
+
+      local profiling_dir="${PROFILING_SETTINGS[profiling_dir]:-}"
+      if [[ -n "$profiling_dir" ]]; then
+        echo "PASS:Profiling directory configured: $profiling_dir"
+        if [[ -d "$profiling_dir" ]]; then
+          echo "PASS:Profiling directory exists"
+        else
+          echo "WARN:Profiling directory doesn't exist: $profiling_dir"
+        fi
+      else
+        echo "FAIL:No profiling directory configured after loading"
       fi
     else
-      test_warn "No profiling directory configured"
+      echo "FAIL:load-profiling-config failed"
     fi
-    
-  else
-    test_fail "load-profiling-config failed"
-    echo "Output: $config_output"
-  fi
+  ) )
+
+  # Process results in the parent shell to update counters
+  echo "$results" | while IFS=':' read -r result_status message rest; do
+    # Re-join message and rest in case message contains colons
+    local full_message="$message"
+    if [[ -n "$rest" ]]; then
+      full_message="$message:$rest"
+    fi
+
+    case "$result_status" in
+      PASS) test_pass "$full_message" ;;
+      FAIL) test_fail "$full_message" ;;
+      WARN) test_warn "$full_message" ;;
+    esac
+  done
 }
 
 # =============================================================================
@@ -296,44 +324,51 @@ validate_configuration_system() {
 
 validate_profile_discovery() {
   test_start "Profile Discovery"
-  
-  # Source profile system
-  source "$DOTFILES/zsh/productivity/fzf_profile.sh" 2>/dev/null || {
-    test_fail "Cannot source fzf_profile.sh for discovery tests"
-    return 1
-  }
-  
-  # Load configuration first
-  load-profiling-config >/dev/null 2>&1
-  
-  # Test profile discovery
-  test_info "Testing profile discovery..."
-  
-  local discovery_output
-  discovery_output=$(discover_profiles 2>&1)
-  local discovery_result=$?
-  
-  if [[ $discovery_result -eq 0 ]]; then
-    test_pass "discover_profiles executed successfully"
-    
-    # Check if profiles were discovered
-    if [[ ${#DISCOVERED_PROFILES[@]} -gt 0 ]]; then
-      test_pass "Profiles discovered: ${#DISCOVERED_PROFILES[@]} found"
-      
-      # List discovered profiles
-      test_info "Discovered profiles:"
-      for profile in "${(@k)DISCOVERED_PROFILES}"; do
-        echo "    • $profile"
-      done
-      
+
+  local results
+  results=$( (
+    # Source profile system
+    source "$DOTFILES/zsh/productivity/fzf_profile.sh" 2>/dev/null || {
+      echo "FAIL:Cannot source fzf_profile.sh for discovery tests"
+      exit
+    }
+
+    # Load configuration first
+    load-profiling-config >/dev/null 2>&1
+
+    # Test profile discovery
+    test_info "Testing profile discovery..."
+    discover_profiles >/dev/null 2>&1
+    local discovery_result=$?
+
+    if [[ $discovery_result -eq 0 ]]; then
+      echo "PASS:discover_profiles executed successfully"
+
+      # Check if profiles were discovered
+      if [[ ${#DISCOVERED_PROFILES[@]} -gt 0 ]]; then
+        echo "PASS:Profiles discovered: ${#DISCOVERED_PROFILES[@]} found"
+      else
+        # This is a warning because it's expected if the dir doesn't exist
+        echo "WARN:No profiles discovered (expected if no profiling directory exists)"
+      fi
+
     else
-      test_warn "No profiles discovered (expected if no profiling directory exists)"
+      echo "WARN:discover_profiles failed (expected if no profiling directory)"
     fi
-    
-  else
-    test_warn "discover_profiles failed (expected if no profiling directory)"
-    test_info "Discovery output: $discovery_output"
-  fi
+  ) )
+
+  # Process results in the parent shell to update counters
+  echo "$results" | while IFS=':' read -r result_status message rest; do
+    local full_message="$message"
+    if [[ -n "$rest" ]]; then
+      full_message="$message:$rest"
+    fi
+    case "$result_status" in
+      PASS) test_pass "$full_message" ;;
+      FAIL) test_fail "$full_message" ;;
+      WARN) test_warn "$full_message" ;;
+    esac
+  done
 }
 
 # =============================================================================
