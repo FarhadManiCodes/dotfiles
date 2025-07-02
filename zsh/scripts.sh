@@ -129,8 +129,6 @@ safe_source "$DOTFILES/zsh/productivity/virtualenv.sh" "virtual environment mana
 # 4. FZF Enhancements
 if command -v fzf >/dev/null 2>&1; then
   safe_source "$DOTFILES/zsh/productivity/fzf-enhancements.sh" "FZF enhancements" || echo "❌ FZF enhancements failed"
-  safe_source "$DOTFILES/zsh/productivity/fzf_profile.sh" "profile system" || echo "❌ FZF profile selector failed"
-
 fi
 
 # 5. Zoxide
