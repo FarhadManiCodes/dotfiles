@@ -1,1 +1,54 @@
+alias l.='eza -d .* --color=auto'
+# alias d='dirs -v'
+# for index ({1..9}) alias "$index"="cd +${index}"; unset index
+
+# ==== alias fo eza =======
+alias ls='eza'
+alias ll='eza -l --icons --git'
+alias la='eza -la --icons --git'
+alias lt='eza -T -a -L 3 --icons --ignore-glob=".git"'
+alias treez='eza -T -a -L 3 --icons --ignore-glob=".git,node_modules,__pycache__,.mypy_cache,.pytest_cache,.venv,venv,.idea,dist,build,target,.DS_Store,.next,.nuxt,.parcel-cache,.cache,coverage,*.egg-info,*.log,*.lock"'
+# Developer-Focused Aliases
+alias lsd='eza -D --icons'                   # directories only
+alias lsf='eza -f --icons'                   # files only
+alias lg='eza -l --icons --git --git-ignore' # respect .gitignore
+alias lh='eza -la --icons --header'          # with header
+alias lr='eza -R --icons'                    # recursive
+alias lz='eza -l --icons --size-sort'        # sort by size
+alias lt2='eza --tree --level=2 --icons'     # tree depth 2
+alias lt3='eza --tree --level=3 --icons'     # tree depth 3
+alias lgrep='eza -la --icons | grep'         # quick filtering
+
+alias cd="z"   # Replace cd with z
+alias cdi="zi" # Interactive directory selection
+alias zz="z -" # Jump to previous directory
+
+# Jupyhter smart
+alias jls='jupyter-smart ls'    # List instances
+alias jlm='jupyter-log-monitor' # List instances
+alias jl='tmux-jupyer-auto'
+alias js='jupyer-smart'
+
+# tmux related =======================
+alias tmux-new='tmux-new-enhanced'
+alias tmux-info='tmux-project-info'
+alias tmux-smart='smart_tmux_prompt'
+alias tmux-debug='tmux-debug-integration'
+# Force restart - always kills and restarts
+alias tmux-restart='echo "🔄 Force restart (killing all sessions)..."
+tmux kill-server 2>/dev/null
+tmux-new-enhanced'
+# Quick restore for existing tmux
+alias tmux-restore='~/.local/bin/tmux-fix-last && ~/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh'
+# Check status
+alias tmux-status='echo "TMux Status:" && tmux list-sessions 2>/dev/null || echo "No tmux sessions running"'
+
+# After forgit loads, manually create prefixed aliases
+alias fga='forgit::add'             # f + ga = interactive add
+alias fgd='forgit::diff'            # f + gd = interactive diff
+alias fglo='forgit::log'            # f + glo = interactive log
+alias fgco='forgit::checkout::file' # f + gco = interactive checkout
+alias fgss='forgit::stash::show'    # forgit stash show
+
+bindkey '^ ' autosuggest-accept
 alias source-profile='source "$DOTFILES/zsh/productivity/fzf_profile.sh"'
