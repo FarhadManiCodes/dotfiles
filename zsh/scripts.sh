@@ -179,5 +179,8 @@ loading_status() {
   fi
 }
 
+# >>> Safety >>>
+[ -f "/home/farhad/.safety/.safety_profile" ] && . "/home/farhad/.safety/.safety_profile"
+# <<< Safety <<<
 # Aliases
 alias status='loading_status'
