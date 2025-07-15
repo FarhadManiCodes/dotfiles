@@ -1,3 +1,11 @@
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+
+# XKB specific variables
+export XKB_DEFAULT_RULES=evdev
+export XKB_DEFAULT_MODEL=pc105
+export XKB_DEFAULT_LAYOUT=us
 # For dotfile
 export XDG_CONFIG_HOME="$HOME/.config"
 # For specific data

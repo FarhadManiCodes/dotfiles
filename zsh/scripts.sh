@@ -1,4 +1,26 @@
 #!/bin/zsh
+
+# activate OSC-133 for foot
+autoload -Uz add-zsh-hook
+
+function foot_cmd_start() {
+    printf '\e]133;C\e\\'
+}
+
+function foot_cmd_end() {
+    printf '\e]133;D\e\\'
+}
+# Function to save the last command
+save_last_command() {
+    # Save the command to a file that foot can read
+    echo "$1" > ~/.zsh_last_command
+}
+
+# Hook to run before each command
+add-zsh-hook preexec save_last_command
+add-zsh-hook preexec foot_cmd_start
+add-zsh-hook precmd foot_cmd_end
+
 # =============================================================================
 # SIMPLE SCRIPTS.SH - Always load everything with direnv support
 # =============================================================================
@@ -179,8 +201,174 @@ loading_status() {
   fi
 }
 
-# >>> Safety >>>
-[ -f "/home/farhad/.safety/.safety_profile" ] && . "/home/farhad/.safety/.safety_profile"
-# <<< Safety <<<
 # Aliases
 alias status='loading_status'
+
+function gemmit() {
+  # Configuration - can be overridden via environment variables
+  local editor="${GEMMIT_EDITOR:-${EDITOR:-vim}}"
+  local skip_lint="${GEMMIT_SKIP_LINT:-false}"
+  local auto_commit="${GEMMIT_AUTO_COMMIT:-false}"
+
+  # Check if we're in a git repository
+  if ! git rev-parse --git-dir &>/dev/null; then
+    echo "❌ Not in a git repository."
+    return 1
+  fi
+
+  # Check if gemini CLI is available
+  if ! command -v gemini &>/dev/null; then
+    echo "❌ Gemini CLI not found. Install it with:"
+    echo "   npm install -g @google/gemini-cli"
+    echo "   Or run: npx @google/gemini-cli"
+    return 1
+  fi
+
+  # Check for staged changes
+  local staged_diff
+  staged_diff=$(git diff --cached)
+  if [[ -z "$staged_diff" ]]; then
+    echo "❌ No staged changes to create a commit for."
+    echo "💡 Tip: Use 'git add' to stage your changes first."
+    return 1
+  fi
+
+  # Show what's being committed
+  echo "📝 Staged changes:"
+  git diff --cached --name-status | sed 's/^/  /'
+  echo ""
+
+  # Build prompt with better context
+  local files_changed
+  files_changed=$(git diff --cached --name-only | wc -l | tr -d ' ')
+  local prompt="Based on the following git diff, please generate a high-quality commit message. The message should follow best practices: it must be human-readable for easy understanding and machine-readable by adhering to the Conventional Commits specification.
+
+Context: This commit affects $files_changed file(s).
+
+Guidelines:
+- Start with a type (e.g., feat, fix, docs, style, refactor, test, chore)
+- Provide a concise summary line (50 chars or less)
+- Optionally, include a more detailed body explaining the 'what' and 'why'
+- Do not include any text or explanations other than the commit message itself
+
+Here is the diff:
+$staged_diff"
+
+  echo "🤖 Asking Gemini for a commit message suggestion..."
+  local suggestion
+
+  # Try using the --prompt flag first (more reliable)
+  if suggestion=$(gemini --prompt "$prompt" 2>/dev/null); then
+    echo "✅ Got suggestion using --prompt flag"
+  # Fallback to piping (in case --prompt doesn't work in some versions)
+  elif suggestion=$(echo "$prompt" | gemini 2>/dev/null); then
+    echo "✅ Got suggestion using pipe"
+  else
+    echo "⚠️ Gemini CLI did not return a suggestion."
+    echo "💡 Make sure you're authenticated: run 'gemini' and sign in first"
+    read "manual?Would you like to write the commit message manually? (y/N): "
+    if [[ "$manual" != "y" && "$manual" != "Y" ]]; then
+      echo "❌ Aborting."
+      return 1
+    fi
+    suggestion="# Enter your commit message above this line
+# 
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit."
+  fi
+
+  # Create secure temporary file
+  local tmpfile
+  tmpfile=$(mktemp -t gemmit-XXXXXXXX)
+  chmod 600 "$tmpfile"
+  trap 'rm -f "$tmpfile"' EXIT HUP INT TERM
+
+  # Prepare commit message file
+  echo "$suggestion" >"$tmpfile"
+  echo "" >>"$tmpfile"
+  echo "# Staged changes:" >>"$tmpfile"
+  git diff --cached --name-status | sed 's/^/# /' >>"$tmpfile"
+  echo "# " >>"$tmpfile"
+  echo "# Lines starting with '#' will be ignored" >>"$tmpfile"
+
+  # Open editor (with fallback)
+  if ! command -v "$editor" &>/dev/null; then
+    echo "⚠️ Editor '$editor' not found, falling back to vim"
+    editor="vim"
+  fi
+
+  "$editor" "$tmpfile"
+  local edit_result=$?
+
+  if [[ $edit_result -ne 0 ]]; then
+    echo "❌ Editor exited with error code $edit_result. Aborting."
+    return 1
+  fi
+
+  # Remove comments and empty lines from the end
+  sed -i.bak '/^#/d; /^[[:space:]]*$/d' "$tmpfile" && rm -f "$tmpfile.bak"
+
+  if [[ ! -s "$tmpfile" ]]; then
+    echo "🚫 Commit aborted: message file is empty."
+    return 1
+  fi
+
+  # Show the final message
+  echo ""
+  echo "📋 Final commit message:"
+  cat "$tmpfile" | sed 's/^/  /'
+  echo ""
+
+  # Run commitlint if not skipped
+  if [[ "$skip_lint" != "true" ]] && command -v npx &>/dev/null; then
+    if ! npx commitlint --edit "$tmpfile" 2>/dev/null; then
+      echo "❌ Commit message failed commitlint checks."
+      read "confirm_invalid?Do you want to commit anyway? (y/N): "
+      if [[ "$confirm_invalid" != "y" && "$confirm_invalid" != "Y" ]]; then
+        echo "❌ Commit aborted due to lint errors."
+        return 1
+      fi
+    else
+      echo "✅ Commit message passed lint checks."
+    fi
+  fi
+
+  # Final confirmation (unless auto-commit is enabled)
+  if [[ "$auto_commit" != "true" ]]; then
+    read "confirm?Do you want to commit this message? (y/N): "
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+      echo "❌ Commit aborted by user."
+      return 1
+    fi
+  fi
+
+  # Commit with the message
+  if git commit -F "$tmpfile"; then
+    echo "✅ Commit successful!"
+
+    # Optional: show the commit
+    echo ""
+    echo "📊 Commit details:"
+    git show --stat HEAD
+  else
+    echo "❌ Git commit failed!"
+    return 1
+  fi
+}
+
+# Enhanced alias with help
+alias ggc='gemmit'
+alias ggc-help='echo "gemmit usage:
+  Environment variables:
+    GEMMIT_EDITOR=code       # Use VS Code instead of vim
+    GEMMIT_SKIP_LINT=true    # Skip commitlint validation
+    GEMMIT_AUTO_COMMIT=true  # Skip final confirmation
+  
+  Prerequisites:
+    - Install Gemini CLI: npm install -g @google/gemini-cli
+    - Authenticate: run \"gemini\" and sign in with Google account
+  
+  Examples:
+    ggc                      # Normal usage
+    GEMMIT_EDITOR=code ggc   # Use VS Code
+    GEMMIT_SKIP_LINT=true ggc # Skip linting"'

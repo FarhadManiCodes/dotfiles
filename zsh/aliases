@@ -52,3 +52,15 @@ alias fgss='forgit::stash::show'    # forgit stash show
 
 bindkey '^ ' autosuggest-accept
 alias source-profile='source "$DOTFILES/zsh/productivity/fzf_profile.sh"'
+# safety_load
+safety_load() {
+  if [ -f "$HOME/.safety/.safety_profile" ]; then
+    . "$HOME/.safety/.safety_profile"
+    echo "Safety environment loaded."
+  else
+    echo "Safety profile not found at ~/.safety/.safety_profile"
+  fi
+}
+
+alias clc='fc -ln -1 | wl-copy'  # Copy Last Command
+alias plc='fc -ln -1'            # Print Last Command
