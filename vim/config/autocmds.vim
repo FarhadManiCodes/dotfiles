@@ -43,3 +43,7 @@ autocmd FileType csv setlocal scrollbind
 
 " Quick CSV column alignment
 autocmd FileType csv nnoremap <buffer> <leader>a :%!column -t<CR>
+
+" Goyo + Limelight integration
+autocmd! User GoyoEnter Limelight
+autocmd! User GoyoLeave Limelight!

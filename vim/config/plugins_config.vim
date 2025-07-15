@@ -68,7 +68,6 @@ let g:ale_fixers = {
 \ '*': ['remove_trailing_lines', 'trim_whitespace'],
 \}
 
-" ShellCheck-specific settings
 " ShellCheck-specific settings (preferred)
 let g:ale_sh_shellcheck_options = '-x -e SC1091 --shell=bash --source-path=SCRIPTDIR:' . expand('$XDG_CONFIG_HOME') . ':' . expand('$HOME') . '/.config'
 let g:ale_sh_shfmt_options = '-i 2 -ci'
@@ -97,3 +96,18 @@ let g:undotree_WindowLayout = 3
 
 " Dadbod (SQL)
 let g:db_ui_use_nerd_fonts = 1
+
+
+" markdown settings
+let g:vim_markdown_folding_disabled = 0
+let g:vim_markdown_math = 1
+let g:vim_markdown_toc_autofit = 1
+let g:vim_markdown_new_list_item_indent = 2
+
+" Set font size and background when in Goyo
+let g:goyo_width = 88
+let g:goyo_linenr = 0
+
+let g:limelight_default_coefficient = 0.7
+" Number of preceding/following paragraphs to include (default: 0)
+let g:limelight_paragraph_span = 1

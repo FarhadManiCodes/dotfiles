@@ -67,3 +67,7 @@ nnoremap <leader>/ :BLines<CR>
 " Vimscript development helpers (only in .vim files)
 autocmd FileType vim nnoremap <buffer> <leader>R :source %<CR>:echo "Reloaded " . expand('%')<CR>
 autocmd FileType vim nnoremap <buffer> <leader>H :help <C-r>=expand('<cword>')<CR><CR>
+
+" Goyo + Limelight keybindings
+nnoremap <leader>gy :Goyo<CR>
+nnoremap <leader>ll :Limelight!!<CR>

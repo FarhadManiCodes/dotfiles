@@ -17,10 +17,17 @@ Plug 'tpope/vim-dadbod'
 Plug 'AndrewRadev/splitjoin.vim'
 Plug 'FarhadManiCodes/vim-envx'
 Plug 'mechatroner/rainbow_csv'
+Plug 'NLKNguyen/papercolor-theme'
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
 Plug 'tpope/vim-surround'
 Plug 'jiangmiao/auto-pairs'
 Plug 'tpope/vim-repeat'
 Plug 'tpope/vim-obsession'
+" Markdown editing
+Plug 'preservim/vim-markdown'
+" Distraction-free writing
+Plug 'junegunn/goyo.vim'
+" Dim everything except the current paragraph
+Plug 'junegunn/limelight.vim'
 call plug#end()
