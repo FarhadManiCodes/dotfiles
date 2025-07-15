@@ -61,6 +61,4 @@ safety_load() {
     echo "Safety profile not found at ~/.safety/.safety_profile"
   fi
 }
-
-alias clc='fc -ln -1 | wl-copy'  # Copy Last Command
-alias plc='fc -ln -1'            # Print Last Command
+alias plc='fc -ln -1' # Print Last Command
