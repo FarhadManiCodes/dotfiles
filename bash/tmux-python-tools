@@ -1,0 +1,203 @@
+#!/bin/bash
+# ~/.local/bin/tmux-python-tools
+# Usage: tmux-python-tools <tool> [args...]
+
+set -e
+
+TOOL="$1"
+shift
+
+case "$TOOL" in
+    "ipython")
+        echo "🐍 Starting ptipython with data science imports..."
+        if command -v ptipython >/dev/null 2>&1; then
+            # Create a startup script for ptipython with data science imports
+            cat > /tmp/ptipython_startup.py << 'EOF'
+import numpy as np
+import pandas as pd
+try:
+    import matplotlib.pyplot as plt
+    print("📊 matplotlib.pyplot loaded as 'plt'")
+except ImportError:
+    print("⚠️  matplotlib not found - install with: pip install matplotlib")
+    plt = None
+
+try:
+    import seaborn as sns
+    print("📊 seaborn loaded as 'sns'")
+except ImportError:
+    print("⚠️  seaborn not found - install with: pip install seaborn")
+    sns = None
+
+try:
+    import scipy
+    print("📊 scipy loaded")
+except ImportError:
+    print("⚠️  scipy not found - install with: pip install scipy")
+
+print("📊 Data science environment ready!")
+print("Available: numpy (np), pandas (pd), matplotlib.pyplot (plt), seaborn (sns)")
+print("─" * 60)
+EOF
+            exec ptipython -i /tmp/ptipython_startup.py "$@"
+        else
+            echo "❌ ptipython not found. Install with: pip install ptipython"
+            echo "🐍 Starting Python3 with basic data science imports..."
+            python3 -c "
+import numpy as np
+import pandas as pd
+print('📊 Basic libraries loaded: numpy (np), pandas (pd)')
+print('Install ptipython for better experience: pip install ptipython')
+print('─' * 60)
+import code
+code.interact(local=locals())
+"
+            exec bash
+        fi
+        ;;
+
+    "ptpython")
+        echo "🐍 Starting ptpython with data science imports..."
+        if command -v ptpython >/dev/null 2>&1; then
+            python3 -c "
+import numpy as np
+import pandas as pd
+
+# Try to import optional libraries
+try:
+    import matplotlib.pyplot as plt
+    print('📊 matplotlib.pyplot loaded as \\'plt\\'')
+except ImportError:
+    print('⚠️  matplotlib not found - install with: pip install matplotlib')
+    plt = None
+
+try:
+    import seaborn as sns
+    print('📊 seaborn loaded as \\'sns\\'')
+except ImportError:
+    print('⚠️  seaborn not found - install with: pip install seaborn')
+    sns = None
+
+try:
+    import scipy
+    print('📊 scipy loaded')
+except ImportError:
+    print('⚠️  scipy not found - install with: pip install scipy')
+
+print('📊 Data science environment ready!')
+print('Available: numpy (np), pandas (pd), matplotlib.pyplot (plt), seaborn (sns)')
+print('─' * 60)
+
+# Start ptpython with all variables in scope
+from ptpython.repl import embed
+embed(globals(), locals())
+"
+        else
+            echo "❌ ptpython not found. Install with: pip install ptpython"
+            echo "🐍 Starting Python3 with basic data science imports..."
+            python3 -c "
+import numpy as np
+import pandas as pd
+print('📊 Basic libraries loaded: numpy (np), pandas (pd)')
+print('Install ptpython for better experience: pip install ptpython')
+print('─' * 60)
+import code
+code.interact(local=locals())
+"
+            exec bash
+        fi
+        ;;
+
+    "pytest")
+        echo "🧪 Running tests..."
+        if command -v pytest >/dev/null 2>&1; then
+            pytest -v --tb=short "$@"
+            echo -e "\n✅ Tests completed. Press Enter to continue..."
+            read
+        else
+            echo "❌ Pytest not found. Install with: pip install pytest"
+            echo "Press Enter to continue..."
+            read
+        fi
+        exec bash
+        ;;
+
+    "pytest-watch")
+        if command -v ptw >/dev/null 2>&1; then
+            echo "🔄 Starting pytest watch mode..."
+            exec ptw "$@"
+        else
+            echo "❌ pytest-watch not found. Install with: pip install pytest-watch"
+            echo "Press Enter to continue..."
+            read
+            exec bash
+        fi
+        ;;
+
+    "black")
+        echo "🎨 Formatting with Black..."
+        if command -v black >/dev/null 2>&1; then
+            black . "$@"
+            echo "✅ Black formatting complete"
+        else
+            echo "❌ Black not found. Install with: pip install black"
+        fi
+        echo -e "\nPress Enter to continue..."
+        read
+        exec bash
+        ;;
+
+    "ruff")
+        echo "🔍 Running Ruff linter..."
+        if command -v ruff >/dev/null 2>&1; then
+            ruff check . "$@"
+        else
+            echo "❌ Ruff not found. Install with: pip install ruff"
+        fi
+        echo -e "\nPress Enter to continue..."
+        read
+        exec bash
+        ;;
+
+    "pdb")
+        echo "🐛 Python Debugger"
+        echo "Usage examples:"
+        echo "  python -m pdb script.py"
+        echo "  Add 'import pdb; pdb.set_trace()' to your code"
+        echo ""
+        exec python3 "$@"
+        ;;
+
+    "poetry")
+        if command -v poetry >/dev/null 2>&1; then
+            echo "📦 Activating Poetry environment..."
+            exec poetry shell
+        else
+            echo "❌ Poetry not found. Install from https://python-poetry.org"
+            exec bash
+        fi
+        ;;
+
+    "install-deps")
+        echo "📦 Installing dependencies..."
+        if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+            echo "✅ Requirements installed"
+        elif [ -f pyproject.toml ]; then
+            pip install -e .
+            echo "✅ Project installed in development mode"
+        else
+            echo "❌ No requirements.txt or pyproject.toml found"
+        fi
+        echo -e "\nPress Enter to continue..."
+        read
+        exec bash
+        ;;
+
+    *)
+        echo "❌ Unknown tool: $TOOL"
+        echo "Available tools: ipython, ptpython, pytest, pytest-watch, black, ruff, pdb, poetry, install-deps"
+        echo "Note: 'ipython' uses ptipython, 'ptpython' uses ptpython"
+        exec bash
+        ;;
+esac
