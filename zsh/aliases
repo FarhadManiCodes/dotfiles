@@ -62,3 +62,4 @@ safety_load() {
   fi
 }
 alias plc='fc -ln -1' # Print Last Command
+alias lg=lazygit
