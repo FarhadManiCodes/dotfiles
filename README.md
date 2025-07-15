@@ -1,4 +1,4 @@
-# Farhad's Dotfiles
+# Dotfiles
 
 Welcome to my personal dotfiles repository! This collection of configuration files and scripts helps set up my development environment on Linux, ensuring a consistent and efficient workflow across different machines.
 
