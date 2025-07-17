@@ -15,12 +15,40 @@ case "$TOOL" in
             cat > /tmp/ptipython_startup.py << 'EOF'
 import numpy as np
 import pandas as pd
+
+# Try to set sixel backend for terminal plotting
 try:
+    import matplotlib
+    matplotlib.use('module://pyplotsixel')
     import matplotlib.pyplot as plt
-    print("📊 matplotlib.pyplot loaded as 'plt'")
+    print("📊 matplotlib with sixel backend loaded as 'plt'")
+    
+    # Create clean show function for sixel backend
+    _original_show = plt.show
+    def show_clean(*args, **kwargs):
+        result = _original_show(*args, **kwargs)
+        plt.close('all')  # Clean up after showing
+        return result
+    plt.show = show_clean
+    print("🧹 Clean show function enabled (auto-closes figures)")
+    
 except ImportError:
-    print("⚠️  matplotlib not found - install with: pip install matplotlib")
-    plt = None
+    try:
+        import matplotlib
+        import matplotlib.pyplot as plt
+        print("⚠️  pyplotsixel not found - using default backend")
+        print("   Install with: pip install pyplotsixel (for terminal plots)")
+        print("📊 matplotlib.pyplot loaded as 'plt'")
+    except ImportError:
+        print("⚠️  matplotlib not found - install with: pip install matplotlib")
+        plt = None
+        matplotlib = None
+
+# Set default background color
+if plt is not None and matplotlib is not None:
+    matplotlib.rcParams['figure.facecolor'] = '#eeeeee'
+    matplotlib.rcParams['axes.facecolor'] = '#eeeeee'
+    print("🎨 Default background color set to #eeeeee")
 
 try:
     import seaborn as sns
@@ -55,7 +83,7 @@ code.interact(local=locals())
             exec bash
         fi
         ;;
-
+    
     "ptpython")
         echo "🐍 Starting ptpython with data science imports..."
         if command -v ptpython >/dev/null 2>&1; then
@@ -63,13 +91,39 @@ code.interact(local=locals())
 import numpy as np
 import pandas as pd
 
-# Try to import optional libraries
+# Try to set sixel backend for terminal plotting
 try:
+    import matplotlib
+    matplotlib.use('module://pyplotsixel')
     import matplotlib.pyplot as plt
-    print('📊 matplotlib.pyplot loaded as \\'plt\\'')
+    print('📊 matplotlib with sixel backend loaded as \\'plt\\'')
+    
+    # Create clean show function for sixel backend
+    _original_show = plt.show
+    def show_clean(*args, **kwargs):
+        result = _original_show(*args, **kwargs)
+        plt.close('all')  # Clean up after showing
+        return result
+    plt.show = show_clean
+    print('🧹 Clean show function enabled (auto-closes figures)')
+    
 except ImportError:
-    print('⚠️  matplotlib not found - install with: pip install matplotlib')
-    plt = None
+    try:
+        import matplotlib
+        import matplotlib.pyplot as plt
+        print('⚠️  pyplotsixel not found - using default backend')
+        print('   Install with: pip install pyplotsixel (for terminal plots)')
+        print('📊 matplotlib.pyplot loaded as \\'plt\\'')
+    except ImportError:
+        print('⚠️  matplotlib not found - install with: pip install matplotlib')
+        plt = None
+        matplotlib = None
+
+# Set default background color
+if plt is not None and matplotlib is not None:
+    matplotlib.rcParams['figure.facecolor'] = '#eeeeee'
+    matplotlib.rcParams['axes.facecolor'] = '#eeeeee'
+    print('🎨 Default background color set to #eeeeee')
 
 try:
     import seaborn as sns
@@ -107,7 +161,7 @@ code.interact(local=locals())
             exec bash
         fi
         ;;
-
+    
     "pytest")
         echo "🧪 Running tests..."
         if command -v pytest >/dev/null 2>&1; then
@@ -121,7 +175,7 @@ code.interact(local=locals())
         fi
         exec bash
         ;;
-
+    
     "pytest-watch")
         if command -v ptw >/dev/null 2>&1; then
             echo "🔄 Starting pytest watch mode..."
@@ -133,7 +187,7 @@ code.interact(local=locals())
             exec bash
         fi
         ;;
-
+    
     "black")
         echo "🎨 Formatting with Black..."
         if command -v black >/dev/null 2>&1; then
@@ -146,7 +200,7 @@ code.interact(local=locals())
         read
         exec bash
         ;;
-
+    
     "ruff")
         echo "🔍 Running Ruff linter..."
         if command -v ruff >/dev/null 2>&1; then
@@ -158,7 +212,7 @@ code.interact(local=locals())
         read
         exec bash
         ;;
-
+    
     "pdb")
         echo "🐛 Python Debugger"
         echo "Usage examples:"
@@ -167,7 +221,7 @@ code.interact(local=locals())
         echo ""
         exec python3 "$@"
         ;;
-
+    
     "poetry")
         if command -v poetry >/dev/null 2>&1; then
             echo "📦 Activating Poetry environment..."
@@ -177,7 +231,7 @@ code.interact(local=locals())
             exec bash
         fi
         ;;
-
+    
     "install-deps")
         echo "📦 Installing dependencies..."
         if [ -f requirements.txt ]; then
@@ -193,7 +247,7 @@ code.interact(local=locals())
         read
         exec bash
         ;;
-
+    
     *)
         echo "❌ Unknown tool: $TOOL"
         echo "Available tools: ipython, ptpython, pytest, pytest-watch, black, ruff, pdb, poetry, install-deps"
