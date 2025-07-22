@@ -63,3 +63,4 @@ safety_load() {
 }
 alias plc='fc -ln -1' # Print Last Command
 alias lg=lazygit
+alias vi="vi -u $DOTFILES/vim/config/minimal.vim"

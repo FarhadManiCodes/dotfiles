@@ -1,25 +1,22 @@
-
 " Essential for finding other files
-" set runtimepath $HOME/.vim
-" set runtimepath $HOME/.vim/after
-
+if v:progname ==# 'vi' || v:progname ==# 'view'
+    source $DOTFILES/vim/config/minimal.vim
+    finish
+endif
 " Source configuration files in order
-
-source $HOME/.vim/config/basic.vim
-source $HOME/.vim/config/plugins.vim
-source $HOME/.vim/config/plugins_config.vim
-source $HOME/.vim/config/autopairs.vim
-source $HOME/.vim/config/autocmds.vim
-source $HOME/.vim/config/mappings.vim
-source $HOME/.vim/config/python.vim
-source $HOME/.vim/config/sql.vim
-source $HOME/.vim/config/yaml.vim
-source $HOME/.vim/config/json.vim
-source $HOME/.vim/config/vimscript.vim
-
-
+source $DOTFILES/vim/config/basic.vim
+source $DOTFILES/vim/config/plugins.vim
+source $DOTFILES/vim/config/plugins_config.vim
+source $DOTFILES/vim/config/autopairs.vim
+source $DOTFILES/vim/config/autocmds.vim
+source $DOTFILES/vim/config/mappings.vim
+source $DOTFILES/vim/config/python.vim
+source $DOTFILES/vim/config/sql.vim
+source $DOTFILES/vim/config/yaml.vim
+source $DOTFILES/vim/config/json.vim
+source $DOTFILES/vim/config/vimscript.vim
 " Setup auto-reloading
 augroup reload_vimrc
   autocmd!
-  autocmd BufWritePost ~/.vim/vimrc,~/.vim/config/*.vim source ~/.vim/vimrc
+  autocmd BufWritePost $DOTFILES/vim/vimrc,$DOTFILES/vim/config/*.vim source $DOTFILES/vim/vimrc
 augroup END

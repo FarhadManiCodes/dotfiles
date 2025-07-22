@@ -70,3 +70,68 @@ if has("autocmd")
     \ endif
   au VimLeave * silent execute '!echo -ne "\e[ q"' | redraw!
 endif
+
+
+" Theme toggle function: onedark → PaperColor(light) → PaperColor(dark+no#)
+function! ToggleTheme()
+    if &background == "light" && g:colors_name == "PaperColor"
+        " Light PaperColor → Dark PaperColor (no numbers)
+        set background=dark
+        colorscheme PaperColor
+        set nonumber norelativenumber
+        if exists('g:lightline')
+            let g:lightline.colorscheme = "PaperColor_dark"
+            call lightline#init()
+            call lightline#colorscheme()
+        endif
+        echo "Theme: PaperColor Dark (no numbers)"
+    elseif &background == "dark" && g:colors_name == "PaperColor"
+        " Dark PaperColor → onedark (with numbers)
+        set background=dark
+        colorscheme onedark
+        set number relativenumber
+        if exists('g:lightline')
+            let g:lightline.colorscheme = "one"
+            call lightline#init()
+            call lightline#colorscheme()
+        endif
+        echo "Theme: OneDark (with numbers)"
+    else
+        " onedark or any other → Light PaperColor (with numbers)
+        set background=light
+        colorscheme PaperColor
+        set number relativenumber
+        if exists('g:lightline')
+            let g:lightline.colorscheme = "PaperColor"
+            call lightline#init()
+            call lightline#colorscheme()
+        endif
+        echo "Theme: PaperColor Light (with numbers)"
+    endif
+endfunction
+
+" Map to <Leader>th (theme) - good mnemonic and unlikely to conflict
+nnoremap <Leader>tt :call ToggleTheme()<CR>
+" Force interactive shell to load .zshrc and Powerlevel10k
+set shell=/bin/zsh\ -i
+
+" Basic terminal settings
+if has('terminal')
+    let g:terminal_height = float2nr(&lines / 3)
+    set termwinsize=10x0
+    set termwinscroll=10000
+endif
+
+" Environment variables for proper color support
+let $TERM = 'xterm-256color'
+let $COLORTERM = 'truecolor'
+
+" Simple terminal function
+function! OpenTerminal()
+    execute 'terminal ++close ++rows=' . g:terminal_height
+    setlocal nonumber norelativenumber
+    normal! i
+endfunction
+
+" Simple mapping
+nnoremap <leader>pt :call OpenTerminal()<CR>
