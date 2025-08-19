@@ -372,3 +372,5 @@ alias ggc-help='echo "gemmit usage:
     ggc                      # Normal usage
     GEMMIT_EDITOR=code ggc   # Use VS Code
     GEMMIT_SKIP_LINT=true ggc # Skip linting"'
+
+safe_source "$DOTFILES/zsh/productivity/llama.sh" "llama" || echo "❌ llama.sh failed"
