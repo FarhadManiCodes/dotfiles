@@ -139,20 +139,7 @@ zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
 # Custom completions directory
 fpath=(~/.config/zsh/completions $fpath)
 
-# ============================================================================
-# POWERLEVEL10K THEME
-# ============================================================================
-# Load Powerlevel10k (XDG-compliant location preferred)
-if [[ -f ~/.config/zsh/themes/powerlevel10k/powerlevel10k.zsh-theme ]]; then
-  # XDG config location (preferred)
-  source ~/.config/zsh/themes/powerlevel10k/powerlevel10k.zsh-theme
-elif [[ -f ~/powerlevel10k/powerlevel10k.zsh-theme ]]; then
-  # Home directory (fallback)
-  source ~/powerlevel10k/powerlevel10k.zsh-theme
-elif [[ -f /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme ]]; then
-  # System installation
-  source /usr/share/zsh-theme-powerlevel10k/powerlevel10k.zsh-theme
-fi
+
 
 # ============================================================================
 # PLUGIN REPLACEMENTS
@@ -339,3 +326,7 @@ alias d='d'  # Use our enhanced d function
 if [[ "$ZSH_PROFILE" == "true" ]]; then
   zprof > ~/.zsh_profile_output.txt
 fi
+
+[[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
+
+. "$HOME/.config/local/share/../bin/env"
