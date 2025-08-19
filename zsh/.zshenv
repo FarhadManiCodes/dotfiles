@@ -78,3 +78,25 @@ export _ZO_FZF_OPTS="--height=40% --layout=reverse --border"  # Customize fzf if
 export NVM_DIR="$HOME/.config/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+# better man and help
+source "$DOTFILES/zsh/smart_man_helpers.sh"
+
+# Ensure environment variables are set
+export ZSH="${ZSH:-$HOME/.oh-my-zsh}"
+export ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
+
+# Set the theme BEFORE sourcing oh-my-zsh
+ZSH_THEME="powerlevel10k/powerlevel10k"
+
+# Load oh-my-zsh
+source "$ZSH/oh-my-zsh.sh"
+
+# P10K instant prompt
+if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
+    source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+fi
+
+# Load P10K configuration
+[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+
