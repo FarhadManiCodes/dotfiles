@@ -31,8 +31,26 @@ export GOPROXY=https://proxy.golang.org,direct
 export GOSUMDB=sum.golang.org
 export GOPATH=$HOME/go
 export CGO_ENABLED=0
+# HADOOP settings ====================
+# Java Environment
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+# Hadoop Environment (basic paths only)
+export HADOOP_HOME=/opt/hadoop
+export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+export HADOOP_LOG_DIR=$HADOOP_HOME/logs
+export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
+export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
+#Add to system library path
+export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
 
+# For PySpark specifically
+export SPARK_LIBRARY_PATH=$HADOOP_HOME/lib/native
+# Path Configuration
+export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 
+# Simple solution: Suppress Java 17 warnings globally
+export _JAVA_OPTIONS="--add-modules=jdk.incubator.vector"
+# =======================================================
 # fzf PATH and environment
 export PATH="$PATH:/home/farhad/install/fzf/bin"
 
@@ -99,4 +117,3 @@ fi
 
 # Load P10K configuration
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
