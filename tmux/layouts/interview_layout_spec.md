@@ -112,8 +112,7 @@ The interview layout is a specialized 4-window tmux session designed for technic
 - **Tool**: DuckDB with auto-loaded data
 - **Setup Script**: `$DOTFILES/zsh/specials/load_data_duckdb.sh`
 - **Features**:
-  - duck-watch integration for result monitoring
-  - Pre-configured CSV output mode
+  - DuckDB native terminal display (simplified from popup system)
   - Auto-loads sample datasets and interview data
 
 #### Pane 3: ptipython (40% width, 50% height)

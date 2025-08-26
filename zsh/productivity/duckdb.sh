@@ -409,6 +409,5 @@ duck-show() {
     local duck_cmd="duckdb"
     [[ -f ".duckdb_setup.sql" ]] && duck_cmd="duckdb -init .duckdb_setup.sql"
     
-    echo "$query" | $duck_cmd -csv > /tmp/duck_result.csv
-    duck-show-result
+    echo "$query" | $duck_cmd
 }

@@ -61,12 +61,7 @@ tmux send-keys "echo '🦆 Setting up DuckDB environment...'" Enter
 # Check if the load script exists and is executable
 if [[ -f "$DOTFILES/zsh/specials/load_data_duckdb.sh" ]]; then
   tmux send-keys "bash '$DOTFILES/zsh/specials/load_data_duckdb.sh'" Enter
-  tmux send-keys "duck-watch stop" Enter
-  tmux send-keys "duck-watch start" Enter
   tmux send-keys "duck" Enter
-  tmux send-keys ".output /tmp/duck_result.csv" Enter
-  tmux send-keys ".mode csv" Enter
-  tmux send-keys ".header on" Enter
 else
   tmux send-keys "echo '❌ DuckDB setup script not found'" Enter
   tmux send-keys "echo '💡 Expected: \$DOTFILES/zsh/specials/load_data_duckdb.sh'" Enter
