@@ -647,3 +647,29 @@ _python_env_completion() {
     _describe 'activate environment first' 'va:Activate virtual environment' 'vp:Project environment'
   fi
 }
+
+# Completion function for tmux-new-quick
+_tmux_layout_completion() {
+  local -a layouts
+  layouts=(
+    'basic:Simple single window setup'
+    'ml_training:Model development & monitoring'
+    'etl:ETL/Data Engineering pipeline'
+    'analysis:Data Science with Jupyter'
+    'database:SQL development & querying'
+    'developer:Python general development'
+    'docker:Container development'
+    'git:Version control focused'
+  )
+  
+  _describe 'tmux layouts' layouts
+}
+
+# Register completion for the new functions
+compdef _tmux_layout_completion tmux-new-quick
+compdef _tmux_layout_completion tmux-dev
+compdef _tmux_layout_completion tmux-data
+compdef _tmux_layout_completion tmux-ml
+compdef _tmux_layout_completion tmux-db
+compdef _tmux_layout_completion tmux-git
+compdef _tmux_layout_completion tmux-docker

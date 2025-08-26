@@ -384,26 +384,217 @@ smart_tmux_prompt() {
   fi
 }
 
-# Enhanced tmux-new command
-tmux-new-enhanced() {
+# Enhanced tmux-new command with full layout selection
+tmux-new-with-layout-selection() {
   local suggested_name=$(get_session_name)
   echo -n "🎯 Session name [$suggested_name]: "
   read -r custom_name
   local session_name="${custom_name:-$suggested_name}"
 
-  # Offer layout choice
+  # Get suggested layout
   local suggested_layout=$(detect_layout)
-  if [[ -n "$suggested_layout" && "$suggested_layout" != "basic" ]]; then
-    echo -n "🎨 Use $suggested_layout layout? [Y/n]: "
-    read -r -n 1 choice && echo
-    if [[ $choice =~ ^[Nn]$ ]]; then
-      suggested_layout="basic"
+  local suggested_index=1
+
+  # Define all available layouts with descriptions
+  local -a layouts=(
+    "basic:🏠 Basic - Simple single window setup"
+    "ml_training:🤖 ML Training - Model development & monitoring"
+    "etl:🔧 ETL/Data Engineering - Pipeline development"
+    "analysis:📊 Data Science - Jupyter & data analysis"
+    "database:🗄️ Database - SQL development & querying"
+    "developer:🐍 Python - General development environment"
+    "docker:🐳 Docker - Container development"
+    "git:🌳 Git - Version control focused"
+  )
+
+  # Find suggested layout index
+  for i in {1..${#layouts[@]}}; do
+    local layout_key="${layouts[$i]%%:*}"
+    if [[ "$layout_key" == "$suggested_layout" ]]; then
+      suggested_index=$i
+      break
     fi
+  done
+
+  echo ""
+  echo "🎨 Available layouts:"
+  echo ""
+
+  # Display layouts with numbers
+  for i in {1..${#layouts[@]}}; do
+    local layout_entry="${layouts[$i]}"
+    local layout_key="${layout_entry%%:*}"
+    local layout_desc="${layout_entry#*:}"
+
+    if [[ "$layout_key" == "$suggested_layout" ]]; then
+      echo "  [$i] $layout_desc ⭐ (suggested)"
+    else
+      echo "  [$i] $layout_desc"
+    fi
+  done
+
+  echo ""
+  echo -n "Select layout [1-${#layouts[@]}] (Enter for suggested #$suggested_index): "
+  read -r choice
+
+  # Parse choice
+  local selected_layout="$suggested_layout"
+  if [[ -n "$choice" && "$choice" =~ ^[0-9]+$ ]]; then
+    if [[ "$choice" -ge 1 && "$choice" -le "${#layouts[@]}" ]]; then
+      selected_layout="${layouts[$choice]%%:*}"
+    else
+      echo "❌ Invalid choice, using suggested layout: $suggested_layout"
+    fi
+  elif [[ -n "$choice" ]]; then
+    echo "❌ Invalid input, using suggested layout: $suggested_layout"
   fi
 
-  tmux-new-smart "$suggested_layout" "$session_name"
+  echo ""
+  echo "🚀 Creating session '$session_name' with '$selected_layout' layout..."
+  tmux-new-smart "$selected_layout" "$session_name"
 }
 
+# Alternative: Quick layout selection using fzf if available
+tmux-new-fzf() {
+  if ! command -v fzf >/dev/null 2>&1; then
+    echo "❌ fzf not found, falling back to standard selection"
+    tmux-new-with-layout-selection
+    return
+  fi
+
+  local suggested_name=$(get_session_name)
+  echo -n "🎯 Session name [$suggested_name]: "
+  read -r custom_name
+  local session_name="${custom_name:-$suggested_name}"
+
+  # Get suggested layout
+  local suggested_layout=$(detect_layout)
+
+  # Define all available layouts for fzf
+  local layout_options=(
+    "🏠 basic - Simple single window setup"
+    "🤖 ml_training - Model development & monitoring"
+    "🔧 etl - ETL/Data Engineering pipeline development"
+    "📊 analysis - Data Science with Jupyter & analysis tools"
+    "🗄️ database - SQL development & database querying"
+    "🐍 developer - Python general development environment"
+    "🐳 docker - Container development environment"
+    "🌳 git - Version control focused workspace"
+  )
+
+  # Find suggested layout for default selection
+  local default_option=""
+  for option in "${layout_options[@]}"; do
+    if [[ "$option" =~ $suggested_layout ]]; then
+      default_option="$option ⭐ (suggested)"
+      break
+    fi
+  done
+
+  echo ""
+  echo "🎨 Select layout (suggested: $suggested_layout):"
+
+  # Use fzf for selection
+  local selected_option
+  if [[ -n "$default_option" ]]; then
+    # Add suggested marker to options
+    local enhanced_options=()
+    for option in "${layout_options[@]}"; do
+      if [[ "$option" =~ $suggested_layout ]]; then
+        enhanced_options+=("$option ⭐ (suggested)")
+      else
+        enhanced_options+=("$option")
+      fi
+    done
+
+    selected_option=$(printf '%s\n' "${enhanced_options[@]}" | fzf --height=12 --layout=reverse --border --prompt="Layout: " --preview="echo 'Press Enter to select this layout'")
+  else
+    selected_option=$(printf '%s\n' "${layout_options[@]}" | fzf --height=12 --layout=reverse --border --prompt="Layout: " --preview="echo 'Press Enter to select this layout'")
+  fi
+
+  # Extract layout name from selection
+  local selected_layout
+  if [[ -n "$selected_option" ]]; then
+    selected_layout=$(echo "$selected_option" | sed 's/^[^ ]* \([^ ]*\) -.*/\1/' | sed 's/ ⭐.*//')
+  else
+    echo "❌ No selection made, using suggested layout: $suggested_layout"
+    selected_layout="$suggested_layout"
+  fi
+
+  echo ""
+  echo "🚀 Creating session '$session_name' with '$selected_layout' layout..."
+  tmux-new-smart "$selected_layout" "$session_name"
+}
+
+# Quick layout override function
+tmux-new-quick() {
+  local layout="$1"
+  local session_name="$2"
+
+  if [[ -z "$layout" ]]; then
+    echo "Usage: tmux-new-quick <layout> [session_name]"
+    echo ""
+    echo "Available layouts:"
+    echo "  basic, ml_training, etl, analysis, database, developer, docker, git"
+    return 1
+  fi
+
+  local final_session_name="${session_name:-$(get_session_name)}"
+  echo "🚀 Creating session '$final_session_name' with '$layout' layout..."
+  tmux-new-smart "$layout" "$final_session_name"
+}
+
+# Layout info function to see what's available
+tmux-layouts() {
+  local current_layout=$(detect_layout)
+
+  echo "🎨 Available TMux Layouts"
+  echo "========================"
+  echo ""
+  echo "Current project suggestion: $current_layout"
+  echo ""
+
+  echo "📋 All available layouts:"
+  echo ""
+  echo "  🏠 basic         - Simple single window setup"
+  echo "  🤖 ml_training   - Model development & monitoring with MLflow"
+  echo "  🔧 etl           - ETL/Data Engineering pipeline development"
+  echo "  📊 analysis      - Data Science with Jupyter & analysis tools"
+  echo "  🗄️ database      - SQL development & database querying"
+  echo "  🐍 developer     - Python general development environment"
+  echo "  🐳 docker        - Container development environment"
+  echo "  🌳 git           - Version control focused workspace"
+  echo ""
+
+  echo "🚀 Usage examples:"
+  echo "  tmux-new                    # Interactive selection"
+  echo "  tmux-new-quick developer    # Direct layout selection"
+  echo "  tmux-new-fzf               # FZF-powered selection"
+  echo ""
+
+  # Show which layout scripts exist
+  echo "📂 Layout script status:"
+  local layouts=(basic ml_training etl analysis database developer docker git)
+  for layout in "${layouts[@]}"; do
+    local script_found=false
+    for location in \
+      "$HOME/dotfile/tmux/layouts/${layout}_layout.sh" \
+      "$HOME/.config/tmux/layouts/${layout}_layout.sh" \
+      "$DOTFILES/tmux/layouts/${layout}_layout.sh" \
+      "$HOME/dotfiles/tmux/layouts/${layout}_layout.sh"; do
+      if [[ -f "$location" ]]; then
+        if [[ -x "$location" ]]; then
+          echo "  ✅ $layout (executable)"
+        else
+          echo "  ⚠️  $layout (not executable)"
+        fi
+        script_found=true
+        break
+      fi
+    done
+    [[ "$script_found" == false ]] && echo "  ❌ $layout (script missing)"
+  done
+}
 # Session info utility
 tmux-project-info() {
   local project_name=$(get_project_name 2>/dev/null)

@@ -30,10 +30,21 @@ alias jl='tmux-jupyer-auto'
 alias js='jupyer-smart'
 
 # tmux related =======================
-alias tmux-new='tmux-new-enhanced'
-alias tmux-info='tmux-project-info'
-alias tmux-smart='smart_tmux_prompt'
-alias tmux-debug='tmux-debug-integration'
+alias tmux-new='tmux-new-with-layout-selection'  # Enhanced layout selection
+alias tmux-fzf='tmux-new-fzf'                    # FZF-powered selection
+alias tmux-quick='tmux-new-quick'                # Direct layout specification
+alias tmux-layouts='tmux-layouts'                # Show available layouts and status
+alias tmux-info='tmux-project-info'              # Keep existing
+alias tmux-smart='smart_tmux_prompt'             # Keep existing
+alias tmux-debug='tmux-debug-integration'        # Keep existing
+
+# Quick shortcuts for specific layouts (optional)
+alias tmux-dev='tmux-new-quick developer'
+alias tmux-data='tmux-new-quick analysis'  
+alias tmux-ml='tmux-new-quick ml_training'
+alias tmux-db='tmux-new-quick database'
+alias tmux-git='tmux-new-quick git'
+alias tmux-docker='tmux-new-quick docker'
 # Force restart - always kills and restarts
 alias tmux-restart='echo "🔄 Force restart (killing all sessions)..."
 tmux kill-server 2>/dev/null
