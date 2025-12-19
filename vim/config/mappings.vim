@@ -1,10 +1,3 @@
-" Plugin mappings
-noremap <leader>] :YcmCompleter GoTo<cr>
-noremap <f5> :UndotreeToggle<cr>
-nmap <silent> <leader>aj :ALENext<cr>
-nmap <silent> <leader>ak :ALEPrevious<cr>
-nmap <silent> <leader>af :ALEFix<cr>
-
 " Navigation disables
 inoremap <Down> <Nop>
 inoremap <Left> <Nop>
@@ -56,17 +49,6 @@ nnoremap <leader><space> :nohlsearch<CR>
 
 " Quick formatting
 nnoremap <leader>= gg=G``
-
-" Add FZF mappings (since you have the plugin)
-nnoremap <C-p> :Files<CR>
-nnoremap <leader>b :Buffers<CR>
-nnoremap <leader>rg :Rg<CR>
-nnoremap <leader>/ :BLines<CR>
-
-" Add vim develepmetnt
-" Vimscript development helpers (only in .vim files)
-autocmd FileType vim nnoremap <buffer> <leader>R :source %<CR>:echo "Reloaded " . expand('%')<CR>
-autocmd FileType vim nnoremap <buffer> <leader>H :help <C-r>=expand('<cword>')<CR><CR>
 
 " Goyo + Limelight keybindings
 nnoremap <leader>gy :Goyo<CR>

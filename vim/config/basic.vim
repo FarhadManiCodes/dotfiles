@@ -52,7 +52,12 @@ endif
 if (has("termguicolors"))
     set termguicolors
 endif
-colorscheme onedark
+
+" Set colorscheme with proper defaults
+set background=dark
+
+" Don't load colorscheme here - plugins aren't loaded yet!
+" Will be loaded in an autocmd after VimEnter (see below)
 
 " Folding defaults
 set foldlevelstart=5
@@ -135,3 +140,9 @@ endfunction
 
 " Simple mapping
 nnoremap <leader>pt :call OpenTerminal()<CR>
+
+" Load colorscheme after plugins are loaded
+augroup load_colorscheme
+    autocmd!
+    autocmd VimEnter * ++nested colorscheme onedark
+augroup END

@@ -1,22 +1,31 @@
-" Essential for finding other files
+" XDG Base Directory compliant vim configuration
+" Config location: ~/.config/vim/
+
+" Determine vim config directory (XDG-compliant)
+let g:vim_config_dir = expand('~/.config/vim')
+let g:vim_config_subdir = g:vim_config_dir . '/config'
+
+" Fallback to minimal config for vi/view
 if v:progname ==# 'vi' || v:progname ==# 'view'
-    source $DOTFILES/vim/config/minimal.vim
+    let s:minimal_config = g:vim_config_subdir . '/minimal.vim'
+    if filereadable(s:minimal_config)
+        execute 'source ' . s:minimal_config
+    endif
     finish
 endif
+
 " Source configuration files in order
-source $DOTFILES/vim/config/basic.vim
-source $DOTFILES/vim/config/plugins.vim
-source $DOTFILES/vim/config/plugins_config.vim
-source $DOTFILES/vim/config/autopairs.vim
-source $DOTFILES/vim/config/autocmds.vim
-source $DOTFILES/vim/config/mappings.vim
-source $DOTFILES/vim/config/python.vim
-source $DOTFILES/vim/config/sql.vim
-source $DOTFILES/vim/config/yaml.vim
-source $DOTFILES/vim/config/json.vim
-source $DOTFILES/vim/config/vimscript.vim
+execute 'source ' . g:vim_config_subdir . '/basic.vim'
+execute 'source ' . g:vim_config_subdir . '/plugins.vim'
+execute 'source ' . g:vim_config_subdir . '/plugins_config.vim'
+execute 'source ' . g:vim_config_subdir . '/autocmds.vim'
+execute 'source ' . g:vim_config_subdir . '/mappings.vim'
+execute 'source ' . g:vim_config_subdir . '/python.vim'
+execute 'source ' . g:vim_config_subdir . '/yaml.vim'
+execute 'source ' . g:vim_config_subdir . '/json.vim'
+
 " Setup auto-reloading
 augroup reload_vimrc
   autocmd!
-  autocmd BufWritePost $DOTFILES/vim/vimrc,$DOTFILES/vim/config/*.vim source $DOTFILES/vim/vimrc
+  autocmd BufWritePost ~/.config/vim/vimrc,~/.config/vim/config/*.vim source $MYVIMRC
 augroup END
