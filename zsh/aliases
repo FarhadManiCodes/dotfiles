@@ -1,77 +1,148 @@
-alias l.='eza -d .* --color=auto'
-# alias d='dirs -v'
-# for index ({1..9}) alias "$index"="cd +${index}"; unset index
+# ============================================================================
+# ZSH ALIASES - Optimized for Data Engineering/MLOps
+# ============================================================================
 
-# ==== alias fo eza =======
-alias ls='eza'
-alias ll='eza -l --icons --git'
-alias la='eza -la --icons --git'
-alias lt='eza -T -a -L 3 --icons --ignore-glob=".git"'
-alias treez='eza -T -L 3 --icons --ignore-glob=".*|*.egg-info|*.log|*.lock" --ignore-glob="node_modules|__pycache__|venv|dist|build|target|coverage"'
-# Developer-Focused Aliases
-alias lsd='eza -D --icons'                   # directories only
-alias lsf='eza -f --icons'                   # files only
-alias lg='eza -l --icons --git --git-ignore' # respect .gitignore
-alias lh='eza -la --icons --header'          # with header
-alias lr='eza -R --icons'                    # recursive
-alias lz='eza -l --icons --size-sort'        # sort by size
-alias lt2='eza --tree --level=2 --icons'     # tree depth 2
-alias lt3='eza --tree --level=3 --icons'     # tree depth 3
-alias lgrep='eza -la --icons | grep'         # quick filtering
+# ============================================================================
+# EZA - Basic Listing
+# ============================================================================
+if command -v eza >/dev/null 2>&1; then
+  alias ls='eza'                           # Base replacement
+  alias l='eza'                            # Short form
+  alias l.='eza -d .* --color=auto'        # Dotfiles only
 
-alias cd="z"   # Replace cd with z
-alias cdi="zi" # Interactive directory selection
-alias zz="z -" # Jump to previous directory
+  # ============================================================================
+  # EZA - Standard Views
+  # ============================================================================
+  alias ll='eza -l --icons --git --group-directories-first'          # Long format + git status
+  alias la='eza -la --icons --git --group-directories-first'         # Long + all (including hidden)
+  alias lh='eza -la --icons --header --group-directories-first'      # Long + all + column headers
 
-# Jupyhter smart
-alias jls='jupyter-smart ls'    # List instances
-alias jlm='jupyter-log-monitor' # List instances
-alias jl='tmux-jupyer-auto'
-alias js='jupyer-smart'
+  # ============================================================================
+  # EZA - Filtered Views (Developer-focused)
+  # ============================================================================
+  alias lsd='eza -D --icons'                    # Directories only
+  alias lsf='eza -f --icons'                    # Files only
+  alias lgit='eza -l --icons --git --git-ignore'  # Respect .gitignore
+  alias lr='eza -lR --icons'                    # Recursive long format
 
-# tmux related =======================
-alias tmux-new='tmux-new-with-layout-selection'  # Enhanced layout selection
-alias tmux-fzf='tmux-new-fzf'                    # FZF-powered selection
-alias tmux-quick='tmux-new-quick'                # Direct layout specification
-alias tmux-layouts='tmux-layouts'                # Show available layouts and status
-alias tmux-info='tmux-project-info'              # Keep existing
-alias tmux-smart='smart_tmux_prompt'             # Keep existing
-alias tmux-debug='tmux-debug-integration'        # Keep existing
+  # ============================================================================
+  # EZA - Sorted Views
+  # ============================================================================
+  alias lz='eza -l --icons --sort=size'         # Sort by size (largest first)
+  alias lm='eza -l --icons --sort=modified'     # Recently modified first
+  alias lx='eza -lh --icons --sort=extension'   # Group by file type
 
-# Quick shortcuts for specific layouts (optional)
-alias tmux-dev='tmux-new-quick developer'
-alias tmux-data='tmux-new-quick analysis'  
-alias tmux-ml='tmux-new-quick ml_training'
-alias tmux-db='tmux-new-quick database'
-alias tmux-git='tmux-new-quick git'
-alias tmux-docker='tmux-new-quick docker'
-# Force restart - always kills and restarts
-alias tmux-restart='echo "🔄 Force restart (killing all sessions)..."
-tmux kill-server 2>/dev/null
-tmux-new-enhanced'
-# Quick restore for existing tmux
-alias tmux-restore='~/.local/bin/tmux-fix-last && ~/.config/tmux/plugins/tmux-resurrect/scripts/restore.sh'
-# Check status
-alias tmux-status='echo "TMux Status:" && tmux list-sessions 2>/dev/null || echo "No tmux sessions running"'
+  # ============================================================================
+  # EZA - Tree Views (Hybrid Approach)
+  # ============================================================================
+  # Eza tree variants with 'et' prefix
+  alias et='eza -T --icons --level=2'           # Quick eza tree (2 levels)
+  alias et1='eza -T --icons --level=1'          # Ultra-shallow (1 level)
+  alias et3='eza -T --icons --level=3'          # Explicit 3 levels
+  alias eta='eza -T -a --icons --level=2 --ignore-glob=".git"'  # With hidden files
 
-# After forgit loads, manually create prefixed aliases
-alias fga='forgit::add'             # f + ga = interactive add
-alias fgd='forgit::diff'            # f + gd = interactive diff
-alias fglo='forgit::log'            # f + glo = interactive log
-alias fgco='forgit::checkout::file' # f + gco = interactive checkout
-alias fgss='forgit::stash::show'    # forgit stash show
+  # Developer-focused tree (ignore build artifacts, deps, etc.)
+  alias treez='eza -T -L 3 --icons --ignore-glob=".*|*.egg-info|*.log|*.lock" --ignore-glob="node_modules|__pycache__|venv|dist|build|cmake-build-*|_build|target|coverage"'
 
-bindkey '^ ' autosuggest-accept
-alias source-profile='source "$DOTFILES/zsh/productivity/fzf_profile.sh"'
-# safety_load
-safety_load() {
-  if [ -f "$HOME/.safety/.safety_profile" ]; then
-    . "$HOME/.safety/.safety_profile"
-    echo "Safety environment loaded."
-  else
-    echo "Safety profile not found at ~/.safety/.safety_profile"
-  fi
-}
-alias plc='fc -ln -1' # Print Last Command
-alias lg=lazygit
-alias vi="vi -u $DOTFILES/vim/config/minimal.vim"
+  # ============================================================================
+  # EZA - Interactive & Utility
+  # ============================================================================
+  alias lf='eza -la --icons | fzf'              # Interactive fuzzy filter
+  alias lgrep='eza -la --icons | grep'          # Quick grep filtering
+fi
+
+# ============================================================================
+# TREE - Keep standalone tree with colors (for deep/fast operations)
+# ============================================================================
+if command -v tree >/dev/null 2>&1; then
+  alias tree='tree -C'                          # Add colors to tree
+fi
+
+# ============================================================================
+# ZOXIDE (Better cd)
+# ============================================================================
+if command -v zoxide >/dev/null 2>&1; then
+  alias cd="z"    # Replace cd with z
+  alias cdi="zi"  # Interactive directory selection
+  alias zz="z -"  # Jump to previous directory
+fi
+
+# ============================================================================
+# FORGIT (Interactive Git)
+# ============================================================================
+if (( $+functions[forgit::add] )); then
+  alias fga='forgit::add'              # Interactive add
+  alias fgd='forgit::diff'             # Interactive diff
+  alias fglo='forgit::log'             # Interactive log
+  alias fgco='forgit::checkout::file'  # Interactive checkout
+  alias fgss='forgit::stash::show'     # Interactive stash
+fi
+
+# ============================================================================
+# NAVIGATION
+# ============================================================================
+alias ..='builtin cd ..'
+alias ...='builtin cd ../..'
+alias ....='builtin cd ../../..'
+
+# ============================================================================
+# SAFETY & UTILITIES
+# ============================================================================
+alias grep='grep --color=auto'
+alias df='df -h'
+alias du='du -h'
+alias free='free -h'
+
+# ============================================================================
+# LAZYGIT
+# ============================================================================
+command -v lazygit >/dev/null 2>&1 && alias lg=lazygit
+
+# ============================================================================
+# VIM
+# ============================================================================
+# Uncomment and adjust if you have a custom vim config
+# alias vi="vi -u $DOTFILES/vim/config/minimal.vim"
+alias vi="vim"
+
+# ============================================================================
+# UTILITY COMMANDS
+# ============================================================================
+alias plc='fc -ln -1'                           # Print Last Command
+alias zsh-update='~/.config/zsh/update-plugins.sh'
+
+# ============================================================================
+# BTOP
+# ============================================================================
+if command -v btop >/dev/null 2>&1; then
+  alias btop-code='btop --preset 1 -u 1000'  # cpu + proc only, no net/disk, 1s updates
+  alias btop-sys='btop --preset 2'   # cpu + mem + net
+fi
+
+# ============================================================================
+# NCDU
+# ============================================================================
+command -v ncdu >/dev/null 2>&1 && alias ncdu='ncdu -x'
+
+# ============================================================================
+# GTK APPS
+# ============================================================================
+command -v pavucontrol >/dev/null 2>&1 && alias pavucontrol='GTK_THEME=Adwaita:dark GTK_A11Y=none pavucontrol'
+
+# ============================================================================
+# HANDLR (File Opening)
+# ============================================================================
+if command -v handlr >/dev/null 2>&1; then
+  alias o="handlr open"
+  alias xdg-open="handlr open"
+fi
+
+# ============================================================================
+# ZATHURA
+# ============================================================================
+alias zhist='sqlite3 ~/.local/share/zathura/bookmarks.sqlite "SELECT file FROM fileinfo" | fzf | xargs -r zathura'
+# ============================================================================
+# STUDY LIBRARY SYNC
+# ============================================================================
+alias syncbooks='systemctl --user start study-library-sync.service && journalctl --user -u study-library-sync.service -f'
+
