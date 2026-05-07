@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# --- Styling (Catppuccin Mocha / Danger context) ---
+FUZZEL_ARGS=(
+    --dmenu
+    --anchor top-right
+    --width 12
+    --lines 5
+    --background-color 1e1e2eff
+    --text-color cdd6f4ff
+    --border-color f38ba8ff
+    --match-color f38ba8ff
+    --selection-color f38ba8ff
+    --selection-text-color 1e1e2eff
+)
+
+# --- Options ---
+OPTIONS=(
+    "🔒 Lock"
+    "💤 Suspend"
+    "🚪 Logout"
+    "🔄 Reboot"
+    "🛑 Shutdown"
+)
+
+# --- Main Menu ---
+selected=$(printf '%s\n' "${OPTIONS[@]}" | fuzzel "${FUZZEL_ARGS[@]}" --prompt "Power: ")
+
+# --- Confirmation helper ---
+confirm() {
+    printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1"
+}
+
+# --- Logic ---
+case "$selected" in
+    "🔒 Lock")     loginctl lock-session ;;
+    "💤 Suspend")  systemctl suspend ;;
+    "🚪 Logout")   [[ "$(confirm 'Logout? ')"  == "Yes" ]] && niri msg action quit ;;
+    "🔄 Reboot")   [[ "$(confirm 'Reboot? ')"   == "Yes" ]] && systemctl reboot ;;
+    "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && systemctl poweroff ;;
+esac

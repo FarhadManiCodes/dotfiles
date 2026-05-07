@@ -1,0 +1,836 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NCORES=$(lscpu -p=Core,Socket | grep -v '#' | sort -u | wc -l)
+BUILD_DIR="build"
+PROJECT_ROOT=""
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+header() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
+die()    { printf '\033[1;31mError: %s\033[0m\n' "$1" >&2; pause; exit 1; }
+warn()   { printf '\033[1;33mWarning: %s\033[0m\n' "$1"; }
+pause()  { printf '\n--- Press Enter to close ---'; read -r; }
+
+# Step 1: walk up for build/CMakeCache.txt and read CMAKE_SOURCE_DIR (authoritative).
+# Step 2: fall back to walking up for CMakeLists.txt.
+# Both walks stop at the git root to avoid picking up unrelated parent projects.
+find_project_root() {
+    local dir="$PWD"
+    local git_root
+    git_root=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || true
+
+    local d="$dir"
+    while [[ "$d" != "/" ]]; do
+        if [[ -f "$d/build/CMakeCache.txt" ]]; then
+            local src
+            src=$(grep -oP '(?<=CMAKE_SOURCE_DIR:STATIC=).+' "$d/build/CMakeCache.txt" 2>/dev/null | head -1) || true
+            if [[ -n "$src" && -f "$src/CMakeLists.txt" ]]; then
+                echo "$src" && return 0
+            fi
+        fi
+        [[ -n "$git_root" && "$d" == "$git_root" ]] && break
+        d=$(dirname "$d")
+    done
+
+    d="$dir"
+    while [[ "$d" != "/" ]]; do
+        [[ -f "$d/CMakeLists.txt" ]] && echo "$d" && return 0
+        [[ -n "$git_root" && "$d" == "$git_root" ]] && break
+        d=$(dirname "$d")
+    done
+
+    return 1
+}
+
+require_cmake() {
+    PROJECT_ROOT=$(find_project_root) \
+        || die "No CMakeLists.txt found in this directory or any parent."
+    BUILD_DIR="$PROJECT_ROOT/build"
+}
+
+require_build_configured() {
+    [[ -f "$BUILD_DIR/CMakeCache.txt" ]] || die "Build not configured. Run Prefix C first."
+}
+
+list_executables() {
+    find "$BUILD_DIR" -maxdepth 2 -type f -executable \
+        ! -name "*.so" ! -name "*.a" \
+        -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}'
+}
+
+find_nvim_pane() {
+    tmux list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null \
+        | grep 'nvim' | head -1 | awk '{print $1}' || true
+}
+
+interactive_open_loop() {
+    local -a locs=("$@")
+    local count=${#locs[@]}
+    while true; do
+        printf '\n\033[1;33m── Locations ─────────────────────────────────────\033[0m\n'
+        local i=1
+        for loc in "${locs[@]}"; do
+            printf '  [%d] %s\n' "$i" "$loc"
+            ((i++))
+        done
+        printf '\n  Open [1-%d / q to quit]: ' "$count"
+        local choice; read -r choice
+        [[ "${choice,,}" == "q" || -z "$choice" ]] && break
+        [[ ! "$choice" =~ ^[0-9]+$ || "$choice" -lt 1 || "$choice" -gt "$count" ]] && continue
+        local chosen="${locs[$((choice-1))]}"
+        open_in_nvim "${chosen%:*}" "${chosen##*:}"
+    done
+}
+
+open_in_nvim() {
+    local file="$1" line="$2"
+    local pane
+    pane=$(find_nvim_pane)
+    if [[ -n "$pane" ]]; then
+        tmux send-keys -t "$pane" Escape ""
+        tmux send-keys -t "$pane" ":e +${line} ${file}" Enter
+    else
+        # No nvim running — find a shell pane and launch nvim there
+        pane=$(tmux list-panes -a -F '#{pane_id} #{pane_current_command}' 2>/dev/null \
+            | grep -E '\b(bash|zsh|sh|fish)\b' | head -1 | awk '{print $1}') || true
+        if [[ -n "$pane" ]]; then
+            tmux send-keys -t "$pane" "nvim +${line} ${file}" Enter
+        else
+            warn "No pane available. Open manually: nvim +${line} ${file}"
+            return 1
+        fi
+    fi
+    # Switch tmux focus to the nvim pane
+    local win
+    win=$(tmux display-message -p -t "$pane" '#{window_id}' 2>/dev/null) || true
+    [[ -n "$win" ]] && tmux select-window -t "$win"
+    tmux select-pane -t "$pane"
+    printf '\033[1;32m→ Opened %s:%s in nvim\033[0m\n' "$file" "$line"
+}
+
+# Returns absolute path of the binary registered for a given CTest test name
+# CMake generates: add_test([=[name]=] "/path/to/binary")
+find_test_binary() {
+    local test_name="$1"
+    [[ -z "$test_name" ]] && return 0
+    grep "add_test.*${test_name}" "$BUILD_DIR/CTestTestfile.cmake" 2>/dev/null \
+        | grep -oP '"[^"]+"' | tail -1 | tr -d '"' || true
+}
+
+# Returns test names CTest reported as failed
+# Parses the summary section: "  1 - fibonacci_tests (Subprocess aborted)"
+parse_failed_test_names() {
+    local output_file="$1"
+    grep -oP '^\s+\d+ - \K[\w-]+' "$output_file" 2>/dev/null | sort -u || true
+}
+
+# Returns "relpath:line" for each assertion failure found in output
+parse_test_failures() {
+    local output_file="$1"
+    # glibc assert format: /absolute/path/file.cpp:LINE: func: Assertion `expr' failed.
+    local raw
+    raw=$(grep -oP '/[^\s:]+\.(?:cpp|hpp):\d+(?=:)' "$output_file" 2>/dev/null || true)
+    [[ -z "$raw" ]] && return 0
+    while IFS= read -r loc; do
+        local filepath="${loc%:*}"
+        local linenum="${loc##*:}"
+        local relpath
+        relpath=$(realpath --relative-to="$PWD" "$filepath" 2>/dev/null || echo "$filepath")
+        printf '%s:%s\n' "$relpath" "$linenum"
+    done <<< "$raw" | sort -u || true
+}
+
+offer_open_failure() {
+    local output_file="$1"
+    local failures
+    failures=$(parse_test_failures "$output_file") || true
+    [[ -z "$failures" ]] && return 0
+
+    # Resolve test binary for debug option
+    local test_binary="" failed_test_name=""
+    failed_test_name=$(parse_failed_test_names "$output_file" | head -1) || true
+    if [[ -n "$failed_test_name" ]]; then
+        test_binary=$(find_test_binary "$failed_test_name") || true
+    fi
+
+    printf '\n\033[1;33m── Failure locations ─────────────────────────────\033[0m\n'
+    local -a locs=()
+    while IFS= read -r loc; do
+        locs+=("$loc")
+        printf '  [%d] %s\n' "${#locs[@]}" "$loc"
+    done <<< "$failures"
+
+    # If multiple locations, pick one first
+    local chosen
+    local count=${#locs[@]}
+    if [[ $count -eq 1 ]]; then
+        chosen="${locs[0]}"
+    else
+        printf '\nWhich location? [1-%d] ' "$count"
+        local idx; read -r idx
+        [[ ! "$idx" =~ ^[0-9]+$ || "$idx" -lt 1 || "$idx" -gt "$count" ]] && return 0
+        chosen="${locs[$((idx - 1))]}"
+    fi
+
+    local file="${chosen%:*}"
+    local line="${chosen##*:}"
+
+    printf '\n'
+    printf '  [o] Open in nvim    — jump to the failing assertion\n'
+    if [[ -n "$test_binary" && -x "$test_binary" ]]; then
+        printf '  [d] Debug in GDB    — breakpoint pre-set at line %s, step into source\n' "$line"
+    fi
+    printf '  [n] Nothing\n'
+    printf '\nChoice [o/d/n]: '
+    local choice; read -r choice
+
+    case "${choice,,}" in
+        o)
+            open_in_nvim "$file" "$line"
+            ;;
+        d)
+            if [[ -z "$test_binary" || ! -x "$test_binary" ]]; then
+                warn "Test binary not found — cannot launch debugger."
+                return 0
+            fi
+            local basename_file
+            basename_file=$(basename "$file")
+            tmux new-window -n "debug" -c "${PROJECT_ROOT:-$PWD}" \
+                "tmux-cpp-tools _gdb-session $(printf '%q' "${test_binary}") '${basename_file}' '${line}'"
+            return 2  # signal: skip pause, debug window is open
+            ;;
+    esac
+    return 0
+}
+
+check_build_type() {
+    local expected="$1"
+    local build_type
+    build_type=$(grep -oP '(?<=CMAKE_BUILD_TYPE:STRING=)\S+' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null || true)
+    if [[ "$expected" == "debug" && "$build_type" == "Release" ]]; then
+        warn "Built with Release (-O3). Variables may be invisible. Consider Prefix C → Debug."
+    elif [[ "$expected" == "release" && "$build_type" != "Release" && "$build_type" != "RelWithDebInfo" ]]; then
+        warn "Built with ${build_type:-Unknown} — results may not reflect real performance. Consider Prefix C → Release."
+    fi
+}
+
+# ── Commands ──────────────────────────────────────────────────────────────────
+
+cmd_compile() {
+    require_cmake
+    require_build_configured
+    tmux new-window -n "build" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _compile-session; $SHELL"
+}
+
+_compile_session() {
+    header "Building (${NCORES} cores)"
+    local status=0
+    cmake --build "$BUILD_DIR" -j"$NCORES" || status=$?
+    if [[ $status -eq 0 ]]; then
+        printf '\n\033[1;32m✓ Build succeeded\033[0m\n'
+    else
+        printf '\n\033[1;31m✗ Build failed (exit %d)\033[0m\n' "$status"
+    fi
+}
+
+cmd_compile_quiet() {
+    require_cmake
+    require_build_configured
+    cmake --build "$BUILD_DIR" -j"$NCORES"
+}
+
+cmd_test() {
+    require_cmake
+    require_build_configured
+    tmux new-window -n "test" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _test-session; $SHELL"
+}
+
+_test_session() {
+    header "Running CTest"
+    local tmpout status=0
+    tmpout=$(mktemp)
+    set +e
+    ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$NCORES" 2>&1 | tee "$tmpout"
+    status=${PIPESTATUS[0]}
+    set -e
+    if [[ $status -eq 0 ]]; then
+        printf '\n\033[1;32m✓ All tests passed\033[0m\n'
+    else
+        printf '\n\033[1;31m✗ Tests failed\033[0m\n'
+        offer_open_failure "$tmpout" || { rm -f "$tmpout"; return 0; }
+    fi
+    rm -f "$tmpout"
+}
+
+cmd_build_and_test() {
+    require_cmake
+    require_build_configured
+    tmux new-window -n "build+test" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _build-and-test-session; $SHELL"
+}
+
+_build_and_test_session() {
+    header "Build + Test"
+    printf '[1/2] Building (%d cores)...\n\n' "$NCORES"
+    if cmake --build "$BUILD_DIR" -j"$NCORES"; then
+        printf '\n\033[1;32m✓ Build succeeded\033[0m\n\n'
+        printf '[2/2] Running tests...\n\n'
+        local tmpout status=0
+        tmpout=$(mktemp)
+        set +e
+        ctest --test-dir "$BUILD_DIR" --output-on-failure --parallel "$NCORES" 2>&1 | tee "$tmpout"
+        status=${PIPESTATUS[0]}
+        set -e
+        if [[ $status -eq 0 ]]; then
+            printf '\n\033[1;32m✓ All tests passed\033[0m\n'
+        else
+            printf '\n\033[1;31m✗ Tests failed\033[0m\n'
+            offer_open_failure "$tmpout" || { rm -f "$tmpout"; return 0; }
+        fi
+        rm -f "$tmpout"
+    else
+        printf '\n\033[1;31m✗ Build failed — tests skipped\033[0m\n'
+    fi
+}
+
+cmd_run() {
+    require_cmake
+    local list
+    list=$(list_executables)
+    [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
+
+    local exe
+    exe=$(printf '%s\n' "$list" | fzf --prompt="Run > " --reverse) || true
+    [[ -z "$exe" ]] && return 0
+
+    printf '\nArguments (leave empty for none): '
+    local args; read -r args
+
+    local win_name
+    win_name=$(basename "$exe")
+    tmux new-window -n "$win_name" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _run-session $(printf '%q' "$exe") $args; $SHELL"
+}
+
+_run_session() {
+    local exe="$1"; shift
+    local args="${*:-}"
+    header "Running: $(basename "$exe")"
+    printf 'Binary: %s\n' "$exe"
+    [[ -n "$args" ]] && printf 'Args:   %s\n' "$args"
+    printf '\n'
+    local status=0
+    # shellcheck disable=SC2086
+    "$exe" $args || status=$?
+    if [[ $status -eq 0 ]]; then
+        printf '\n\033[1;32m✓ Exited cleanly (0)\033[0m\n'
+    else
+        printf '\n\033[1;31m✗ Exited with code %d\033[0m\n' "$status"
+    fi
+}
+
+_gdb_then_open() {
+    local binary="$1"; shift
+    local tmplog; tmplog=$(mktemp)
+    set +e
+    gdb -q --tui \
+        -ex "set logging file $tmplog" \
+        -ex "set logging overwrite on" \
+        -ex "set logging redirect off" \
+        -ex "set logging enabled on" \
+        "$@" "$binary"
+    set -e
+
+    # Last non-test source file GDB visited
+    local last_file=""
+    last_file=$(grep -oP '/[^\s]+\.(?:cpp|hpp)(?=:\d+)' "$tmplog" 2>/dev/null \
+        | grep -vP '/test_[^/]+\.(?:cpp|hpp)' \
+        | tail -1 \
+        | sed "s|${PWD}/||") || true
+    rm -f "$tmplog"
+
+    printf '\n\033[1;34m==> Debug session ended\033[0m\n'
+    printf 'File [%s]: ' "${last_file:-enter path}"
+    local ans_file; read -r ans_file
+    local file="${ans_file:-$last_file}"
+    [[ -z "$file" ]] && return 0
+
+    printf 'Line: '
+    local line; read -r line
+    [[ -z "$line" || ! "$line" =~ ^[0-9]+$ ]] && return 0
+
+    open_in_nvim "$file" "$line"
+    pause
+}
+
+cmd_debug() {
+    require_cmake
+    local list
+    list=$(list_executables)
+    [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
+
+    local exe
+    exe=$(printf '%s\n' "$list" | fzf --prompt="GDB > " --reverse) || true
+    [[ -z "$exe" ]] && return 0
+
+    check_build_type "debug"
+    printf '\nArguments (leave empty for none): '
+    local args; read -r args
+    printf '\n'
+    local -a gdb_extra=()
+    [[ -n "$args" ]] && gdb_extra+=(-ex "set args $args")
+    _gdb_then_open "$exe" "${gdb_extra[@]}"
+}
+
+cmd_valgrind() {
+    require_cmake
+    local list
+    list=$(list_executables)
+    [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
+
+    local exe
+    exe=$(printf '%s\n' "$list" | fzf --prompt="Valgrind > " --reverse) || true
+    [[ -z "$exe" ]] && return 0
+
+    printf '\nArguments (leave empty for none): '
+    local args; read -r args
+
+    local win_name
+    win_name="valgrind-$(basename "$exe")"
+    # shellcheck disable=SC2086
+    tmux new-window -n "$win_name" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _valgrind-session $(printf '%q' "$exe") ${args}"
+}
+
+_valgrind_session() {
+    local exe="$1"; shift
+    local args="${*:-}"
+    header "Valgrind Memory Check"
+    warn "10-50x slower than normal execution"
+    printf '\nTarget: %s\n\n' "$exe"
+
+    local tmpout; tmpout=$(mktemp)
+    set +e
+    # shellcheck disable=SC2086
+    valgrind \
+        --leak-check=full \
+        --show-leak-kinds=all \
+        --track-origins=yes \
+        "$exe" $args 2>&1 | tee "$tmpout"
+    set -e
+
+    # Parse leak locations: valgrind format → "by 0xADDR: func (file.cpp:N)"
+    # Filter to project source files only (exclude /usr/, libc, valgrind internals)
+    local locations=""
+    locations=$(grep -oP '(?<=\()[^)]+\.(?:cpp|hpp):\d+(?=\))' "$tmpout" 2>/dev/null \
+        | grep -vP '^/usr/|^/lib/|valgrind' \
+        | sort -u) || true
+    rm -f "$tmpout"
+
+    if [[ -n "$locations" ]]; then
+        printf '\n\033[1;33m── Leak locations in your code ───────────────────\033[0m\n'
+        local -a locs=()
+        while IFS= read -r loc; do
+            local filepath="${loc%:*}"
+            local linenum="${loc##*:}"
+            local found=""
+            found=$(find . -name "$filepath" -not -path "*/build/*" 2>/dev/null | head -1) || true
+            local entry
+            if [[ -n "$found" ]]; then
+                entry="${found#./}:${linenum}"
+            else
+                entry="${filepath}:${linenum}"
+            fi
+            locs+=("$entry")
+        done <<< "$locations"
+        interactive_open_loop "${locs[@]}"
+    else
+        printf '\n\033[1;32m✓ No leaks detected\033[0m\n'
+        pause
+    fi
+}
+
+cmd_perf() {
+    require_cmake
+    command -v fzf &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
+    local list
+    list=$(list_executables)
+    [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
+
+    local exe
+    exe=$(printf '%s\n' "$list" | fzf --prompt="Perf > " --reverse) || true
+    [[ -z "$exe" ]] && return 0
+
+    check_build_type "release"
+    printf 'Target: %s\n' "$exe"
+    printf 'Arguments (leave empty for none): '
+    local args; read -r args
+    printf '\n'
+    local status=0
+    if command -v hyperfine &>/dev/null; then
+        printf 'Using hyperfine (warmup: 3 runs)\n\n'
+        hyperfine --warmup 3 "$exe${args:+ $args}" || status=$?
+    else
+        warn "hyperfine not found, falling back to perf stat"
+        printf '\n'
+        # shellcheck disable=SC2086
+        perf stat "$exe" $args || status=$?
+    fi
+    [[ $status -ne 0 ]] && printf '\n\033[1;31m✗ Exited with code %d\033[0m\n' "$status"
+    pause
+}
+
+cmd_tidy() {
+    require_cmake
+    if [[ ! -f "$PROJECT_ROOT/compile_commands.json" && ! -f "$BUILD_DIR/compile_commands.json" ]]; then
+        die "compile_commands.json not found. Configure with Prefix C first."
+    fi
+    tmux new-window -n "tidy" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _tidy-session"
+}
+
+_tidy_session() {
+    header "clang-tidy Static Analysis"
+    local db_flag
+    if [[ -f compile_commands.json ]]; then
+        db_flag="-p ."
+    else
+        db_flag="-p $BUILD_DIR"
+    fi
+    local sources=()
+    while IFS= read -r -d '' f; do
+        sources+=("$f")
+    done < <(find src -name "*.cpp" -print0 2>/dev/null)
+    if [[ ${#sources[@]} -eq 0 ]]; then
+        die "No .cpp files found in src/."
+    fi
+    printf 'Analyzing %d source file(s)...\n\n' "${#sources[@]}"
+
+    local tmpout; tmpout=$(mktemp)
+    local checks_flag=""
+    if [[ -f .clang-tidy ]]; then
+        printf 'Using project .clang-tidy config\n\n'
+    else
+        local cxx_std
+        cxx_std=$(grep -oP '(?<=CMAKE_CXX_STANDARD )\d+' CMakeLists.txt 2>/dev/null | head -1) || true
+        cxx_std="${cxx_std:-17}"
+        printf 'No .clang-tidy found — using default checks for C++%s\n' "$cxx_std"
+        printf 'Tip: add a .clang-tidy file to customise checks per project\n\n'
+        local checks="modernize-*,cppcoreguidelines-*,performance-*,readability-*,bugprone-*"
+        checks+=,-modernize-use-trailing-return-type
+        checks+=,-readability-braces-around-statements
+        checks+=,-readability-identifier-length
+        checks+=,-readability-magic-numbers
+        checks+=,-cppcoreguidelines-avoid-magic-numbers
+        checks+=,-cppcoreguidelines-pro-bounds-pointer-arithmetic
+        checks+=,-bugprone-exception-escape
+        checks_flag="--checks=${checks}"
+    fi
+    set +e
+    # shellcheck disable=SC2086
+    clang-tidy $db_flag $checks_flag "${sources[@]}" 2>&1 | tee "$tmpout"
+    set -e
+
+    # clang-tidy exits 0 even with warnings — parse output directly
+    local locations=""
+    locations=$(grep -oP '^[^:]+\.(?:cpp|hpp):\d+:\d+:\s+warning' "$tmpout" 2>/dev/null \
+        | grep -v '^/usr/' \
+        | grep -oP '^[^:]+\.(?:cpp|hpp):\d+' \
+        | sed "s|^${PWD}/||" \
+        | sort -u) || true
+    rm -f "$tmpout"
+
+    if [[ -z "$locations" ]]; then
+        printf '\n\033[1;32m✓ No issues found\033[0m\n'
+        pause
+        return 0
+    fi
+
+    printf '\n\033[1;33m⚠ Issues found\033[0m\n'
+
+    local -a locs=()
+    while IFS= read -r loc; do
+        locs+=("$loc")
+    done <<< "$locations"
+
+    interactive_open_loop "${locs[@]}"
+}
+
+cmd_new() {
+    local name="$1"
+    if [[ -z "$name" ]]; then
+        printf 'Usage: tmux-cpp-tools new <project-name>\n'
+        pause
+        exit 1
+    fi
+    if [[ -d "$name" ]]; then
+        die "Directory '$name' already exists."
+    fi
+    header "Creating project: $name"
+    mkdir -p "$name"/{src,include,build}
+
+    cat > "$name/CMakeLists.txt" << EOF
+cmake_minimum_required(VERSION 3.20)
+project($name CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable($name src/main.cpp)
+target_include_directories($name PRIVATE include)
+EOF
+
+    cat > "$name/src/main.cpp" << 'EOF'
+#include <iostream>
+
+int main() {
+    std::cout << "Hello, World!\n";
+    return 0;
+}
+EOF
+
+    cat > "$name/.gitignore" << 'EOF'
+build/
+compile_commands.json
+.cpp-tools
+EOF
+
+    cat > "$name/.clang-tidy" << EOF
+---
+Checks: >
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  cppcoreguidelines-*,
+  readability-*,
+  -modernize-use-trailing-return-type,
+  -readability-braces-around-statements,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -bugprone-exception-escape,
+  -cppcoreguidelines-pro-type-vararg
+WarningsAsErrors: ''
+HeaderFilterRegex: 'include/.*'
+EOF
+
+    git -C "$name" init -q
+    git -C "$name" add .
+    git -C "$name" commit -q -m "Initial commit"
+
+    printf '\n\033[1;32m✓ Project created: %s/\033[0m\n' "$name"
+    printf '\nStructure:\n'
+    printf '  %s/\n' "$name"
+    printf '  ├── CMakeLists.txt  (C++17, target: %s)\n' "$name"
+    printf '  ├── src/main.cpp\n'
+    printf '  ├── include/\n'
+    printf '  └── build/\n'
+    printf '\nNext: cd %s → Prefix C to configure → Prefix b to build\n' "$name"
+    pause
+}
+
+cmd_bench() {
+    require_cmake
+    local exe="$BUILD_DIR/bench"
+    if [[ ! -x "$exe" ]]; then
+        header "Google Benchmark — Not Set Up"
+        printf 'No bench binary found at %s\n\n' "$exe"
+        printf 'To add Google Benchmark to this project, add to CMakeLists.txt:\n\n'
+        printf '  include(FetchContent)\n'
+        printf '  FetchContent_Declare(googlebenchmark\n'
+        printf '      GIT_REPOSITORY https://github.com/google/benchmark.git\n'
+        printf '      GIT_TAG        v1.9.1\n'
+        printf '  )\n'
+        printf '  set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)\n'
+        printf '  set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)\n'
+        printf '  FetchContent_MakeAvailable(googlebenchmark)\n\n'
+        printf '  add_executable(bench src/bench.cpp)\n'
+        printf '  target_link_libraries(bench PRIVATE benchmark::benchmark)\n\n'
+        printf 'Then: Prefix C → Release, Prefix b to build.\n'
+        pause
+        return 0
+    fi
+    tmux new-window -n "bench" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _bench-session"
+}
+
+_bench_session() {
+    header "Google Benchmark"
+    local exe="$BUILD_DIR/bench"
+    [[ -x "$exe" ]] || die "bench binary not found."
+    printf 'Running: %s\n\n' "$exe"
+    "$exe" --benchmark_color=true
+    pause
+}
+
+cmd_hyperfine_compare() {
+    require_cmake
+    command -v hyperfine &>/dev/null || die "hyperfine not found. Install: sudo pacman -S hyperfine"
+    command -v fzf      &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
+    tmux new-window -n "hyperfine" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _hyperfine-compare-session"
+}
+
+_hyperfine_compare_session() {
+    header "hyperfine — Compare Two Binaries"
+    # All executables in build/, newest first (most recently built = top)
+    local list
+    list=$(list_executables)
+    [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
+
+    printf 'Select Command A  (newest first)\n\n'
+    local cmd_a
+    cmd_a=$(printf '%s\n' "$list" | fzf --prompt="A > " --reverse) || true
+    [[ -z "$cmd_a" ]] && return 0
+
+    printf '\nSelect Command B:\n\n'
+    local cmd_b
+    cmd_b=$(printf '%s\n' "$list" | grep -vF "$cmd_a" | fzf --prompt="B > " --reverse) || true
+    [[ -z "$cmd_b" ]] && return 0
+
+    send_to_profile "hyperfine --shell=none --warmup 10 --min-runs 50 --output null '$cmd_a' '$cmd_b'"
+}
+
+# Returns the shell pane in the "profile" window (the non-btop pane)
+find_profile_pane() {
+    local win
+    win=$(tmux list-windows -F '#{window_name} #{window_id}' 2>/dev/null \
+        | grep '^profile ' | awk '{print $2}') || true
+    [[ -z "$win" ]] && return 0
+    tmux list-panes -t "$win" -F '#{pane_id} #{pane_current_command}' 2>/dev/null \
+        | grep -vE '\bbtop\b' | tail -1 | awk '{print $1}' || true
+}
+
+# Send a command string to the profile pane and switch focus there
+send_to_profile() {
+    local cmd="$1"
+    local pane
+    pane=$(find_profile_pane)
+    if [[ -n "$pane" ]]; then
+        local win
+        win=$(tmux display-message -p -t "$pane" '#{window_id}' 2>/dev/null) || true
+        tmux send-keys -t "$pane" "$cmd" Enter
+        [[ -n "$win" ]] && tmux select-window -t "$win"
+        tmux select-pane -t "$pane"
+    else
+        # No profile window — open a dedicated one
+        tmux new-window -n "profile" -c "${PROJECT_ROOT:-$PWD}" \
+            "bash -c $(printf '%q' "$cmd; echo; printf '--- Press Enter ---'; read -r")"
+    fi
+}
+
+# fzf binary picker — sends command to profile pane
+_pick_and_run() {
+    require_cmake
+    local header_text="$1"
+    local cmd_prefix="$2"   # e.g. "perf stat" or "heaptrack"
+    local cmd_suffix="${3:-}"
+
+    header "$header_text"
+    local list
+    list=$(list_executables)
+    [[ -z "$list" ]] && { warn "No executables found. Build first."; sleep 2; return 0; }
+
+    local exe
+    exe=$(printf '%s\n' "$list" | fzf --prompt="Target > " --reverse) || true
+    [[ -z "$exe" ]] && return 0
+
+    printf '\nArguments (leave empty for none): '
+    local args; read -r args
+
+    send_to_profile "$cmd_prefix $exe ${args} $cmd_suffix"
+}
+
+_perf_stat_select() {
+    command -v perf &>/dev/null || die "perf not found. Install: sudo pacman -S perf"
+    command -v fzf  &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
+    # Comprehensive events — unavailable ones are silently skipped by perf
+    local events="cycles,instructions"
+    events+=",L1-dcache-load-misses"              # L1 cache misses (close to CPU)
+    events+=",LLC-loads,LLC-load-misses"          # Last-level cache (L3) — going to RAM
+    events+=",cache-misses"                       # Overall miss summary
+    events+=",branch-instructions,branch-misses"  # Branch predictor efficiency
+    events+=",dTLB-load-misses"                   # TLB misses (large datasets, many pages)
+    _pick_and_run "perf stat — Select Target" "perf stat -e $events"
+}
+
+_perf_record_select() {
+    command -v perf &>/dev/null || die "perf not found. Install: sudo pacman -S perf"
+    command -v fzf  &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
+    _pick_and_run "perf record — Select Target" "perf record -g -F 99" "&& perf report"
+}
+
+_samply_select() {
+    command -v samply &>/dev/null || die "samply not found. Install: cargo install samply  (or: yay -S samply)"
+    command -v fzf    &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
+    _pick_and_run "samply — Select Target" "samply record"
+}
+
+cmd_heaptrack() {
+    command -v heaptrack &>/dev/null || die "heaptrack not found. Install: sudo pacman -S heaptrack"
+    command -v fzf       &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
+    _pick_and_run "heaptrack — Select Target" "heaptrack"
+}
+
+cmd_help() {
+    printf '\ntmux-cpp-tools — C++ workflow helper\n\n'
+    printf 'Usage: tmux-cpp-tools <command> [args]\n\n'
+    printf 'Build:\n'
+    printf '  compile          cmake --build build -j%d\n' "$NCORES"
+    printf '  test             ctest --parallel %d\n' "$NCORES"
+    printf '  build-and-test   compile then test in one popup\n\n'
+    printf 'Run:\n'
+    printf '  run              find and run executable (prompts for args)\n'
+    printf '  debug            gdb --tui in dedicated window\n\n'
+    printf 'Analysis:\n'
+    printf '  valgrind         memory check (10-50x slower)\n'
+    printf '  perf             hyperfine benchmark or perf stat\n'
+    printf '  tidy             clang-tidy on src/*.cpp\n\n'
+    printf 'Project:\n'
+    printf '  new <name>       scaffold project (src/, include/, CMakeLists.txt, git init)\n\n'
+    printf 'Tip: set EXECUTABLE=name in .cpp-tools to pin executable\n'
+}
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
+
+subcommand="${1:-help}"
+shift || true
+
+case "$subcommand" in
+    compile)                cmd_compile ;;
+    _compile-session)       _compile_session ;;
+    compile-quiet)          cmd_compile_quiet ;;
+    test)                   cmd_test ;;
+    _test-session)          _test_session ;;
+    build-and-test)         cmd_build_and_test ;;
+    _build-and-test-session) _build_and_test_session ;;
+    run)            cmd_run ;;
+    _run-session)   _run_session "$@" ;;
+    debug)          cmd_debug ;;
+    _gdb-session)      _gdb_then_open "${1:-}" -ex "break ${2:-main}:${3:-1}" -ex run ;;
+    _valgrind-session) _valgrind_session "$@" ;;
+    _tidy-session)     _tidy_session ;;
+    valgrind)       cmd_valgrind ;;
+    perf)           cmd_perf ;;
+    tidy)           cmd_tidy ;;
+    new)            cmd_new "${1:-}" ;;
+    bench)              cmd_bench ;;
+    _bench-session)     _bench_session ;;
+    hyperfine-compare)          cmd_hyperfine_compare ;;
+    _hyperfine-compare-session) _hyperfine_compare_session ;;
+    perf-stat|_perf-stat-select)   _perf_stat_select ;;
+    perf-record|_perf-record-select) _perf_record_select ;;
+    samply|_samply-select)         _samply_select ;;
+    heaptrack)          cmd_heaptrack ;;
+    is-cpp-project) find_project_root > /dev/null ;;
+    help|--help|-h) cmd_help ;;
+    *)
+        printf 'Unknown command: %s\n' "$subcommand" >&2
+        printf 'Run: tmux-cpp-tools help\n' >&2
+        exit 1
+        ;;
+esac

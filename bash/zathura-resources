@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# --- CONFIGURATION ---
+WORK_DIR="$HOME/Cloud/gdrive/scientific-computing/library/"
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/zathura-resources.txt"
+CACHE_MAX_AGE=600  # 10 minutes in seconds
+# ---------------------
+
+mkdir -p "$(dirname "$CACHE_FILE")"
+
+[[ -d "$WORK_DIR" ]] || { notify-send "Zathura Resources" "Library directory not found."; exit 1; }
+
+# Function to update cache
+update_cache() {
+    find "$WORK_DIR" -mindepth 2 -type f -iname "*.pdf" -printf '%P\n' > "$CACHE_FILE.tmp" 2>/dev/null
+    mv "$CACHE_FILE.tmp" "$CACHE_FILE" 2>/dev/null
+}
+
+# Check if cache exists and is fresh
+cache_is_fresh() {
+    [ -f "$CACHE_FILE" ] && [ $(($(date +%s) - $(stat -c %Y "$CACHE_FILE"))) -lt $CACHE_MAX_AGE ]
+}
+
+# If no cache exists, create it (blocking on first run)
+if [ ! -f "$CACHE_FILE" ]; then
+    update_cache
+elif ! cache_is_fresh; then
+    # Cache exists but stale - update in background
+    update_cache &
+fi
+
+# Use cache immediately for instant response
+SELECTION=$(fuzzel -d -p "📚 Resources: " -w 120 < "$CACHE_FILE")
+
+# Open if selected
+if [ -n "$SELECTION" ]; then
+    setsid -f zathura "$WORK_DIR/$SELECTION" >/dev/null 2>&1
+fi
