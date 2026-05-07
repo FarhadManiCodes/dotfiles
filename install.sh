@@ -184,6 +184,43 @@ mkdir -p "${XDG_CONFIG_HOME}/lazygit"
 ln -sf "${HOME}/dotfiles/lazygit/config.yml" "${XDG_CONFIG_HOME}/lazygit/config.yml"
 echo "Lazygit configured"
 
+# ============ zathura ==============================
+echo "Setting up Zathura..."
+mkdir -p "${XDG_CONFIG_HOME}/zathura"
+ln -sf "${DOTFILES}/zathura/zathurarc" "${XDG_CONFIG_HOME}/zathura/zathurarc"
+echo "Zathura configured"
+
+# ============ clangd ==============================
+echo "Setting up Clangd..."
+mkdir -p "${XDG_CONFIG_HOME}/clangd"
+ln -sf "${DOTFILES}/clangd/config.yaml" "${XDG_CONFIG_HOME}/clangd/config.yaml"
+echo "Clangd configured"
+
+# ============ handlr ==============================
+echo "Setting up Handlr..."
+mkdir -p "${XDG_CONFIG_HOME}/handlr"
+ln -sf "${DOTFILES}/handlr/handlr.toml" "${XDG_CONFIG_HOME}/handlr/handlr.toml"
+echo "Handlr configured"
+
+# ============ ccache ==============================
+echo "Setting up Ccache..."
+mkdir -p "${XDG_CONFIG_HOME}/ccache"
+ln -sf "${DOTFILES}/ccache/ccache.conf" "${XDG_CONFIG_HOME}/ccache/ccache.conf"
+echo "Ccache configured"
+
+# ============ gtk ==============================
+echo "Setting up GTK..."
+mkdir -p "${XDG_CONFIG_HOME}/gtk-3.0" "${XDG_CONFIG_HOME}/gtk-4.0"
+ln -sf "${DOTFILES}/gtk-3.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-3.0/settings.ini"
+ln -sf "${DOTFILES}/gtk-4.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-4.0/settings.ini"
+echo "GTK configured"
+
+# ============ Thunar ==============================
+echo "Setting up Thunar..."
+mkdir -p "${XDG_CONFIG_HOME}/Thunar"
+ln -sf "${DOTFILES}/Thunar/uca.xml" "${XDG_CONFIG_HOME}/Thunar/uca.xml"
+echo "Thunar configured"
+
 # =========== duckdb ===============
 echo "Setting up DuckDB""
 ln -sf "${HOME}/dotfiles/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
