@@ -8,25 +8,22 @@
 echo "🚀 Installing dotfiles..."
 
 # =========== vim ===============
-echo "🔧 Setting up Vim..."
-ln -sf "${HOME}/dotfiles/vim/.vimrc" "${HOME}/.vimrc"
-ln -sf "${HOME}/dotfiles/vim/vimrc" "${HOME}/.vim/vimrc"
+echo "Setting up Vim..."
+mkdir -p "${XDG_CONFIG_HOME}/vim/config"
 
-mkdir -p "${HOME}/.vim/config"
-ln -sf "${HOME}/dotfiles/vim/config/basic.vim" "${HOME}/.vim/config/basic.vim"
-ln -sf "${HOME}/dotfiles/vim/config/plugins.vim" "${HOME}/.vim/config/plugins.vim"
-ln -sf "${HOME}/dotfiles/vim/config/plugins_config.vim" "${HOME}/.vim/config/plugins_config.vim"
-ln -sf "${HOME}/dotfiles/vim/config/mappings.vim" "${HOME}/.vim/config/mappings.vim"
-ln -sf "${HOME}/dotfiles/vim/config/autocmds.vim" "${HOME}/.vim/config/autocmds.vim"
-ln -sf "${HOME}/dotfiles/vim/config/autopairs.vim" "${HOME}/.vim/config/autopairs.vim"
+# Bootstrap ~/.vimrc to redirect vim to the XDG config location
+cat > "${HOME}/.vimrc" << 'VIMRC'
+" XDG compliance: delegate to ~/.config/vim/vimrc
+let $MYVIMRC = expand('~/.config/vim/vimrc')
+source ~/.config/vim/vimrc
+VIMRC
 
-# Language-specific configurations
-ln -sf "${HOME}/dotfiles/vim/config/python.vim" "${HOME}/.vim/config/python.vim"
-ln -sf "${HOME}/dotfiles/vim/config/sql.vim" "${HOME}/.vim/config/sql.vim"
-ln -sf "${HOME}/dotfiles/vim/config/json.vim" "${HOME}/.vim/config/json.vim"
-ln -sf "${HOME}/dotfiles/vim/config/yaml.vim" "${HOME}/.vim/config/yaml.vim"
-ln -sf "${HOME}/dotfiles/vim/config/vimscript.vim" "${HOME}/.vim/config/vimscript.vim"
-echo "✅ Vim configured"
+# Symlink the main vimrc and all config modules
+ln -sf "${DOTFILES}/vim/vimrc" "${XDG_CONFIG_HOME}/vim/vimrc"
+for file in "${DOTFILES}/vim/config/"*.vim; do
+    ln -sf "$file" "${XDG_CONFIG_HOME}/vim/config/"
+done
+echo "Vim configured"
 
 # ============ zsh ==============================
 echo "🐚 Setting up Zsh..."
