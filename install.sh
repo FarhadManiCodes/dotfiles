@@ -80,6 +80,48 @@ ln -sf "${DOTFILES}/waybar/config" "${XDG_CONFIG_HOME}/waybar/config"
 ln -sf "${DOTFILES}/waybar/style.css" "${XDG_CONFIG_HOME}/waybar/style.css"
 echo "Waybar configured"
 
+# ============ sway ==============================
+echo "Setting up Sway..."
+mkdir -p "${XDG_CONFIG_HOME}/sway"
+ln -sf "${DOTFILES}/sway/config" "${XDG_CONFIG_HOME}/sway/config"
+echo "Sway configured"
+
+# ============ swaylock ==============================
+echo "Setting up Swaylock..."
+mkdir -p "${XDG_CONFIG_HOME}/swaylock"
+ln -sf "${DOTFILES}/swaylock/config" "${XDG_CONFIG_HOME}/swaylock/config"
+echo "Swaylock configured"
+
+# ============ glow ==============================
+echo "Setting up Glow..."
+mkdir -p "${XDG_CONFIG_HOME}/glow"
+ln -sf "${DOTFILES}/glow/glow.yml" "${XDG_CONFIG_HOME}/glow/glow.yml"
+echo "Glow configured"
+
+# ============ mpv ==============================
+echo "Setting up Mpv..."
+mkdir -p "${XDG_CONFIG_HOME}/mpv"
+ln -sf "${DOTFILES}/mpv/mpv.conf" "${XDG_CONFIG_HOME}/mpv/mpv.conf"
+echo "Mpv configured"
+
+# ============ direnv ==============================
+echo "Setting up Direnv..."
+mkdir -p "${XDG_CONFIG_HOME}/direnv"
+ln -sf "${DOTFILES}/direnv/direnvrc" "${XDG_CONFIG_HOME}/direnv/direnvrc"
+echo "Direnv configured"
+
+# ============ gh ==============================
+echo "Setting up GitHub CLI..."
+mkdir -p "${XDG_CONFIG_HOME}/gh"
+ln -sf "${DOTFILES}/gh/config.yml" "${XDG_CONFIG_HOME}/gh/config.yml"
+echo "GitHub CLI configured"
+
+# ============ ripgrep-all ==============================
+echo "Setting up ripgrep-all..."
+mkdir -p "${XDG_CONFIG_HOME}/ripgrep-all"
+ln -sf "${DOTFILES}/ripgrep-all/config.jsonc" "${XDG_CONFIG_HOME}/ripgrep-all/config.jsonc"
+echo "ripgrep-all configured"
+
 # ============ mako ==============================
 echo "Setting up Mako..."
 mkdir -p "${XDG_CONFIG_HOME}/mako"
