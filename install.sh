@@ -9,20 +9,21 @@ echo "🚀 Installing dotfiles..."
 
 # =========== vim ===============
 echo "Setting up Vim..."
-mkdir -p "${XDG_CONFIG_HOME}/vim/config"
 
 # Bootstrap ~/.vimrc to redirect vim to the XDG config location
 cat > "${HOME}/.vimrc" << 'VIMRC'
-" XDG compliance: delegate to ~/.config/vim/vimrc
+" XDG Base Directory Specification compliance
+" This file sources the actual vimrc from ~/.config/vim/vimrc
 let $MYVIMRC = expand('~/.config/vim/vimrc')
-source ~/.config/vim/vimrc
+if filereadable($MYVIMRC)
+    source $MYVIMRC
+else
+    echoerr "Could not find vimrc at ~/.config/vim/vimrc"
+endif
 VIMRC
 
-# Symlink the main vimrc and all config modules
-ln -sf "${DOTFILES}/vim/vimrc" "${XDG_CONFIG_HOME}/vim/vimrc"
-for file in "${DOTFILES}/vim/config/"*.vim; do
-    ln -sf "$file" "${XDG_CONFIG_HOME}/vim/config/"
-done
+# Symlink entire vim config directory
+ln -snf "${DOTFILES}/vim" "${XDG_CONFIG_HOME}/vim"
 echo "Vim configured"
 
 # ============ zsh ==============================
