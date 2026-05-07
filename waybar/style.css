@@ -1,0 +1,71 @@
+* {
+    /* Added "FontAwesome" to the priority list */
+    font-family: "FiraCode Nerd Font", "FontAwesome", sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+window#waybar {
+    background-color: transparent;
+}
+
+#workspaces, #clock, #window, #network, #privacy, #battery, #tray {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    padding: 0 15px;
+    margin: 0 5px;
+    border-radius: 20px;
+    border: 2px solid #313244;
+}
+
+/* Ensure window title icons are visible */
+#window {
+    color: #89b4fa;  /* Catppuccin Blue - more visible */
+    font-weight: bold;
+}
+
+#workspaces button.active {
+    color: #89b4fa;
+}
+
+#battery.charging, #battery.plugged {
+    color: #a6e3a1; /* Green when charging */
+}
+
+/* Warning state (30%) - Yellow */
+#battery.warning:not(.charging) {
+    color: #f9e2af;
+}
+
+/* Critical state (10%) - Red pulsing */
+#battery.critical:not(.charging) {
+    color: #f38ba8;
+    animation: battery-blink 1s ease-in-out infinite alternate;
+}
+
+@keyframes battery-blink {
+    from { 
+        color: #f38ba8;
+        border-color: #313244;
+    }
+    to { 
+        color: #ff0000;
+        border-color: #f38ba8;
+    }
+}
+
+#network {
+    color: #a6e3a1;
+}
+
+/* --- TOOLTIP STYLING --- */
+tooltip {
+    background: #1e1e2e;     /* Match the bar background */
+    border: 2px solid #313244; /* Match the pill border */
+    border-radius: 10px;
+}
+
+tooltip label {
+    color: #cdd6f4;          /* Text color */
+    font-family: "FiraCode Nerd Font", monospace;
+}

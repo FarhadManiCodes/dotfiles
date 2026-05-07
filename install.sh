@@ -73,6 +73,13 @@ mkdir -p "${XDG_CONFIG_HOME}/niri"
 ln -sf "${DOTFILES}/niri/config.kdl" "${XDG_CONFIG_HOME}/niri/config.kdl"
 echo "Niri configured"
 
+# ============ waybar ==============================
+echo "Setting up Waybar..."
+mkdir -p "${XDG_CONFIG_HOME}/waybar"
+ln -sf "${DOTFILES}/waybar/config" "${XDG_CONFIG_HOME}/waybar/config"
+ln -sf "${DOTFILES}/waybar/style.css" "${XDG_CONFIG_HOME}/waybar/style.css"
+echo "Waybar configured"
+
 # ============ foot terminal ==============================
 echo "🦶 Setting up foot terminal..."
 mkdir -p "${XDG_CONFIG_HOME}/foot"

@@ -1,0 +1,141 @@
+{
+    "layer": "top",
+    "position": "top",
+    "height": 38,
+    "spacing": 4,
+    "margin-top": 5,
+    "margin-left": 10,
+    "margin-right": 10,
+    "modules-left": [
+        "niri/workspaces",
+        "niri/window"
+    ],
+    "modules-center": [
+        "clock"
+    ],
+    "modules-right": [
+        "network",
+        "privacy",
+        "battery",
+        "tray"
+    ],
+    "niri/workspaces": {
+        "format": "{index}",
+        "swap-icon-label": false
+    },
+    "niri/window": {
+        // 1. Ensure "format" has NO brackets, just the raw title
+        "format": "{title}",
+        "max-length": 40,
+        "swap-icon-label": false,
+        "rewrite": {
+            // --- TERMINALS & EDITORS ---
+
+            // Matches "foot" exactly OR "username@host..."
+            "^foot$": "  Foot",
+            "(.*)@(.*):(.*)": "  Foot",
+
+            // Matches Vim - Shows icon + filename
+            "^VIM$": "  Vim",
+
+            // Matches Neovim - Shows icon + filename
+            "NVIM - (.*)": "📝 $1",
+
+            // Matches VS Code
+            "(.*) - Visual Studio Code": "󰨞  VS Code",
+            "(.*) - Code": "󰨞  VS Code",
+
+            // --- BROWSERS ---
+
+            // Matches "Mozilla Firefox", "Firefox", or "Mozilla FireFox"
+            "(.*)Mozilla Firefox(.*)": "  Firefox",
+            "(.*)FireFox(.*)": "  Firefox",
+            "(.*)Firefox(.*)": "  Firefox",
+            "(.*)Google Calendar(.*)": "  Calendar",
+
+            // Matches Chrome
+            "(.*)Google Chrome(.*)": "  Chrome",
+
+            // --- FALLBACK ---
+            // This line is critical: It prints just the text, NO BRACKETS
+            "(.*)": "$1"
+        }
+    },
+    "clock": {
+        "format": "  {:%H:%M}",
+        // We use <tt> (typewriter) and <small> to ensure the grid aligns perfectly
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "month",
+            "mode-mon-col": 3,
+            "weeks-pos": "right",
+            "on-scroll": 1,
+            "format": {
+                "months": "<span color='#89b4fa'><b>{}</b></span>", // Blue Month
+                "days": "<span color='#cdd6f4'>{}</span>", // White Days
+                "weeks": "<span color='#a6adc8'>W{}</span>", // Grey Week Numbers
+                "today": "<span color='#f38ba8'><b><u>{}</u></b></span>" // Red & Bold Today
+            }
+        },
+        "actions": {
+            "on-click-right": "mode",
+            "on-scroll-up": "shift_up",
+            "on-scroll-down": "shift_down"
+        },
+        // Your custom click to open Thunderbird
+        "on-click": "firefox --new-window https://calendar.google.com/calendar/r/month"
+    },
+    "network": {
+        // No "interface" line lets it auto-detect the default route
+        "format-wifi": "   {signalStrength}%",
+        "format-ethernet": "󰈀",
+        "format-disconnected": "⚠",
+        "format-linked": "󰈀 ❌",
+        "tooltip-format": "{essid}",
+        "on-click": "foot -e impala",
+        "swap-icon-label": false
+    },
+    "privacy": {
+        "icon-spacing": 4,
+        "icon-size": 14,
+        "transition-duration": 250,
+        "modules": [
+            {
+                "type": "screenshare",
+                "tooltip": true
+            },
+            {
+                "type": "audio-in",
+                "tooltip": true
+            },
+            {
+                "type": "audio-out",
+                "tooltip": true
+            }
+        ]
+    },
+    "battery": {
+        "interval": 60,
+        "states": {
+            "warning": 30,
+            "critical": 10
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": "⚡ {capacity}%",
+        "format-critical": "󰂃 {capacity}%",
+        "format-plugged": "  {capacity}%",
+        "format-icons": [
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "swap-icon-label": false,
+        "on-click": "~/.local/bin/powermenu"
+    },
+    "tray": {
+        "icon-size": 14,
+        "spacing": 8
+    }
+}
