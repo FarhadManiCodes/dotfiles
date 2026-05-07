@@ -15,8 +15,16 @@ from ptpython.layout import CompletionVisualisation
 
 __all__ = ["configure"]
 
-# Global theme state
-current_theme = "onedark"  # Default theme
+# Global theme state — auto-detect from foot terminal state
+def _detect_foot_theme():
+    from pathlib import Path
+    state_file = Path.home() / ".local/state/foot_theme_state"
+    try:
+        return "papercolor" if state_file.read_text().strip() == "light" else "onedark"
+    except Exception:
+        return "onedark"
+
+current_theme = _detect_foot_theme()
 
 
 def set_onedark_terminal():
@@ -66,8 +74,11 @@ def configure(repl):
     """
     global current_theme
     
-    # Set OneDark as default theme on startup
-    set_onedark_terminal()
+    # Set terminal colors to match detected theme
+    if current_theme == "onedark":
+        set_onedark_terminal()
+    else:
+        set_papercolor_terminal()
     
     # Register reset function to be called on exit
     atexit.register(reset_terminal_colors)

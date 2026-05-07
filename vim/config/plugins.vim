@@ -2,32 +2,26 @@
 let g:plug_timeout = 300
 call plug#begin()
 
-Plug 'mileszs/ack.vim'
-Plug 'tpope/vim-unimpaired'
-Plug 'tpope/vim-vinegar'
-Plug 'tomtom/tcomment_vim'
-Plug 'ycm-core/YouCompleteMe', { 'do': './install.py --clang-completer' }
-Plug 'dense-analysis/ale'
-Plug 'mbbill/undotree'
-Plug 'itchyny/lightline.vim'
-Plug 'christoomey/vim-tmux-navigator'
-Plug 'tpope/vim-fugitive'
-Plug 'vim-python/python-syntax'
-Plug 'tpope/vim-dadbod'
-Plug 'AndrewRadev/splitjoin.vim'
-Plug 'FarhadManiCodes/vim-envx'
-Plug 'mechatroner/rainbow_csv'
-Plug 'NLKNguyen/papercolor-theme'
-Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
-Plug 'junegunn/fzf.vim'
-Plug 'tpope/vim-surround'
-Plug 'jiangmiao/auto-pairs'
-Plug 'tpope/vim-repeat'
-Plug 'tpope/vim-obsession'
-" Markdown editing
-Plug 'preservim/vim-markdown'
-" Distraction-free writing
-Plug 'junegunn/goyo.vim'
-" Dim everything except the current paragraph
-Plug 'junegunn/limelight.vim'
+" Essential editing enhancements (5)
+Plug 'jiangmiao/auto-pairs'           " Auto-close brackets/quotes
+Plug 'tpope/vim-surround'             " Surround text with pairs
+Plug 'tomtom/tcomment_vim'            " Smart commenting
+Plug 'tpope/vim-repeat'               " Repeat plugin commands with .
+Plug 'tpope/vim-unimpaired'           " Paired bracket mappings
+
+" UI & themes (3)
+Plug 'itchyny/lightline.vim'          " Minimal statusline
+Plug 'NLKNguyen/papercolor-theme'     " Light theme
+Plug 'joshdick/onedark.vim'           " Dark theme
+
+" Markdown & writing (3)
+Plug 'preservim/vim-markdown'         " Markdown support
+Plug 'junegunn/goyo.vim'              " Distraction-free writing
+Plug 'junegunn/limelight.vim'         " Paragraph focus
+
+" Integrations (3)
+Plug 'christoomey/vim-tmux-navigator' " Vim/tmux navigation
+Plug 'mechatroner/rainbow_csv'        " CSV column highlighting
+Plug 'FarhadManiCodes/vim-envx'       " Custom env plugin
+
 call plug#end()

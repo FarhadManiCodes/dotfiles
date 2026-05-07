@@ -27,16 +27,6 @@ autocmd BufRead,BufNewFile *.scala,*.sc set filetype=scala
 autocmd FileType scala setlocal shiftwidth=2 tabstop=2
 autocmd FileType scala setlocal commentstring=//\ %s
 
-" MLflow/DVC File Handling
-autocmd BufNewFile,BufRead MLproject set filetype=yaml
-autocmd BufNewFile,BufRead dvc.yaml,*.dvc set filetype=yaml
-autocmd BufNewFile,BufRead .dvcignore set filetype=gitignore
-autocmd BufNewFile,BufRead params.yaml,metrics.yaml set filetype=yaml
-
-" MLflow experiment files
-autocmd BufNewFile,BufRead mlruns/**/*.yaml set filetype=yaml
-autocmd BufNewFile,BufRead mlruns/**/*.json set filetype=json
-
 " Better CSV handling
 autocmd FileType csv setlocal nowrap
 autocmd FileType csv setlocal scrollbind
