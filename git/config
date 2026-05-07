@@ -1,0 +1,112 @@
+[include]
+    path = config.local
+
+[core]
+    editor = nvim
+    pager = delta
+    fsmonitor = true
+
+    excludesfile = ~/.config/git/ignore
+
+[init]
+    defaultBranch = main
+
+[push]
+    autoSetupRemote = true
+
+[rerere]
+    # "Reuse Recorded Resolution"
+    # If you fix a conflict once, Git remembers it for future rebase steps.
+    enabled = true
+
+# --- DIFF SETTINGS (Affects Lazygit Preview) ---
+[diff]
+    # Use the histogram algorithm. It is much smarter than the default
+    # and prevents "spaghetti diffs" when functions are moved.
+    algorithm = histogram
+
+    # Move lines that look like code movements to make the diff cleaner
+    colorMoved = default
+    colorMovedWS = allow-indentation-change
+
+    # Use better CSV diffs (optional, requires csv-diff)
+    # textconv = csv-diff --json
+
+# --- MERGE SETTINGS (The "Hard" Layer) ---
+[merge]
+    # zdiff3 shows: [Original Code] + + [Incoming Changes]
+    # Standard merge only shows + [Incoming Changes]
+    # Seeing the original code is CRITICAL for understanding complex conflicts.
+    conflictstyle = zdiff3
+
+    tool = nvimdiff
+
+[mergetool]
+    prompt = false
+    keepBackup = false
+
+[mergetool "nvimdiff"]
+    # This layout opens 3 windows:
+    # Top Left:  LOCAL (Your changes)
+    # Top Right: REMOTE (Incoming changes)
+    # Bottom:    MERGED (The file you edit to fix it)
+    #
+    # Explanation of flags:
+    # -d: Diff mode
+    # $LOCAL $REMOTE $MERGED: The files to open
+    # -c '$wincmd w': Switch to the merged window
+    # -c 'wincmd J':  Force the merged window to the full-width bottom
+    cmd = nvim -d $LOCAL $REMOTE $MERGED -c '$wincmd w' -c 'wincmd J'
+
+# --- LAZYGIT & DELTA INTEGRATION ---
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true
+    dark = true
+    side-by-side = true
+    line-numbers = true
+    # This helps delta look good inside Lazygit
+    paging = always
+
+[credential "https://github.com"]
+    helper =
+    helper =!gh auth git-credential
+
+[credential "https://gist.github.com"]
+    helper =
+    helper =!gh auth git-credential
+
+# --- ALIASES ---
+[alias]
+    lg = log --graph --pretty=format:'%C(yellow)%h%Creset %C(cyan)[%ad]%Creset %C(green)%s%Creset %C(bold blue)<%an>%Creset%C(red)%d%Creset' --date=short --abbrev-commit
+    st = status
+    co = checkout
+    br = branch
+
+    # Quick fix for "I messed up" - undo last commit but keep changes
+    undo = reset HEAD~1
+      # Detailed log with files changed
+    lgd = log --graph --pretty=format:'%C(yellow)%h%Creset %C(cyan)[%ad]%Creset %C(green)%s%Creset %C(bold blue)<%an>%Creset%C(red)%d%Creset' --date=short --abbrev-commit --stat
+
+    # Combined git + DVC status (requires dvc installed)
+    dvc-status = "!f() { echo '=== Git Status ==='; git status -s; if command -v dvc >/dev/null 2>&1; then echo '\\n=== DVC Status ==='; dvc status; fi; }; f"
+
+    # Quick repo info
+    info = "!f() { echo 'Repository: '$(basename $(git rev-parse --show-toplevel)); echo 'Branch: '$(git branch --show-current); echo 'Remote: '$(git remote get-url origin 2>/dev/null || echo 'none'); echo 'Last commit: '$(git log -1 --pretty=format:'%h - %s (%ar)'); }; f"
+
+    # Experiment branch management
+    exp-start = "!f() { if [ -z \"$1\" ]; then echo 'Usage: git exp-start <experiment-name>'; return 1; fi; git checkout -b \"experiment/$1\"; }; f"
+    exp-list = "!git branch --list 'experiment/*'"
+
+    # Feature branch management
+    feature-create = "!f() { if [ -z \"$1\" ]; then echo 'Usage: git feature-create <feature-name>'; return 1; fi; git checkout -b \"feature/$1\"; }; f"
+    feature-list = "!git branch --list 'feature/*'"
+
+    # C++ Specific Diff (Ignores whitespace, only shows C/C++ files)
+    diff-cpp = "!f() { git diff -w --ignore-all-space --ignore-blank-lines \"$@\" -- \"*.cpp\" \"*.c\" \"*.h\" \"*.hpp\"; }; f"
+
+
+[fetch]
+    prune = true

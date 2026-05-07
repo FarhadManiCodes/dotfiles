@@ -164,9 +164,19 @@ ln -sf "${HOME}/dotfiles/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
 echo "✅ foot configured"
 
 # ============ git ==============================
-echo " Setting up Git..."
-ln -sf "${HOME}/dotfiles/git/.gitconfig" "${HOME}/.gitconfig"
-echo "✅ Git configured"
+echo "Setting up Git..."
+mkdir -p "${XDG_CONFIG_HOME}/git"
+ln -sf "${DOTFILES}/git/config" "${XDG_CONFIG_HOME}/git/config"
+ln -sf "${DOTFILES}/git/ignore" "${XDG_CONFIG_HOME}/git/ignore"
+if [[ ! -f "${XDG_CONFIG_HOME}/git/config.local" ]]; then
+    cat > "${XDG_CONFIG_HOME}/git/config.local" << 'GITLOCAL'
+[user]
+    name = Your Name
+    email = you@example.com
+GITLOCAL
+    echo "  Created config.local template -- fill in your name and email"
+fi
+echo "Git configured"
 
 # ============ lazygit ======================================
 echo "Setting up lazygit..."

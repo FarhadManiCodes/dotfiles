@@ -66,6 +66,7 @@ zsdoc/data
 
 # Sensitive credentials — never track these
 gh/hosts.yml
+git/config.local
 **/*token*
 **/*secret*
 **/*credentials*
