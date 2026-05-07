@@ -67,6 +67,12 @@ mkdir -p "${HOME}/.config/ptpython"
 ln -sf "${HOME}/dotfiles/ptpython/config.py" "${HOME}/.config/ptpython/config.py"
 echo "✅ ptpython configured"
 
+# ============ niri ==============================
+echo "Setting up Niri..."
+mkdir -p "${XDG_CONFIG_HOME}/niri"
+ln -sf "${DOTFILES}/niri/config.kdl" "${XDG_CONFIG_HOME}/niri/config.kdl"
+echo "Niri configured"
+
 # ============ foot terminal ==============================
 echo "🦶 Setting up foot terminal..."
 mkdir -p "${XDG_CONFIG_HOME}/foot"
