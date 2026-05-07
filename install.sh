@@ -52,10 +52,10 @@ echo "Zsh configured"
 # ============ tmux ==============================
 echo "🖥️  Setting up Tmux..."
 mkdir -p "$XDG_CONFIG_HOME/tmux"
-ln -sf "${HOME}/dotfiles/tmux/tmux.conf" "${XDG_CONFIG_HOME}/tmux/tmux.conf"
+ln -sf "${DOTFILES}/tmux/tmux.conf" "${XDG_CONFIG_HOME}/tmux/tmux.conf"
 mkdir -p "$XDG_CONFIG_HOME/tmux/layouts"
 
-for file in "${HOME}/dotfiles/tmux/layouts/"*.sh; do
+for file in "${DOTFILES}/tmux/layouts/"*.sh; do
   ln -sf "$file" "${XDG_CONFIG_HOME}/tmux/layouts/"
 done
 echo "✅ Tmux configured"
@@ -70,7 +70,7 @@ echo "Neovim configured"
 # ============ ptpython ==============================
 echo "🐍 Setting up ptpython..."
 mkdir -p "${HOME}/.config/ptpython"
-ln -sf "${HOME}/dotfiles/ptpython/config.py" "${HOME}/.config/ptpython/config.py"
+ln -sf "${DOTFILES}/ptpython/config.py" "${HOME}/.config/ptpython/config.py"
 echo "✅ ptpython configured"
 
 # ============ niri ==============================
@@ -160,7 +160,7 @@ echo "Starship configured"
 # ============ foot terminal ==============================
 echo "🦶 Setting up foot terminal..."
 mkdir -p "${XDG_CONFIG_HOME}/foot"
-ln -sf "${HOME}/dotfiles/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
+ln -sf "${DOTFILES}/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
 echo "✅ foot configured"
 
 # ============ git ==============================
@@ -181,7 +181,7 @@ echo "Git configured"
 # ============ lazygit ======================================
 echo "Setting up lazygit..."
 mkdir -p "${XDG_CONFIG_HOME}/lazygit"
-ln -sf "${HOME}/dotfiles/lazygit/config.yml" "${XDG_CONFIG_HOME}/lazygit/config.yml"
+ln -sf "${DOTFILES}/lazygit/config.yml" "${XDG_CONFIG_HOME}/lazygit/config.yml"
 echo "Lazygit configured"
 
 # ============ zathura ==============================
@@ -223,7 +223,7 @@ echo "Thunar configured"
 
 # =========== duckdb ===============
 echo "Setting up DuckDB""
-ln -sf "${HOME}/dotfiles/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
+ln -sf "${DOTFILES}/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
 
 #########
 # Fonts #
@@ -236,7 +236,7 @@ echo "✅ Fonts installed"
 # ============ helper scripts ==============================
 echo "🛠️  Installing helper scripts..."
 mkdir -p "${HOME}/.local/bin"
-for file in "${HOME}/dotfiles/bash/"*; do
+for file in "${DOTFILES}/bash/"*; do
   ln -sf "$file" "${HOME}/.local/bin/"
 done
 echo "✅ Helper scripts installed"

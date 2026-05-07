@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# --- Configuration ---
+FILE="$1"
+LINE="$2"
+
+if [[ -z "$FILE" || -z "$LINE" ]]; then
+    echo "Usage: niri-synctex <file> <line>" >&2
+    exit 1
+fi
+
+# --- Find Neovim Server ---
+SERVER="${NVIM_LISTEN_ADDRESS:-$(
+    find "${XDG_RUNTIME_DIR:-/run/user/$UID}" \
+        -maxdepth 1 -name "nvim.*" 2>/dev/null |
+    xargs ls -t 2>/dev/null |
+    head -n 1
+)}"
+
+if [[ -z "$SERVER" ]]; then
+    notify-send "Synctex Error" "No Neovim server found. Is Neovim open?"
+    exit 1
+fi
+
+# --- Jump to line in Neovim ---
+ESCAPED_FILE="${FILE//\"/\\\"}"
+nvim --server "$SERVER" --remote-send "<C-\><C-n>:e +$LINE \"$ESCAPED_FILE\"<CR>"
+
+# --- Focus foot terminal in Niri ---
+WINDOW_ID=$(niri msg --json windows |
+    jq -r '[.[] | select(.app_id == "foot")] | first | .id // empty')
+
+[[ -n "$WINDOW_ID" ]] && niri msg action focus-window --id "$WINDOW_ID"
