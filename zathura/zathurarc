@@ -1,0 +1,29 @@
+set selection-clipboard clipboard
+
+# Always open in "Fit to Width" mode
+set adjust-open "width"
+
+# Arrow keys for page navigation — n/N/p left free for search next/prev
+map <Right> navigate next
+map <Left> navigate previous
+
+# Enable dark mode by default
+set recolor true
+
+# Keep original image colors (so photos don't look like negatives)
+set recolor-keephue true
+set recolor-reverse-video true
+
+# Color Settings (Gruvbox Dark — softer on the eyes)
+set default-bg                  "#282828"
+set default-fg                  "#ebdbb2"
+set recolor-lightcolor          "#282828"
+set recolor-darkcolor           "#ebdbb2"
+
+# Show filename only in statusbar and window title (cleaner waybar display)
+set statusbar-basename true
+set window-title-basename true
+
+# SyncTeX support for jumping between PDF and LaTeX source
+set synctex true
+set synctex-editor-command "/home/farhad/.local/bin/niri-synctex %{input} %{line}"

@@ -1,0 +1,2 @@
+enable_selector = true
+selector = "fuzzel -d --lines=5 --width=25"

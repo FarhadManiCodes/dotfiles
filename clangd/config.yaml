@@ -1,0 +1,163 @@
+# ~/.config/clangd/config.yaml
+# clangd configuration for Neovim LSP
+# Optimized for Trilinos/deal.II HPC/CFD C++ development
+#
+# This file provides project-independent settings for clangd
+# Project-specific flags come from compile_commands.json
+
+# =============================================================================
+# COMPILE FLAGS
+# =============================================================================
+
+CompileFlags:
+  # Treat all code as C++23 by default (fallback for projects without compile_commands.json)
+  Add:
+    - -std=c++23
+    - -Wall                    # Enable all warnings
+    - -Wno-unused-parameter    # Suppress unused parameter warnings (common in templates)
+
+  # Remove problematic flags that may appear in compile_commands.json
+  # These can cause clangd to fail parsing on different architectures
+  Remove:
+    - -mabi*                   # ABI-specific flags
+
+  # Compiler to use for parsing (uses system clang)
+  Compiler: clang++
+
+# =============================================================================
+# INDEXING
+# =============================================================================
+
+Index:
+  # Background indexing strategy
+  # "Build" = Index in background, don't block editor
+  Background: Build
+
+  # Standard library indexing
+  # true = Index standard library headers (slower startup, better completions)
+  # false = Skip standard library (faster, but less complete)
+  StandardLibrary: Yes
+
+# =============================================================================
+# DIAGNOSTICS
+# =============================================================================
+
+Diagnostics:
+  # Include management
+  UnusedIncludes: Strict      # Warn about unused #includes
+  MissingIncludes: Strict     # Warn about missing #includes
+
+  # Suppress common warnings in Trilinos/deal.II template-heavy code
+  # These are often false positives in scientific computing codebases
+  Suppress:
+    - unused-parameter         # Template parameters often unused
+    - deprecated-declarations  # Legacy Trilinos APIs
+    - unknown-pragmas          # OpenMP/MPI pragmas
+    - unused-local-typedef     # Template metaprogramming artifacts
+
+  # Enable clang-tidy checks (optional - can be slow)
+  # Uncomment to enable specific checks:
+  ClangTidy:
+    Add:
+      # Catch accidental copies of large matrices/vectors
+      - performance-unnecessary-copy-initialization
+      - performance-unnecessary-value-param
+      - performance-move-const-arg
+      # Catch implicit conversions that kill precision (e.g. double -> float)
+      - bugprone-narrowing-conversions
+  #     - modernize-*
+  #     - performance-*
+    Remove:
+      - modernize-use-trailing-return-type
+      - performance-no-int-to-ptr  # Often false positive in low-level memory managers
+# =============================================================================
+# COMPLETION
+# =============================================================================
+
+Completion:
+  # Show completions from all accessible scopes
+  # Very useful for Trilinos:: and dealii:: namespaces
+  AllScopes: Yes
+
+# =============================================================================
+# HOVER DOCUMENTATION
+# =============================================================================
+
+Hover:
+  # Template expansion in hover tooltips
+  # "Yes" = Show type aliases expanded (e.g., show actual type of Scalar)
+  # "No" = Show type aliases as-is
+  ShowAKA: Yes
+
+# =============================================================================
+# INLAY HINTS (INLINE TYPE/PARAMETER ANNOTATIONS)
+# =============================================================================
+
+InlayHints:
+  # Disable inline hints for minimal UI
+  # You can still see types via hover (K)
+
+  # If you want to enable inlay hints later, uncomment:
+  Enabled: Yes
+  ParameterNames: No # Show parameter names in function calls
+  DeducedTypes: Yes         # Show deduced auto types
+  Designators: Yes          # Show struct field names
+
+# =============================================================================
+# STYLE / FORMATTING
+# =============================================================================
+
+# Note: clangd formatting is configured via command-line flags in lsp.lua
+# If you want file-based formatting config, create .clang-format in project root
+
+# =============================================================================
+# PERFORMANCE TUNING
+# =============================================================================
+
+# Most performance flags are set in lsp.lua cmd (--pch-storage=memory, -j=8)
+# This config focuses on behavior tuning
+
+# =============================================================================
+# NOTES FOR DIFFERENT PROJECTS
+# =============================================================================
+
+# For Trilinos projects:
+# - Ensure compile_commands.json includes -I paths to Tpetra headers
+# - Use: cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+# - Symlink: ln -s build/compile_commands.json .
+#
+# For deal.II projects:
+# - Similar approach with CMake
+# - deal.II's config typically includes proper include paths
+#
+# For projects without CMake:
+# - Use bear: bear -- make
+# - Or compdb: compdb make
+#
+# For single-file compilation:
+# - clangd will still work with limited functionality
+# - Add compile flags to per-project .clangd config
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# If clangd is slow:
+# 1. Check file size - large files (>10MB) should disable LSP
+# 2. Reduce -j=N flag in lsp.lua
+# 3. Set Background: Skip to disable indexing
+# 4. Check clangd memory usage: ps aux | grep clangd
+#
+# If headers aren't found:
+# 1. Verify compile_commands.json exists: ls -la compile_commands.json
+# 2. Check it contains correct -I paths: cat compile_commands.json | jq
+# 3. Restart LSP: :LspRestart
+#
+# If too many warnings:
+# 1. Add more patterns to Diagnostics.Suppress above
+# 2. Use project-specific .clangd config to override
+#
+# If template errors are overwhelming:
+# 1. Use :lua vim.diagnostic.disable() to temporarily disable
+# 2. Hover (K) on error to see full message
+# 3. Check if compile_commands.json has correct -std=c++XX flag
