@@ -1,0 +1,50 @@
+# mako notification daemon — Catppuccin Mocha theme
+# Matches niri (border #89b4fa, inactive #585b70) and waybar (bg #1e1e2e, border #313244)
+
+# --- Layout ---
+anchor=top-right
+layer=overlay
+width=360
+height=110
+# top=30 sits just below waybar
+margin=30,10,0,0
+padding=12,16
+
+# --- Font ---
+font=FiraCode Nerd Font 11
+
+# --- Normal notifications ---
+background-color=#2d3d6b
+text-color=#cdd6f4
+border-color=#89b4fa
+border-size=2
+border-radius=12
+
+# --- Behaviour ---
+default-timeout=10000
+max-visible=5
+sort=-time
+icons=1
+icon-path=/usr/share/icons/hicolor:/usr/share/icons/Papirus-Dark
+
+# --- Urgency: low (subtle, shorter timeout) ---
+[urgency=low]
+background-color=#2d3d6b
+text-color=#a6adc8
+border-color=#585b70
+default-timeout=6000
+
+# --- Urgency: normal ---
+[urgency=normal]
+background-color=#2d3d6b
+text-color=#cdd6f4
+border-color=#89b4fa
+default-timeout=10000
+
+# --- Urgency: high (red border, no auto-dismiss) ---
+[urgency=high]
+background-color=#2d3d6b
+text-color=#cdd6f4
+border-color=#f38ba8
+border-size=2
+default-timeout=0

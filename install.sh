@@ -80,6 +80,35 @@ ln -sf "${DOTFILES}/waybar/config" "${XDG_CONFIG_HOME}/waybar/config"
 ln -sf "${DOTFILES}/waybar/style.css" "${XDG_CONFIG_HOME}/waybar/style.css"
 echo "Waybar configured"
 
+# ============ mako ==============================
+echo "Setting up Mako..."
+mkdir -p "${XDG_CONFIG_HOME}/mako"
+ln -sf "${DOTFILES}/mako/config" "${XDG_CONFIG_HOME}/mako/config"
+echo "Mako configured"
+
+# ============ fuzzel ==============================
+echo "Setting up Fuzzel..."
+mkdir -p "${XDG_CONFIG_HOME}/fuzzel"
+ln -sf "${DOTFILES}/fuzzel/fuzzel.ini" "${XDG_CONFIG_HOME}/fuzzel/fuzzel.ini"
+echo "Fuzzel configured"
+
+# ============ bat ==============================
+echo "Setting up Bat..."
+mkdir -p "${XDG_CONFIG_HOME}/bat"
+ln -sf "${DOTFILES}/bat/config" "${XDG_CONFIG_HOME}/bat/config"
+echo "Bat configured"
+
+# ============ btop ==============================
+echo "Setting up Btop..."
+mkdir -p "${XDG_CONFIG_HOME}/btop"
+ln -sf "${DOTFILES}/btop/btop.conf" "${XDG_CONFIG_HOME}/btop/btop.conf"
+echo "Btop configured"
+
+# ============ starship ==============================
+echo "Setting up Starship..."
+ln -sf "${DOTFILES}/starship.toml" "${XDG_CONFIG_HOME}/starship.toml"
+echo "Starship configured"
+
 # ============ foot terminal ==============================
 echo "🦶 Setting up foot terminal..."
 mkdir -p "${XDG_CONFIG_HOME}/foot"

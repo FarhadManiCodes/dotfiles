@@ -1,0 +1,6 @@
+--theme=auto
+--theme-dark="OneHalfDark"
+--theme-light="GitHub"
+--style=numbers,changes,header-filename,grid
+--italic-text=always
+--pager="less -RF"
