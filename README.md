@@ -1,106 +1,146 @@
 # Dotfiles
 
-Welcome to my personal dotfiles repository! This collection of configuration files and scripts helps set up my development environment on Linux, ensuring a consistent and efficient workflow across different machines.
+Personal dotfiles for **Arch Linux + Niri (Wayland)** — data engineering / scientific computing setup.
 
-## Features
+All configs are symlinked from this repo so changes here immediately take effect.
 
-This repository configures and enhances the following tools and environments:
+## Stack
 
-- **Vim**: Highly customized Vim setup with plugins for various programming languages (Python, SQL, JSON, YAML) and enhanced editing features like autopairs and basic configurations.
-- **Zsh**: A powerful shell environment with custom aliases, completions, and productivity enhancements. It's set up to be XDG-compliant.
-- **Tmux**: A terminal multiplexer configuration for efficient session management, including custom layouts for different workflows (analysis, Docker, ETL, Git).
-- **ptpython**: Configuration for the interactive Python shell.
-- **Foot Terminal**: Configuration for the fast, lightweight Wayland terminal emulator.
-- **Git**: Global Git configurations for a streamlined version control experience.
-- **Lazygit**: Configuration for the popular terminal UI for Git.
-- **DuckDB**: Configuration for the in-process SQL OLAP database.
-- **Fonts**: Installation of Nerd Fonts for a visually rich terminal experience.
-- **Bash Helper Scripts**: A collection of utility scripts to enhance daily command-line tasks.
-- **Development Environment Setup (`dev-env`)**: Scripts to install and configure various development tools, including:
-    - `bat` (cat clone with syntax highlighting)
-    - `delta` (diff viewer)
-    - `direnv` (per-directory environment variables)
-    - `docker` (containerization)
-    - `etza` (better ls)
-    - `fd-find` (fast find alternative)
-    - `foot` (terminal emulator)
-    - `fzf` (fuzzy finder)
-    - `git` (version control)
-    - `go` (Go programming language)
-    - `lazydocker` (Docker TUI)
-    - `lua` (Lua programming language)
-    - `pipx` (install and run Python applications in isolated environments)
-    - `qsv` (CSV toolkit)
-    - `redis` (in-memory data structure store)
-    - `ripgrep` (fast grep alternative)
-    - `rust` (Rust programming language)
-    - `tmux` (terminal multiplexer)
-    - `vim` (text editor)
-    - `xkbcommon` (keyboard configuration library)
-    - `yq` (YAML processor)
-    - `zoxide` (fast cd command)
+| Category | Tools |
+|---|---|
+| Shell | Zsh + Starship + Zoxide + Direnv |
+| Editor | Neovim (primary) · Vim (lightweight editing) |
+| Terminal | Foot |
+| Compositor | Niri · Sway (fallback) |
+| Bar | Waybar |
+| Multiplexer | Tmux |
+| Launcher | Fuzzel |
+| Notifications | Mako |
+| Git TUI | Lazygit |
+| Python REPL | ptpython |
+| Data | DuckDB |
+| Lock screen | Swaylock |
+| PDF | Zathura |
+| Video | mpv |
 
 ## Installation
 
-To set up these dotfiles on your system, simply run the `install.sh` script:
-
 ```bash
+git clone --recurse-submodules git@github.com:FarhadManiCodes/dotfiles.git ~/dotfiles
+cd ~/dotfiles
 bash install.sh
 ```
 
-The script will create symbolic links for the configuration files in their respective locations and install the necessary fonts and helper scripts.
+> `--recurse-submodules` is required to pull the Neovim config.
 
-### Post-Installation Steps
-
-After running `install.sh`, you may need to perform a few additional steps:
-
-1.  **Zsh Themes/Plugins**: The `install.sh` script sets up the Zsh configuration but does not automatically install themes or plugins. You will need to manually install them, for example:
-    -   **Powerlevel10k**: `git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.config/zsh/themes/powerlevel10k`
-    -   **Fast syntax highlighting**: `git clone https://github.com/zdharma-continuum/fast-syntax-highlighting.git ~/.config/zsh/plugins/fast-syntax-highlighting`
-
-2.  **Restart Terminal**: Restart your terminal or run `source ~/.zshrc` to apply the new Zsh configurations.
-
-3.  **Vim Plugins**: Open Vim and run `:PlugInstall` to install all configured Vim plugins.
-
-4.  **Tmux Plugins**: If you are using `tpm` (Tmux Plugin Manager), press `Prefix + I` (usually `Ctrl+b I`) within a Tmux session to install plugins.
-
-## Usage
-
-Once installed, your environment will be configured with the settings defined in these dotfiles. You can explore the individual configuration files in their respective directories (`vim/`, `zsh/`, `tmux/`, etc.) to understand and further customize your setup.
-
-### Development Environment Scripts
-
-The `dev-env/runs/` directory contains individual scripts for installing and configuring various development tools. You can run these scripts independently to set up specific tools as needed. For example, to install `fzf`:
+### After install
 
 ```bash
-bash dev-env/runs/fzf.sh
+# Zsh plugins (cloned locally, not tracked)
+~/.config/zsh/update-plugins.sh
+
+# Restart shell
+source ~/.zshrc
+
+# Vim plugins
+vim +PlugInstall +qall
+
+# Tmux plugins — inside a tmux session:
+# Prefix + I
+```
+
+### Fresh machine: Git identity
+
+`install.sh` creates `~/.config/git/config.local` with a placeholder if it does not exist. Fill it in:
+
+```ini
+[user]
+    name = Your Name
+    email = you@example.com
 ```
 
 ## Structure
 
 ```
-.dotfiles/
+dotfiles/
+├── install.sh              # Symlinks everything
 ├── .gitignore
-├── install.sh
-├── README.md
-├── bash/               # Helper bash scripts
-├── dev-env/            # Development environment setup scripts
-│   └── runs/           # Individual tool installation scripts
-├── duckdb/             # DuckDB configuration
-├── fonts/              # Nerd Fonts
-├── foot/               # Foot terminal configuration
-├── git/                # Git configuration
-├── lazygit/            # Lazygit configuration
-├── ptpython/           # ptpython configuration
-├── tmux/               # Tmux configuration and layouts
-└── vim/                # Vim configuration and plugins
-└── zsh/                # Zsh configuration, aliases, and scripts
+├── .claudeignore
+│
+├── nvim/                   # Neovim config (git submodule → FarhadManiCodes/nvim-config)
+├── vim/                    # Vim config (lightweight editing)
+│   ├── vimrc
+│   └── config/             # basic, plugins, mappings, autocmds, languages
+│
+├── zsh/
+│   ├── .zshrc / .zshenv
+│   ├── aliases
+│   ├── helpers.zsh
+│   ├── functions/          # bat, clipboard, cpp, fzf, git, pdf, search, virtualenv
+│   ├── generate-completions.sh
+│   └── update-plugins.sh
+│
+├── tmux/
+│   ├── tmux.conf
+│   └── layouts/
+│       ├── cpp_layout.sh
+│       └── archive/        # old layouts kept for reference
+│
+├── git/
+│   ├── config              # aliases, delta, diff/merge settings (no user info)
+│   └── ignore              # global gitignore
+│
+├── niri/config.kdl         # Window manager
+├── waybar/                 # config + style.css
+├── foot/foot.ini
+├── sway/config             # Fallback compositor
+├── swaylock/config
+├── mako/config
+├── fuzzel/fuzzel.ini
+├── lazygit/config.yml
+├── ptpython/config.py
+├── starship.toml
+├── bat/config
+├── btop/btop.conf
+├── zathura/zathurarc
+├── mpv/mpv.conf
+├── glow/glow.yml
+├── gh/config.yml           # hosts.yml not tracked — contains auth tokens
+├── direnv/direnvrc
+├── ripgrep-all/config.jsonc
+├── clangd/config.yaml
+├── ccache/ccache.conf
+├── handlr/handlr.toml
+├── gtk-3.0/settings.ini
+├── gtk-4.0/settings.ini
+├── Thunar/uca.xml          # custom actions only; accels.scm not tracked
+├── duckdb/.duckdbrc
+└── fonts/
 ```
 
-## Contributing
+## What is not tracked
 
-Feel free to fork this repository and adapt it to your needs. If you have suggestions or improvements, please open an issue or submit a pull request.
+| Path | Reason |
+|---|---|
+| `~/.config/git/config.local` | Name + email |
+| `~/.config/gh/hosts.yml` | Auth tokens |
+| `~/.config/zsh/plugins/` | Plugin repos — cloned by `update-plugins.sh` |
+| `~/.config/zsh/completions/` | Generated by `generate-completions.sh` |
+| `gtk-3.0/bookmarks` | Personal folder paths |
+| `Thunar/accels.scm` | Auto-generated |
 
-## License
+## Neovim submodule
 
-This project is open-sourced under the MIT License. See the `LICENSE` file for details. (Note: A `LICENSE` file is not included in this repository, consider adding one.)
+The Neovim config lives at [FarhadManiCodes/nvim-config](https://github.com/FarhadManiCodes/nvim-config) and is included as a submodule at `nvim/`.
+
+To update the nvim config pointer:
+
+```bash
+cd ~/dotfiles/nvim && git pull origin main
+cd ~/dotfiles && git add nvim && git commit -m "chore(nvim): update submodule"
+```
+
+## TODOs
+
+- [ ] Simplify `zsh/functions/virtualenv.zsh` (currently 680 lines)
+- [ ] Decide on `zsh/archive/productivity/duckdb.sh` — revive or delete
