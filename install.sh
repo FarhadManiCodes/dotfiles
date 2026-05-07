@@ -54,6 +54,13 @@ for file in "${HOME}/dotfiles/tmux/layouts/"*.sh; do
 done
 echo "✅ Tmux configured"
 
+# ============ nvim ==============================
+echo "Setting up Neovim..."
+git submodule update --init --recursive
+rm -rf "${XDG_CONFIG_HOME}/nvim"
+ln -sf "${DOTFILES}/nvim" "${XDG_CONFIG_HOME}/nvim"
+echo "Neovim configured"
+
 # ============ ptpython ==============================
 echo "🐍 Setting up ptpython..."
 mkdir -p "${HOME}/.config/ptpython"
