@@ -59,11 +59,17 @@ zsdoc/data
 # Build
 *.build
 
-# Initialized files
-*.ini
-*.basic
-
-# project info
+# Project info
 *.projectrc
 .projectrc
 .envrc
+
+# Sensitive credentials — never track these
+gh/hosts.yml
+**/*token*
+**/*secret*
+**/*credentials*
+**/id_rsa
+**/id_ed25519
+**/*.pem
+**/*.key

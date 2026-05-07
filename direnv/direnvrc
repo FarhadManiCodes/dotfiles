@@ -1,0 +1,13 @@
+# layout_uv — activate/create a uv-managed .venv in the project root
+# Usage in .envrc:  layout uv
+#              or:  layout uv 3.12
+layout_uv() {
+  local python="${1:-}"
+  if [[ ! -d ".venv" ]]; then
+    uv venv ${python:+--python "$python"} .venv
+  fi
+  VIRTUAL_ENV="$(pwd)/.venv"
+  PATH_add "$VIRTUAL_ENV/bin"
+  export VIRTUAL_ENV
+  export UV_PROJECT_ENVIRONMENT="$VIRTUAL_ENV"
+}

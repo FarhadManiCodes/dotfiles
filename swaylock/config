@@ -1,0 +1,60 @@
+# ~/.config/swaylock/config
+# Optimized for "fsi-zen" wallpaper (Official Swaylock)
+
+# --- BACKGROUND ---
+image=/usr/share/backgrounds/fsi-zen.png
+scaling=fill
+
+# --- POSITIONING (The Key Fix) ---
+# Move the ring to the empty blue space at the top.
+# Standard swaylock centers X automatically, we just set Y.
+indicator-y-position=200
+indicator-radius=66
+indicator-thickness=10
+
+# --- BEHAVIOR ---
+indicator-idle-visible
+ignore-empty-password
+show-failed-attempts
+daemonize
+
+# --- COLORS (Theme: Blue/White/Orange) ---
+
+# 1. THE INSIDE (Background of the circle)
+# Use a semi-transparent dark blue to blend with the sky but provide contrast
+inside-color=00000055
+inside-clear-color=00000055
+inside-ver-color=00000055
+inside-wrong-color=ff000055
+
+# 2. THE RING (The border)
+# White (matches the wind lines) with low opacity when idle
+ring-color=ffffff33
+ring-clear-color=ffffff33
+ring-ver-color=ffffffaa
+# Bright Red for wrong password
+ring-wrong-color=ff5555ff
+
+# 3. INTERACTION HIGHLIGHTS
+# Use the Orange from the server platform for key presses!
+key-hl-color=ffaa00ff
+# Red for backspace
+bs-hl-color=ff0000ff
+
+# 4. TEXT
+text-color=ffffff
+text-clear-color=ffffff
+text-ver-color=ffffff
+text-wrong-color=ffffff
+
+# 5. CLEANUP
+# Hide the ugly separator lines
+line-color=00000000
+line-clear-color=00000000
+line-ver-color=00000000
+line-wrong-color=00000000
+separator-color=00000000
+
+# --- FONT ---
+font=FiraCode Nerd Font
+font-size=18

@@ -1,0 +1,16 @@
+# Sensitive credentials
+gh/hosts.yml
+**/*token*
+**/*secret*
+**/*credentials*
+**/id_rsa
+**/id_ed25519
+**/*.pem
+**/*.key
+
+# Large generated/binary files
+fonts/
+nvim/lazy-lock.json
+
+# Zsh plugin repos (large, not config)
+zsh/plugins/
