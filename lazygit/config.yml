@@ -1,20 +1,23 @@
-# Lazygit Configuration with Data Engineering/MLOps Enhancements
-# Location: ~/.config/lazygit/config.yml
+# ==============================================================================
+#  LAZYGIT CONFIGURATION
+#  Role: Data Engineer / MLOps
+#  System: Arch Linux + Neovim
+# ==============================================================================
 
 gui:
-  # Theme and appearance
+  # Use Nerd Fonts v3 (Standard on Arch/modern terminals)
+  nerdFontsVersion: "3"
+  showIcons: true
+  # Visual Tweaks
   theme:
-    lightTheme: false
     activeBorderColor:
-      - '#61afef'
+      - '#61afef' # OneDark Blue
       - bold
     inactiveBorderColor:
       - '#3e4451'
     optionsTextColor:
       - '#e06c75'
     selectedLineBgColor:
-      - '#2c323c'
-    selectedRangeBgColor:
       - '#2c323c'
     cherryPickedCommitBgColor:
       - '#c678dd'
@@ -24,211 +27,113 @@ gui:
       - '#e06c75'
     defaultFgColor:
       - '#abb2bf'
-  # Window configuration
-  splitDiff: auto
-  skipRewordInEditorWarning: false
-  skipStashWarning: false
+  # UI Layout
+  splitDiff: 'auto'
   sidePanelWidth: 0.3333
-  expandFocusedSidePanel: false
-  mainPanelSplitMode: flexible
-  language: auto
-  timeFormat: 02 Jan 06 15:04 MST
-  shortTimeFormat: 15:04
+  mainPanelSplitMode: 'flexible'
+  # Commit Graph
+  showFileTree: true
   commitLength:
     show: true
-# Custom commands for data engineering workflow
+git:
+  # Paging: Use Delta (as configured in your.gitconfig)
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
+    useConfig: false
+  # Merging strategy
+  merging:
+    # This ensures Lazygit respects the [mergetool "nvimdiff"] in your.gitconfig
+    # When you press 'M', it will open the 3-pane Neovim view
+    tool: nvimdiff
+    args: '--no-ff'
+  # Workflow Prefs
+  commit:
+    signOff: false
+    verbose: true # Show diff while typing commit message
+  pull:
+    mode: 'merge'
+  push:
+    autoSetUpstream: true # Saves you from typing --set-upstream
+  # Performance
+  autoFetch: true
+  autoRefresh: true
+  # Log view
+  branchLogCmd: 'git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --'
+  allBranchesLogCmds:
+    - 'git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium'
+os:
+  # EDIT COMMAND
+  # If you run lazygit FROM INSIDE Neovim (using a terminal buffer),
+  # this prevents opening a nested Neovim instance.
+  editCommand: "nvim"
+  editCommandTemplate: "{{editor}} +{{line}} {{filename}}"
+  # On Arch, use xdg-open to open PR links/files in browser
+  openCommand: 'xdg-open {{filename}}'
+# ==============================================================================
+#  CUSTOM COMMANDS (Data Engineering / DVC)
+# ==============================================================================
 customCommands:
-  # Interactive commit using your existing gci function
-  - key: 'C'
-    command: 'zsh -c "source $DOTFILES/zsh/productivity/git-enhancements.sh && gci"'
-    description: 'Interactive commit with DS/MLOps types'
-    context: 'files'
-    loadingText: 'Opening interactive commit...'
-    output: terminal
-  # Quick data science status (your existing gstds function)
-  - key: 'S'
-    command: 'zsh -c "source $DOTFILES/zsh/productivity/git-enhancements.sh && gstds"'
-    description: 'Data Science Git Status'
-    context: 'global'
-    loadingText: 'Loading DS status...'
-    output: terminal
-  # DVC integration
+  # 1. DVC Integration
+  # Manage large data files without leaving Lazygit
   - key: 'v'
+    context: 'global'
+    description: 'DVC operations (Data Version Control)'
+    loadingText: 'Running DVC command...'
     prompts:
       - type: 'menu'
+        key: 'DvcCommand'
         title: 'DVC Commands'
         options:
           - name: 'status'
             description: 'Check DVC status'
             value: 'dvc status'
           - name: 'push'
-            description: 'Push data to remote'
+            description: 'Push data to remote storage'
             value: 'dvc push'
           - name: 'pull'
-            description: 'Pull data from remote'
+            description: 'Pull data from remote storage'
             value: 'dvc pull'
           - name: 'repro'
-            description: 'Reproduce pipeline'
+            description: 'Reproduce DVC pipeline'
             value: 'dvc repro'
     command: '{{.Form.DvcCommand}}'
-    context: 'global'
-    description: 'DVC operations'
-    loadingText: 'Running DVC command...'
-  # Clean notebooks (remove output)
+  # 2. Notebook Cleaning (Manual Trigger)
+  # Note: Your.gitconfig "nbstripout" filter handles this automatically now,
+  # but this is useful if you want to explicitly clean files on disk.
   - key: 'N'
-    command: 'find . -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \;'
-    description: 'Clean notebook outputs'
     context: 'global'
+    description: 'Clean notebook outputs (nbconvert)'
+    command: 'find . -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \;'
     loadingText: 'Cleaning notebooks...'
     confirm: true
-  # Quick push with upstream setup
-  - key: 'P'
-    prompts:
-      - type: 'confirm'
-        title: 'Push to origin?'
-        body: 'This will push current branch to origin and set upstream if needed'
-    command: 'git push -u origin $(git branch --show-current)'
-    context: 'global'
-    description: 'Push with upstream'
-    loadingText: 'Pushing to origin...'
-  # Experiment branch creation
+  # 3. Experiment Branching
+  # Creates branches like "experiment/20251025-model-test"
   - key: 'X'
-    prompts:
-      - type: 'input'
-        title: 'Experiment name'
-        initialValue: 'exp-'
-    command: 'git checkout -b {{.Form.ExperimentName}}'
     context: 'global'
     description: 'Create experiment branch'
+    prompts:
+      - type: 'input'
+        title: 'Experiment Name (auto-prefixed with date)'
+        initialValue: 'exp-'
+    command: 'git checkout -b experiment/$(date +%Y%m%d)-{{.Form.ExperimentName}}'
     loadingText: 'Creating experiment branch...'
-git:
-  # Paging and diff settings
-  paging:
-    colorArg: always
-    pager: delta --dark --paging=never
-    useConfig: false
-  # Commit settings
-  commit:
-    signOff: false
-    verbose: true
-  # Merge settings
-  merging:
-    manualCommit: false
-    args: '--no-ff'
-  # Pull settings
-  pull:
-    mode: 'merge'
-  # Push setting
-  push:
-    autoSetUpstream: true
-  # Skip hooks for performance (enable when needed)
-  skipHookPrefix: WIP
-  # Auto-fetch
-  autoFetch: true
-  autoRefresh: true
-  fetchAll: false
-  # Branch settings
-  branchLogCmd: 'git log --graph --color=always --abbrev-commit --decorate --date=relative --pretty=medium {{branchName}} --'
-  # Better diff algorithm
-  diffAlgorithm: 'histogram'
-  allBranchesLogCmds:
-    - git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium
-# File handling
-os:
-  # Use delta for diffs if available, fallback to less
-  diffCommand: 'delta --paging=never'
-  # Edit with your preferred editor
-  editCommand: 'vim'
-  editCommandTemplate: '{{editor}} +{{line}} {{filename}}'
-  openCommand: 'xdg-open {{filename}}'
-# Refresh settings
-refresher:
-  refreshInterval: 10
-  fetchInterval: 60
-# Confirmation settings
-confirmOnQuit: false
-quitOnTopLevelReturn: false
-# Key bindings (custom additions)
+  # 4. Interactive Commit (Legacy Support)
+  # WARNING: Ensure $DOTFILES/zsh/productivity/git-enhancements.sh exists on your new Arch system
+  # or this will fail.
+  - key: 'C'
+    context: 'files'
+    description: 'Interactive commit with DS/MLOps types'
+    command: 'zsh -c "source $DOTFILES/zsh/productivity/git-enhancements.sh && gci"'
+    loadingText: 'Opening interactive commit...'
+    output: terminal
 keybinding:
   universal:
     quit: 'q'
-    quit-alt1: '<c-c>'
     return: '<esc>'
-    quitWithoutChangingDirectory: 'Q'
-    togglePanel: '<tab>'
-    prevItem: '<up>'
-    nextItem: '<down>'
-    prevItem-alt: 'k'
-    nextItem-alt: 'j'
-    prevPage: ','
-    nextPage: '.'
-    gotoTop: '<'
-    gotoBottom: '>'
-    scrollLeft: 'H'
-    scrollRight: 'L'
-    prevBlock: '<left>'
-    nextBlock: '<right>'
-    prevBlock-alt: 'h'
-    nextBlock-alt: 'l'
-    jumpToBlock: ['1', '2', '3', '4', '5']
-    nextMatch: 'n'
-    prevMatch: 'N'
-    optionMenu: 'x'
-    optionMenu-alt1: '?'
-    select: '<space>'
-    goInto: '<enter>'
-    openRecentRepos: '<c-r>'
-    confirm: '<enter>'
-    confirm-alt1: 'y'
-    remove: 'd'
-    new: 'n'
-    edit: 'e'
-    openFile: 'o'
-    scrollUpMain: '<pgup>'
-    scrollDownMain: '<pgdown>'
-    scrollUpMain-alt1: 'K'
-    scrollDownMain-alt1: 'J'
-    scrollUpMain-alt2: '<c-u>'
-    scrollDownMain-alt2: '<c-d>'
-    executeShellCommand: ':'
-    createRebaseOptionsMenu: 'm'
-    pushFiles: 'P'
-    pullFiles: 'p'
-    refresh: 'R'
-    createPatchOptionsMenu: '<c-p>'
-    nextTab: ']'
-    prevTab: '['
-    nextScreenMode: '+'
-    prevScreenMode: '_'
-    undo: 'z'
-    redo: '<c-z>'
-    filteringMenu: '<c-s>'
-    diffingMenu: 'W'
-    diffingMenu-alt: '<c-e>'
-    copyToClipboard: '<c-o>'
-    submitEditorText: '<enter>'
-    appendNewline: '<a-enter>'
-    extrasMenu: '@'
-    toggleWhitespaceInDiffView: '<c-w>'
-  # Files panel bindings
   files:
+    # Use 'M' to open Neovim 3-pane merge tool for conflicts
+    openMergeOptions: 'M'
     commitChanges: 'c'
-    commitChangesWithoutHook: 'w'
-    amendLastCommit: 'A'
-    commitChangesWithEditor: 'C' # This will be overridden by our custom command
-    ignoreFile: 'i'
     refreshFiles: 'r'
     stashAllChanges: 's'
-    viewStashOptions: 'S'
-    toggleStagedAll: 'a'
-    viewResetOptions: 'D'
-    fetch: 'f'
-    toggleTreeView: '`'
-    openMergeTool: 'M'
-    openStatusFilter: '<c-b>'
-# Show command log
-showCommandLog: true
-# Update checking
-update:
-  method: prompt
-  days: 14
