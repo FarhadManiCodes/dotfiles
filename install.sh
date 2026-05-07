@@ -223,8 +223,9 @@ ln -sf "${DOTFILES}/Thunar/uca.xml" "${XDG_CONFIG_HOME}/Thunar/uca.xml"
 echo "Thunar configured"
 
 # =========== duckdb ===============
-echo "Setting up DuckDB""
+echo "Setting up DuckDB..."
 ln -sf "${DOTFILES}/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
+echo "DuckDB configured"
 
 #########
 # Fonts #
