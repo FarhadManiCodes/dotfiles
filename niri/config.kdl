@@ -62,12 +62,7 @@ input {
         // middle-emulation
     }
 
-    // Focus windows and outputs automatically when moving the mouse into them.
-    // Setting max-scroll-amount="0%" makes it work only on windows already fully on screen.
-    focus-follows-mouse max-scroll-amount="0%"
-
-    // Uncomment this to make the mouse warp to the center of newly focused windows.
-    warp-mouse-to-focus
+    // Click-to-focus only (no hover focus, no mouse warp on keyboard navigation)
 }
 
 // You can configure outputs by their name, which you can find
@@ -328,6 +323,12 @@ window-rule {
     open-floating true
 }
 
+// Floating scratchpad terminal (Mod+Grave)
+window-rule {
+    match app-id="scratch-term"
+    open-floating true
+}
+
 // Block password managers from screen capture for security
 // (commented out — no password manager installed yet; revisit if KeePassXC/Bitwarden added)
 /- window-rule {
@@ -393,12 +394,15 @@ binds {
     Mod+E hotkey-overlay-title="Open File Manager: thunar" { spawn "thunar"; }
     // Lock screen - using Ctrl+Alt+L (Mod+L is reserved for Vim navigation)
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
-    Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "systemctl" "suspend"; }
+    Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
 
     // Toggle waybar visibility for focus mode
     Mod+Shift+G { spawn "pkill" "-USR1" "waybar"; }
     // Dismiss all mako notifications
     Mod+N { spawn "makoctl" "dismiss" "--all"; }
+
+    // Mod+` opens a floating scratchpad terminal (quick lookups, man pages, one-offs)
+    Mod+Grave hotkey-overlay-title="Scratchpad Terminal" { spawn "footclient" "--app-id" "scratch-term"; }
 
     // Ctrl + ` (Grave) to open clipboard history at Top-Right
     Ctrl+Grave {
