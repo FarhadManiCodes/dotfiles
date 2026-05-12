@@ -258,7 +258,7 @@ layout {
 spawn-at-startup "foot" "--server"
 spawn-at-startup "waybar"
 spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
-spawn-at-startup "sh" "-c" "rm -f /tmp/wobpipe; mkfifo /tmp/wobpipe; tail -f /tmp/wobpipe | wob"
+spawn-at-startup "swayosd-server"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
 // Idle management and screen locking with swayidle
 // Timeouts: 4:50 min = dim screen, 5 min = lock, 15 min = suspend
@@ -428,11 +428,11 @@ binds {
 
     // Example volume keys mappings for PipeWire & WirePlumber.
     // The allow-when-locked=true property makes them work even when the session is locked.
-    // Audio (wob + wpctl)
-    XF86AudioRaiseVolume allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-up"; }
-    XF86AudioLowerVolume allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-down"; }
-    XF86AudioMute        allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-mute"; }
-    XF86AudioMicMute     allow-when-locked=true { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SOURCE@" "toggle"; }
+    // Audio (SwayOSD)
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
+    XF86AudioMute        allow-when-locked=true { spawn "swayosd-client" "--output-volume" "mute-toggle"; }
+    XF86AudioMicMute     allow-when-locked=true { spawn "swayosd-client" "--input-volume" "mute-toggle"; }
     // Example media keys mapping using playerctl.
     // This will work with any MPRIS-enabled media player.
     // XF86AudioPlay        allow-when-locked=true { spawn-sh "playerctl play-pause"; }
@@ -440,9 +440,9 @@ binds {
     // XF86AudioPrev        allow-when-locked=true { spawn-sh "playerctl previous"; }
     // XF86AudioNext        allow-when-locked=true { spawn-sh "playerctl next"; }
 
-    // Brightness (wob + brightnessctl)
-    XF86MonBrightnessUp   allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "brightness-up"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "brightness-down"; }
+    // Brightness (SwayOSD)
+    XF86MonBrightnessUp   allow-when-locked=true { spawn "swayosd-client" "--brightness" "raise"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "swayosd-client" "--brightness" "lower"; }
 
     // Open/close the Overview: a zoomed-out view of workspaces and windows.
     // You can also move the mouse into the top-left hot corner,

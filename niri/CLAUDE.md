@@ -33,7 +33,7 @@ The configuration is organized into these major sections:
 4. **Startup Programs**
    - waybar (status bar)
    - swaybg (wallpaper)
-   - wob (on-screen display for volume/brightness via FIFO at /tmp/wobpipe)
+   - swayosd-server (on-screen display for volume/brightness)
    - mate-polkit (authentication agent)
    - swayidle (idle management and screen locking)
    - cliphist daemon (clipboard history)
@@ -151,5 +151,5 @@ This configuration uses:
 - 5px rounded corners on all windows
 - Tmux integration via Mod+Return
 - Clipboard history via Ctrl+`
-- wob for volume/brightness OSD (blue=volume, yellow=brightness, red=muted); controlled via ~/.local/bin/wob-control
+- SwayOSD for volume/brightness feedback
 - Darkman for system-wide theme toggling (Mod+Shift+T)
