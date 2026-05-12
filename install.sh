@@ -222,12 +222,15 @@ mkdir -p "${XDG_CONFIG_HOME}/wob"
 ln -sf "${DOTFILES}/wob/wob.ini" "${XDG_CONFIG_HOME}/wob/wob.ini"
 echo "wob configured"
 
-# ============ PCManFM-Qt ==============================
-echo "Setting up PCManFM-Qt..."
-mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
-ln -sf "${DOTFILES}/pcmanfm-qt/default/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
-ln -sf "${DOTFILES}/pcmanfm-qt/default/bookmarks.xml" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
-echo "PCManFM-Qt configured"
+# ============ yazi ==============================
+echo "Setting up Yazi..."
+mkdir -p "${XDG_CONFIG_HOME}/yazi/plugins"
+ln -sf "${DOTFILES}/yazi/yazi.toml"  "${XDG_CONFIG_HOME}/yazi/yazi.toml"
+ln -sf "${DOTFILES}/yazi/keymap.toml" "${XDG_CONFIG_HOME}/yazi/keymap.toml"
+ln -sf "${DOTFILES}/yazi/init.lua"   "${XDG_CONFIG_HOME}/yazi/init.lua"
+ln -snf "${DOTFILES}/yazi/plugins/hidden-filter.yazi" \
+    "${XDG_CONFIG_HOME}/yazi/plugins/hidden-filter.yazi"
+echo "Yazi configured"
 
 # ============ mimeapps ==============================
 echo "Setting up MIME associations..."

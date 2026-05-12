@@ -1,0 +1,4 @@
+[manager]
+show_hidden = false
+show_symlinks = true
+sort_dir_first = true
