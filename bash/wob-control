@@ -24,4 +24,12 @@ case "$1" in
         brightnessctl set 5%-
         echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > /tmp/wobpipe
         ;;
+    mic-mute)
+        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+        if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
+            echo "0 mic" > /tmp/wobpipe
+        else
+            echo "100 mic" > /tmp/wobpipe
+        fi
+        ;;
 esac
