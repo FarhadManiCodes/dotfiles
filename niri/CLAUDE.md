@@ -33,7 +33,7 @@ The configuration is organized into these major sections:
 4. **Startup Programs**
    - waybar (status bar)
    - swaybg (wallpaper)
-   - swayosd-server (on-screen display for volume/brightness)
+   - wob (on-screen display for volume/brightness via FIFO at /tmp/wobpipe)
    - mate-polkit (authentication agent)
    - swayidle (idle management and screen locking)
    - cliphist daemon (clipboard history)
@@ -50,7 +50,7 @@ The configuration is organized into these major sections:
    - Vim-style navigation (Mod+H/J/K/L)
    - Workspace management
    - Window movement and resizing
-   - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private)
+   - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private, Mod+E PCManFM-Qt file manager)
    - System controls (volume, brightness, screenshots)
 
 ## Common Commands
@@ -151,5 +151,5 @@ This configuration uses:
 - 5px rounded corners on all windows
 - Tmux integration via Mod+Return
 - Clipboard history via Ctrl+`
-- SwayOSD for volume/brightness feedback
+- wob for volume/brightness OSD (blue=volume, yellow=brightness, red=muted); controlled via ~/.local/bin/wob-control
 - Darkman for system-wide theme toggling (Mod+Shift+T)

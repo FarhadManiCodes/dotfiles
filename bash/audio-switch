@@ -1,0 +1,12 @@
+#!/bin/bash
+SINK=$(pactl list sinks | awk '
+    /^\s*Name:/        { name = $2 }
+    /^\s*Description:/ { print substr($0, index($0, $2)) "\t" name }
+' | fuzzel -d -p "Audio output: " | cut -f2)
+
+[ -z "$SINK" ] && exit 0
+
+pactl set-default-sink "$SINK"
+pactl list sink-inputs short | awk '{print $1}' | while read -r id; do
+    pactl move-sink-input "$id" "$SINK"
+done

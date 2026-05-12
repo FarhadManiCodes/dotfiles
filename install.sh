@@ -216,6 +216,12 @@ ln -sf "${DOTFILES}/gtk-3.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-3.0/settings.i
 ln -sf "${DOTFILES}/gtk-4.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-4.0/settings.ini"
 echo "GTK configured"
 
+# ============ wob ==============================
+echo "Setting up wob..."
+mkdir -p "${XDG_CONFIG_HOME}/wob"
+ln -sf "${DOTFILES}/wob/wob.ini" "${XDG_CONFIG_HOME}/wob/wob.ini"
+echo "wob configured"
+
 # ============ PCManFM-Qt ==============================
 echo "Setting up PCManFM-Qt..."
 mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"

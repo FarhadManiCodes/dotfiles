@@ -258,7 +258,7 @@ layout {
 spawn-at-startup "foot" "--server"
 spawn-at-startup "waybar"
 spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
-spawn-at-startup "swayosd-server"
+spawn-at-startup "sh" "-c" "rm -f /tmp/wobpipe; mkfifo /tmp/wobpipe; tail -f /tmp/wobpipe | wob"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
 // Idle management and screen locking with swayidle
 // Timeouts: 4:50 min = dim screen, 5 min = lock, 15 min = suspend
@@ -392,6 +392,7 @@ binds {
     Mod+B hotkey-overlay-title="Open Firefox" { spawn "firefox"; }
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
     Mod+E hotkey-overlay-title="Open File Manager: pcmanfm-qt" { spawn "pcmanfm-qt"; }
+    Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "/home/farhad/.local/bin/audio-switch"; }
     // Lock screen - using Ctrl+Alt+L (Mod+L is reserved for Vim navigation)
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
@@ -427,11 +428,11 @@ binds {
 
     // Example volume keys mappings for PipeWire & WirePlumber.
     // The allow-when-locked=true property makes them work even when the session is locked.
-    // Audio (Managed by SwayOSD)
-    XF86AudioRaiseVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
-    XF86AudioLowerVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
-    XF86AudioMute        allow-when-locked=true { spawn "swayosd-client" "--output-volume" "mute-toggle"; }
-    XF86AudioMicMute     allow-when-locked=true { spawn "swayosd-client" "--input-volume" "mute-toggle"; }
+    // Audio (wob + wpctl)
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-up"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-down"; }
+    XF86AudioMute        allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-mute"; }
+    XF86AudioMicMute     allow-when-locked=true { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SOURCE@" "toggle"; }
     // Example media keys mapping using playerctl.
     // This will work with any MPRIS-enabled media player.
     // XF86AudioPlay        allow-when-locked=true { spawn-sh "playerctl play-pause"; }
@@ -439,9 +440,9 @@ binds {
     // XF86AudioPrev        allow-when-locked=true { spawn-sh "playerctl previous"; }
     // XF86AudioNext        allow-when-locked=true { spawn-sh "playerctl next"; }
 
-    // Brightness (Managed by SwayOSD)
-    XF86MonBrightnessUp   allow-when-locked=true { spawn "swayosd-client" "--brightness" "raise"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn "swayosd-client" "--brightness" "lower"; }
+    // Brightness (wob + brightnessctl)
+    XF86MonBrightnessUp   allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "brightness-up"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "brightness-down"; }
 
     // Open/close the Overview: a zoomed-out view of workspaces and windows.
     // You can also move the mouse into the top-left hot corner,
