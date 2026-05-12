@@ -238,6 +238,15 @@ echo "Setting up MIME associations..."
 ln -sf "${DOTFILES}/mimeapps.list" "${XDG_CONFIG_HOME}/mimeapps.list"
 echo "MIME associations configured"
 
+# ============ desktop files ==============================
+echo "Setting up desktop files..."
+mkdir -p "${HOME}/.local/share/applications"
+for file in "${DOTFILES}/applications/"*.desktop; do
+    ln -sf "$file" "${HOME}/.local/share/applications/"
+done
+update-desktop-database "${HOME}/.local/share/applications/"
+echo "Desktop files configured"
+
 # =========== duckdb ===============
 echo "Setting up DuckDB..."
 ln -sf "${DOTFILES}/duckdb/.duckdbrc" "${HOME}/.duckdbrc"

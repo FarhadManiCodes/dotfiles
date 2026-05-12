@@ -1,0 +1,7 @@
+#!/bin/bash
+# Open a directory in yazi inside foot terminal
+# Handles file:// URIs from Firefox/xdg-open
+path="${1:-$HOME}"
+path="${path#file://}"
+path=$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$path")
+exec foot --app-id=yazi -e yazi "$path"

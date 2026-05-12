@@ -35,6 +35,7 @@ image/svg+xml=org.gnome.gThumb.desktop;
 image/tiff=org.gnome.gThumb.desktop;
 image/webp=org.gnome.gThumb.desktop;
 image/x-icon=org.gnome.gThumb.desktop;
+inode/directory=yazi.desktop;
 message/rfc822=org.mozilla.Thunderbird.desktop;
 text/calendar=org.mozilla.Thunderbird.desktop;
 text/csv=nvim.desktop;libreoffice-calc.desktop;

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Yazi
+Comment=Terminal file manager
+Exec=/home/farhad/.local/bin/yazi-open %u
+Terminal=false
+Type=Application
+MimeType=inode/directory;
+Categories=FileManager;
+Icon=utilities-terminal
