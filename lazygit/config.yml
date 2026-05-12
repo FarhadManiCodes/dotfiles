@@ -37,10 +37,10 @@ gui:
     show: true
 git:
   # Paging: Use Delta (as configured in your.gitconfig)
-  paging:
-    colorArg: always
-    pager: delta --dark --paging=never
-    useConfig: false
+  pagers:
+    - colorArg: always
+      pager: delta --dark --paging=never
+      useConfig: false
   # Merging strategy
   merging:
     # This ensures Lazygit respects the [mergetool "nvimdiff"] in your.gitconfig
