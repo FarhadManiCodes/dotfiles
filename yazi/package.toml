@@ -1,0 +1,17 @@
+[[plugin.deps]]
+use = "yazi-rs/plugins:git"
+rev = "1db18bb"
+hash = "c8d30a70659f1b880407e61c564ab4e8"
+
+[[plugin.deps]]
+use = "yazi-rs/plugins:jump-to-char"
+rev = "1db18bb"
+hash = "7a4b4237223aaa94e589d1c01a23542a"
+
+[[plugin.deps]]
+use = "yazi-rs/plugins:piper"
+rev = "1db18bb"
+hash = "384464b6df8cb807425c521f8cd790f3"
+
+[flavor]
+deps = []

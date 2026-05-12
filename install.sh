@@ -225,12 +225,13 @@ echo "wob configured"
 # ============ yazi ==============================
 echo "Setting up Yazi..."
 mkdir -p "${XDG_CONFIG_HOME}/yazi/plugins"
-ln -sf "${DOTFILES}/yazi/yazi.toml"  "${XDG_CONFIG_HOME}/yazi/yazi.toml"
-ln -sf "${DOTFILES}/yazi/keymap.toml" "${XDG_CONFIG_HOME}/yazi/keymap.toml"
-ln -sf "${DOTFILES}/yazi/init.lua"   "${XDG_CONFIG_HOME}/yazi/init.lua"
+ln -sf "${DOTFILES}/yazi/yazi.toml"    "${XDG_CONFIG_HOME}/yazi/yazi.toml"
+ln -sf "${DOTFILES}/yazi/keymap.toml"  "${XDG_CONFIG_HOME}/yazi/keymap.toml"
+ln -sf "${DOTFILES}/yazi/init.lua"     "${XDG_CONFIG_HOME}/yazi/init.lua"
+ln -sf "${DOTFILES}/yazi/package.toml" "${XDG_CONFIG_HOME}/yazi/package.toml"
 ln -snf "${DOTFILES}/yazi/plugins/hidden-filter.yazi" \
     "${XDG_CONFIG_HOME}/yazi/plugins/hidden-filter.yazi"
-echo "Yazi configured"
+echo "Yazi configured (run 'ya pkg install' to restore managed plugins)"
 
 # ============ mimeapps ==============================
 echo "Setting up MIME associations..."
