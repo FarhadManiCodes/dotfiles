@@ -770,11 +770,6 @@ _samply_select() {
     _pick_and_run "samply — Select Target" "samply record"
 }
 
-cmd_heaptrack() {
-    command -v heaptrack &>/dev/null || die "heaptrack not found. Install: sudo pacman -S heaptrack"
-    command -v fzf       &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
-    _pick_and_run "heaptrack — Select Target" "heaptrack"
-}
 
 cmd_help() {
     printf '\ntmux-cpp-tools — C++ workflow helper\n\n'
@@ -825,7 +820,7 @@ case "$subcommand" in
     perf-stat|_perf-stat-select)   _perf_stat_select ;;
     perf-record|_perf-record-select) _perf_record_select ;;
     samply|_samply-select)         _samply_select ;;
-    heaptrack)          cmd_heaptrack ;;
+
     is-cpp-project) find_project_root > /dev/null ;;
     help|--help|-h) cmd_help ;;
     *)

@@ -216,11 +216,17 @@ ln -sf "${DOTFILES}/gtk-3.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-3.0/settings.i
 ln -sf "${DOTFILES}/gtk-4.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-4.0/settings.ini"
 echo "GTK configured"
 
-# ============ Thunar ==============================
-echo "Setting up Thunar..."
-mkdir -p "${XDG_CONFIG_HOME}/Thunar"
-ln -sf "${DOTFILES}/Thunar/uca.xml" "${XDG_CONFIG_HOME}/Thunar/uca.xml"
-echo "Thunar configured"
+# ============ PCManFM-Qt ==============================
+echo "Setting up PCManFM-Qt..."
+mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
+ln -sf "${DOTFILES}/pcmanfm-qt/default/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+ln -sf "${DOTFILES}/pcmanfm-qt/default/bookmarks.xml" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
+echo "PCManFM-Qt configured"
+
+# ============ mimeapps ==============================
+echo "Setting up MIME associations..."
+ln -sf "${DOTFILES}/mimeapps.list" "${XDG_CONFIG_HOME}/mimeapps.list"
+echo "MIME associations configured"
 
 # =========== duckdb ===============
 echo "Setting up DuckDB..."

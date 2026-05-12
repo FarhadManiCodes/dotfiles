@@ -41,7 +41,7 @@ The configuration is organized into these major sections:
 
 5. **Window Rules**
    - Firefox picture-in-picture: floating
-   - Thunar file picker (open/save dialogs): floating
+   - PCManFM-Qt file picker (open/save dialogs): floating
    - Password managers (KeePassXC, GNOME Secrets, Bitwarden, 1Password): blocked from screen capture
    - Global 5px rounded corners for all windows
    - Default column width (50%): Firefox, Zathura, foot
