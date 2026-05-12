@@ -3,7 +3,7 @@ application/pdf=org.pwmt.zathura-pdf-mupdf.desktop;firefox.desktop;
 text/csv=nvim.desktop;libreoffice-calc.desktop;
 
 [Default Applications]
-application/epub+zip=calibre-ebook-viewer.desktop;
+application/epub+zip=org.pwmt.zathura-pdf-mupdf.desktop;
 application/gzip=pcmanfm-qt.desktop;
 application/json=nvim.desktop;
 application/pdf=org.pwmt.zathura-pdf-mupdf.desktop;firefox.desktop;

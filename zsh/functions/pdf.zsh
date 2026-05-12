@@ -33,6 +33,7 @@ rgbook() {
       --preview "rga --context 3 --no-heading {q} '$sp/{1}' 2>/dev/null | head -20" \
       --preview-window='hidden,right:50%' \
       --bind 'ctrl-p:toggle-preview' \
+      --bind 'ctrl-d:accept' \
       --expect='ctrl-d' \
       --header='Enter: open at page | Ctrl-d: cd to folder')
 
@@ -82,6 +83,7 @@ fbook() {
     fzf --preview "pdfinfo \"$search_path/{}\" 2>/dev/null || echo 'No info available'" \
         --preview-window='hidden,right:40%' \
         --bind 'ctrl-p:toggle-preview' \
+        --bind 'ctrl-d:accept' \
         --expect='ctrl-d' \
         --header='Enter: open | Ctrl-d: cd to folder')
 
