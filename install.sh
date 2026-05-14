@@ -197,6 +197,16 @@ mkdir -p "${XDG_CONFIG_HOME}/clangd"
 ln -sf "${DOTFILES}/clangd/config.yaml" "${XDG_CONFIG_HOME}/clangd/config.yaml"
 echo "Clangd configured"
 
+# ============ spotify-player ==============================
+echo "Setting up spotify-player..."
+mkdir -p "${XDG_CONFIG_HOME}/spotify-player"
+ln -sf "${DOTFILES}/spotify-player/theme.toml" "${XDG_CONFIG_HOME}/spotify-player/theme.toml"
+if [[ ! -f "${XDG_CONFIG_HOME}/spotify-player/app.toml" ]]; then
+    cp "${DOTFILES}/spotify-player/app.toml" "${XDG_CONFIG_HOME}/spotify-player/app.toml"
+    echo "  Created app.toml template -- fill in your client_id"
+fi
+echo "spotify-player configured"
+
 # ============ handlr ==============================
 echo "Setting up Handlr..."
 mkdir -p "${XDG_CONFIG_HOME}/handlr"

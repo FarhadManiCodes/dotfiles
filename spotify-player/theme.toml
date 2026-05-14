@@ -1,0 +1,26 @@
+[[themes]]
+name = "spotify"
+
+[themes.palette]
+background = "#121212"
+foreground = "#FFFFFF"
+black      = "#535353"
+red        = "#E61B4A"
+green      = "#1DB954"
+yellow     = "#F5A623"
+blue       = "#2D46B9"
+magenta    = "#8B5CF6"
+cyan       = "#1ED760"
+white      = "#B3B3B3"
+bright_black   = "#535353"
+bright_red     = "#E61B4A"
+bright_green   = "#1ED760"
+bright_yellow  = "#F5A623"
+bright_blue    = "#4F73E3"
+bright_magenta = "#A78BFA"
+bright_cyan    = "#1ED760"
+bright_white   = "#FFFFFF"
+
+[themes.component_style]
+like      = { fg = "Green", modifiers = ["Bold"] }
+selection = { bg = "Green", fg = "#1A1A4E", modifiers = ["Bold"] }
