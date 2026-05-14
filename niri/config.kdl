@@ -389,6 +389,7 @@ binds {
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
     Mod+E hotkey-overlay-title="Open File Manager: yazi" { spawn "foot" "--app-id=yazi" "-e" "yazi"; }
     Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "/home/farhad/.local/bin/audio-switch"; }
+    Mod+M hotkey-overlay-title="Media Controls" { spawn "media-menu.sh"; }
     // Lock screen - using Ctrl+Alt+L (Mod+L is reserved for Vim navigation)
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
