@@ -9,7 +9,7 @@ window#waybar {
     background-color: transparent;
 }
 
-#workspaces, #clock, #window, #network, #privacy, #battery, #tray {
+#workspaces, #clock, #window, #connectivity, #privacy, #battery, #tray {
     background-color: #1e1e2e;
     color: #cdd6f4;
     padding: 0 15px;
@@ -56,6 +56,11 @@ window#waybar {
 
 #network {
     color: #a6e3a1;
+}
+
+#bluetooth {
+    color: #89b4fa;
+    padding-right: 15px;
 }
 
 /* --- TOOLTIP STYLING --- */

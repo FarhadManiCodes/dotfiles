@@ -14,7 +14,7 @@
         "clock"
     ],
     "modules-right": [
-        "network",
+        "group/connectivity",
         "privacy",
         "battery",
         "tray"
@@ -84,6 +84,19 @@
         },
         // Your custom click to open Thunderbird
         "on-click": "firefox --new-window https://calendar.google.com/calendar/r/month"
+    },
+    "group/connectivity": {
+        "orientation": "horizontal",
+        "modules": ["bluetooth", "network"]
+    },
+    "bluetooth": {
+        "format": "󰂯",
+        "format-connected": "󰂱",
+        "format-off": "",
+        "format-disabled": "",
+        "tooltip-format": "Bluetooth on",
+        "tooltip-format-connected": "{device_alias}",
+        "on-click": "foot -e bluetui"
     },
     "network": {
         // No "interface" line lets it auto-detect the default route
