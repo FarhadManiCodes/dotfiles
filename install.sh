@@ -270,6 +270,9 @@ mkdir -p "${XDG_DATA_HOME}"
 cp -rf "${DOTFILES}/fonts" "${XDG_DATA_HOME}"
 echo "✅ Fonts installed"
 
+# ============ audio directory ==============================
+mkdir -p "${HOME}/Audio/Recordings"
+
 # ============ helper scripts ==============================
 echo "🛠️  Installing helper scripts..."
 mkdir -p "${HOME}/.local/bin"
