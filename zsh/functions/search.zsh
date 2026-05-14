@@ -83,9 +83,9 @@ rgtex() { _rg_live "-g '*.tex' -g '*.sty' -g '*.cls' -g '*.bib'" "$@"; }
 rgpy() { _rg_live "--type py" "$@"; }
 
 # ----------------------------------------------------------------------------
-# ff - find file by name → open in nvim
+# ff - find file by name → open with handlr (xdg-open fallback)
 # Usage: ff [pattern]
-# Keys: Enter → nvim, Ctrl-d → cd to folder, Ctrl-o → open folder
+# Keys: Enter → open | Ctrl-d → cd | Ctrl-o → open folder
 # ----------------------------------------------------------------------------
 ff() {
   local result=$(fd --type f "$@" 2>/dev/null | \
@@ -93,7 +93,7 @@ ff() {
         --preview-window='hidden,right:60%' \
         --bind 'ctrl-p:toggle-preview' \
         --expect='ctrl-d,ctrl-o' \
-        --header='Enter: nvim | Ctrl-d: cd | Ctrl-o: open folder')
+        --header='Enter: open | Ctrl-d: cd | Ctrl-o: open folder')
 
   [[ -z "$result" ]] && return 0
 
@@ -110,7 +110,7 @@ ff() {
       xdg-open "$(dirname "$file")" 2>/dev/null &
       ;;
     *)
-      nvim "$file"
+      xdg-open "$file" 2>/dev/null &
       ;;
   esac
 }
