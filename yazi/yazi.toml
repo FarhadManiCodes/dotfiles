@@ -3,6 +3,12 @@ show_hidden = false
 show_symlinks = true
 sort_dir_first = true
 
+[preview]
+max_width     = 500
+max_height    = 500
+image_quality = 50
+image_filter  = "triangle"
+
 [[plugin.prepend_fetchers]]
 url   = "*"
 run   = "git"
