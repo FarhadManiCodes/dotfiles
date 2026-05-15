@@ -138,6 +138,14 @@ command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
 
 # Direnv
 command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
+# Skip direnv inside cloud FUSE mounts — stat calls are slow over rclone, no .envrc needed there
+if typeset -f _direnv_hook >/dev/null 2>&1; then
+  eval "_direnv_hook_base() { ${functions[_direnv_hook]} }"
+  _direnv_hook() {
+    [[ $PWD == $HOME/Cloud || $PWD == $HOME/Cloud/* ]] && return 0
+    _direnv_hook_base
+  }
+fi
 
 # FZF integration
 command -v fzf >/dev/null 2>&1 && source <(fzf --zsh) 2>/dev/null
