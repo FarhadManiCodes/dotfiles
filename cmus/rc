@@ -1,0 +1,6 @@
+colorscheme gruvbox
+set resume=true
+set show_remaining_time=false
+set replaygain=1
+set replaygain_preamp=0
+set softvol=false

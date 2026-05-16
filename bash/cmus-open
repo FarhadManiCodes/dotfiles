@@ -1,0 +1,9 @@
+#!/bin/bash
+# Open audio file in cmus; launch cmus in foot if not running.
+# If cmus is already running, play the file immediately via cmus-remote.
+FILE="$1"
+if cmus-remote -Q &>/dev/null 2>&1; then
+    [ -n "$FILE" ] && cmus-remote -f "$FILE"
+else
+    exec foot --app-id=cmus -e cmus
+fi

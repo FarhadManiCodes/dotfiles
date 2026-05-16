@@ -111,6 +111,12 @@ mkdir -p "${XDG_CONFIG_HOME}/mpv"
 ln -sf "${DOTFILES}/mpv/mpv.conf" "${XDG_CONFIG_HOME}/mpv/mpv.conf"
 echo "Mpv configured"
 
+# ============ cmus ==============================
+echo "Setting up cmus..."
+mkdir -p "${XDG_CONFIG_HOME}/cmus"
+ln -sf "${DOTFILES}/cmus/rc" "${XDG_CONFIG_HOME}/cmus/rc"
+echo "cmus configured"
+
 # ============ direnv ==============================
 echo "Setting up Direnv..."
 mkdir -p "${XDG_CONFIG_HOME}/direnv"
