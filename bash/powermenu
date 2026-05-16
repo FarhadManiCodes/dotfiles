@@ -3,6 +3,7 @@
 # --- Styling (Catppuccin Mocha / Danger context) ---
 FUZZEL_ARGS=(
     --dmenu
+    --no-sort
     --anchor top-right
     --width 12
     --lines 5
