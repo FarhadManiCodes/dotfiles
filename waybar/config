@@ -14,6 +14,7 @@
         "clock"
     ],
     "modules-right": [
+        "custom/usb",
         "group/connectivity",
         "privacy",
         "battery",
@@ -146,6 +147,14 @@
         ],
         "swap-icon-label": false,
         "on-click": "~/.local/bin/powermenu"
+    },
+    "custom/usb": {
+        "exec": "usb-status",
+        "return-type": "json",
+        "interval": 3,
+        "on-click": "usb-open-yazi",
+        "on-click-right": "usb-open-yazi right",
+        "format": "{}"
     },
     "tray": {
         "icon-size": 14,

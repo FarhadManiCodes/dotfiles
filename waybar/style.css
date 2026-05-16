@@ -63,6 +63,21 @@ window#waybar {
     padding-right: 15px;
 }
 
+/* --- USB MODULE --- */
+#custom-usb {
+    background-color: #1e1e2e;
+    color: #f9e2af;
+    padding: 0 15px;
+    margin: 0 5px;
+    border-radius: 20px;
+    border: 2px solid #313244;
+}
+
+#custom-usb.connected {
+    color: #a6e3a1;
+    border-color: #a6e3a1;
+}
+
 /* --- TOOLTIP STYLING --- */
 tooltip {
     background: #1e1e2e;     /* Match the bar background */

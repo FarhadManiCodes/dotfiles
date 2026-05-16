@@ -1,0 +1,54 @@
+#!/bin/bash
+# Left-click: open yazi at USB/MTP mount point
+# Right-click (arg "right"): unmount with udiskie (block) or gio (MTP)
+
+MEDIA_DIR="/run/media/$USER"
+GVFS_DIR="/run/user/$(id -u)/gvfs"
+mounts=()   # paths
+labels=()   # display names
+
+# Block devices
+while IFS= read -r -d '' entry; do
+    mounts+=("$entry")
+    labels+=("$(basename "$entry")")
+done < <(find "$MEDIA_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+
+# MTP devices
+while IFS= read -r -d '' entry; do
+    mounts+=("$entry")
+    labels+=("$(basename "$entry")")
+done < <(find "$GVFS_DIR" -mindepth 1 -maxdepth 1 -name 'mtp:*' -type d -print0 2>/dev/null)
+
+count=${#mounts[@]}
+[[ $count -eq 0 ]] && exit 0
+
+pick_mount() {
+    local prompt="$1"
+    if [[ $count -eq 1 ]]; then
+        echo "${mounts[0]}"
+    else
+        chosen=$(printf '%s\n' "${labels[@]}" | fuzzel --dmenu --prompt "$prompt")
+        [[ -z "$chosen" ]] && exit 0
+        for i in "${!labels[@]}"; do
+            [[ "${labels[$i]}" == "$chosen" ]] && echo "${mounts[$i]}" && return
+        done
+    fi
+}
+
+if [[ "${1}" == "right" ]]; then
+    chosen=$(printf '%s\n' "${labels[@]}" | fuzzel --dmenu --prompt "Unmount: ")
+    [[ -z "$chosen" ]] && exit 0
+    path=""
+    for i in "${!labels[@]}"; do
+        [[ "${labels[$i]}" == "$chosen" ]] && path="${mounts[$i]}" && break
+    done
+    [[ -z "$path" ]] && exit 0
+    if [[ "$path" == "$GVFS_DIR"* ]]; then
+        gio mount -u "$path"
+    else
+        udiskie-umount "$path"
+    fi
+else
+    path=$(pick_mount "Open USB: ")
+    foot -e yazi "$path"
+fi
