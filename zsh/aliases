@@ -135,6 +135,7 @@ command -v pavucontrol >/dev/null 2>&1 && alias pavucontrol='GTK_THEME=Adwaita:d
 if command -v handlr >/dev/null 2>&1; then
   alias o="handlr open"
   alias xdg-open="handlr open"
+  compdef _files o xdg-open
 fi
 
 # ============================================================================
