@@ -398,6 +398,8 @@ binds {
 
     // Dismiss all fnott notifications
     Mod+N { spawn "fnottctl" "dismiss"; }
+    // Invoke actions on the current fnott notification (opens fuzzel picker)
+    Mod+Shift+N { spawn "fnottctl" "actions"; }
 
     // Mod+` opens a floating scratchpad terminal (quick lookups, man pages, one-offs)
     Mod+Grave hotkey-overlay-title="Scratchpad Terminal" { spawn "footclient" "--app-id" "scratch-term"; }

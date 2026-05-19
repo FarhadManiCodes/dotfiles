@@ -32,8 +32,8 @@ wifi_monitor() {
                 iface=$(wifi_iface)
                 ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
                 ( action=$(notify-send -u normal "${WIFI}  Connected — ${ssid:-WiFi}" \
-                      -A "wifi=Open WiFi" 2>/dev/null)
-                  [ "$action" = "wifi" ] && foot -e impala ) &
+                      -A "default=Open WiFi" 2>/dev/null)
+                  [ "$action" = "default" ] && foot -e impala ) &
             elif [[ "$next_line" == *'"disconnected"'* ]]; then
                 notify-send -u critical "${WARN}  WiFi disconnected"
             fi
