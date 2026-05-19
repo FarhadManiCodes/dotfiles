@@ -1,0 +1,11 @@
+#!/bin/bash
+# Battery level notifications via batsignal.
+# Thresholds: full 80% (ThinkPad charge limit), warning 30%, critical 10%, danger 5%.
+# Plug/unplug handled separately by power-notify.
+
+exec /usr/bin/batsignal \
+    -f 80 -F "󰁹 Fully charged" \
+    -w 30 -W "󰁻 Battery low" \
+    -c 10 -C "󰂃 Battery critical" \
+    -d 5 -D "notify-send -u critical '󰂎 Battery danger — plug in now!'" \
+    -m 60
