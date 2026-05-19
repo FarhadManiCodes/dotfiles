@@ -102,7 +102,7 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 
 - `niri/config.kdl` — keybindings, workspaces, window rules
 - `waybar/` — archived config (not installed)
-- `fnott/fnott.ini` — notification daemon (actions via fuzzel)
+- `mako/config` — notification daemon
 - `fuzzel/fuzzel.ini` — app launcher
 - `swaylock/config` — lock screen
 - `sway/config` — fallback compositor
