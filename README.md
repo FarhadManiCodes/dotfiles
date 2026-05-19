@@ -95,7 +95,7 @@ dotfiles/
 ├── foot/foot.ini
 ├── sway/config             # Fallback compositor
 ├── swaylock/config
-├── mako/config
+├── fnott/fnott.ini
 ├── fuzzel/fuzzel.ini
 ├── lazygit/config.yml
 ├── ptpython/config.py
