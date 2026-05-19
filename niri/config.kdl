@@ -391,13 +391,15 @@ binds {
     Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "/home/farhad/.local/bin/audio-switch"; }
     Mod+Shift+B hotkey-overlay-title="Bluetooth Manager" { spawn "foot" "-e" "bluetui"; }
     Mod+Shift+W hotkey-overlay-title="WiFi Manager" { spawn "foot" "-e" "impala"; }
+    Mod+Shift+M hotkey-overlay-title="Mic Input Control" { spawn "mic-control"; }
     Mod+M hotkey-overlay-title="Media Controls" { spawn "media-menu.sh"; }
     // Lock screen - using Ctrl+Alt+L (Mod+L is reserved for Vim navigation)
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
 
-    // Dismiss all mako notifications
-    Mod+N { spawn "makoctl" "dismiss" "--all"; }
+    // fnott notification controls
+    Mod+N { spawn "fnottctl" "dismiss"; }
+    Mod+Shift+N { spawn "fnottctl" "actions"; }
 
     // Mod+` opens a floating scratchpad terminal (quick lookups, man pages, one-offs)
     Mod+Grave hotkey-overlay-title="Scratchpad Terminal" { spawn "footclient" "--app-id" "scratch-term"; }

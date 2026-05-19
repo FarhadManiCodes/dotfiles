@@ -1,12 +1,30 @@
 #!/bin/bash
-SINK=$(pactl list sinks | awk '
+# Switch default audio output via fuzzel dmenu. Active sink marked with *.
+
+default_sink=$(pactl get-default-sink 2>/dev/null)
+declare -A sink_names
+entries=""
+
+while IFS=$'\t' read -r desc name; do
+    marker="  "
+    [[ "$name" == "$default_sink" ]] && marker="* "
+    label="${marker}${desc}"
+    sink_names["$label"]="$name"
+    entries+="${label}\n"
+done < <(pactl list sinks | awk '
     /^\s*Name:/        { name = $2 }
     /^\s*Description:/ { print substr($0, index($0, $2)) "\t" name }
-' | fuzzel -d -p "Audio output: " | cut -f2)
+')
 
-[ -z "$SINK" ] && exit 0
+[ -z "$entries" ] && exit 0
 
-pactl set-default-sink "$SINK"
+selected=$(printf '%b' "$entries" | fuzzel --dmenu --prompt " Audio  " --width 50)
+[[ -z "$selected" ]] && exit 0
+
+sink="${sink_names[$selected]}"
+[[ -z "$sink" ]] && exit 0
+
+pactl set-default-sink "$sink"
 pactl list sink-inputs short | awk '{print $1}' | while read -r id; do
-    pactl move-sink-input "$id" "$SINK"
+    pactl move-sink-input "$id" "$sink"
 done
