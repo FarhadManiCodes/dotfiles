@@ -397,9 +397,8 @@ binds {
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
 
-    // fnott notification controls
-    Mod+N { spawn "fnottctl" "dismiss"; }
-    Mod+Shift+N { spawn "fnottctl" "actions"; }
+    // Dismiss all mako notifications
+    Mod+N { spawn "makoctl" "dismiss" "--all"; }
 
     // Mod+` opens a floating scratchpad terminal (quick lookups, man pages, one-offs)
     Mod+Grave hotkey-overlay-title="Scratchpad Terminal" { spawn "footclient" "--app-id" "scratch-term"; }
