@@ -287,6 +287,15 @@ for file in "${DOTFILES}/bash/"*; do
 done
 echo "✅ Helper scripts installed"
 
+# ============ systemd user services ==============================
+echo "⚙️  Installing systemd user services..."
+mkdir -p "${HOME}/.config/systemd/user"
+for file in "${DOTFILES}/systemd/user/"*.service; do
+  ln -sf "$file" "${HOME}/.config/systemd/user/"
+done
+systemctl --user daemon-reload
+echo "✅ Systemd user services installed"
+
 echo ""
 echo "🎉 Dotfiles installation complete!"
 echo ""

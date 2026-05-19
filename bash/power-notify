@@ -1,0 +1,15 @@
+#!/bin/bash
+# Event-based charger plug/unplug notifications via udevadm (zero polling).
+# Uses AC POWER_SUPPLY_ONLINE — BAT0 status never changes on this ThinkPad
+# due to the 80% charge limit keeping it permanently at "Not charging".
+
+in_ac_event=false
+
+while IFS= read -r line; do
+    case "$line" in
+        "")                      in_ac_event=false ;;
+        "POWER_SUPPLY_NAME=AC")  in_ac_event=true ;;
+        "POWER_SUPPLY_ONLINE=1") $in_ac_event && notify-send -u normal   "󱟢 Plugged in" ;;
+        "POWER_SUPPLY_ONLINE=0") $in_ac_event && notify-send -u critical "󱟣 Unplugged" ;;
+    esac
+done < <(udevadm monitor --subsystem-match=power_supply --udev --property)

@@ -1,0 +1,11 @@
+[Unit]
+Description=Battery charger plug/unplug notifications
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/power-notify
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
