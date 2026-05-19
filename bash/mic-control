@@ -4,15 +4,26 @@
 default_source=$(pactl get-default-source 2>/dev/null)
 
 entries=""
-while IFS=$'\t' read -r idx name _rest; do
+declare -A kill_ids
+
+# Input sources
+while IFS=$'\t' read -r _idx name _rest; do
     marker="  "
     [[ "$name" == "$default_source" ]] && marker="* "
     entries+="[src] ${marker}${name}\n"
 done < <(pactl list short sources 2>/dev/null | grep -v monitor)
 
-while IFS= read -r line; do
-    entries+="[kill] ${line}\n"
-done < <(pactl list source-outputs short 2>/dev/null | awk '{print $1 " \xe2\x80\x94 " $4}')
+# Active recordings — use PipeWire object.id (not pactl index) for pw-cli destroy
+while IFS=$'\t' read -r oid name; do
+    label="[kill] ${name}"
+    kill_ids["$label"]="$oid"
+    entries+="${label}\n"
+done < <(pactl list source-outputs 2>/dev/null | awk '
+    /^Source Output #/ { if (oid && name) print oid "\t" name; oid=""; name="" }
+    /object\.id =/     { gsub(/"/, "", $NF); oid=$NF }
+    /application\.name =/ { match($0, /"([^"]+)"/, a); name=a[1] }
+    END                { if (oid && name) print oid "\t" name }
+')
 
 [ -z "$entries" ] && { notify-send "Mic Control" "No inputs or recordings found"; exit 0; }
 
@@ -24,7 +35,6 @@ if [[ "$selected" == "[src]"* ]]; then
     pactl set-default-source "$name"
     notify-send -u low " Default input: $name"
 elif [[ "$selected" == "[kill]"* ]]; then
-    idx=$(echo "$selected" | awk '{print $2}')
-    pactl kill-source-output "$idx"
-    notify-send -u low " Recording stopped"
+    oid="${kill_ids[$selected]}"
+    [[ -n "$oid" ]] && pw-cli destroy "$oid" && notify-send -u low " Recording stopped"
 fi
