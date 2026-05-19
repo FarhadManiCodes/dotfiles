@@ -1,23 +1,31 @@
 #!/bin/bash
 # Status check menu — fuzzel dmenu, each selection fires a notification.
 
-choice=$(printf 'Battery\nUptime\nCPU Temp\nMemory' | fuzzel --dmenu --prompt " Status  " --width 30 --lines 4)
+choice=$(printf ' Battery\n Uptime\n CPU Temp\n Memory' | fuzzel --dmenu --prompt " Status  " --width 30 --lines 4)
 [[ -z "$choice" ]] && exit 0
 
 case "$choice" in
-    Battery)
+    *Battery*)
         cap=$(cat /sys/class/power_supply/BAT0/capacity)
         status=$(cat /sys/class/power_supply/BAT0/status)
-        notify-send -u low " Battery" "${cap}% — ${status}"
+        if [[ "$status" == "Charging" ]]; then
+            icon=" "
+        elif (( cap >= 80 )); then icon=""
+        elif (( cap >= 60 )); then icon=""
+        elif (( cap >= 40 )); then icon=""
+        elif (( cap >= 20 )); then icon=""
+        else icon=""
+        fi
+        notify-send -u low "${icon} Battery" "${cap}% — ${status}"
         ;;
-    Uptime)
+    *Uptime*)
         notify-send -u low " Uptime" "$(uptime -p)"
         ;;
-    "CPU Temp")
+    *"CPU Temp"*)
         temp=$(sensors 2>/dev/null | awk '/Tctl/{gsub(/[+°C]/,"",$2); print $2; exit}')
         notify-send -u low " CPU Temp" "${temp:+${temp}°C}"
         ;;
-    Memory)
+    *Memory*)
         mem=$(free -h | awk '/^Mem/{print $3 " used / " $2 " total"}')
         notify-send -u low " Memory" "$mem"
         ;;
