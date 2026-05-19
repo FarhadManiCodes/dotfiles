@@ -1,0 +1,33 @@
+#!/bin/bash
+# Mic control: switch default input source or kill active recordings.
+
+default_source=$(pactl get-default-source 2>/dev/null)
+source_entries=""
+while IFS=$'\t' read -r idx name _rest; do
+    marker="  "
+    [[ "$name" == "$default_source" ]] && marker="* "
+    source_entries+="[src] ${marker}${name}\n"
+done < <(pactl list short sources 2>/dev/null | grep -v monitor)
+
+recording_entries=""
+while IFS= read -r line; do
+    recording_entries+="[kill] ${line}\n"
+done < <(pactl list source-outputs short 2>/dev/null | awk '{print $1 " \xe2\x80\x94 " $4}')
+
+menu="${source_entries}${recording_entries}"
+[ -z "$menu" ] && { notify-send "Mic Control" "No inputs or recordings found"; exit 0; }
+
+selected=$(printf '%b' "$menu" | fzf --prompt=" Mic > " --height=40% --reverse \
+    --header="[src] set default  [kill] stop recording")
+
+[[ -z "$selected" ]] && exit 0
+
+if [[ "$selected" == "[src]"* ]]; then
+    name=$(echo "$selected" | sed 's/\[src\] [* ] //')
+    pactl set-default-source "$name"
+    notify-send -u low " Default input: $name"
+elif [[ "$selected" == "[kill]"* ]]; then
+    idx=$(echo "$selected" | awk '{print $2}')
+    pactl kill-source-output "$idx"
+    notify-send -u low " Recording stopped"
+fi
