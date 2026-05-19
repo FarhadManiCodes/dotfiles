@@ -11,9 +11,7 @@ pactl subscribe 2>/dev/null | while IFS= read -r line; do
     count=$(pactl list source-outputs short 2>/dev/null | wc -l)
     if [ "$count" -gt 0 ] && [ "$prev_active" = false ]; then
         prev_active=true
-        ( action=$(notify-send -u critical "${MIC} Microphone active" \
-              -A "default=Manage Inputs" 2>/dev/null)
-          [ "$action" = "default" ] && foot -e mic-control ) &
+        notify-send -u critical "${MIC} Microphone active"
     elif [ "$count" -eq 0 ] && [ "$prev_active" = true ]; then
         prev_active=false
         notify-send -u normal "${MIC_OFF} Microphone released"
