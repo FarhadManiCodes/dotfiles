@@ -1,0 +1,19 @@
+#!/bin/bash
+# Event-based microphone active/released notifications via pactl subscribe.
+# Notifies on first source-output open and last close to avoid spam.
+
+MIC=$(printf '')
+MIC_OFF=$(printf '')
+prev_active=false
+
+pactl subscribe 2>/dev/null | while IFS= read -r line; do
+    [[ "$line" == *"on source-output"* ]] || continue
+    count=$(pactl list source-outputs short 2>/dev/null | wc -l)
+    if [ "$count" -gt 0 ] && [ "$prev_active" = false ]; then
+        prev_active=true
+        notify-send -u critical "${MIC} Microphone active"
+    elif [ "$count" -eq 0 ] && [ "$prev_active" = true ]; then
+        prev_active=false
+        notify-send -u normal "${MIC_OFF} Microphone released"
+    fi
+done
