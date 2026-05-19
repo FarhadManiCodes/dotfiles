@@ -129,11 +129,17 @@ mkdir -p "${XDG_CONFIG_HOME}/ripgrep-all"
 ln -sf "${DOTFILES}/ripgrep-all/config.jsonc" "${XDG_CONFIG_HOME}/ripgrep-all/config.jsonc"
 echo "ripgrep-all configured"
 
-# ============ mako ==============================
-echo "Setting up Mako..."
-mkdir -p "${XDG_CONFIG_HOME}/mako"
-ln -sf "${DOTFILES}/mako/config" "${XDG_CONFIG_HOME}/mako/config"
-echo "Mako configured"
+# ============ fnott ==============================
+echo "Setting up fnott..."
+mkdir -p "${XDG_CONFIG_HOME}/fnott"
+ln -sf "${DOTFILES}/fnott/fnott.ini" "${XDG_CONFIG_HOME}/fnott/fnott.ini"
+echo "fnott configured"
+
+# ============ udiskie ==============================
+echo "Setting up udiskie..."
+mkdir -p "${XDG_CONFIG_HOME}/udiskie"
+ln -sf "${DOTFILES}/udiskie/config.yml" "${XDG_CONFIG_HOME}/udiskie/config.yml"
+echo "udiskie configured"
 
 # ============ fuzzel ==============================
 echo "Setting up Fuzzel..."
