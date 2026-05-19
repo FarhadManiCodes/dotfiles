@@ -5,6 +5,7 @@
 anchor=top-right
 layer=overlay
 width=360
+height=120
 margin=10,10,0,0
 padding=12,16
 
