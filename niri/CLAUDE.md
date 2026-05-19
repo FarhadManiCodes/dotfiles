@@ -31,7 +31,6 @@ The configuration is organized into these major sections:
    - Struts for outer gaps
 
 4. **Startup Programs**
-   - waybar (status bar)
    - swaybg (wallpaper)
    - wob (on-screen display for volume/brightness via FIFO at /tmp/wobpipe)
    - mate-polkit (authentication agent)
@@ -152,4 +151,4 @@ This configuration uses:
 - Tmux integration via Mod+Return
 - Clipboard history via Ctrl+`
 - wob for volume/brightness OSD (blue=volume, yellow=brightness, red=muted); controlled via ~/.local/bin/wob-control
-- Darkman for system-wide theme toggling (Mod+Shift+T)
+- Foot theme toggle via Mod+Alt+T (toggle-foot-theme.sh)
