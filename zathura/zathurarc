@@ -20,7 +20,6 @@ set default-fg                  "#ebdbb2"
 set recolor-lightcolor          "#282828"
 set recolor-darkcolor           "#ebdbb2"
 
-# Show filename only in statusbar and window title (cleaner waybar display)
 set statusbar-basename true
 set window-title-basename true
 
