@@ -31,16 +31,16 @@ wifi_monitor() {
             if [[ "$next_line" == *'"connected"'* ]]; then
                 iface=$(wifi_iface)
                 ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
-                notify-send -u normal "${WIFI}  Connected — ${ssid:-WiFi}"
+                notify-send -a "" -u normal "${WIFI}  Connected — ${ssid:-WiFi}"
             elif [[ "$next_line" == *'"disconnected"'* ]]; then
-                notify-send -u critical "${WARN}  WiFi disconnected"
+                notify-send -a "" -u critical "${WARN}  WiFi disconnected"
             fi
             in_station=false
         fi
 
         if $in_device && [[ "$line" == *'"Powered"'* ]]; then
             read -r next_line
-            [[ "$next_line" == *"false"* ]] && notify-send -u critical "${WARN}  WiFi turned off"
+            [[ "$next_line" == *"false"* ]] && notify-send -a "" -u critical "${WARN}  WiFi turned off"
             in_device=false
         fi
     done
@@ -54,10 +54,10 @@ eth_monitor() {
         [[ "$line" == *"$iface"* ]] || continue
         if [[ "$line" == *LOWER_UP* ]] && [ "$prev_eth" != up ]; then
             prev_eth=up
-            notify-send -u normal "${ETH}  Ethernet connected"
+            notify-send -a "" -u normal "${ETH}  Ethernet connected"
         elif [[ "$line" == *NO-CARRIER* ]] && [ "$prev_eth" != down ]; then
             prev_eth=down
-            notify-send -u critical "${ETH}  Ethernet disconnected"
+            notify-send -a "" -u critical "${ETH}  Ethernet disconnected"
         fi
     done
 }

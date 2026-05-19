@@ -13,6 +13,6 @@ exec /usr/bin/batsignal \
     -f 80 -F "${FULL} Fully charged" \
     -w 30 -W "${WARN} Battery low" \
     -c 10 -C "${CRIT} Battery critical" \
-    -d 5  -D "notify-send -u critical '${DANG} Battery danger — PLUG IN NOW!'" \
-    -M "bash -c 'msg=\"%s\"; lvl=%s; [ \$lvl -le 10 ] && u=critical || u=normal; notify-send -u \$u \"\$msg -- \$lvl%%\"'" \
+    -d 5  -D "notify-send -a '' -u critical '${DANG} Battery danger — PLUG IN NOW!'" \
+    -M "bash -c 'msg=\"%s\"; lvl=%s; [ \$lvl -le 10 ] && u=critical || u=normal; notify-send -a \"\" -u \$u \"\$msg -- \$lvl%%\"'" \
     -m 60

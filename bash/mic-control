@@ -25,7 +25,7 @@ done < <(pactl list source-outputs 2>/dev/null | awk '
     END                { if (oid && name) print oid "\t" name }
 ')
 
-[ -z "$entries" ] && { notify-send "Mic Control" "No inputs or recordings found"; exit 0; }
+[ -z "$entries" ] && { notify-send -a "" "Mic Control" "No inputs or recordings found"; exit 0; }
 
 selected=$(printf '%b' "$entries" | fuzzel --dmenu --prompt " Mic  " --width 50)
 [[ -z "$selected" ]] && exit 0
@@ -33,8 +33,8 @@ selected=$(printf '%b' "$entries" | fuzzel --dmenu --prompt " Mic  " --width 50)
 if [[ "$selected" == "[src]"* ]]; then
     name=$(echo "$selected" | sed 's/\[src\] [* ] //')
     pactl set-default-source "$name"
-    notify-send -u low " Default input: $name"
+    notify-send -a "" -u low " Default input: $name"
 elif [[ "$selected" == "[kill]"* ]]; then
     oid="${kill_ids[$selected]}"
-    [[ -n "$oid" ]] && pw-cli destroy "$oid" && notify-send -u low " Recording stopped"
+    [[ -n "$oid" ]] && pw-cli destroy "$oid" && notify-send -a "" -u low " Recording stopped"
 fi
