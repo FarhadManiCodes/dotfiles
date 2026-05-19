@@ -391,6 +391,7 @@ binds {
     Mod+E hotkey-overlay-title="Open File Manager: yazi" { spawn "foot" "--app-id=yazi" "-e" "yazi"; }
     Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "/home/farhad/.local/bin/audio-switch"; }
     Mod+Shift+B hotkey-overlay-title="Bluetooth Manager" { spawn "foot" "-e" "bluetui"; }
+    Mod+Shift+W hotkey-overlay-title="WiFi Manager" { spawn "foot" "-e" "impala"; }
     Mod+M hotkey-overlay-title="Media Controls" { spawn "media-menu.sh"; }
     // Lock screen - using Ctrl+Alt+L (Mod+L is reserved for Vim navigation)
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
@@ -416,10 +417,8 @@ binds {
     // Mod+Shift+z (Capital Z) opens your recent history
     Mod+Shift+z { spawn "/home/farhad/.local/bin/zathura-history"; }
 
-    // Toggle system theme via darkman
-    Mod+Shift+T { spawn "darkman" "toggle"; }
-    // Toggle ONLY the Foot terminal theme
-    Mod+Alt+T { spawn "/home/farhad/.local/bin/toggle-foot-theme.sh"; }
+    // Toggle foot terminal theme (light/dark)
+    Mod+Alt+T hotkey-overlay-title="Toggle Foot Theme" { spawn "toggle-foot-theme.sh"; }
     // Use spawn-sh to run a shell command. Do this if you need pipes, multiple commands, etc.
     // Note: the entire command goes as a single argument. It's passed verbatim to `sh -c`.
     // For example, this is a standard bind to toggle the screen reader (orca).
