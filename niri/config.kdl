@@ -399,6 +399,7 @@ binds {
 
     // Dismiss all mako notifications
     Mod+N { spawn "makoctl" "dismiss" "--all"; }
+    Mod+Shift+N hotkey-overlay-title="Status Menu" { spawn "status-menu"; }
 
     // Mod+` opens a floating scratchpad terminal (quick lookups, man pages, one-offs)
     Mod+Grave hotkey-overlay-title="Scratchpad Terminal" { spawn "footclient" "--app-id" "scratch-term"; }
