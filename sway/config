@@ -221,11 +221,7 @@ bindsym $mod+r mode "resize"
     bindsym Print exec grim
 
 #
-# Status Bar:
-#
 # --- Autostart Applications ---
-exec_always waybar
-
 exec /usr/lib/mate-polkit/polkit-mate-authentication-agent-1
 # Touchpad setup
 input type:touchpad {

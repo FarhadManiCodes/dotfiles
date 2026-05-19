@@ -1,0 +1,66 @@
+#!/bin/bash
+# Network notifications: WiFi via iwd D-Bus (event-based), Ethernet via ip monitor (event-based).
+# Interface names are discovered dynamically at runtime.
+
+WIFI=$(printf '')
+ETH=$(printf '\U000f0200')
+WARN='⚠'
+
+wifi_iface() {
+    iwctl device list 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | awk '/station/{print $1}' | head -1
+}
+
+eth_iface() {
+    networkctl list --no-legend 2>/dev/null | awk '$3 == "ether" {print $2}' | head -1
+}
+
+wifi_monitor() {
+    local in_station=false in_device=false
+    dbus-monitor --system \
+        "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
+        2>/dev/null | \
+    while IFS= read -r line; do
+        if [[ "$line" == *"member=PropertiesChanged"* ]]; then
+            in_station=false; in_device=false
+        fi
+        if [[ "$line" == *'"net.connman.iwd.Station"'* ]]; then in_station=true; fi
+        if [[ "$line" == *'"net.connman.iwd.Device"'* ]];  then in_device=true;  fi
+
+        if $in_station && [[ "$line" == *'"State"'* ]]; then
+            read -r next_line
+            if [[ "$next_line" == *'"connected"'* ]]; then
+                iface=$(wifi_iface)
+                ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
+                notify-send -u normal "${WIFI}  Connected — ${ssid:-WiFi}"
+            elif [[ "$next_line" == *'"disconnected"'* ]]; then
+                notify-send -u critical "${WARN}  WiFi disconnected"
+            fi
+            in_station=false
+        fi
+
+        if $in_device && [[ "$line" == *'"Powered"'* ]]; then
+            read -r next_line
+            [[ "$next_line" == *"false"* ]] && notify-send -u critical "${WARN}  WiFi turned off"
+            in_device=false
+        fi
+    done
+}
+
+eth_monitor() {
+    local iface prev_eth=unknown
+    iface=$(eth_iface)
+    [ -z "$iface" ] && return
+    ip monitor link | while IFS= read -r line; do
+        [[ "$line" == *"$iface"* ]] || continue
+        if [[ "$line" == *LOWER_UP* ]] && [ "$prev_eth" != up ]; then
+            prev_eth=up
+            notify-send -u normal "${ETH}  Ethernet connected"
+        elif [[ "$line" == *NO-CARRIER* ]] && [ "$prev_eth" != down ]; then
+            prev_eth=down
+            notify-send -u critical "${ETH}  Ethernet disconnected"
+        fi
+    done
+}
+
+eth_monitor &
+wifi_monitor

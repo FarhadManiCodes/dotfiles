@@ -80,12 +80,6 @@ mkdir -p "${XDG_CONFIG_HOME}/niri"
 ln -sf "${DOTFILES}/niri/config.kdl" "${XDG_CONFIG_HOME}/niri/config.kdl"
 echo "Niri configured"
 
-# ============ waybar ==============================
-echo "Setting up Waybar..."
-mkdir -p "${XDG_CONFIG_HOME}/waybar"
-ln -sf "${DOTFILES}/waybar/config" "${XDG_CONFIG_HOME}/waybar/config"
-ln -sf "${DOTFILES}/waybar/style.css" "${XDG_CONFIG_HOME}/waybar/style.css"
-echo "Waybar configured"
 
 # ============ sway ==============================
 echo "Setting up Sway..."
@@ -286,6 +280,15 @@ for file in "${DOTFILES}/bash/"*; do
   ln -sf "$file" "${HOME}/.local/bin/"
 done
 echo "✅ Helper scripts installed"
+
+# ============ systemd user services ==============================
+echo "⚙️  Installing systemd user services..."
+mkdir -p "${HOME}/.config/systemd/user"
+for file in "${DOTFILES}/systemd/user/"*.service; do
+  ln -sf "$file" "${HOME}/.config/systemd/user/"
+done
+systemctl --user daemon-reload
+echo "✅ Systemd user services installed"
 
 echo ""
 echo "🎉 Dotfiles installation complete!"

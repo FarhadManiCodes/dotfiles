@@ -1,13 +1,12 @@
 # mako notification daemon — Catppuccin Mocha theme
-# Matches niri (border #89b4fa, inactive #585b70) and waybar (bg #1e1e2e, border #313244)
+# Matches niri (border #89b4fa, inactive #585b70)
 
 # --- Layout ---
 anchor=top-right
 layer=overlay
 width=360
 height=110
-# top=30 sits just below waybar
-margin=30,10,0,0
+margin=10,10,0,0
 padding=12,16
 
 # --- Font ---
