@@ -49,7 +49,7 @@ The configuration is organized into these major sections:
    - Vim-style navigation (Mod+H/J/K/L)
    - Workspace management
    - Window movement and resizing
-   - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private, Mod+E yazi file manager in foot)
+   - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private, Mod+E vifm file manager in foot)
    - System controls (volume, brightness, screenshots)
 
 ## Common Commands

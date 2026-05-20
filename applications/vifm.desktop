@@ -1,7 +1,7 @@
 [Desktop Entry]
-Name=Yazi
+Name=vifm
 Comment=Terminal file manager
-Exec=/home/farhad/.local/bin/yazi-open %u
+Exec=/home/farhad/.local/bin/vifm-open %u
 Terminal=false
 Type=Application
 MimeType=inode/directory;
