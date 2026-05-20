@@ -86,6 +86,16 @@ alias ...='builtin cd ../..'
 alias ....='builtin cd ../../..'
 
 # ============================================================================
+# TRASH (trash-cli — FreeDesktop unified trash)
+# ============================================================================
+if command -v trash-put >/dev/null 2>&1; then
+  alias tp='trash-put'        # Move to trash
+  alias tl='trash-list'       # List trash contents
+  alias te='trash-empty'      # Empty trash
+  alias trestore='trash-restore'  # Restore from trash (interactive)
+fi
+
+# ============================================================================
 # SAFETY & UTILITIES
 # ============================================================================
 alias grep='grep --color=auto'

@@ -50,6 +50,7 @@ command! df df -h %m 2>/dev/null
 command! diff nvim -d %f %F
 command! mkcd :mkdir %a | cd %a
 command! reload :write | restart full
+command! trash trash-put %f
 
 " ------------------------------------------------------------------------------
 " File openers  (xdg-open as catch-all; specific openers added per need)
@@ -117,7 +118,8 @@ nnoremap <f4> :edit<cr>
 nnoremap <f5> :copy<cr>
 nnoremap <f6> :move<cr>
 nnoremap <f7> :mkdir<space>
-nnoremap <f8> :delete<cr>
+nnoremap <f8> :trash<cr>
+nnoremap dd :trash<cr>
 
 " Sync panes
 nnoremap <a-i> :sync<cr>
