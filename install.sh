@@ -145,6 +145,9 @@ echo "udiskie configured"
 echo "Setting up vifm..."
 mkdir -p "${XDG_CONFIG_HOME}/vifm"
 ln -sf "${DOTFILES}/vifm/vifmrc" "${XDG_CONFIG_HOME}/vifm/vifmrc"
+mkdir -p "${XDG_CONFIG_HOME}/vifm/colors"
+ln -sf "${DOTFILES}/vifm/colors/catppuccin-mocha.vifm" "${XDG_CONFIG_HOME}/vifm/colors/catppuccin-mocha.vifm"
+ln -sf "${DOTFILES}/vifm/colors/zenburn-rich.vifm" "${XDG_CONFIG_HOME}/vifm/colors/zenburn-rich.vifm"
 echo "vifm configured"
 
 # ============ fuzzel ==============================

@@ -32,7 +32,7 @@ endif
 
 set grepprg="grep -n -H -I -r -s %i %a %s"
 set statusline="  %t%= %A %10u:%-7g %15s %20d  "
-colorscheme Default-256 Default
+colorscheme zenburn-rich Default-256 Default
 
 " ------------------------------------------------------------------------------
 " Bookmarks
