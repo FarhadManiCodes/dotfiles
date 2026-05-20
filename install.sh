@@ -141,6 +141,12 @@ mkdir -p "${XDG_CONFIG_HOME}/udiskie"
 ln -sf "${DOTFILES}/udiskie/config.yml" "${XDG_CONFIG_HOME}/udiskie/config.yml"
 echo "udiskie configured"
 
+# ============ vifm ==============================
+echo "Setting up vifm..."
+mkdir -p "${XDG_CONFIG_HOME}/vifm"
+ln -sf "${DOTFILES}/vifm/vifmrc" "${XDG_CONFIG_HOME}/vifm/vifmrc"
+echo "vifm configured"
+
 # ============ fuzzel ==============================
 echo "Setting up Fuzzel..."
 mkdir -p "${XDG_CONFIG_HOME}/fuzzel"

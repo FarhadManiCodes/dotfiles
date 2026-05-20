@@ -1,0 +1,107 @@
+" vim: filetype=vifm
+
+" ------------------------------------------------------------------------------
+" Core settings
+" ------------------------------------------------------------------------------
+
+set vicmd=nvim
+set syscalls
+set trash
+set vifminfo=dhistory,savedirs,chistory,state,tui,tabs,shistory,ehistory,
+            \phistory,fhistory,dirstack,registers,bookmarks,bmarks,mchistory
+set history=100
+set nofollowlinks
+set sortnumbers
+set undolevels=100
+set vimhelp
+set norunexec
+set timefmt='%Y/%m/%d %H:%M'
+set wildmenu
+set wildstyle=popup
+set suggestoptions=normal,visual,view,otherpane,keys,marks,registers
+set ignorecase
+set smartcase
+set nohlsearch
+set incsearch
+set scrolloff=4
+set slowfs=curlftpfs
+
+if system("find --version | grep -c 'GNU findutils'") != 0
+    set findprg='find %s %a -print , -type d \( ! -readable -o ! -executable \) -prune'
+endif
+
+set grepprg="grep -n -H -I -r -s %i %a %s"
+set statusline="  %t%= %A %10u:%-7g %15s %20d  "
+colorscheme Default-256 Default
+
+" ------------------------------------------------------------------------------
+" Bookmarks
+" ------------------------------------------------------------------------------
+
+mark h ~/
+mark d ~/dotfiles/
+mark c ~/.config/
+
+" ------------------------------------------------------------------------------
+" Commands
+" ------------------------------------------------------------------------------
+
+command! df df -h %m 2>/dev/null
+command! diff nvim -d %f %F
+command! mkcd :mkdir %a | cd %a
+command! reload :write | restart full
+
+" ------------------------------------------------------------------------------
+" File openers  (xdg-open as catch-all; specific openers added per need)
+" ------------------------------------------------------------------------------
+
+filetype * xdg-open
+
+" ------------------------------------------------------------------------------
+" Keyboard mappings
+" ------------------------------------------------------------------------------
+
+" Shell in current directory
+nnoremap s :shell<cr>
+
+" Sort dialog
+nnoremap S :sort<cr>
+
+" Toggle preview window
+nnoremap w :view<cr>
+vnoremap w :view<cr>gv
+
+" Open with default program in background
+nnoremap gb :file &<cr>l
+
+" Wayland clipboard
+if $WAYLAND_DISPLAY != '' && executable('wl-copy')
+    nnoremap yd :!echo -n %d | wl-copy %i && echo -n %d | wl-copy -p %i<cr>
+    nnoremap yf :!echo -n %c:p | wl-copy %i && echo -n %c:p | wl-copy -p %i<cr>
+endif
+
+" Rename helpers (mirrors vim behaviour)
+nnoremap I cw<c-a>
+nnoremap cc cw<c-u>
+nnoremap A cw
+
+" Edit vifmrc and reload
+nnoremap ,c :write | edit $MYVIFMRC | restart full<cr>
+
+" Toggle line wrap
+nnoremap ,w :set wrap!<cr>
+
+" Standard F-key mappings
+nnoremap <f3> :!less %f<cr>
+nnoremap <f4> :edit<cr>
+nnoremap <f5> :copy<cr>
+nnoremap <f6> :move<cr>
+nnoremap <f7> :mkdir<space>
+nnoremap <f8> :delete<cr>
+
+" Sync panes
+nnoremap <a-i> :sync<cr>
+nnoremap <a-o> :sync %c<cr>
+
+" Toggle single / dual pane
+nnoremap \o :if layoutis('only') | vsplit | else | only | endif<cr>
