@@ -55,7 +55,7 @@ command! reload :write | restart full
 " File openers  (xdg-open as catch-all; specific openers added per need)
 " ------------------------------------------------------------------------------
 
-filetype * xdg-open
+filetype * handlr open %f
 
 " ------------------------------------------------------------------------------
 " File previewers  (most-specific first, catch-all last)
