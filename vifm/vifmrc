@@ -123,3 +123,96 @@ nnoremap <a-o> :sync %c<cr>
 
 " Toggle single / dual pane
 nnoremap \o :if layoutis('only') | vsplit | else | only | endif<cr>
+
+" ------------------------------------------------------------------------------
+
+" Nerd Font icons (requires FiraCode Nerd Font or similar)
+" Icons: Font Awesome (fa-*), Devicons (dev-*), Seti-UI (seti-*)
+
+" Base file types
+set classify=' :dir:/,  :exe:,  :reg:,  :link:,? :?:,  ::../::'
+
+" Dotfiles / version control
+set classify+=' ::.gitconfig,,.gitignore,,.gitmodules::'
+set classify+=' ::.vimrc,,.gvimrc,,.vifmrc,,.vifm::'
+set classify+=' ::.tmux.conf::'
+set classify+=' ::README,,readme,,CHANGELOG,,changelog::'
+set classify+=' ::license,,LICENSE,,copyright,,COPYRIGHT,,copying,,COPYING::'
+set classify+=' ::Makefile,,makefile,,GNUmakefile::'
+set classify+=' ::CMakeLists.txt::'
+
+" Python / scientific Python
+set classify+=' ::*.py,,*.pyc,,*.pyd,,*.pyo,,*.pyx,,*.pxd::'
+set classify+=' ::*.ipynb::'
+
+" C
+set classify+=' ::*.c,,*.cc::'
+
+" C++
+set classify+=' ::*.c++,,*.cpp,,*.cxx,,*.h,,*.hh,,*.hpp::'
+
+" Fortran (CFD / scientific computing)
+set classify+=' ::*.f,,*.f90,,*.f95,,*.f03,,*.f08,,*.F90,,*.for::'
+
+" MATLAB
+set classify+=' ::*.m,,*.mat,,*.mlx::'
+
+" Rust
+set classify+=' ::*.rs,,*.rlib::'
+
+" Go
+set classify+=' ::*.go::'
+
+" Shell scripts
+set classify+=' ::*.sh,,*.bash,,*.fish::'
+
+" Build systems
+set classify+=' ::*.cmake::'
+set classify+=' ::*.mk,,*.make::'
+
+" Config / markup
+set classify+=' ::*.json::'
+set classify+=' ::*.yml,,*.yaml,,*.toml,,*.conf,,*.ini,,*.rc,,*.cfg::'
+
+" Databases
+set classify+=' ::*.db,,*.dump,,*.sql::'
+
+" Tabular data
+set classify+=' ::*.csv::'
+set classify+=' ::*.parquet::'
+
+" Scientific data
+set classify+=' ::*.h5,,*.hdf5,,*.hdf,,*.nc,,*.npy,,*.npz::'
+
+" Markdown
+set classify+=' ::*.md,,*.markdown::'
+
+" LaTeX
+set classify+=' ::*.tex,,*.bib,,*.sty,,*.cls::'
+
+" PDF
+set classify+=' ::*.pdf::'
+
+" eBook / document
+set classify+=' ::*.epub,,*.djvu,,*.fb2::'
+
+" Office documents
+set classify+=' ::*.doc,,*.dot,,*.docx,,*.docm,,*.adoc::'
+set classify+=' ::*.xls,,*.xlt,,*.xlsx,,*.xlsm,,*.xltx::'
+set classify+=' ::*.ppt,,*.pot,,*.pptx,,*.pptm,,*.potx::'
+
+" Images
+set classify+=' ::*.bmp,,*.gif,,*.ico,,*.jpeg,,*.jpg,,*.png,,*.svg,,*.svgz,,*.tiff,,*.tif,,*.webp,,*.avif::'
+
+" Audio
+set classify+=' ::*.aac,,*.au,,*.flac,,*.m2a,,*.m4a,,*.mid,,*.midi,,*.mp3,,*.oga,,*.ogg,,*.ra,,*.ram,,*.spx,,*.wav,,*.wma::'
+
+" Video
+set classify+=' ::*.avi,,*.flv,,*.mkv,,*.mov,,*.mp4,,*.mpeg,,*.mpg,,*.webm,,*.av1::'
+
+" Archives
+set classify+=' ::*.7z,,*.apk,,*.bz2,,*.cab,,*.cpio,,*.deb,,*.gem,,*.gz,,*.gzip,,*.lzh,,*.lzma,,*.rar,,*.rpm,,*.tar,,*.tgz,,*.xz,,*.zip,,*.zst::'
+
+" Logs / diffs / checksums
+set classify+=' ::*.log::'
+set classify+=' ::*.diff,,*.patch,,*.sum,,*.md5,,*.sha512::'
