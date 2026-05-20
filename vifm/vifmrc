@@ -124,6 +124,14 @@ nnoremap <a-o> :sync %c<cr>
 " Toggle single / dual pane
 nnoremap \o :if layoutis('only') | vsplit | else | only | endif<cr>
 
+" FZF — fuzzy find and jump in current directory (fd + bat preview)
+command! FZF : let $FZF_PICK = term('fd --type f --hidden --follow --exclude .git . 2>/dev/null
+            \| fzf --preview "bat --color=always --plain --line-range :50 {}" 2>/dev/tty')
+            \| if $FZF_PICK != ''
+            \| execute 'goto' fnameescape($FZF_PICK)
+            \| endif
+nnoremap F :FZF<cr>
+
 " ------------------------------------------------------------------------------
 
 " Nerd Font icons (requires FiraCode Nerd Font or similar)
