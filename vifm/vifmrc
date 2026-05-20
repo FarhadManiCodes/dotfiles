@@ -58,6 +58,24 @@ command! reload :write | restart full
 filetype * xdg-open
 
 " ------------------------------------------------------------------------------
+" File previewers  (most-specific first, catch-all last)
+" ------------------------------------------------------------------------------
+
+" Markdown — glow for rendered output
+fileviewer {*.md,*.markdown} glow --style dark %c
+
+" Directories — eza tree (depth 2, colours preserved)
+fileviewer */ eza --tree --color=always --level=2 %c
+
+" Archives — atool lists all common formats (zip, tar.*, rar, gz, bz2, xz…)
+fileviewer {*.zip,*.tar,*.tar.gz,*.tgz,*.tar.bz2,*.tbz2,*.tar.xz,*.txz,
+           \*.tar.zst,*.tzst,*.rar,*.gz,*.bz2,*.xz,*.zst,*.7z}
+         \ als %f
+
+" Everything else — bat with syntax highlighting
+fileviewer * bat --color=always --plain %c
+
+" ------------------------------------------------------------------------------
 " Keyboard mappings
 " ------------------------------------------------------------------------------
 
