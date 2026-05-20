@@ -1,7 +1,18 @@
 #!/bin/bash
 # Status check menu — fuzzel dmenu, each selection fires a notification.
 
-choice=$(printf ' Battery\n Uptime\n CPU Temp\n Memory' | fuzzel --dmenu --prompt " Status  " --width 30 --lines 4)
+BAT_FULL=$''
+BAT_THREE=$''
+BAT_HALF=$''
+BAT_QUARTER=$''
+BAT_EMPTY=$''
+BOLT=$'⚡'
+CLOCK=$''
+THERM=$''
+CHIP=$''
+
+choice=$(printf "${BAT_FULL} Battery\n${CLOCK} Uptime\n${THERM} CPU Temp\n${CHIP} Memory" \
+    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 4)
 [[ -z "$choice" ]] && exit 0
 
 case "$choice" in
@@ -9,24 +20,24 @@ case "$choice" in
         cap=$(cat /sys/class/power_supply/BAT0/capacity)
         status=$(cat /sys/class/power_supply/BAT0/status)
         if [[ "$status" == "Charging" ]]; then
-            icon=" "
-        elif (( cap >= 80 )); then icon=""
-        elif (( cap >= 60 )); then icon=""
-        elif (( cap >= 40 )); then icon=""
-        elif (( cap >= 20 )); then icon=""
-        else icon=""
+            icon="$BOLT"
+        elif (( cap >= 80 )); then icon="$BAT_FULL"
+        elif (( cap >= 60 )); then icon="$BAT_THREE"
+        elif (( cap >= 40 )); then icon="$BAT_HALF"
+        elif (( cap >= 20 )); then icon="$BAT_QUARTER"
+        else icon="$BAT_EMPTY"
         fi
         notify-send -u low "${icon} Battery" "${cap}% — ${status}"
         ;;
     *Uptime*)
-        notify-send -u low " Uptime" "$(uptime -p)"
+        notify-send -u low "${CLOCK} Uptime" "$(uptime -p)"
         ;;
     *"CPU Temp"*)
         temp=$(sensors 2>/dev/null | awk '/Tctl/{gsub(/[+°C]/,"",$2); print $2; exit}')
-        notify-send -u low " CPU Temp" "${temp:+${temp}°C}"
+        notify-send -u low "${THERM} CPU Temp" "${temp:+${temp}°C}"
         ;;
     *Memory*)
         mem=$(free -h | awk '/^Mem/{print $3 " used / " $2 " total"}')
-        notify-send -u low " Memory" "$mem"
+        notify-send -u low "${CHIP} Memory" "$mem"
         ;;
 esac
