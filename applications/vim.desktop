@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Vim
+Comment=Text editor
+Exec=foot -e vim %F
+Terminal=false
+Type=Application
+MimeType=text/plain;text/x-matlab;text/x-fortran;text/rust;text/x-go;text/x-cmake;text/x-bibtex;application/toml;application/x-ipynb+json;
+Categories=TextEditor;
+Icon=vim
+NoDisplay=true
