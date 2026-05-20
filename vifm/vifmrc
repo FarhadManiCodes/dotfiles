@@ -1,0 +1,228 @@
+" vim: filetype=vifm
+
+" ------------------------------------------------------------------------------
+" Core settings
+" ------------------------------------------------------------------------------
+
+set vicmd=nvim
+set syscalls
+set trash
+set vifminfo=dhistory,savedirs,chistory,state,tui,tabs,shistory,ehistory,
+            \phistory,fhistory,dirstack,registers,bookmarks,bmarks,mchistory
+set history=100
+set nofollowlinks
+set sortnumbers
+set undolevels=100
+set vimhelp
+set norunexec
+set timefmt='%Y/%m/%d %H:%M'
+set wildmenu
+set wildstyle=popup
+set suggestoptions=normal,visual,view,otherpane,keys,marks,registers
+set ignorecase
+set smartcase
+set nohlsearch
+set incsearch
+set scrolloff=4
+set slowfs=curlftpfs
+
+if system("find --version | grep -c 'GNU findutils'") != 0
+    set findprg='find %s %a -print , -type d \( ! -readable -o ! -executable \) -prune'
+endif
+
+set grepprg="grep -n -H -I -r -s %i %a %s"
+set statusline="  %t%= %A %10u:%-7g %15s %20d  "
+colorscheme zenburn-rich Default-256 Default
+
+" ------------------------------------------------------------------------------
+" Bookmarks
+" ------------------------------------------------------------------------------
+
+mark h ~/
+mark d ~/dotfiles/
+mark c ~/.config/
+
+" ------------------------------------------------------------------------------
+" Commands
+" ------------------------------------------------------------------------------
+
+command! df df -h %m 2>/dev/null
+command! diff nvim -d %f %F
+command! mkcd :mkdir %a | cd %a
+command! reload :write | restart full
+
+" ------------------------------------------------------------------------------
+" File openers  (xdg-open as catch-all; specific openers added per need)
+" ------------------------------------------------------------------------------
+
+filetype * handlr open %f
+
+" ------------------------------------------------------------------------------
+" File previewers  (most-specific first, catch-all last)
+" ------------------------------------------------------------------------------
+
+" Markdown — glow for rendered output
+fileviewer {*.md,*.markdown} glow --style dark %c
+
+" Directories — eza tree (depth 2, colours preserved)
+fileviewer */ eza --tree --color=always --level=2 %c
+
+" Archives — atool lists all common formats (zip, tar.*, rar, gz, bz2, xz…)
+fileviewer {*.zip,*.tar,*.tar.gz,*.tgz,*.tar.bz2,*.tbz2,*.tar.xz,*.txz,
+           \*.tar.zst,*.tzst,*.rar,*.gz,*.bz2,*.xz,*.zst,*.7z}
+         \ als %f
+
+" Everything else — bat with syntax highlighting
+fileviewer * bat --color=always --plain %c
+
+" ------------------------------------------------------------------------------
+" Keyboard mappings
+" ------------------------------------------------------------------------------
+
+" Shell in current directory
+nnoremap s :shell<cr>
+
+" Sort dialog
+nnoremap S :sort<cr>
+
+" Toggle preview window
+nnoremap w :view<cr>
+vnoremap w :view<cr>gv
+
+" Open with default program in background
+nnoremap gb :file &<cr>l
+
+" Wayland clipboard
+if $WAYLAND_DISPLAY != '' && executable('wl-copy')
+    nnoremap yd :!echo -n %d | wl-copy %i && echo -n %d | wl-copy -p %i<cr>
+    nnoremap yf :!echo -n %c:p | wl-copy %i && echo -n %c:p | wl-copy -p %i<cr>
+    " Copy file as object (text/uri-list) — paste into browser upload dialogs
+    nnoremap yo :!wl-copy -t text/uri-list "file://%c:p" %i<cr>
+endif
+
+" Rename helpers (mirrors vim behaviour)
+nnoremap I cw<c-a>
+nnoremap cc cw<c-u>
+nnoremap A cw
+
+" Edit vifmrc and reload
+nnoremap ,c :write | edit $MYVIFMRC | restart full<cr>
+
+" Toggle line wrap
+nnoremap ,w :set wrap!<cr>
+
+" Standard F-key mappings
+nnoremap <f3> :!less %f<cr>
+nnoremap <f4> :edit<cr>
+nnoremap <f5> :copy<cr>
+nnoremap <f6> :move<cr>
+nnoremap <f7> :mkdir<space>
+nnoremap <f8> :delete<cr>
+
+" Sync panes
+nnoremap <a-i> :sync<cr>
+nnoremap <a-o> :sync %c<cr>
+
+" Toggle single / dual pane
+nnoremap \o :if layoutis('only') | vsplit | else | only | endif<cr>
+
+" FZF — fuzzy find and jump in current directory (fd + bat preview)
+command! FZF : let $FZF_PICK = term('fd --type f --hidden --follow --exclude .git . 2>/dev/null
+            \| fzf --preview "bat --color=always --plain --line-range :50 {}" 2>/dev/tty')
+            \| if $FZF_PICK != ''
+            \| execute 'goto' fnameescape($FZF_PICK)
+            \| endif
+nnoremap F :FZF<cr>
+
+" ------------------------------------------------------------------------------
+
+" Nerd Font icons (requires FiraCode Nerd Font or similar)
+" Icons: Font Awesome (fa-*), Devicons (dev-*), Seti-UI (seti-*)
+
+" Base file types
+set classify=' :dir:/,  :exe:,  :reg:,  :link:,? :?:,  ::../::'
+
+" Dotfiles / version control
+set classify+=' ::.gitconfig,,.gitignore,,.gitmodules::'
+set classify+=' ::.vimrc,,.gvimrc,,.vifmrc,,.vifm::'
+set classify+=' ::.tmux.conf::'
+set classify+=' ::README,,readme,,CHANGELOG,,changelog::'
+set classify+=' ::license,,LICENSE,,copyright,,COPYRIGHT,,copying,,COPYING::'
+set classify+=' ::Makefile,,makefile,,GNUmakefile::'
+set classify+=' ::CMakeLists.txt::'
+
+" Python / scientific Python
+set classify+=' ::*.py,,*.pyc,,*.pyd,,*.pyo,,*.pyx,,*.pxd::'
+set classify+=' ::*.ipynb::'
+
+" C
+set classify+=' ::*.c,,*.cc::'
+
+" C++
+set classify+=' ::*.c++,,*.cpp,,*.cxx,,*.h,,*.hh,,*.hpp::'
+
+" Fortran (CFD / scientific computing)
+set classify+=' ::*.f,,*.f90,,*.f95,,*.f03,,*.f08,,*.F90,,*.for::'
+
+" MATLAB
+set classify+=' ::*.m,,*.mat,,*.mlx::'
+
+" Rust
+set classify+=' ::*.rs,,*.rlib::'
+
+" Go
+set classify+=' ::*.go::'
+
+" Shell scripts
+set classify+=' ::*.sh,,*.bash,,*.fish::'
+
+" Build systems
+set classify+=' ::*.cmake::'
+set classify+=' ::*.mk,,*.make::'
+
+" Config / markup
+set classify+=' ::*.json::'
+set classify+=' ::*.yml,,*.yaml,,*.toml,,*.conf,,*.ini,,*.rc,,*.cfg::'
+
+" Databases
+set classify+=' ::*.db,,*.dump,,*.sql::'
+
+" Tabular data
+set classify+=' ::*.csv::'
+set classify+=' ::*.parquet::'
+
+" Scientific data
+set classify+=' ::*.h5,,*.hdf5,,*.hdf,,*.nc,,*.npy,,*.npz::'
+
+" Markdown
+set classify+=' ::*.md,,*.markdown::'
+
+" LaTeX
+set classify+=' ::*.tex,,*.bib,,*.sty,,*.cls::'
+
+" PDF
+set classify+=' ::*.pdf::'
+
+" eBook / document
+set classify+=' ::*.epub,,*.djvu,,*.fb2::'
+
+" Office documents
+set classify+=' ::*.doc,,*.dot,,*.docx,,*.docm,,*.adoc::'
+set classify+=' ::*.xls,,*.xlt,,*.xlsx,,*.xlsm,,*.xltx::'
+set classify+=' ::*.ppt,,*.pot,,*.pptx,,*.pptm,,*.potx::'
+
+" Images
+set classify+=' ::*.bmp,,*.gif,,*.ico,,*.jpeg,,*.jpg,,*.png,,*.svg,,*.svgz,,*.tiff,,*.tif,,*.webp,,*.avif::'
+
+" Audio
+set classify+=' ::*.aac,,*.au,,*.flac,,*.m2a,,*.m4a,,*.mid,,*.midi,,*.mp3,,*.oga,,*.ogg,,*.ra,,*.ram,,*.spx,,*.wav,,*.wma::'
+
+" Video
+set classify+=' ::*.avi,,*.flv,,*.mkv,,*.mov,,*.mp4,,*.mpeg,,*.mpg,,*.webm,,*.av1::'
+
+" Archives
+set classify+=' ::*.7z,,*.apk,,*.bz2,,*.cab,,*.cpio,,*.deb,,*.gem,,*.gz,,*.gzip,,*.lzh,,*.lzma,,*.rar,,*.rpm,,*.tar,,*.tgz,,*.xz,,*.zip,,*.zst::'
+
+" Logs / diffs / checksums
+set classify+=' ::*.log::'
+set classify+=' ::*.diff,,*.patch,,*.sum,,*.md5,,*.sha512::'

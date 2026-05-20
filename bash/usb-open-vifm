@@ -1,5 +1,5 @@
 #!/bin/bash
-# Left-click: open yazi at USB/MTP mount point
+# Left-click: open vifm at USB/MTP mount point
 # Right-click (arg "right"): unmount with udiskie (block) or gio (MTP)
 
 MEDIA_DIR="/run/media/$USER"
@@ -50,5 +50,5 @@ if [[ "${1}" == "right" ]]; then
     fi
 else
     path=$(pick_mount "Open USB: ")
-    foot -e yazi "$path"
+    foot -e vifm "$path"
 fi
