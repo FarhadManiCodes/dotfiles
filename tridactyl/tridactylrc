@@ -43,7 +43,6 @@ set newtab about:blank
 " ===== Browser behaviour =====
 " Reader mode — useful for articles and papers
 bind gr reader
-bind gR reader --tab
 
 " ===== Downloads =====
 " Open Downloads folder in vifm — mirrors niri Mod+E
