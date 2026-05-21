@@ -1,0 +1,45 @@
+" Tridactyl configuration
+" symlinked: ~/.config/tridactyl/tridactylrc -> ~/dotfiles/tridactyl/tridactylrc
+" After editing: :source or restart Firefox
+
+" ===== Editor =====
+" footclient connects to the foot server (faster than spawning foot -e)
+" %l and %f give tridactyl line number and temp file path
+set editorcmd footclient vim +%l %f
+
+" ===== Theme =====
+colors tokyonight
+
+" ===== Hints =====
+set hintfiltermode vimperator-reflow
+set hintnames numeric
+set hintdelay 100
+
+" ===== Search engines =====
+set searchengine duckduckgo
+set searchurls.g https://www.google.com/search?q=%s
+set searchurls.eco https://www.ecosia.org/search?q=%s
+set searchurls.yt https://www.youtube.com/results?search_query=%s
+set searchurls.scholar https://scholar.google.com/scholar?q=%s
+set searchurls.ss https://www.semanticscholar.org/search?q=%s
+set searchurls.gh https://github.com/search?q=%s
+set searchurls.aw https://wiki.archlinux.org/index.php?search=%s
+set searchurls.wiki https://en.wikipedia.org/wiki/Special:Search?search=%s
+set searchurls.cpp https://en.cppreference.com/mwiki/index.php?search=%s
+
+" ===== URL-specific hints =====
+" Scope hints to actual search results on Google (skip nav chrome)
+bindurl www.google.com f hint -Jc #search a
+bindurl www.google.com F hint -Jbc #search a
+
+" ===== Tab management =====
+" Move to left tab before closing — less disorienting than the default
+bind d composite tabprev; tabclose #
+bind D tabclose
+
+" ===== fixamo =====
+" Lets tridactyl operate on addons.mozilla.org and other restricted pages.
+" Risk: a malicious addon already installed gains the same elevated access.
+" Uncomment deliberately after reading the above — don't blindly enable.
+" command fixamo_quiet jsb tri.excmds.setpref("privacy.resistFingerprinting.block_mozAddonManager", "true").then(tri.excmds.setpref("extensions.webextensions.restrictedDomains", '""'))
+" fixamo_quiet
