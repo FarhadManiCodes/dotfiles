@@ -1,0 +1,78 @@
+/* ── Catppuccin Frappé — color tokens ── */
+:root {
+  --ctp-blue:     #89b4fa;
+  --ctp-surface1: #51576d;
+  --ctp-surface2: #626880;
+  --ctp-text:     #cdd6f4;
+  --ctp-base:     #303446;
+  --tab-min-height: 18px;
+}
+
+/* ── Tab strip ── */
+#TabsToolbar {
+  padding-block: 0 !important;
+  background-color: var(--ctp-base) !important;
+}
+
+#TabsToolbar .tab-content {
+  padding-block: 0 !important;
+  padding-inline: 4px !important;
+}
+
+#TabsToolbar .tab-label {
+  line-height: 1 !important;
+  color: var(--ctp-text) !important;
+}
+
+#TabsToolbar .tab-icon-image {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+#TabsToolbar .tab-close-button {
+  width: 14px !important;
+  height: 14px !important;
+  padding: 1px !important;
+  min-width: unset !important;
+  min-height: unset !important;
+}
+
+/* ── Flat tab style ── */
+#TabsToolbar .tab-background {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+#TabsToolbar tab[selected] .tab-background {
+  background: color-mix(in srgb, var(--ctp-blue) 22%, transparent) !important;
+}
+
+/* ── Tab separators ── */
+.tabbrowser-tab + .tabbrowser-tab {
+  border-inline-start: 2px solid var(--ctp-surface2) !important;
+}
+
+/* ── Strip chrome ── */
+#tabs-newtab-button {
+  display: none !important;
+}
+
+.scrollbutton-up,
+.scrollbutton-down {
+  display: none !important;
+}
+
+/* ── Navbar — always visible, Catppuccin styled ── */
+#nav-bar {
+  background-color: var(--ctp-base) !important;
+  color: var(--ctp-text) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Clean window integration ── */
+#navigator-toolbox {
+  border-bottom: none !important;
+  box-shadow: none !important;
+}

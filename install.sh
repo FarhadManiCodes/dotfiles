@@ -277,6 +277,18 @@ done
 update-desktop-database "${HOME}/.local/share/applications/"
 echo "Desktop files configured"
 
+# ============ firefox ==============================
+echo "Setting up Firefox userChrome..."
+FIREFOX_PROFILE=$(awk -F= '/^\[Install/{in_install=1} in_install && /^Default=/{print $2; in_install=0}' "${HOME}/.mozilla/firefox/profiles.ini" 2>/dev/null)
+if [[ -n "$FIREFOX_PROFILE" ]]; then
+    CHROME_DIR="${HOME}/.mozilla/firefox/${FIREFOX_PROFILE}/chrome"
+    mkdir -p "$CHROME_DIR"
+    ln -sf "${DOTFILES}/firefox/userChrome.css" "${CHROME_DIR}/userChrome.css"
+    echo "Firefox userChrome configured (profile: ${FIREFOX_PROFILE})"
+else
+    echo "Firefox default profile not found, skipping (install Firefox and run install.sh again)"
+fi
+
 # =========== duckdb ===============
 echo "Setting up DuckDB..."
 ln -sf "${DOTFILES}/duckdb/.duckdbrc" "${HOME}/.duckdbrc"

@@ -98,6 +98,14 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Global ignore**: `git/ignore`
 - **User identity**: `~/.config/git/config.local` (not tracked)
 
+### Firefox (userChrome)
+
+- **Config**: `firefox/userChrome.css` → `~/.mozilla/firefox/<profile>/chrome/userChrome.css`
+- **Theme**: Catppuccin Frappé — compact tab strip, flat tabs, Catppuccin-colored navbar
+- **Prerequisite**: `toolkit.legacyUserProfileCustomizations.stylesheets` must be `true` in `about:config`
+- **Install**: `install.sh` reads `~/.mozilla/firefox/profiles.ini` to find the default-release profile automatically
+- **Note**: only one file tracked; no `userContent.css`
+
 ### Tridactyl (Firefox vim bindings)
 
 - **Config**: `tridactyl/tridactylrc` → `~/.config/tridactyl/tridactylrc`
