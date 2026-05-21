@@ -118,7 +118,7 @@ if $WAYLAND_DISPLAY != '' && executable('wl-copy')
     nnoremap yd :!echo -n %d | wl-copy %i && echo -n %d | wl-copy -p %i<cr>
     nnoremap yf :!echo -n %c:p | wl-copy %i && echo -n %c:p | wl-copy -p %i<cr>
     " Copy file as object (text/uri-list) — paste into browser upload dialogs
-    nnoremap yo :!wl-copy -t text/uri-list "file://%c:p" %i<cr>
+    nnoremap yo :!echo -n "file://$(realpath %c:p)" | wl-copy -t text/uri-list %i<cr>
 endif
 
 " Rename helpers (mirrors vim behaviour)
