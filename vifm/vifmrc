@@ -73,6 +73,26 @@ fileviewer {*.zip,*.tar,*.tar.gz,*.tgz,*.tar.bz2,*.tbz2,*.tar.xz,*.txz,
            \*.tar.zst,*.tzst,*.rar,*.gz,*.bz2,*.xz,*.zst,*.7z}
          \ als %f
 
+" Images — ANSI block art via chafa (forced symbols mode, no sixel)
+fileviewer {*.bmp,*.gif,*.ico,*.jpeg,*.jpg,*.png,*.tiff,*.tif,*.webp,*.avif}
+         \ chafa --format=symbols --size=%pwx%ph %c
+
+" Video — file info only (no binary dump)
+fileviewer {*.avi,*.flv,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.webm,*.av1}
+         \ file --brief %c
+
+" Audio — file info only
+fileviewer {*.aac,*.au,*.flac,*.m2a,*.m4a,*.mid,*.midi,*.mp3,*.oga,*.ogg,*.ra,*.ram,*.spx,*.wav,*.wma}
+         \ file --brief %c
+
+" PDF — first page as text
+fileviewer *.pdf pdftotext -l 1 -nopgbrk -q %c -
+
+" Office / eBook binaries — file info only
+fileviewer {*.doc,*.dot,*.docx,*.docm,*.xls,*.xlt,*.xlsx,*.xlsm,*.xltx,
+           \*.ppt,*.pot,*.pptx,*.pptm,*.potx,*.epub,*.djvu,*.fb2}
+         \ file --brief %c
+
 " Everything else — bat with syntax highlighting
 fileviewer * bat --color=always --plain %c
 
