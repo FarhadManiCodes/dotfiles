@@ -81,6 +81,13 @@ ln -sf "${DOTFILES}/niri/config.kdl" "${XDG_CONFIG_HOME}/niri/config.kdl"
 echo "Niri configured"
 
 
+# ============ environment.d ==============================
+echo "Setting up environment.d..."
+mkdir -p "${XDG_CONFIG_HOME}/environment.d"
+ln -sf "${DOTFILES}/environment.d/defaults.conf" "${XDG_CONFIG_HOME}/environment.d/defaults.conf"
+ln -sf "${DOTFILES}/environment.d/wayland.conf" "${XDG_CONFIG_HOME}/environment.d/wayland.conf"
+echo "environment.d configured"
+
 # ============ sway ==============================
 echo "Setting up Sway..."
 mkdir -p "${XDG_CONFIG_HOME}/sway"

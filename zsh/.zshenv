@@ -51,7 +51,3 @@ export _ZO_ECHO=1
 export _ZO_RESOLVE_SYMLINKS=1
 export _ZO_EXCLUDE_DIRS="/tmp:/proc:/sys:/dev:/run:$HOME:$HOME/Downloads"
 
-# Wayland
-export MOZ_ENABLE_WAYLAND=1
-
-export NO_AT_BRIDGE=1
