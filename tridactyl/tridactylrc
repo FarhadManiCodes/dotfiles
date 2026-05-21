@@ -32,6 +32,14 @@ set searchurls.cpp https://en.cppreference.com/mwiki/index.php?search=%s
 bindurl www.google.com f hint -Jc #search a
 bindurl www.google.com F hint -Jbc #search a
 
+" ===== Browser behaviour =====
+" Prevent pages from stealing keyboard focus (breaks hjkl navigation)
+set allowautofocus false
+set findcase smart
+
+" Reader mode — useful for articles and papers
+bind gr reader
+
 " ===== Tab management =====
 " Move to left tab before closing — less disorienting than the default
 bind d composite tabprev; tabclose #
