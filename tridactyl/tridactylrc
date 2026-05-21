@@ -32,6 +32,15 @@ set searchurls.cpp https://en.cppreference.com/mwiki/index.php?search=%s
 bindurl www.google.com f hint -Jc #search a
 bindurl www.google.com F hint -Jbc #search a
 
+" ===== New tab =====
+set newtab about:blank
+
+" ===== Quickmarks =====
+" go<key> to jump instantly (e.g. gocl, gogo)
+quickmark cl https://claude.ai
+quickmark gem https://gemini.google.com
+quickmark yt https://www.youtube.com
+
 " ===== Browser behaviour =====
 " Prevent pages from stealing keyboard focus (breaks hjkl navigation)
 set allowautofocus false
