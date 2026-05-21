@@ -98,6 +98,18 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Global ignore**: `git/ignore`
 - **User identity**: `~/.config/git/config.local` (not tracked)
 
+### Tridactyl (Firefox vim bindings)
+
+- **Config**: `tridactyl/tridactylrc` → `~/.config/tridactyl/tridactylrc`
+- **Theme**: tokyonight
+- **Hints**: numeric + vimperator-reflow filter, 100ms delay
+- **Editor**: `footclient --app-id tridactyl-editor vim +%l %f` — opens as half-width tiled column in niri (see niri window rule)
+- **Native messenger**: installed via `tridactyl-native` (AUR/yay) — required for `Ctrl+I` editor integration
+- **Search engines**: DDG (default), `g`, `eco`, `yt`, `ss`, `gh`, `aw`, `wiki`, `cpp`
+- **Quickmarks**: `gocl` (Claude), `gogem` (Gemini), `goyt` (YouTube)
+- **Key bindings**: `d` close+move left, `D` close, `gr` reader mode, `Ctrl+E` open Downloads in vifm, `f`/`F` hints current/new tab
+- **Reload config**: `:source` in Firefox command bar
+
 ### Window manager (Niri)
 
 - `niri/config.kdl` — keybindings, workspaces, window rules

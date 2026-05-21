@@ -325,6 +325,13 @@ window-rule {
     open-floating true
 }
 
+// Tridactyl editor — half height, opens alongside Firefox
+window-rule {
+    match app-id="tridactyl-editor"
+    default-column-width { proportion 0.5; }
+    default-window-height { proportion 0.5; }
+}
+
 // Block password managers from screen capture for security
 // (commented out — no password manager installed yet; revisit if KeePassXC/Bitwarden added)
 /- window-rule {

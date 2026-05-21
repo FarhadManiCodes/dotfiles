@@ -159,6 +159,12 @@ ln -sf "${DOTFILES}/applications/vifm.desktop" "${XDG_DATA_HOME}/applications/vi
 ln -sf "${DOTFILES}/bash/vifm-open" "${HOME}/.local/bin/vifm-open"
 echo "vifm configured"
 
+# ============ tridactyl ==============================
+echo "Setting up tridactyl..."
+mkdir -p "${XDG_CONFIG_HOME}/tridactyl"
+ln -sf "${DOTFILES}/tridactyl/tridactylrc" "${XDG_CONFIG_HOME}/tridactyl/tridactylrc"
+echo "tridactyl configured"
+
 # ============ fuzzel ==============================
 echo "Setting up Fuzzel..."
 mkdir -p "${XDG_CONFIG_HOME}/fuzzel"
