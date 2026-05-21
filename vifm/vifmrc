@@ -103,6 +103,9 @@ fileviewer * bat --color=always --plain %c
 " Shell in current directory
 nnoremap s :shell<cr>
 
+" Open foot terminal in current directory
+nnoremap t :!foot --working-directory=%d &<cr>
+
 " Sort dialog
 nnoremap S :sort<cr>
 
