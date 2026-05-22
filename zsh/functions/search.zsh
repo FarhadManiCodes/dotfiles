@@ -107,7 +107,7 @@ ff() {
       builtin cd "$(dirname "$file")"
       ;;
     ctrl-o)
-      xdg-open "$(dirname "$file")" 2>/dev/null
+      xdg-open "$(dirname "$file")" 2>/dev/null &
       ;;
     *)
       case "$file" in
@@ -150,7 +150,7 @@ fdir() {
 
   case "$key" in
     ctrl-o)
-      xdg-open "$dir" 2>/dev/null
+      xdg-open "$dir" 2>/dev/null &
       ;;
     *)
       builtin cd "$dir"
