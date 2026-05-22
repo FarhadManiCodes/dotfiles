@@ -8,7 +8,7 @@ STUDY_LIBRARY="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
 # ----------------------------------------------------------------------------
 # rgbook - live search PDFs by content
 # Usage: rgbook [query]
-# Keys: Enter → open in zathura at page, Ctrl-d → cd to folder
+# Keys: Enter → open in zathura at page, Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 rgbook() {
   local sp="${STUDY_LIBRARY}"
@@ -33,9 +33,8 @@ rgbook() {
       --preview "rga --context 3 --no-heading {q} '$sp/{1}' 2>/dev/null | head -20" \
       --preview-window='hidden,right:50%' \
       --bind 'ctrl-p:toggle-preview' \
-      --bind 'ctrl-d:accept' \
-      --expect='ctrl-d' \
-      --header='Enter: open at page | Ctrl-d: cd to folder')
+      --expect='ctrl-d,ctrl-o' \
+      --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
 
   [[ -z "$result" ]] && return 0
 
@@ -59,6 +58,9 @@ rgbook() {
     ctrl-d)
       builtin cd "$(dirname "$file")"
       ;;
+    ctrl-o)
+      vifm "$(dirname "$file")"
+      ;;
     *)
       if [[ -n "$page" ]]; then
         zathura --page="$page" "$file" 2>/dev/null &
@@ -72,7 +74,7 @@ rgbook() {
 # ----------------------------------------------------------------------------
 # fbook - find book by filename
 # Usage: fbook [pattern]
-# Keys: Enter → open in zathura, Ctrl-d → cd to folder
+# Keys: Enter → open in zathura, Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 fbook() {
   local search_path="${STUDY_LIBRARY}"
@@ -83,9 +85,8 @@ fbook() {
     fzf --preview "pdfinfo \"$search_path/{}\" 2>/dev/null || echo 'No info available'" \
         --preview-window='hidden,right:40%' \
         --bind 'ctrl-p:toggle-preview' \
-        --bind 'ctrl-d:accept' \
-        --expect='ctrl-d' \
-        --header='Enter: open | Ctrl-d: cd to folder')
+        --expect='ctrl-d,ctrl-o' \
+        --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
 
   [[ -z "$result" ]] && return 0
 
@@ -101,6 +102,9 @@ fbook() {
   case "$key" in
     ctrl-d)
       builtin cd "$(dirname "$file")"
+      ;;
+    ctrl-o)
+      vifm "$(dirname "$file")"
       ;;
     *)
       zathura "$file" 2>/dev/null &
