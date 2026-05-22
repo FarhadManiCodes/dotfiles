@@ -19,25 +19,54 @@ case "$choice" in
     *Battery*)
         cap=$(cat /sys/class/power_supply/BAT0/capacity)
         status=$(cat /sys/class/power_supply/BAT0/status)
-        if [[ "$status" == "Charging" ]]; then
+        energy_now=$(cat /sys/class/power_supply/BAT0/energy_now 2>/dev/null || echo 0)
+        energy_full=$(cat /sys/class/power_supply/BAT0/energy_full 2>/dev/null || echo 0)
+        power_now=$(cat /sys/class/power_supply/BAT0/power_now 2>/dev/null || echo 0)
+
+        if [[ "$status" == "Full" ]]; then
+            icon="$BAT_FULL"
+            body="${cap}% — Full"
+        elif [[ "$status" == "Charging" ]]; then
             icon="$BOLT"
-        elif (( cap >= 80 )); then icon="$BAT_FULL"
-        elif (( cap >= 60 )); then icon="$BAT_THREE"
-        elif (( cap >= 40 )); then icon="$BAT_HALF"
-        elif (( cap >= 20 )); then icon="$BAT_QUARTER"
-        else icon="$BAT_EMPTY"
+            if (( power_now > 0 && energy_full > energy_now )); then
+                mins=$(( (energy_full - energy_now) * 60 / power_now ))
+                body="${cap}% — Charging • ~$(( mins / 60 ))h $(( mins % 60 ))m to full"
+            else
+                body="${cap}% — Charging"
+            fi
+        else
+            if (( cap >= 80 )); then icon="$BAT_FULL"
+            elif (( cap >= 60 )); then icon="$BAT_THREE"
+            elif (( cap >= 40 )); then icon="$BAT_HALF"
+            elif (( cap >= 20 )); then icon="$BAT_QUARTER"
+            else icon="$BAT_EMPTY"
+            fi
+            if (( power_now > 0 )); then
+                mins=$(( energy_now * 60 / power_now ))
+                body="${cap}% — ${status} • ~$(( mins / 60 ))h $(( mins % 60 ))m remaining"
+            else
+                body="${cap}% — ${status}"
+            fi
         fi
-        notify-send -u low "${icon} Battery" "${cap}% — ${status}"
+        notify-send -u low "${icon} Battery" "$body"
         ;;
     *Uptime*)
-        notify-send -u low "${CLOCK} Uptime" "$(uptime -p)"
+        load=$(awk '{printf "%s  %s  %s", $1, $2, $3}' /proc/loadavg)
+        notify-send -u low "${CLOCK} Uptime" "$(uptime -p)\nLoad (1/5/15 min): ${load}"
         ;;
     *"CPU Temp"*)
-        temp=$(sensors 2>/dev/null | awk '/Tctl/{gsub(/[+°C]/,"",$2); print $2; exit}')
-        notify-send -u low "${THERM} CPU Temp" "${temp:+${temp}°C}"
+        cpu=$(sensors 2>/dev/null | awk '/Tctl/{gsub(/[+°C]/,"",$2); print $2; exit}')
+        gpu=$(sensors 2>/dev/null | awk '/^edge:/{gsub(/[+°C]/,"",$2); print $2; exit}')
+        fan1=$(sensors 2>/dev/null | awk '/^fan1:/{print $2; exit}')
+        fan2=$(sensors 2>/dev/null | awk '/^fan2:/{print $2; exit}')
+        body="${cpu:+CPU ${cpu}°C}"
+        [[ -n "$gpu" ]] && body+=" • GPU ${gpu}°C"
+        [[ -n "$fan1" ]] && body+=" • Fan ${fan1}/${fan2} RPM"
+        notify-send -u low "${THERM} CPU Temp" "$body"
         ;;
     *Memory*)
-        mem=$(free -h | awk '/^Mem/{print $3 " used / " $2 " total"}')
-        notify-send -u low "${CHIP} Memory" "$mem"
+        mem=$(free -h | awk '/^Mem/{print $3 " used / " $2 " total (" $7 " avail)"}')
+        swap=$(free -h | awk '/^Swap/{if ($3+0 > 0 || $3 ~ /[KMGT]/) print "Swap: " $3 " / " $2; else print "Swap: none"}')
+        notify-send -u low "${CHIP} Memory" "${mem}\n${swap}"
         ;;
 esac
