@@ -73,6 +73,10 @@ fileviewer {*.zip,*.tar,*.tar.gz,*.tgz,*.tar.bz2,*.tbz2,*.tar.xz,*.txz,
            \*.tar.zst,*.tzst,*.rar,*.gz,*.bz2,*.xz,*.zst,*.7z}
          \ als %f
 
+" SVG — render to PNG via resvg, then chafa
+fileviewer *.svg resvg -w 800 --background "#3a3a3a" %c -c 2>/dev/null
+         \ | chafa --format=symbols --bg "#3a3a3a" --size=%pwx%ph -
+
 " Images — ANSI block art via chafa (forced symbols mode, no sixel)
 fileviewer {*.bmp,*.gif,*.ico,*.jpeg,*.jpg,*.png,*.tiff,*.tif,*.webp,*.avif}
          \ chafa --format=symbols --size=%pwx%ph %c
@@ -85,13 +89,17 @@ fileviewer {*.avi,*.flv,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.webm,*.av1}
 fileviewer {*.aac,*.au,*.flac,*.m2a,*.m4a,*.mid,*.midi,*.mp3,*.oga,*.ogg,*.ra,*.ram,*.spx,*.wav,*.wma}
          \ file --brief %c
 
-" PDF — first page as text
-fileviewer *.pdf pdftotext -l 1 -nopgbrk -q %c -
+" PDF — metadata then text from first 3 pages (skips blank covers)
+fileviewer *.pdf pdfinfo %c 2>/dev/null; echo "---";
+         \ pdftotext -f 1 -l 3 -nopgbrk -q %c - 2>/dev/null | head -60
 
 " Office / eBook binaries — file info only
 fileviewer {*.doc,*.dot,*.docx,*.docm,*.xls,*.xlt,*.xlsx,*.xlsm,*.xltx,
            \*.ppt,*.pot,*.pptx,*.pptm,*.potx,*.epub,*.djvu,*.fb2}
          \ file --brief %c
+
+" JSON — jq pretty-print with colour
+fileviewer {*.json,*.jsonl,*.ndjson} jq --color-output . %c 2>/dev/null
 
 " Everything else — bat with syntax highlighting
 fileviewer * bat --color=always --plain %c
