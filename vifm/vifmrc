@@ -63,7 +63,7 @@ filetype * handlr open %f
 " ------------------------------------------------------------------------------
 
 " Markdown — glow for rendered output
-fileviewer {*.md,*.markdown} glow --style dark %c
+fileviewer {*.md,*.markdown} glow --style dark %c | cat
 
 " Directories — eza tree (depth 2, colours preserved)
 fileviewer */ eza --tree --color=always --level=2 %c
