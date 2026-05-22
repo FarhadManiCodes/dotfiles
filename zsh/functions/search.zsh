@@ -110,7 +110,20 @@ ff() {
       xdg-open "$(dirname "$file")" 2>/dev/null &
       ;;
     *)
-      xdg-open "$file" 2>/dev/null &
+      case "$file" in
+        *.md|*.markdown)
+          glow -p "$file"
+          ;;
+        *)
+          local mime
+          mime=$(file --mime-type -b "$file")
+          if [[ "$mime" == text/* ]]; then
+            xdg-open "$file"
+          else
+            xdg-open "$file" 2>/dev/null &
+          fi
+          ;;
+      esac
       ;;
   esac
 }

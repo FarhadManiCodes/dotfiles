@@ -47,6 +47,7 @@ image/x-icon=org.gnome.gThumb.desktop;
 inode/directory=vifm.desktop;
 message/rfc822=firefox.desktop;
 text/calendar=firefox.desktop;
+text/css=nvim.desktop;
 text/csv=nvim.desktop;libreoffice-calc.desktop;
 text/html=firefox.desktop;
 text/rust=vim.desktop;
