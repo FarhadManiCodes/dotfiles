@@ -52,6 +52,16 @@ command! mkcd :mkdir %a | cd %a
 command! reload :write | restart full
 command! trash trash-put %f
 
+" Zsh search functions (source the function file; no logic duplication)
+command! rgf    :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgf'
+command! rgpy   :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgpy'
+command! rgcpp  :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgcpp'
+command! fbook  :!zsh -c 'source ~/.config/zsh/functions/pdf.zsh && fbook'
+command! rgbook :!zsh -c 'source ~/.config/zsh/functions/pdf.zsh && rgbook'
+command! fdata  :!zsh -c 'source ~/.config/zsh/functions/fzf.zsh && fdata'
+command! fnb    :!zsh -c 'source ~/.config/zsh/functions/fzf.zsh && fnb'
+command! gst    :!git -C %d status; read -k1 "?Press any key to continue"
+
 " ------------------------------------------------------------------------------
 " File openers  (xdg-open as catch-all; specific openers added per need)
 " ------------------------------------------------------------------------------
