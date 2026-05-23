@@ -52,15 +52,57 @@ command! mkcd :mkdir %a | cd %a
 command! reload :write | restart full
 command! trash trash-put %f
 
-" Zsh search functions (source the function file; no logic duplication)
+" Zsh search functions (ctrl-d not vifm-aware — shell use only)
 command! rgf    :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgf'
 command! rgpy   :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgpy'
 command! rgcpp  :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgcpp'
-command! fbook  :!zsh -c 'source ~/.config/zsh/functions/pdf.zsh && fbook'
-command! rgbook :!zsh -c 'source ~/.config/zsh/functions/pdf.zsh && rgbook'
-command! fdata  :!zsh -c 'source ~/.config/zsh/functions/fzf.zsh && fdata'
-command! fnb    :!zsh -c 'source ~/.config/zsh/functions/fzf.zsh && fnb'
 command! gst    :!git -C %d status; read -k1 "?Press any key to continue"
+
+" Vifm-native pickers via vifm-pick helper (results via /tmp/vifm-pick-*)
+command! fbook : let $DUMMY = term('vifm-pick fbook')
+              \| let $ACT  = system('cat /tmp/vifm-pick-action 2>/dev/null | tr -d "\n"')
+              \| let $FILE = system('cat /tmp/vifm-pick-file 2>/dev/null | tr -d "\n"')
+              \| if $ACT == 'cd'
+              \|   execute 'cd' system('cat /tmp/vifm-pick-dir | tr -d "\n"')
+              \| elseif $ACT == 'open'
+              \|   execute '!zathura "' . $FILE . '" 2>/dev/null &'
+              \| endif
+              \| execute '!rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-page'
+
+command! rgbook : let $DUMMY = term('vifm-pick rgbook')
+               \| let $ACT  = system('cat /tmp/vifm-pick-action 2>/dev/null | tr -d "\n"')
+               \| let $FILE = system('cat /tmp/vifm-pick-file 2>/dev/null | tr -d "\n"')
+               \| let $PAGE = system('cat /tmp/vifm-pick-page 2>/dev/null | tr -d "\n"')
+               \| if $ACT == 'cd'
+               \|   execute 'cd' system('cat /tmp/vifm-pick-dir | tr -d "\n"')
+               \| elseif $PAGE != ''
+               \|   execute '!zathura --page="' . $PAGE . '" "' . $FILE . '" 2>/dev/null &'
+               \| elseif $ACT == 'open'
+               \|   execute '!zathura "' . $FILE . '" 2>/dev/null &'
+               \| endif
+               \| execute '!rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-page'
+
+command! fdata : let $DUMMY = term('vifm-pick fdata')
+              \| let $ACT  = system('cat /tmp/vifm-pick-action 2>/dev/null | tr -d "\n"')
+              \| let $FILE = system('cat /tmp/vifm-pick-file 2>/dev/null | tr -d "\n"')
+              \| if $ACT == 'cd'
+              \|   execute 'cd' system('cat /tmp/vifm-pick-dir | tr -d "\n"')
+              \| elseif $ACT == 'cp'
+              \|   execute '!echo -n "' . $FILE . '" | wl-copy'
+              \| elseif $ACT == 'goto'
+              \|   execute 'goto' fnameescape($FILE)
+              \| endif
+              \| execute '!rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-page'
+
+command! fnb : let $DUMMY = term('vifm-pick fnb')
+            \| let $ACT  = system('cat /tmp/vifm-pick-action 2>/dev/null | tr -d "\n"')
+            \| let $FILE = system('cat /tmp/vifm-pick-file 2>/dev/null | tr -d "\n"')
+            \| if $ACT == 'cd'
+            \|   execute 'cd' system('cat /tmp/vifm-pick-dir | tr -d "\n"')
+            \| elseif $ACT == 'goto'
+            \|   execute 'goto' fnameescape($FILE)
+            \| endif
+            \| execute '!rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-page'
 
 " ------------------------------------------------------------------------------
 " File openers  (xdg-open as catch-all; specific openers added per need)

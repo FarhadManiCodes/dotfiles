@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Unified fzf picker helper for vifm commands.
+# Usage: vifm-pick <fbook|rgbook|fdata|fnb>
+# Results written to /tmp/vifm-pick-{action,file,dir,page}; vifm reads and acts.
+
+cmd="${1:-}"
+rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-dir \
+      /tmp/vifm-pick-page   /tmp/vifm-pick-cd   /tmp/vifm-pick-cp
+
+write_result() {
+    local abs="$1"
+    printf '%s' "$abs"              > /tmp/vifm-pick-file
+    printf '%s' "$(dirname "$abs")" > /tmp/vifm-pick-dir
+}
+
+case "$cmd" in
+
+  fbook)
+    sp="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+    result=$(fd --type f -e pdf -e epub -e djvu . "$sp" 2>/dev/null \
+        | sed "s|^$sp/||" \
+        | fzf \
+            --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
+            --preview "pdfinfo \"$sp/{}\" 2>/dev/null || echo 'No info available'" \
+            --preview-window=hidden,right:40% \
+            --bind 'ctrl-p:toggle-preview' \
+            --header='Enter: open | Ctrl-d: cd')
+    [[ -z "$result" ]] && exit 0
+    [[ -f /tmp/vifm-pick-cd ]] && printf 'cd'   > /tmp/vifm-pick-action \
+                                || printf 'open' > /tmp/vifm-pick-action
+    write_result "$sp/$result"
+    ;;
+
+  rgbook)
+    sp="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+    rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
+    format_cmd="awk -F: -v sp='$sp/' '{
+        gsub(sp, \"\", \$1);
+        n=split(\$1,a,\"/\");
+        key=\$1\":\"\$3;
+        if(seen[key]++) next;
+        printf \"%s\\t%s:\\033[32m%s\\033[0m:%s\\n\", \$1, a[n], \$3, \$4
+    }'"
+    reload_cmd="$rga_cmd | $format_cmd || true"
+    result=$(fzf --ansi --disabled \
+        --bind "change:reload:$reload_cmd" \
+        --bind "start:reload:$reload_cmd" \
+        --delimiter=$'\t' \
+        --with-nth=2 \
+        --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
+        --preview "rga --context 3 --no-heading {q} '$sp/{1}' 2>/dev/null | head -20" \
+        --preview-window='hidden,right:50%' \
+        --bind 'ctrl-p:toggle-preview' \
+        --header='Enter: open at page | Ctrl-d: cd')
+    [[ -z "$result" ]] && exit 0
+    relpath="${result%%$'\t'*}"
+    page=$(grep -oP 'Page \K[0-9]+' <<< "$result" | head -1)
+    [[ -f /tmp/vifm-pick-cd ]] && printf 'cd'   > /tmp/vifm-pick-action \
+                                || printf 'open' > /tmp/vifm-pick-action
+    write_result "$sp/$relpath"
+    printf '%s' "$page" > /tmp/vifm-pick-page
+    ;;
+
+  fdata)
+    result=$(fd --type f \
+        -e csv -e tsv -e jsonl -e ndjson \
+        -e json -e yaml -e yml \
+        -e parquet -e avro -e orc -e feather \
+        -e xlsx -e xls \
+        -e pkl -e pickle -e joblib \
+        -e h5 -e hdf5 \
+        -e pt -e pth -e onnx \
+        --exclude __pycache__ --exclude .git --exclude node_modules \
+        --exclude .venv --exclude venv \
+        2>/dev/null \
+        | fzf \
+            --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
+            --bind "ctrl-v:execute-silent(touch /tmp/vifm-pick-cp)+accept" \
+            --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
+            --preview-window=hidden,right:40% \
+            --bind 'ctrl-p:toggle-preview' \
+            --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
+    [[ -z "$result" ]] && exit 0
+    if [[ -f /tmp/vifm-pick-cd ]]; then
+        printf 'cd'   > /tmp/vifm-pick-action
+    elif [[ -f /tmp/vifm-pick-cp ]]; then
+        printf 'cp'   > /tmp/vifm-pick-action
+    else
+        printf 'goto' > /tmp/vifm-pick-action
+    fi
+    write_result "$(realpath "$result" 2>/dev/null || echo "$result")"
+    ;;
+
+  fnb)
+    result=$(fd --type f --extension ipynb 2>/dev/null \
+        | fzf \
+            --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
+            --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
+            --preview-window=hidden,right:30% \
+            --bind 'ctrl-p:toggle-preview' \
+            --header='Enter: goto | Ctrl-d: cd')
+    [[ -z "$result" ]] && exit 0
+    [[ -f /tmp/vifm-pick-cd ]] && printf 'cd'   > /tmp/vifm-pick-action \
+                                || printf 'goto' > /tmp/vifm-pick-action
+    write_result "$(realpath "$result" 2>/dev/null || echo "$result")"
+    ;;
+
+  *)
+    echo "vifm-pick: unknown command '${cmd}'" >&2
+    exit 1
+    ;;
+esac
+
+rm -f /tmp/vifm-pick-cd /tmp/vifm-pick-cp
