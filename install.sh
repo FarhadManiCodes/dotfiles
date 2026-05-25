@@ -221,6 +221,13 @@ mkdir -p "${XDG_CONFIG_HOME}/zathura"
 ln -sf "${DOTFILES}/zathura/zathurarc" "${XDG_CONFIG_HOME}/zathura/zathurarc"
 echo "Zathura configured"
 
+# ============ sioyek ==============================
+echo "Setting up Sioyek..."
+mkdir -p "${XDG_CONFIG_HOME}/sioyek"
+ln -sf "${DOTFILES}/sioyek/prefs_user.config" "${XDG_CONFIG_HOME}/sioyek/prefs_user.config"
+ln -sf "${DOTFILES}/sioyek/keys_user.config"  "${XDG_CONFIG_HOME}/sioyek/keys_user.config"
+echo "Sioyek configured"
+
 # ============ clangd ==============================
 echo "Setting up Clangd..."
 mkdir -p "${XDG_CONFIG_HOME}/clangd"
