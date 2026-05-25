@@ -65,7 +65,7 @@ command! fbook : let $DUMMY = term('vifm-pick fbook')
               \| if $ACT == 'cd'
               \|   execute 'cd' system('cat /tmp/vifm-pick-dir | tr -d "\n"')
               \| elseif $ACT == 'open'
-              \|   execute '!zathura "' . $FILE . '" 2>/dev/null &'
+              \|   execute '!sioyek "' . $FILE . '" 2>/dev/null &'
               \| endif
               \| execute '!rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-page'
 
@@ -76,9 +76,9 @@ command! rgbook : let $DUMMY = term('vifm-pick rgbook')
                \| if $ACT == 'cd'
                \|   execute 'cd' system('cat /tmp/vifm-pick-dir | tr -d "\n"')
                \| elseif $PAGE != ''
-               \|   execute '!zathura --page="' . $PAGE . '" "' . $FILE . '" 2>/dev/null &'
+               \|   execute '!sioyek --page ' . $PAGE . ' "' . $FILE . '" 2>/dev/null &'
                \| elseif $ACT == 'open'
-               \|   execute '!zathura "' . $FILE . '" 2>/dev/null &'
+               \|   execute '!sioyek "' . $FILE . '" 2>/dev/null &'
                \| endif
                \| execute '!rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-page'
 
