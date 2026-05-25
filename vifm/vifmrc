@@ -141,9 +141,9 @@ fileviewer {*.avi,*.flv,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.webm,*.av1}
 fileviewer {*.aac,*.au,*.flac,*.m2a,*.m4a,*.mid,*.midi,*.mp3,*.oga,*.ogg,*.ra,*.ram,*.spx,*.wav,*.wma}
          \ file --brief %c
 
-" PDF — metadata then text from first 3 pages (skips blank covers)
-fileviewer *.pdf pdfinfo %c 2>/dev/null; echo "---";
-         \ pdftotext -f 1 -l 3 -nopgbrk -q %c - 2>/dev/null | head -60
+" PDF — text from first 3 pages via mutool (znver4-optimized, ~/.local/bin/mutool)
+" Bundled with this machine's custom sioyek build; no poppler dependency.
+fileviewer *.pdf mutool draw -q -F txt -o - %c 1-3 2>/dev/null | head -60
 
 " Office / eBook binaries — file info only
 fileviewer {*.doc,*.dot,*.docx,*.docm,*.xls,*.xlt,*.xlsx,*.xlsm,*.xltx,
