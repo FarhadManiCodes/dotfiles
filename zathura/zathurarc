@@ -22,7 +22,3 @@ set recolor-darkcolor           "#ebdbb2"
 
 set statusbar-basename true
 set window-title-basename true
-
-# SyncTeX support for jumping between PDF and LaTeX source
-set synctex true
-set synctex-editor-command "/home/farhad/.local/bin/niri-synctex %{input} %{line}"
