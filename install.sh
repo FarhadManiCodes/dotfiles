@@ -235,6 +235,15 @@ ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/def
 ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml"  "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
 echo "pcmanfm-qt configured"
 
+# ============ foliate ==============================
+echo "Setting up Foliate..."
+mkdir -p "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes"
+for file in "${DOTFILES}/foliate/themes/"*.json; do
+    ln -sf "$file" "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes/"
+done
+gsettings set com.github.johnfactotum.Foliate.viewer fold-sidebar true 2>/dev/null || true
+echo "Foliate configured"
+
 # ============ clangd ==============================
 echo "Setting up Clangd..."
 mkdir -p "${XDG_CONFIG_HOME}/clangd"
