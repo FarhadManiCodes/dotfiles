@@ -228,6 +228,12 @@ ln -sf "${DOTFILES}/sioyek/prefs_user.config" "${XDG_CONFIG_HOME}/sioyek/prefs_u
 ln -sf "${DOTFILES}/sioyek/keys_user.config"  "${XDG_CONFIG_HOME}/sioyek/keys_user.config"
 echo "Sioyek configured"
 
+# ============ pcmanfm-qt ==============================
+echo "Setting up pcmanfm-qt..."
+mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
+ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+echo "pcmanfm-qt configured"
+
 # ============ clangd ==============================
 echo "Setting up Clangd..."
 mkdir -p "${XDG_CONFIG_HOME}/clangd"
