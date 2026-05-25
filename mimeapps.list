@@ -3,7 +3,7 @@ application/pdf=sioyek.desktop;firefox.desktop;
 text/csv=nvim.desktop;libreoffice-calc.desktop;
 
 [Default Applications]
-application/epub+zip=org.pwmt.zathura-pdf-mupdf.desktop;
+application/epub+zip=com.github.johnfactotum.Foliate.desktop;
 application/json=nvim.desktop;
 application/pdf=sioyek.desktop;firefox.desktop;
 application/toml=vim.desktop;
