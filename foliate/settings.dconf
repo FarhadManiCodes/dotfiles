@@ -1,0 +1,8 @@
+[viewer]
+fold-sidebar=true
+highlight-color='cyan'
+
+[viewer/view]
+animated=false
+autohide-cursor=true
+max-column-count=uint32 1

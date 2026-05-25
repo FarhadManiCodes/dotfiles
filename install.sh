@@ -241,7 +241,7 @@ mkdir -p "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes"
 for file in "${DOTFILES}/foliate/themes/"*.json; do
     ln -sf "$file" "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes/"
 done
-gsettings set com.github.johnfactotum.Foliate.viewer fold-sidebar true 2>/dev/null || true
+dconf load /com/github/johnfactotum/Foliate/ < "${DOTFILES}/foliate/settings.dconf"
 echo "Foliate configured"
 
 # ============ clangd ==============================
