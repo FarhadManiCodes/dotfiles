@@ -232,6 +232,7 @@ echo "Sioyek configured"
 echo "Setting up pcmanfm-qt..."
 mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
 ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml"  "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
 echo "pcmanfm-qt configured"
 
 # ============ clangd ==============================
