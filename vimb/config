@@ -14,7 +14,7 @@ set cookie-accept=origin
 set javascript-can-open-windows-automatically=false
 
 nmap f ;t
-nmap <F4> :set dark-mode!<CR>
+nmap <F8> :set dark-mode!<CR>
 nmap <Space> <C-D>
 nmap <BS> <C-U>
 nmap <C-+> zI
