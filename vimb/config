@@ -1,0 +1,24 @@
+set home-page=about:blank
+set download-path=~/Downloads
+set editor-command=footclient --app-id vimb-editor vim %s
+
+set input-autohide=true
+set status-bar=false
+set smooth-scrolling=true
+set scroll-step=60
+set incsearch=true
+set dark-mode=true
+
+set allow-file-access-from-file-urls=true
+set cookie-accept=origin
+set javascript-can-open-windows-automatically=false
+
+nmap f ;t
+nmap <F4> :set dark-mode!<CR>
+nmap <Space> <C-D>
+nmap <BS> <C-U>
+nmap <C-+> zI
+nmap <C--> zO
+
+shortcut-add dd=https://duckduckgo.com/lite/?q=$0
+shortcut-default dd

@@ -244,6 +244,12 @@ done
 dconf load /com/github/johnfactotum/Foliate/ < "${DOTFILES}/foliate/settings.dconf"
 echo "Foliate configured"
 
+# ============ vimb ==============================
+echo "Setting up vimb..."
+mkdir -p "${XDG_CONFIG_HOME}/vimb"
+ln -sf "${DOTFILES}/vimb/config" "${XDG_CONFIG_HOME}/vimb/config"
+echo "vimb configured"
+
 # ============ clangd ==============================
 echo "Setting up Clangd..."
 mkdir -p "${XDG_CONFIG_HOME}/clangd"

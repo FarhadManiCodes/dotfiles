@@ -51,6 +51,7 @@ bind <C-e> exclaim_quiet foot --app-id=vifm -e vifm ~/Downloads
 
 " ===== Tab management =====
 " Move to left tab before closing — less disorienting than the default
-bind d composite tabprev; tabclose #
+bind dt composite tabprev; tabclose #
 bind D tabclose
+unbind d
 
