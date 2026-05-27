@@ -10,9 +10,7 @@
 --merge-output-format mkv
 
 # ─── OUTPUT ───────────────────────────────────────────────────────────────────
-# Playlist: "01 - Title.mkv"; single video: "Title.mkv"
 -o "%(title)s.%(ext)s"
--o "playlist:%(playlist_index)02d - %(title)s.%(ext)s"
 
 # ─── METADATA ─────────────────────────────────────────────────────────────────
 --embed-thumbnail
@@ -31,6 +29,7 @@
 --fragment-retries 10
 --file-access-retries 5
 --retry-sleep 5           # wait 5s between retries
+--sleep-subtitles 3       # avoid 429 rate-limiting on subtitle requests
 
 # ─── THROTTLE BYPASS ──────────────────────────────────────────────────────────
 --throttled-rate 100K     # retry if speed drops below 100K (YouTube throttling)
