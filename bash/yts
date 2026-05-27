@@ -42,7 +42,7 @@ pick_instance() {
     local fresh
     fresh=$(curl -sf --max-time 5 'https://api.invidious.io/instances.json' 2>/dev/null \
         | jq -r '.[] | select(.[1].api == true and .[1].type == "https") | "https://" + .[0]' \
-        2>/dev/null) && readarray -t -O "${#candidates[@]}" candidates <<< "$fresh"
+        2>/dev/null) && [[ -n "$fresh" ]] && readarray -t -O "${#candidates[@]}" candidates <<< "$fresh"
 
     local inst
     for inst in "${candidates[@]}"; do
@@ -244,7 +244,7 @@ main() {
     trap 'rm -rf "$SESSION_CACHE"' EXIT
 
     export YTS_INSTANCE
-    YTS_INSTANCE=$(pick_instance)
+    YTS_INSTANCE=$(pick_instance) || exit 1
     export USERAGENT
 
     printf 'Searching "%s" via %s…\n' "$query" "$YTS_INSTANCE" >&2
