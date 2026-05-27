@@ -13,6 +13,8 @@ def base_lang(code):
     return code.split('-')[0].split('_')[0].lower()
 
 def filter_subs(subs):
+    if not subs:
+        return subs
     return {k: v for k, v in subs.items() if base_lang(k) in PREFERRED}
 
 def filter_info(data):
