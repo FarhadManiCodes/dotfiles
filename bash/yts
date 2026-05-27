@@ -1,0 +1,294 @@
+#!/usr/bin/env bash
+# yts — YouTube search via Invidious API + fzf with sixel preview in foot
+
+USERAGENT='Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0'
+YTS_INSTANCE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/yts/instance"
+# Seed list — augmented at runtime from api.invidious.io if none respond
+INVIDIOUS_INSTANCES=(
+    'https://inv.thepixora.com'
+    'https://invidious.materialio.us'
+    'https://yewtu.be'
+    'https://invidious.nerdvpn.de'
+)
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+yts_curl() {
+    curl -sf -L --compressed \
+        -H "User-Agent: $USERAGENT" \
+        -H 'Accept-Language: en-US,en;q=0.9' \
+        "$@"
+}
+
+# Verify an instance actually serves search results (stats alone is not enough)
+check_instance() {
+    curl -sf --max-time 3 \
+        -H "User-Agent: $USERAGENT" \
+        "${1}/api/v1/search?q=test&type=video&page=1" 2>/dev/null \
+    | jq -e 'first | .videoId' >/dev/null 2>&1
+}
+
+pick_instance() {
+    local cache="$YTS_INSTANCE_CACHE"
+    mkdir -p "$(dirname "$cache")"
+    if [[ -f "$cache" ]] && (( $(date +%s) - $(stat -c %Y "$cache") < 3600 )); then
+        cat "$cache"
+        return
+    fi
+    # Try seed list first, then fall back to dynamic list from api.invidious.io
+    local -a candidates=("${INVIDIOUS_INSTANCES[@]}")
+    local fresh
+    fresh=$(curl -sf --max-time 5 'https://api.invidious.io/instances.json' 2>/dev/null \
+        | jq -r '.[] | select(.[1].api == true and .[1].type == "https") | "https://" + .[0]' \
+        2>/dev/null) && readarray -t -O "${#candidates[@]}" candidates <<< "$fresh"
+
+    local inst
+    for inst in "${candidates[@]}"; do
+        if check_instance "$inst"; then
+            printf '%s' "$inst" | tee "$cache"
+            return
+        fi
+    done
+    printf 'yts: no working Invidious instance found\n' >&2
+    return 1
+}
+
+# jq program: array of video objects → tab-delimited fzf display lines
+#   field 1: human-readable display text
+#   field 2: videoId
+#   field 3: authorId
+JQ_TO_LINES='
+def hv:
+    if . >= 1000000 then (((. * 10 / 1000000 | floor) / 10) | tostring) + "M"
+    elif . >= 1000 then (((. * 10 / 1000 | floor) / 10) | tostring) + "K"
+    else tostring end;
+def ht:
+    (. / 60 | floor | tostring) + ":"
+    + (. % 60 | if . < 10 then "0" + tostring else tostring end);
+.[] | select((.liveNow // false) == false) |
+"[" + ((.lengthSeconds // 0) | ht) + "]  "
++ ((.viewCount // 0) | hv) + "  "
++ (.author // "?") + " · " + (.title // "?")
++ "\t" + (.videoId // "")
++ "\t" + (.authorId // "")
+'
+
+format_lines() {
+    jq -r "$JQ_TO_LINES"
+}
+
+# ---------------------------------------------------------------------------
+# Preview handler  (called as: yts --preview <videoId>)
+# ---------------------------------------------------------------------------
+
+do_preview() {
+    local video_id="$1"
+    [[ -z "$video_id" ]] && return 1
+
+    local cols="${FZF_PREVIEW_COLUMNS:-60}"
+    local plines="${FZF_PREVIEW_LINES:-30}"
+    local thumb_rows=$(( plines / 3 ))
+    (( thumb_rows < 10 )) && thumb_rows=10
+
+    # Thumbnail — atomically written so partial downloads don't pollute cache
+    local thumb="$SESSION_CACHE/thumb-${video_id}.jpg"
+    if [[ ! -f "$thumb" ]]; then
+        local thumb_tmp="${thumb}.${$}.tmp"
+        if yts_curl --max-time 5 \
+            -o "$thumb_tmp" \
+            "${YTS_INSTANCE}/vi/${video_id}/hqdefault.jpg" 2>/dev/null; then
+            mv "$thumb_tmp" "$thumb"
+        else
+            rm -f "$thumb_tmp"
+        fi
+    fi
+    if [[ -f "$thumb" && -s "$thumb" ]]; then
+        chafa -f sixel -s "${cols}x${thumb_rows}" "$thumb" 2>/dev/null || true
+    fi
+
+    # Metadata from cached JSON (search results + any loaded channel caches)
+    local -a jfiles=()
+    [[ -f "$SESSION_CACHE/results.json" ]] && jfiles+=("$SESSION_CACHE/results.json")
+    for f in "$SESSION_CACHE"/ch-*.json; do
+        [[ -f "$f" ]] && jfiles+=("$f")
+    done
+
+    if [[ ${#jfiles[@]} -gt 0 ]]; then
+        jq -rs --arg id "$video_id" '
+            def hv:
+                if . >= 1000000 then (((. * 10 / 1000000 | floor) / 10) | tostring) + "M"
+                elif . >= 1000 then (((. * 10 / 1000 | floor) / 10) | tostring) + "K"
+                else tostring end;
+            def ht:
+                (. / 60 | floor | tostring) + ":"
+                + (. % 60 | if . < 10 then "0" + tostring else tostring end);
+            flatten | first(.[] | select(.videoId == $id)) // empty |
+            "[1m\(.title // "?")[0m",
+            "Channel: \(.author // "?")",
+            (
+                "Views: "
+                + (.viewCount // 0 | hv)
+                + " · " + (.lengthSeconds // 0 | ht)
+                + " · " + (.publishedText // "")
+            ),
+            "",
+            (.description // "" | .[0:400])
+        ' "${jfiles[@]}" 2>/dev/null || true
+    fi
+
+    # First comment — cached, 3s timeout so slow instances don't block preview
+    local cmt="$SESSION_CACHE/comment-${video_id}.txt"
+    if [[ ! -f "$cmt" ]]; then
+        local cmt_tmp="${cmt}.${$}.tmp"
+        if yts_curl --max-time 3 "${YTS_INSTANCE}/api/v1/comments/${video_id}" \
+            | jq -re '.comments[0] | "💬 \(.author): \(.content[0:200])"' \
+            > "$cmt_tmp" 2>/dev/null; then
+            mv "$cmt_tmp" "$cmt"
+        else
+            rm -f "$cmt_tmp"
+            : > "$cmt"
+        fi
+    fi
+    if [[ -s "$cmt" ]]; then
+        printf '\n'
+        cat "$cmt"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Channel videos handler  (called via fzf reload: yts --channel-lines <authorId>)
+# ---------------------------------------------------------------------------
+
+do_channel_lines() {
+    local author_id="$1"
+    [[ -z "$author_id" ]] && { printf 'No channel ID\n' >&2; return 1; }
+    local cache="$SESSION_CACHE/ch-${author_id}.json"
+    if [[ ! -f "$cache" ]]; then
+        # Invidious channel/videos endpoint is currently broken on all tested instances
+        # (parse-error from YouTube API changes). Use YouTube's RSS feed directly instead.
+        local xml
+        xml=$(curl -sf -L --max-time 8 \
+            -H "User-Agent: $USERAGENT" \
+            "https://www.youtube.com/feeds/videos.xml?channel_id=${author_id}" 2>/dev/null)
+        if [[ -n "$xml" ]]; then
+            # Write Python to a temp file to avoid bash quoting issues with -c "..."
+            local pyfile="${SESSION_CACHE}/parse_rss.py"
+            cat > "$pyfile" << 'PYEOF'
+import sys, xml.etree.ElementTree as ET, json
+from datetime import datetime, timezone
+author_id = sys.argv[1]
+ns = {'a':'http://www.w3.org/2005/Atom','yt':'http://www.youtube.com/xml/schemas/2015','m':'http://search.yahoo.com/mrss/'}
+root = ET.parse(sys.stdin).getroot()
+ch = root.find('a:author/a:name', ns)
+ch_name = ch.text if ch is not None else ''
+now = datetime.now(timezone.utc)
+def rel(iso):
+    try:
+        dt = datetime.fromisoformat(iso.replace('Z', '+00:00'))
+        d = (now - dt).days
+        if d == 0: return 'today'
+        if d == 1: return 'yesterday'
+        if d < 7: return str(d) + ' days ago'
+        if d < 30:
+            w = d // 7
+            return str(w) + (' weeks' if w > 1 else ' week') + ' ago'
+        if d < 365:
+            m = d // 30
+            return str(m) + (' months' if m > 1 else ' month') + ' ago'
+        y = d // 365
+        return str(y) + (' years' if y > 1 else ' year') + ' ago'
+    except Exception:
+        return iso[:10]
+videos = []
+for e in root.findall('a:entry', ns):
+    vid = e.find('yt:videoId', ns)
+    tit = e.find('a:title', ns)
+    pub = e.find('a:published', ns)
+    stats = e.find('m:group/m:community/m:statistics', ns)
+    if vid is None: continue
+    videos.append({
+        'videoId': vid.text, 'title': tit.text if tit is not None else '',
+        'author': ch_name, 'authorId': author_id,
+        'viewCount': int(stats.get('views', '0')) if stats is not None else 0,
+        'lengthSeconds': 0,
+        'publishedText': rel(pub.text) if pub is not None else '',
+        'liveNow': False
+    })
+print(json.dumps(videos))
+PYEOF
+            printf '%s' "$xml" | python3 "$pyfile" "$author_id" > "$cache" 2>/dev/null \
+            || printf '[]' > "$cache"
+        else
+            printf '[]' > "$cache"
+        fi
+    fi
+    format_lines < "$cache"
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+main() {
+    local query="$*"
+    if [[ -z "$query" ]]; then
+        printf 'Search: ' >&2
+        read -r query
+    fi
+    [[ -z "$query" ]] && { printf 'No query\n' >&2; exit 1; }
+
+    export SESSION_CACHE="${TMPDIR:-/tmp}/yts-$$"
+    mkdir -p "$SESSION_CACHE"
+    trap 'rm -rf "$SESSION_CACHE"' EXIT
+
+    export YTS_INSTANCE
+    YTS_INSTANCE=$(pick_instance)
+    export USERAGENT
+
+    printf 'Searching "%s" via %s…\n' "$query" "$YTS_INSTANCE" >&2
+
+    yts_curl "${YTS_INSTANCE}/api/v1/search" \
+        -G \
+        --data-urlencode "q=$query" \
+        --data-urlencode 'type=video' \
+        --data-urlencode 'sort=relevance' \
+        --data-urlencode 'page=1' \
+    | jq '[.[] | select(.type == "video" and (.liveNow // false) == false)]' \
+    > "$SESSION_CACHE/results.json"
+
+    format_lines < "$SESSION_CACHE/results.json" > "$SESSION_CACHE/original_lines.txt"
+
+    if [[ ! -s "$SESSION_CACHE/original_lines.txt" ]]; then
+        printf 'No results\n' >&2
+        exit 0
+    fi
+
+    local script="${BASH_SOURCE[0]}"
+
+    fzf \
+        --delimiter=$'\t' \
+        --with-nth=1 \
+        --ansi \
+        --preview="$script --preview {2}" \
+        --preview-window='right:50%:wrap' \
+        --bind "enter:become(mpv 'https://www.youtube.com/watch?v={2}')" \
+        --bind "ctrl-y:execute-silent(wl-copy 'https://www.youtube.com/watch?v={2}'; notify-send yts 'URL copied' 2>/dev/null; true)" \
+        --bind "ctrl-d:execute(yt-dlp 'https://www.youtube.com/watch?v={2}')" \
+        --bind "ctrl-a:reload($script --channel-lines {3})+change-header(📺 Channel view — ctrl-z to go back)" \
+        --bind "ctrl-z:reload(cat '$SESSION_CACHE/original_lines.txt')+change-header()" \
+        --header $'enter:play  ctrl-y:copy  ctrl-d:download  ctrl-a:channel  ctrl-z:back' \
+        < "$SESSION_CACHE/original_lines.txt" \
+    || true
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+case "${1:-}" in
+    --preview)       shift; do_preview "$@" ;;
+    --channel-lines) shift; do_channel_lines "$@" ;;
+    *)               main "$@" ;;
+esac

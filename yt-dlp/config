@@ -34,6 +34,9 @@
 # ─── THROTTLE BYPASS ──────────────────────────────────────────────────────────
 --throttled-rate 100K     # retry if speed drops below 100K (YouTube throttling)
 
+# ─── AUTH ─────────────────────────────────────────────────────────────────────
+--cookies-from-browser firefox
+
 # ─── NETWORK ──────────────────────────────────────────────────────────────────
 --socket-timeout 30
 
