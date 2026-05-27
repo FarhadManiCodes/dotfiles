@@ -1,0 +1,10 @@
+[Unit]
+Description=Sync study library from Google Drive
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/rclone sync gdrive:FAU/Library %h/.local/share/study-library --progress
+
+[Install]
+WantedBy=default.target
