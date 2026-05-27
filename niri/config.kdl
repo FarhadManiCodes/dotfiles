@@ -276,7 +276,7 @@ hotkey-overlay {
 spawn-at-startup "wlsunset" "-l" "49.9" "-L" "11.6" "-t" "4200" "-T" "6500"
 
 // Warm up study caches at startup (runs in background after 5s delay)
-spawn-at-startup "sh" "-c" "sleep 5 && find /home/farhad/Cloud/gdrive/FAU/Library -mindepth 2 -type f \\( -iname '*.pdf' -o -iname '*.djvu' -o -iname '*.epub' \\) -printf '%P\\n' > /home/farhad/.cache/zathura-resources.txt 2>/dev/null"
+spawn-at-startup "sh" "-c" "sleep 5 && find /home/farhad/Cloud/gdrive/FAU/Library -mindepth 2 -type f \\( -iname '*.pdf' -o -iname '*.djvu' -o -iname '*.epub' \\) -printf '%P\\n' > /home/farhad/.cache/book-resources.txt 2>/dev/null"
 
 
 // Uncomment this line to ask the clients to omit their client-side decorations if possible.
@@ -423,7 +423,7 @@ binds {
     }
 
     // Mod+z — fuzzel library browser; opens with xdg-open (sioyek for PDF, zathura for DjVu, foliate for epub)
-    Mod+z { spawn "/home/farhad/.local/bin/zathura-resources"; }
+    Mod+z { spawn "/home/farhad/.local/bin/book-resources"; }
 
     // Toggle foot terminal theme (light/dark)
     Mod+Alt+T hotkey-overlay-title="Toggle Foot Theme" { spawn "toggle-foot-theme.sh"; }

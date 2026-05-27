@@ -123,8 +123,8 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
-- Library browser (Mod+z): `~/.local/bin/zathura-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)
-- Library cache: `~/.cache/zathura-resources.txt` — pdf/djvu/epub under `FAU/Library/`
+- Library browser (Mod+z): `~/.local/bin/book-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)
+- Library cache: `~/.cache/book-resources.txt` — pdf/djvu/epub under `FAU/Library/`
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`
 
 ## Configuration Documentation

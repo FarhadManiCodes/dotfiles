@@ -2,13 +2,13 @@
 
 # --- CONFIGURATION ---
 WORK_DIR="$HOME/Cloud/gdrive/FAU/Library/"
-CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/zathura-resources.txt"
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/book-resources.txt"
 CACHE_MAX_AGE=600  # 10 minutes in seconds
 # ---------------------
 
 mkdir -p "$(dirname "$CACHE_FILE")"
 
-[[ -d "$WORK_DIR" ]] || { notify-send "Zathura Resources" "Library directory not found."; exit 1; }
+[[ -d "$WORK_DIR" ]] || { notify-send "Book Resources" "Library directory not found."; exit 1; }
 
 # Function to update cache
 update_cache() {
