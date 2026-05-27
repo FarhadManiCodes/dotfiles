@@ -1,0 +1,50 @@
+# ~/.config/yt-dlp/config
+# Optimized for AMD Radeon 780M (RDNA3) + mpv on Arch Linux
+
+# ─── FORMAT ───────────────────────────────────────────────────────────────────
+# Priority: AV1+opus → VP9+opus → best available up to 1080p
+# RDNA3 hardware decodes all three natively via VAAPI
+-f bestvideo[height<=1080][vcodec^=av01]+bestaudio[acodec=opus]/bestvideo[height<=1080][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=1080]+bestaudio
+
+# Merge into mkv (universal container, no transcoding, preserves all streams)
+--merge-output-format mkv
+
+# ─── OUTPUT ───────────────────────────────────────────────────────────────────
+# Playlist: "01 - Title.mkv"; single video: "Title.mkv"
+-o "%(title)s.%(ext)s"
+-o "playlist:%(playlist_index)02d - %(title)s.%(ext)s"
+
+# ─── METADATA ─────────────────────────────────────────────────────────────────
+--embed-thumbnail
+--embed-metadata
+--embed-chapters          # chapter markers visible in mpv timeline
+
+# ─── SUBTITLES ────────────────────────────────────────────────────────────────
+--write-auto-subs
+--embed-subs
+--sub-langs "en,en-orig,fa,de,it,pt"  # preferred languages only
+--extractor-args "youtube:skip=translated_subs"  # drop auto-translated variants
+
+# ─── RELIABILITY ──────────────────────────────────────────────────────────────
+--continue                # resume interrupted downloads
+--retries 10
+--fragment-retries 10
+--file-access-retries 5
+--retry-sleep 5           # wait 5s between retries
+
+# ─── THROTTLE BYPASS ──────────────────────────────────────────────────────────
+--throttled-rate 100K     # retry if speed drops below 100K (YouTube throttling)
+
+# ─── NETWORK ──────────────────────────────────────────────────────────────────
+--socket-timeout 30
+
+# ─── FILESYSTEM ───────────────────────────────────────────────────────────────
+--restrict-filenames      # no special chars in filenames, safe on any fs
+--trim-filenames 200      # avoid hitting ext4/btrfs filename length limit
+
+# ─── ARCHIVE ──────────────────────────────────────────────────────────────────
+# Uncomment to use a global archive (skip already downloaded videos)
+# --download-archive ~/.config/yt-dlp/archive.txt
+
+# ─── PERFORMANCE ──────────────────────────────────────────────────────────────
+--concurrent-fragments 4  # parallel fragment downloads, good for fast connections

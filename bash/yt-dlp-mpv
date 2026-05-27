@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""yt-dlp wrapper for mpv: filters subtitle languages from JSON before mpv sees them."""
+import sys
+import json
+import subprocess
+import os
+import shutil
+
+PREFERRED = frozenset({'en', 'fa', 'de', 'it', 'pt'})
+YTDLP = shutil.which('yt-dlp') or '/usr/bin/yt-dlp'
+
+def base_lang(code):
+    return code.split('-')[0].split('_')[0].lower()
+
+def filter_subs(subs):
+    return {k: v for k, v in subs.items() if base_lang(k) in PREFERRED}
+
+def filter_info(data):
+    if isinstance(data, dict):
+        for key in ('subtitles', 'automatic_captions', 'requested_subtitles'):
+            if key in data:
+                data[key] = filter_subs(data[key])
+        if data.get('entries'):
+            data['entries'] = [filter_info(e) for e in data['entries'] if e]
+    return data
+
+args = sys.argv[1:]
+json_flags = {'-j', '-J', '--dump-json', '--dump-single-json', '--print-json'}
+
+if not any(a in json_flags for a in args):
+    os.execv(YTDLP, [YTDLP] + args)
+
+proc = subprocess.run([YTDLP] + args, stdout=subprocess.PIPE)
+
+try:
+    data = json.loads(proc.stdout)
+    sys.stdout.write(json.dumps(filter_info(data)))
+    sys.stdout.flush()
+except (json.JSONDecodeError, ValueError):
+    sys.stdout.buffer.write(proc.stdout)
+    sys.stdout.flush()
+
+sys.exit(proc.returncode)

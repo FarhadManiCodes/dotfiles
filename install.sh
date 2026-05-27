@@ -112,6 +112,12 @@ mkdir -p "${XDG_CONFIG_HOME}/mpv"
 ln -sf "${DOTFILES}/mpv/mpv.conf" "${XDG_CONFIG_HOME}/mpv/mpv.conf"
 echo "Mpv configured"
 
+# ============ yt-dlp ==============================
+echo "Setting up yt-dlp..."
+mkdir -p "${XDG_CONFIG_HOME}/yt-dlp"
+ln -sf "${DOTFILES}/yt-dlp/config" "${XDG_CONFIG_HOME}/yt-dlp/config"
+echo "yt-dlp configured"
+
 # ============ cmus ==============================
 echo "Setting up cmus..."
 mkdir -p "${XDG_CONFIG_HOME}/cmus"
