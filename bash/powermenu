@@ -32,11 +32,17 @@ confirm() {
     printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1"
 }
 
+# --- Pre-shutdown teardown ---
+pre_shutdown() {
+    systemctl --user stop foot-server.socket
+    systemctl --user stop $(systemctl --user list-units 'rclone@*' --state=running --no-legend | awk '{print $1}') 2>/dev/null
+}
+
 # --- Logic ---
 case "$selected" in
     "🔒 Lock")     loginctl lock-session ;;
     "💤 Suspend")  systemctl suspend ;;
-    "🚪 Logout")   [[ "$(confirm 'Logout? ')"  == "Yes" ]] && niri msg action quit ;;
-    "🔄 Reboot")   [[ "$(confirm 'Reboot? ')"   == "Yes" ]] && systemctl reboot ;;
-    "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && systemctl poweroff ;;
+    "🚪 Logout")   [[ "$(confirm 'Logout? ')"  == "Yes" ]] && { pre_shutdown; niri msg action quit; } ;;
+    "🔄 Reboot")   [[ "$(confirm 'Reboot? ')"   == "Yes" ]] && { pre_shutdown; systemctl reboot; } ;;
+    "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && { pre_shutdown; systemctl poweroff; } ;;
 esac

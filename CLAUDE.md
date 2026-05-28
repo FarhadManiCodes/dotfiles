@@ -105,6 +105,7 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Prerequisite**: `toolkit.legacyUserProfileCustomizations.stylesheets` must be `true` in `about:config`
 - **Install**: `install.sh` reads `~/.mozilla/firefox/profiles.ini` to find the default-release profile automatically
 - **Note**: only one file tracked; no `userContent.css`
+- **about:config**: `dom.screenwakelock.enabled = false` — disables the Screen Wake Lock API so Firefox cannot request suspend inhibition via xdg-desktop-portal. Intentional: swayidle timers are the sole authority for when the system suspends; no app should override that.
 
 ### Tridactyl (Firefox vim bindings)
 

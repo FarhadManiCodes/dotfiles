@@ -47,6 +47,7 @@ If a site looks broken (missing content, broken layout):
 | `network.dns.disablePrefetch` | true | Privacy |
 | `network.prefetch-next` | false | Privacy |
 | `network.http.speculative-parallel-limit` | 0 | Privacy |
+| `dom.screenwakelock.enabled` | false | Prevent Firefox from requesting suspend inhibition via xdg-portal — swayidle timers are the sole authority for suspend |
 
 *May affect video calls — see above
 
