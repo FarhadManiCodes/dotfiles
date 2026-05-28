@@ -1,11 +1,31 @@
 #!/bin/bash
 
-focus_active_player() {
-    local player app_id win_id p track_title
-
+# Returns the Playing player name; falls back to first Paused one.
+get_active_player() {
+    local p
     while IFS= read -r p; do
-        [[ "$(playerctl -p "$p" status 2>/dev/null)" == "Playing" ]] && player="$p" && break
+        [[ "$(playerctl -p "$p" status 2>/dev/null)" == "Playing" ]] && printf '%s' "$p" && return
     done < <(playerctl -l 2>/dev/null)
+    while IFS= read -r p; do
+        [[ "$(playerctl -p "$p" status 2>/dev/null)" == "Paused" ]] && printf '%s' "$p" && return
+    done < <(playerctl -l 2>/dev/null)
+}
+
+# Run a playerctl command targeting the active player; falls back to bare playerctl.
+playerctl_cmd() {
+    local player
+    player=$(get_active_player)
+    if [[ -n "$player" ]]; then
+        playerctl -p "$player" "$@"
+    else
+        playerctl "$@"
+    fi
+}
+
+focus_active_player() {
+    local player win_id track_title
+
+    player=$(get_active_player)
     [[ -z "$player" ]] && player=$(playerctl -f '{{playerName}}' metadata 2>/dev/null)
     [[ -z "$player" ]] && return
 
@@ -50,9 +70,9 @@ OPTIONS="▶/⏸  Play/Pause\n⏭  Next\n⏮  Prev\n🎯  Focus Player\n${RECORD
 CHOICE=$(printf "$OPTIONS" | fuzzel --dmenu --prompt "Media > " --lines 5)
 
 case "$CHOICE" in
-    "▶/⏸  Play/Pause")                         playerctl play-pause ;;
-    "⏭  Next")                                  playerctl next ;;
-    "⏮  Prev")                                  playerctl previous ;;
+    "▶/⏸  Play/Pause")                         playerctl_cmd play-pause ;;
+    "⏭  Next")                                  playerctl_cmd next ;;
+    "⏮  Prev")                                  playerctl_cmd previous ;;
     "🎯  Focus Player")                          focus_active_player ;;
     "🔴  Stop Recording"|"⏺  Start Recording")  "$HOME/.local/bin/toggle-record.sh" ;;
 esac
