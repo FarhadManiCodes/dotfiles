@@ -249,14 +249,21 @@ main() {
 
     printf 'Searching "%s" via %s…\n' "$query" "$YTS_INSTANCE" >&2
 
-    yts_curl "${YTS_INSTANCE}/api/v1/search" \
-        -G \
-        --data-urlencode "q=$query" \
-        --data-urlencode 'type=video' \
-        --data-urlencode 'sort=relevance' \
-        --data-urlencode 'page=1' \
-    | jq '[.[] | select(.type == "video" and (.liveNow // false) == false)]' \
-    > "$SESSION_CACHE/results.json"
+    for page in 1 2 3 4 5; do
+        yts_curl "${YTS_INSTANCE}/api/v1/search" \
+            -G \
+            --data-urlencode "q=$query" \
+            --data-urlencode 'type=video' \
+            --data-urlencode 'sort=relevance' \
+            --data-urlencode "page=$page" \
+            -o "$SESSION_CACHE/page${page}.json" &
+    done
+    wait
+
+    jq -s 'flatten | [.[] | select(.type == "video" and (.liveNow // false) == false)]' \
+        "$SESSION_CACHE"/page*.json \
+        > "$SESSION_CACHE/results.json" 2>/dev/null \
+        || printf '[]' > "$SESSION_CACHE/results.json"
 
     format_lines < "$SESSION_CACHE/results.json" > "$SESSION_CACHE/original_lines.txt"
 
@@ -273,12 +280,12 @@ main() {
         --ansi \
         --preview="$script --preview {2}" \
         --preview-window='right:50%:wrap' \
-        --bind "enter:become(mpv 'https://www.youtube.com/watch?v={2}')" \
+        --bind "enter:execute(mpv 'https://www.youtube.com/watch?v={2}')" \
         --bind "ctrl-y:execute-silent(wl-copy 'https://www.youtube.com/watch?v={2}'; notify-send yts 'URL copied' 2>/dev/null; true)" \
         --bind "ctrl-d:execute(yt-dlp 'https://www.youtube.com/watch?v={2}')" \
         --bind "ctrl-a:reload($script --channel-lines {3})+change-header(📺 Channel view — ctrl-z to go back)" \
         --bind "ctrl-z:reload(cat '$SESSION_CACHE/original_lines.txt')+change-header()" \
-        --header $'enter:play  ctrl-y:copy  ctrl-d:download  ctrl-a:channel  ctrl-z:back' \
+        --header $'enter:play  ctrl-y:copy  ctrl-d:download  ctrl-a:channel  ctrl-z:back  esc:quit' \
         < "$SESSION_CACHE/original_lines.txt" \
     || true
 }
