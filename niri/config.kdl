@@ -359,6 +359,11 @@ window-rule {
 }
 
 window-rule {
+    match app-id="gdocs-sync"
+    default-column-width { proportion 0.25; }
+}
+
+window-rule {
     match app-id="org.pwmt.zathura"
     default-column-width { proportion 0.5; }
 }
