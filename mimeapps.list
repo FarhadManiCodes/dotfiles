@@ -1,6 +1,5 @@
 [Added Associations]
 application/pdf=sioyek.desktop;firefox.desktop;
-text/csv=nvim.desktop;libreoffice-calc.desktop;
 
 [Default Applications]
 application/epub+zip=com.github.johnfactotum.Foliate.desktop;
@@ -8,14 +7,17 @@ application/json=nvim.desktop;
 application/pdf=sioyek.desktop;firefox.desktop;
 application/toml=vim.desktop;
 application/x-ipynb+json=vim.desktop;
-application/vnd.ms-excel=libreoffice-calc.desktop;
-application/vnd.ms-powerpoint=libreoffice-impress.desktop;
-application/vnd.oasis.opendocument.presentation=libreoffice-impress.desktop;
-application/vnd.oasis.opendocument.spreadsheet=libreoffice-calc.desktop;
-application/vnd.oasis.opendocument.text=libreoffice-writer.desktop;
-application/vnd.openxmlformats-officedocument.presentationml.presentation=libreoffice-impress.desktop;
-application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=libreoffice-calc.desktop;
-application/vnd.openxmlformats-officedocument.wordprocessingml.document=libreoffice-writer.desktop;
+application/msword=gdocs-open.desktop;
+application/rtf=gdocs-open.desktop;
+text/rtf=gdocs-open.desktop;
+application/vnd.ms-excel=gdocs-open.desktop;
+application/vnd.ms-powerpoint=gdocs-open.desktop;
+application/vnd.oasis.opendocument.presentation=gdocs-open.desktop;
+application/vnd.oasis.opendocument.spreadsheet=gdocs-open.desktop;
+application/vnd.oasis.opendocument.text=gdocs-open.desktop;
+application/vnd.openxmlformats-officedocument.presentationml.presentation=gdocs-open.desktop;
+application/vnd.openxmlformats-officedocument.spreadsheetml.sheet=gdocs-open.desktop;
+application/vnd.openxmlformats-officedocument.wordprocessingml.document=gdocs-open.desktop;
 application/x-extension-ics=firefox.desktop;
 application/x-pdf=sioyek.desktop;
 application/x-shellscript=nvim.desktop;
@@ -48,7 +50,7 @@ inode/directory=vifm.desktop;
 message/rfc822=firefox.desktop;
 text/calendar=firefox.desktop;
 text/css=nvim.desktop;
-text/csv=nvim.desktop;libreoffice-calc.desktop;
+text/csv=nvim.desktop;
 text/html=vimb.desktop;
 text/rust=vim.desktop;
 text/x-bibtex=vim.desktop;

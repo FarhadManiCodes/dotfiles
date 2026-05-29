@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Google Docs / Sheets / Slides
+Comment=Open Office documents in Google Workspace via Firefox
+Exec=gdocs-open %f
+Icon=firefox
+Terminal=false
+StartupNotify=true
+MimeType=application/vnd.ms-excel;application/vnd.ms-powerpoint;application/vnd.oasis.opendocument.presentation;application/vnd.oasis.opendocument.spreadsheet;application/vnd.oasis.opendocument.text;application/vnd.openxmlformats-officedocument.presentationml.presentation;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;application/vnd.openxmlformats-officedocument.wordprocessingml.document;

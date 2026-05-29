@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Open Office documents in Google Docs/Sheets/Slides via Firefox.
+# gdrive files: opened directly by ID, no upload needed.
+# All other files: uploaded to gdrive:/tmp-office/<path-from-HOME>/, with a
+# companion terminal (1/4 column) for repeated sync-back on demand.
+set -euo pipefail
+
+SELF="$(realpath "${BASH_SOURCE[0]}")"
+GDRIVE_MOUNT="$HOME/Cloud/gdrive"
+GDRIVE_REMOTE="gdrive"
+TMP_FOLDER="tmp-office"
+
+notify() { notify-send "gdocs-open" "$1" 2>/dev/null || true; }
+die()    { notify-send -u critical "gdocs-open" "$1" 2>/dev/null || echo "Error: $1" >&2; exit 1; }
+open_url() { setsid firefox --new-tab "$1" >/dev/null 2>&1 & disown; }
+
+# --sync: companion terminal spawned after upload
+if [[ "${1:-}" == "--sync" ]]; then
+  remote_path="$2"
+  original="$3"
+  fname="$(basename "$original")"
+  short_path="${original/#$HOME\//~/}"
+
+  # ANSI helpers
+  b='\e[1m'; d='\e[2m'; r='\e[0m'
+  grn='\e[32m'; red='\e[31m'; cyn='\e[36m'; yel='\e[33m'
+  sep="${d}  ─────────────────────────────${r}"
+
+  draw() {
+    local status_line="${1:-}"
+    clear
+    echo -e "\n  ${b}${cyn}gdocs-sync${r}\n${sep}\n"
+    echo -e "  ${b}${fname}${r}"
+    echo -e "  ${d}${short_path%/*}/${r}\n"
+    if [[ -n "$status_line" ]]; then
+      echo -e "$status_line\n"
+    else
+      echo -e "  Editing in Google Docs"
+      echo -e "  ${d}Changes auto-save to Drive.${r}\n"
+    fi
+    echo -e "${sep}\n"
+    echo -e "  ${b}s${r}  sync back to original"
+    echo -e "  ${b}q${r}  quit\n"
+  }
+
+  draw
+
+  while true; do
+    read -r -n1 -s key
+    case "${key,,}" in
+      s)
+        draw "  ${yel}Checking Drive…${r}"
+        # Force a fresh metadata fetch — shows when Drive last received Docs' save
+        remote_mtime=$(rclone lsjson "${GDRIVE_REMOTE}:$(dirname "${remote_path}")/" \
+          --include "$(basename "${remote_path}")" 2>/dev/null \
+          | jq -r '.[0].ModTime // ""' \
+          | xargs -I{} date -d "{}" '+%H:%M %Z' 2>/dev/null || echo "unknown")
+        draw "  ${yel}Downloading…${r}\n  ${d}  Drive saved: ${remote_mtime}${r}"
+        err=$(rclone copyto --no-check-dest \
+          "${GDRIVE_REMOTE}:${remote_path}" "$original" 2>&1) && rc=0 || rc=$?
+        if [[ $rc -eq 0 ]]; then
+          notify "Saved: $fname"
+          draw "  ${grn}${b}✓${r}  Saved to original\n  ${d}  Drive version: ${remote_mtime}${r}"
+        else
+          notify-send -u critical "gdocs-open" "Sync failed: $fname" 2>/dev/null || true
+          draw "  ${red}${b}✗${r}  Sync failed: ${err}"
+        fi
+        ;;
+      q|$'\e'|$'\004')
+        break
+        ;;
+    esac
+  done
+  exit 0
+fi
+
+# Main: open a file in Google Docs / Sheets / Slides
+[[ $# -eq 1 ]] || die "Usage: gdocs-open <file>"
+file="$(realpath "$1")"
+[[ -f "$file" ]] || die "File not found: $1"
+
+ext="${file##*.}"
+ext="${ext,,}"
+case "$ext" in
+  doc|docx|odt|rtf) service="document"      ;;
+  xls|xlsx|ods)     service="spreadsheets"  ;;
+  ppt|pptx|odp)     service="presentation"  ;;
+  *)                die "Unsupported format: .$ext" ;;
+esac
+
+get_id() {
+  local remote_dir="$1" fname="$2"
+  rclone lsjson "${GDRIVE_REMOTE}:${remote_dir}" --files-only \
+    --include "$fname" 2>/dev/null \
+    | jq -r '.[0].ID // ""'
+}
+
+fname="$(basename "$file")"
+
+if [[ "$file" == "$GDRIVE_MOUNT"/* ]]; then
+  # Already on Google Drive — open directly, no upload or sync-back needed
+  rel="${file#"$GDRIVE_MOUNT"/}"
+  remote_dir="$(dirname "$rel")"
+  [[ "$remote_dir" == "." ]] && remote_dir=""
+  file_id="$(get_id "$remote_dir" "$fname")"
+  [[ -n "$file_id" ]] || die "Could not retrieve file ID from Google Drive"
+  notify "Opening in Google ${service^}…"
+  open_url "https://docs.google.com/${service}/d/${file_id}/edit"
+else
+  # Clean up stale tmp-office uploads in background — don't block the upload
+  rclone delete "${GDRIVE_REMOTE}:${TMP_FOLDER}/" --min-age 1d 2>/dev/null &
+
+  # Upload to tmp-office preserving relative path from $HOME
+  if [[ "$file" == "$HOME/"* ]]; then
+    rel_dir="$(dirname "${file#"$HOME"/}")"
+    [[ "$rel_dir" == "." ]] && rel_dir=""
+  else
+    rel_dir=""
+  fi
+
+  remote_upload_dir="${TMP_FOLDER}${rel_dir:+/${rel_dir}}"
+  remote_file_path="${remote_upload_dir}/${fname}"
+
+  notify "Uploading $fname…"
+  rclone copyto --no-check-dest "$file" "${GDRIVE_REMOTE}:${remote_file_path}"
+
+  file_id="$(get_id "$remote_upload_dir" "$fname")"
+  [[ -n "$file_id" ]] || die "Could not retrieve file ID from Google Drive"
+
+  notify "Opening in Google ${service^}…"
+  open_url "https://docs.google.com/${service}/d/${file_id}/edit"
+
+  # Companion terminal — niri rule sets it to 25%, --sync mode resizes Firefox to 75%
+  foot --app-id gdocs-sync --title "gdocs-sync: $fname" -- \
+    bash -c '"$0" --sync "$1" "$2"' \
+    "$SELF" "$remote_file_path" "$file" &
+  disown
+fi
