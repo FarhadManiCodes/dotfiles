@@ -40,6 +40,10 @@ quickmark yt https://www.youtube.com
 " ===== New tab =====
 set newtab about:blank
 
+" ===== Blacklist (Tridactyl disabled) =====
+blacklistadd https://drive.google.com/*
+blacklistadd https://docs.google.com/*
+
 " ===== Browser behaviour =====
 " Reader mode — useful for articles and papers
 bind gr reader
