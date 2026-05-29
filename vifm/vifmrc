@@ -25,6 +25,7 @@ set nohlsearch
 set incsearch
 set scrolloff=4
 set slowfs=curlftpfs
+set mediaprg=/usr/share/vifm/vifm-media
 
 if system("find --version | grep -c 'GNU findutils'") != 0
     set findprg='find %s %a -print , -type d \( ! -readable -o ! -executable \) -prune'
