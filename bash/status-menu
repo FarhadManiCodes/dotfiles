@@ -11,8 +11,9 @@ CLOCK=$''
 THERM=$''
 CHIP=$''
 
-choice=$(printf "${BAT_FULL} Battery\n${CLOCK} Uptime\n${THERM} CPU Temp\n${CHIP} Memory" \
-    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 4)
+WORLD=$(printf '\U000f01e7')
+choice=$(printf "${BAT_FULL} Battery\n${CLOCK} Uptime\n${THERM} CPU Temp\n${CHIP} Memory\n${WORLD} Time" \
+    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 5)
 [[ -z "$choice" ]] && exit 0
 
 case "$choice" in
@@ -68,5 +69,14 @@ case "$choice" in
         mem=$(free -h | awk '/^Mem/{print $3 " used / " $2 " total (" $7 " avail)"}')
         swap=$(free -h | awk '/^Swap/{if ($3+0 > 0 || $3 ~ /[KMGT]/) print "Swap: " $3 " / " $2; else print "Swap: none"}')
         notify-send -u low "${CHIP} Memory" "${mem}\n${swap}"
+        ;;
+    *Time*)
+        # Local + Iran + Vancouver(=Seattle, Pacific); Germany only when not local.
+        local_tz=$(timedatectl show -p Timezone --value 2>/dev/null)
+        body="Local      $(date '+%a %H:%M %Z')"
+        [[ "$local_tz" != "Europe/Berlin" ]] && body+="\nGermany    $(TZ=Europe/Berlin date '+%a %H:%M')"
+        body+="\nIran       $(TZ=Asia/Tehran date '+%a %H:%M')"
+        body+="\nVancouver  $(TZ=America/Vancouver date '+%a %H:%M')"
+        notify-send -u low "${WORLD} World Clock" "$body"
         ;;
 esac
