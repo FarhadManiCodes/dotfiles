@@ -137,7 +137,6 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - `pam/swaylock` → `/etc/pam.d/swaylock` (copied by `install-root.sh`, root-owned) — fingerprint +
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
-- `sway/config` — fallback compositor
 
 ## Modifying configs
 

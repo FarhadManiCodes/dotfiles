@@ -11,7 +11,7 @@ All configs are symlinked from this repo so changes here immediately take effect
 | Shell | Zsh + Starship + Zoxide + Direnv |
 | Editor | Neovim (primary) · Vim (lightweight editing) |
 | Terminal | Foot |
-| Compositor | Niri · Sway (fallback) |
+| Compositor | Niri |
 | Bar | Waybar |
 | Multiplexer | Tmux |
 | Launcher | Fuzzel |
@@ -93,7 +93,6 @@ dotfiles/
 ├── niri/config.kdl         # Window manager
 ├── waybar/                 # config + style.css
 ├── foot/foot.ini
-├── sway/config             # Fallback compositor
 ├── swaylock/config
 ├── mako/config
 ├── fuzzel/fuzzel.ini

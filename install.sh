@@ -88,12 +88,6 @@ ln -sf "${DOTFILES}/environment.d/defaults.conf" "${XDG_CONFIG_HOME}/environment
 ln -sf "${DOTFILES}/environment.d/wayland.conf" "${XDG_CONFIG_HOME}/environment.d/wayland.conf"
 echo "environment.d configured"
 
-# ============ sway ==============================
-echo "Setting up Sway..."
-mkdir -p "${XDG_CONFIG_HOME}/sway"
-ln -sf "${DOTFILES}/sway/config" "${XDG_CONFIG_HOME}/sway/config"
-echo "Sway configured"
-
 # ============ swaylock ==============================
 echo "Setting up Swaylock..."
 mkdir -p "${XDG_CONFIG_HOME}/swaylock"
