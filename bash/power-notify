@@ -1,11 +1,16 @@
 #!/bin/bash
-# Event-based charger plug/unplug notifications via udevadm (zero polling).
-# Uses AC POWER_SUPPLY_ONLINE — BAT0 status never changes on this ThinkPad
-# due to the 80% charge limit keeping it permanently at "Not charging".
+# Charge notifications via udev (event-based, zero polling):
+#   - AC plugged in / unplugged            (POWER_SUPPLY_NAME=AC, ONLINE)
+#   - Charging started / Charging complete (BAT0 POWER_SUPPLY_STATUS transitions)
+# Battery LEVEL alerts (low/critical/danger) are handled by batsignal (battery-watch).
+# BAT0 *does* emit STATUS udev events on real charge transitions (verified); it just
+# looks static because the 80% TLP cap means it rarely charges once topped off.
 
-PLUG=$''
+PLUGIN=$(printf '\U000f06a5')   # 󰚥 power-plug
+CHG=$(printf '\U000f0084')      # 󰂄 battery-charging
+FULL=$(printf '\U000f0079')     # 󰁹 battery full
 
-bat_icon() {
+bat_icon() {   # battery glyph by level, used when unplugged
     local pct=$1
     if   [ "$pct" -ge 90 ]; then printf '\U000f0079'
     elif [ "$pct" -ge 70 ]; then printf '\U000f0081'
@@ -15,21 +20,42 @@ bat_icon() {
     fi
 }
 
-in_ac_event=false
+cap_now() { cat /sys/class/power_supply/BAT0/capacity 2>/dev/null; }
+
+# Seed previous states so the first event after start doesn't fire spuriously.
+prev_ac=$(cat /sys/class/power_supply/AC/online 2>/dev/null)
+prev_status=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null)
+
+name= ; online= ; status= ; cap=
+
+flush() {   # called at each udev event boundary (blank line)
+    if [ "$name" = AC ] && [ -n "$online" ] && [ "$online" != "$prev_ac" ]; then
+        if [ "$online" = 1 ]; then
+            notify-send -a "" -u normal   "${PLUGIN} Plugged in — $(cap_now)%"
+        else
+            notify-send -a "" -u critical "$(bat_icon "$(cap_now)") Unplugged — $(cap_now)%"
+        fi
+        prev_ac=$online
+    fi
+    if [ "$name" = BAT0 ] && [ -n "$status" ] && [ "$status" != "$prev_status" ]; then
+        case "$status" in
+            Charging)
+                notify-send -a "" -u low    "${CHG} Charging started — ${cap:-$(cap_now)}%" ;;
+            "Not charging"|Full)
+                [ "$prev_status" = Charging ] && \
+                    notify-send -a "" -u normal "${FULL} Charging complete — ${cap:-$(cap_now)}%" ;;
+        esac
+        prev_status=$status
+    fi
+    name= ; online= ; status= ; cap=
+}
 
 while IFS= read -r line; do
     case "$line" in
-        "")                      in_ac_event=false ;;
-        "POWER_SUPPLY_NAME=AC")  in_ac_event=true ;;
-        "POWER_SUPPLY_ONLINE=1")
-            if $in_ac_event; then
-                pct=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null)
-                notify-send -a "" -u normal "${PLUG} Plugged in — ${pct}%"
-            fi ;;
-        "POWER_SUPPLY_ONLINE=0")
-            if $in_ac_event; then
-                pct=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null)
-                notify-send -a "" -u critical "$(bat_icon "$pct") Unplugged — ${pct}%"
-            fi ;;
+        "")                       flush ;;
+        POWER_SUPPLY_NAME=*)      name=${line#POWER_SUPPLY_NAME=} ;;
+        POWER_SUPPLY_ONLINE=*)    online=${line#POWER_SUPPLY_ONLINE=} ;;
+        POWER_SUPPLY_STATUS=*)    status=${line#POWER_SUPPLY_STATUS=} ;;
+        POWER_SUPPLY_CAPACITY=*)  cap=${line#POWER_SUPPLY_CAPACITY=} ;;
     esac
 done < <(udevadm monitor --subsystem-match=power_supply --udev --property)

@@ -363,7 +363,11 @@ for file in "${DOTFILES}/systemd/user/"*.service; do
   ln -sf "$file" "${HOME}/.config/systemd/user/"
 done
 systemctl --user daemon-reload
-echo "✅ Systemd user services installed"
+# Enable each unit so it actually starts on graphical-session (idempotent).
+for file in "${DOTFILES}/systemd/user/"*.service; do
+  systemctl --user enable "$(basename "$file")" 2>/dev/null || true
+done
+echo "✅ Systemd user services installed and enabled"
 
 echo ""
 echo "🎉 Dotfiles installation complete!"
