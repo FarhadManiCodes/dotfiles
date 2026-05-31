@@ -765,7 +765,7 @@ _perf_record_select() {
 }
 
 _samply_select() {
-    command -v samply &>/dev/null || die "samply not found. Install: cargo install samply  (or: yay -S samply)"
+    command -v samply &>/dev/null || die "samply not found. Install: cargo install samply  (or: paru -S samply)"
     command -v fzf    &>/dev/null || die "fzf not found. Install: sudo pacman -S fzf"
     _pick_and_run "samply — Select Target" "samply record"
 }
