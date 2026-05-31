@@ -11,8 +11,14 @@ All configs are symlinked from this repo via `install.sh`. The source of truth i
 
 ```bash
 git clone --recurse-submodules git@github.com:FarhadManiCodes/dotfiles.git ~/dotfiles
-cd ~/dotfiles && bash install.sh
+cd ~/dotfiles && bash install.sh           # user-level: symlinks into ~/.config (no sudo)
+sudo bash install-root.sh                  # system-level: root-owned files under /etc
 ```
+
+`install.sh` never uses sudo (user configs only). Root-owned system files live in their own
+directories (e.g. `pam/`) and are installed by `install-root.sh` — kept separate so the main
+install stays sudo-free. These are **copied**, not symlinked (an auth file must not point at a
+user-writable path).
 
 Post-install:
 - Zsh plugins: `~/.config/zsh/update-plugins.sh`
@@ -125,7 +131,12 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - `waybar/` — archived config (not installed)
 - `mako/config` — notification daemon
 - `fuzzel/fuzzel.ini` — app launcher
-- `swaylock/config` — lock screen
+- `swaylock/config` — lock screen. `daemonize` is **required** (swayidle runs with `-w`, which
+  blocks until the lock command exits; without it the power-off/suspend timeouts never fire).
+  `ignore-empty-password` is off so an empty Enter reaches PAM and activates the fingerprint reader.
+- `pam/swaylock` → `/etc/pam.d/swaylock` (copied by `install-root.sh`, root-owned) — fingerprint +
+  password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
+  then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
 - `sway/config` — fallback compositor
 
 ## Modifying configs

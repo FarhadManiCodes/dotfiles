@@ -1,0 +1,15 @@
+#
+# /etc/pam.d/swaylock
+
+# Password: type it and you're in instantly (the reader never runs).
+auth sufficient pam_unix.so
+
+# Fingerprint: used when you submit an empty entry (just press Enter, then swipe).
+# Default ~3 swipes / 30s per attempt. You can type your password at any time instead.
+auth sufficient pam_fprintd.so
+
+# Nothing matched.
+auth required pam_deny.so
+
+account include system-auth
+session include system-auth

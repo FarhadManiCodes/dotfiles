@@ -14,8 +14,13 @@ indicator-thickness=10
 
 # --- BEHAVIOR ---
 indicator-idle-visible
-ignore-empty-password
+# NOTE: ignore-empty-password is intentionally OFF. Pressing Enter on an empty
+# field submits to PAM, which (pam_unix rejects empty -> falls to pam_fprintd)
+# is what activates the fingerprint reader. See /etc/pam.d/swaylock.
 show-failed-attempts
+# daemonize is REQUIRED: swayidle runs with -w (blocks until the command exits).
+# The lock fires via `lock swaylock`; without daemonize swayidle would block there
+# until unlock and never reach the power-off-monitors / systemctl suspend timeouts.
 daemonize
 
 # --- COLORS (Theme: Blue/White/Orange) ---

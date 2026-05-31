@@ -98,6 +98,8 @@ echo "Sway configured"
 echo "Setting up Swaylock..."
 mkdir -p "${XDG_CONFIG_HOME}/swaylock"
 ln -sf "${DOTFILES}/swaylock/config" "${XDG_CONFIG_HOME}/swaylock/config"
+# NOTE: /etc/pam.d/swaylock (fingerprint + password unlock) is root-owned and
+# installed separately by install-root.sh — see the closing note below.
 echo "Swaylock configured"
 
 # ============ glow ==============================
@@ -382,3 +384,6 @@ echo "  zsh-info        - Show loaded zsh features"
 echo "  zsh-benchmark   - Test shell startup performance"
 echo "  tmux-new        - Start new tmux session"
 echo "  va              - Activate virtual environment"
+echo ""
+echo "🔐 System (root) configs are installed separately:"
+echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
