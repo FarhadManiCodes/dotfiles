@@ -142,6 +142,12 @@ mkdir -p "${XDG_CONFIG_HOME}/ripgrep-all"
 ln -sf "${DOTFILES}/ripgrep-all/config.jsonc" "${XDG_CONFIG_HOME}/ripgrep-all/config.jsonc"
 echo "ripgrep-all configured"
 
+# ============ wireplumber ==============================
+echo "Setting up wireplumber..."
+mkdir -p "${XDG_CONFIG_HOME}/wireplumber/wireplumber.conf.d"
+ln -sf "${DOTFILES}/wireplumber/wireplumber.conf.d/50-disable-acp.conf" "${XDG_CONFIG_HOME}/wireplumber/wireplumber.conf.d/50-disable-acp.conf"
+echo "wireplumber configured"
+
 # ============ mako ==============================
 echo "Setting up mako..."
 mkdir -p "${XDG_CONFIG_HOME}/mako"
