@@ -122,11 +122,6 @@ if [[ -f ~/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substrin
   bindkey -M vicmd 'j' history-substring-search-down
 fi
 
-# 4. Forgit
-export FORGIT_NO_ALIASES=1
-if [[ -f ~/.config/zsh/plugins/forgit/forgit.plugin.zsh ]]; then
-  source ~/.config/zsh/plugins/forgit/forgit.plugin.zsh
-fi
 
 # ============================================================================
 # EXTERNAL TOOLS

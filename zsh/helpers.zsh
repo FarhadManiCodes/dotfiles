@@ -164,7 +164,6 @@ loading_status() {
   [[ -n "${ZSH_AUTOSUGGEST_STRATEGY}" ]] && echo "  ✅ zsh-autosuggestions" || echo "  ❌ zsh-autosuggestions"
   [[ -n "${FAST_HIGHLIGHT_VERSION}" || -n "${FAST_HIGHLIGHT}" ]] && echo "  ✅ fast-syntax-highlighting" || echo "  ❌ fast-syntax-highlighting"
   [[ $(whence -w history-substring-search-up) == *"function"* ]] && echo "  ✅ zsh-history-substring-search" || echo "  ❌ zsh-history-substring-search"
-  [[ $(whence -w forgit::log) == *"function"* ]] && echo "  ✅ forgit" || echo "  ❌ forgit"
 
   # Loaded Files
   echo ""
