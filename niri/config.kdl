@@ -260,7 +260,6 @@ spawn-at-startup "foot" "--server"
 spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
 spawn-at-startup "sh" "-c" "pkill wob 2>/dev/null; rm -f /tmp/wobpipe; mkfifo /tmp/wobpipe; tail -f /tmp/wobpipe | wob -c /home/farhad/dotfiles/wob/wob.ini"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
-spawn-at-startup "udiskie"
 // Idle management and screen locking with swayidle
 // Timeouts: 4:50 min = dim screen, 5 min = lock, 15 min = suspend
 // Note: KDL doesn't support backslash line continuation - must be one line

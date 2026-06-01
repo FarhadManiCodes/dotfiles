@@ -220,6 +220,10 @@ command! FZF : let $FZF_PICK = term('fd --type f --hidden --follow --exclude .gi
             \| endif
 nnoremap F :FZF<cr>
 
+" USB drive mounting via udisksctl (replaces udiskie)
+nnoremap <space>m :!udisksctl mount -b %f<cr>
+nnoremap <space>u :!udisksctl unmount -b %f<cr>
+
 " ------------------------------------------------------------------------------
 
 " Nerd Font icons (requires FiraCode Nerd Font or similar)
