@@ -13,8 +13,10 @@ case "$1" in
     volume-mute)
         wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
         if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then
+            brightnessctl --device "platform::mute" set 1 &>/dev/null
             echo "0 muted" > /tmp/wobpipe
         else
+            brightnessctl --device "platform::mute" set 0 &>/dev/null
             wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > /tmp/wobpipe
         fi
         ;;
@@ -29,9 +31,19 @@ case "$1" in
     mic-mute)
         wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
         if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
+            brightnessctl --device "platform::micmute" set 1 &>/dev/null
             echo "0 mic" > /tmp/wobpipe
         else
+            brightnessctl --device "platform::micmute" set 0 &>/dev/null
             echo "100 mic" > /tmp/wobpipe
         fi
+        ;;
+    led-sync)
+        wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED \
+            && brightnessctl --device "platform::mute" set 1 &>/dev/null \
+            || brightnessctl --device "platform::mute" set 0 &>/dev/null
+        wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED \
+            && brightnessctl --device "platform::micmute" set 1 &>/dev/null \
+            || brightnessctl --device "platform::micmute" set 0 &>/dev/null
         ;;
 esac
