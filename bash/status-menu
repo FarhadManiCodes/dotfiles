@@ -12,8 +12,11 @@ THERM=$''
 CHIP=$''
 
 WORLD=$(printf '\U000f01e7')
-choice=$(printf "${BAT_FULL} Battery\n${CLOCK} Uptime\n${THERM} CPU Temp\n${CHIP} Memory\n${WORLD} Time" \
-    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 5)
+NET=$(printf '\U000f059f')    # nf-md-web (globe)
+WIFI=$(printf '\U000f05a9')   # nf-md-wifi
+ETH=$(printf '\U000f0200')    # nf-md-ethernet
+choice=$(printf "${BAT_FULL} Battery\n${NET} Internet\n${CLOCK} Uptime\n${THERM} CPU Temp\n${CHIP} Memory\n${WORLD} Time" \
+    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 6)
 [[ -z "$choice" ]] && exit 0
 
 case "$choice" in
@@ -50,6 +53,33 @@ case "$choice" in
             fi
         fi
         notify-send -u low "${icon} Battery" "$body"
+        ;;
+    *Internet*)
+        # Connection + negotiated link speed (instant, no traffic). Lines kept short so
+        # they don't wrap in mako's fixed-width box; "(active)" = the default-route iface.
+        default_if=$(ip route show default 2>/dev/null | awk '/^default/{print $5; exit}')
+        body=""
+        for p in /sys/class/net/*; do
+            ifc=$(basename "$p")
+            [[ "$ifc" == lo ]] && continue
+            mark=""; [[ "$ifc" == "$default_if" ]] && mark="  (active)"
+            if [[ -e "$p/phy80211" ]]; then
+                link=$(iw dev "$ifc" link 2>/dev/null)
+                grep -q "Connected to" <<<"$link" || continue
+                ssid=$(grep -m1 'SSID:'       <<<"$link" | sed 's/^[[:space:]]*SSID: //')
+                rxbr=$(grep -m1 'rx bitrate:' <<<"$link" | awk '{printf "%.0f",$3}')
+                body+="${WIFI}  ${ssid} · ${rxbr} Mb/s${mark}\n"
+            elif [[ -e "$p/device" ]]; then
+                [[ "$(cat "$p/carrier" 2>/dev/null)" == "1" ]] || continue
+                spd=$(cat "$p/speed" 2>/dev/null)
+                body+="${ETH}  ${spd} Mb/s${mark}\n"
+            fi
+        done
+        if [[ -z "$body" ]]; then
+            notify-send -u normal "${NET} Internet" "Offline — no active connection"
+        else
+            notify-send -u low "${NET} Internet" "${body%\\n}"
+        fi
         ;;
     *Uptime*)
         load=$(awk '{printf "%s  %s  %s", $1, $2, $3}' /proc/loadavg)
