@@ -111,7 +111,10 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Prerequisite**: `toolkit.legacyUserProfileCustomizations.stylesheets` must be `true` in `about:config`
 - **Install**: `install.sh` reads `~/.mozilla/firefox/profiles.ini` to find the default-release profile automatically
 - **Note**: only one file tracked; no `userContent.css`
-- **about:config**: `dom.screenwakelock.enabled = false` — disables the Screen Wake Lock API so Firefox cannot request suspend inhibition via xdg-desktop-portal. Intentional: swayidle timers are the sole authority for when the system suspends; no app should override that.
+- **about:config**:
+  - `dom.screenwakelock.enabled = false` — disables the Screen Wake Lock API so Firefox cannot request suspend inhibition via xdg-desktop-portal. Intentional: swayidle timers are the sole authority for when the system suspends; no app should override that.
+  - `network.manage-offline-status = false` — stops Firefox polling WiFi state via deprecated WEXT ioctls (kernel warns: "uses wireless extensions"). Firefox's Socket Thread made these calls; iwd + status bar handle network state instead.
+  - On exit, Firefox's internal session management requests a suspend/logout inhibit via D-Bus (`org.freedesktop.portal.Inhibit`) so it can save state cleanly — unrelated to `dom.screenwakelock.enabled` which only blocks the web `navigator.wakeLock` API. `xdg-desktop-portal-wlr` only supports idle inhibition (unlike GNOME/KDE backends), so it logs a warning and rejects the call. Firefox closes fine regardless. Not fixable without switching portal backend.
 
 ### Tridactyl (Firefox vim bindings)
 

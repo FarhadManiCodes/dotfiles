@@ -1,11 +1,23 @@
 #!/bin/bash
 # Switch default audio output via fuzzel dmenu. Active sink marked with *.
+# HDMI sinks are hidden when no monitor is connected (checked via ALSA ELD files).
 
 default_sink=$(pactl get-default-sink 2>/dev/null)
 declare -A sink_names
 entries=""
 
+is_available() {
+    local desc="$1"
+    if [[ "$desc" =~ HDMI\ ([0-9]+) ]]; then
+        local idx="${BASH_REMATCH[1]}"
+        grep -q "monitor_present[[:space:]]*1" "/proc/asound/card0/eld#0.${idx}" 2>/dev/null \
+            || return 1
+    fi
+    return 0
+}
+
 while IFS=$'\t' read -r desc name; do
+    is_available "$desc" || continue
     marker="  "
     [[ "$name" == "$default_sink" ]] && marker="* "
     label="${marker}${desc}"

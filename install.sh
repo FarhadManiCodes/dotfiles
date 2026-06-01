@@ -148,6 +148,7 @@ echo "ripgrep-all configured"
 echo "Setting up wireplumber..."
 mkdir -p "${XDG_CONFIG_HOME}/wireplumber/wireplumber.conf.d"
 ln -sf "${DOTFILES}/wireplumber/wireplumber.conf.d/50-disable-acp.conf" "${XDG_CONFIG_HOME}/wireplumber/wireplumber.conf.d/50-disable-acp.conf"
+ln -sf "${DOTFILES}/wireplumber/wireplumber.conf.d/99-alsa-channels.conf" "${XDG_CONFIG_HOME}/wireplumber/wireplumber.conf.d/99-alsa-channels.conf"
 echo "wireplumber configured"
 
 # ============ mako ==============================
