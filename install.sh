@@ -157,12 +157,6 @@ mkdir -p "${XDG_CONFIG_HOME}/mako"
 ln -sf "${DOTFILES}/mako/config" "${XDG_CONFIG_HOME}/mako/config"
 echo "mako configured"
 
-# ============ udiskie ==============================
-echo "Setting up udiskie..."
-mkdir -p "${XDG_CONFIG_HOME}/udiskie"
-ln -sf "${DOTFILES}/udiskie/config.yml" "${XDG_CONFIG_HOME}/udiskie/config.yml"
-echo "udiskie configured"
-
 # ============ vifm ==============================
 echo "Setting up vifm..."
 mkdir -p "${XDG_CONFIG_HOME}/vifm"
