@@ -1,0 +1,8 @@
+$pdf_mode = 1;
+$biber = 'biber %O %S';
+$pdflatex = 'pdflatex %O -interaction=nonstopmode -synctex=1 %S';
+$lualatex = 'lualatex %O -interaction=nonstopmode -synctex=1 %S';
+$xelatex = 'xelatex %O -interaction=nonstopmode -synctex=1 %S';
+$pdf_previewer = 'sioyek %S';
+$recorder = 1;
+$clean_ext = 'bbl run.xml';
