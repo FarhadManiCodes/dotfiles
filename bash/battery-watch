@@ -16,4 +16,4 @@ exec /usr/bin/batsignal \
     -w 30 -W "${WARN} Battery low" \
     -c 10 -C "${CRIT} Battery critical" \
     -d 5  -D "notify-send -a '' -u critical '${DANG} Battery danger — PLUG IN NOW!'" \
-    -m 60
+    -m 300
