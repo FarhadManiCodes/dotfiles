@@ -308,6 +308,13 @@ ln -sf "${DOTFILES}/latexmk/latexmkrc" "${XDG_CONFIG_HOME}/latexmk/latexmkrc"
 echo "latexmk configured"
 
 
+# ============ xdg user dirs ==============================
+echo "Setting up XDG user dirs..."
+ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
+xdg-user-dirs-update
+echo "XDG user dirs configured"
+
+
 # ============ mimeapps ==============================
 echo "Setting up MIME associations..."
 ln -sf "${DOTFILES}/mimeapps.list" "${XDG_CONFIG_HOME}/mimeapps.list"

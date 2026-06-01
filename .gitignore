@@ -28,7 +28,7 @@ tags
 # Zsh completion-optimization dumpfile
 *zcompdump*
 
-# Zsh history
+# Zsh history (now at ~/.local/state/zsh/history)
 .zsh_history
 
 # Zsh sessions

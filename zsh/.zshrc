@@ -14,7 +14,7 @@
 # ============================================================================
 
 # History
-HISTFILE=~/.zsh_history
+HISTFILE="${XDG_STATE_HOME:-$HOME/.local/state}/zsh/history"
 HISTSIZE=50000
 SAVEHIST=50000
 setopt SHARE_HISTORY HIST_EXPIRE_DUPS_FIRST HIST_IGNORE_DUPS
@@ -43,11 +43,13 @@ fpath=(~/.config/zsh/completions $fpath)
 autoload -Uz compinit
 
 # Smart compinit - only dump once per day for speed
-if [[ -n ~/.zcompdump(#qN.mh+24) ]]; then
-  compinit -d ~/.zcompdump
+_zcompdump="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump"
+if [[ -n ${_zcompdump}(#qN.mh+24) ]]; then
+  compinit -d "$_zcompdump"
 else
-  compinit -C -d ~/.zcompdump
+  compinit -C -d "$_zcompdump"
 fi
+unset _zcompdump
 
 
 command -v dircolors >/dev/null && eval "$(dircolors -b)"
@@ -160,7 +162,7 @@ autoload -Uz add-zsh-hook
 
 function foot_cmd_start() {
   printf '\e]133;C\e\\'                    # OSC 133 C: command output starts (foot outside tmux)
-  echo "$1" > ~/.zsh_last_command          # persist command for foot Ctrl+Alt+C and tmux M-c binding
+  echo "$1" > "${XDG_STATE_HOME:-$HOME/.local/state}/zsh/last_command"
 }
 
 function foot_cmd_end() {

@@ -16,9 +16,10 @@ set clipboard=unnamed,unnamedplus
 set wildmenu
 set wildoptions=pum
 set undofile
-set undodir=~/.vim/undodir
+set undodir=~/.local/state/vim/undodir
 set undolevels=1000
 set undoreload=10000
+set viminfofile=~/.local/state/vim/viminfo
 set laststatus=2
 set ttimeout
 set ttimeoutlen=50
