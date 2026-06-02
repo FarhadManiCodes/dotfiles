@@ -7,4 +7,4 @@ Type=oneshot
 ExecStart=/usr/bin/rclone sync gdrive:FAU/Library %h/.local/share/study-library --progress
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
