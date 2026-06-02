@@ -59,6 +59,23 @@ focus_active_player() {
     fi
 }
 
+if [[ "$1" == "focus" ]]; then
+    focus_active_player
+    exit 0
+fi
+
+if [[ "$1" == "call" ]]; then
+    mic_is_muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
+    if playerctl_cmd status 2>/dev/null | grep -q "Playing"; then
+        playerctl_cmd pause
+        mic_is_muted && wob-control mic-mute
+    else
+        playerctl_cmd play
+        mic_is_muted || wob-control mic-mute
+    fi
+    exit 0
+fi
+
 if pgrep -x pw-record > /dev/null; then
     RECORD_LABEL="🔴  Stop Recording"
 else
