@@ -39,6 +39,12 @@ export CGO_ENABLED=0
 export CMAKE_C_COMPILER_LAUNCHER=ccache
 export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 
+# Apptainer — keep cache + build scratch on DISK, not the RAM-backed /tmp (tmpfs).
+# CACHEDIR: persistent base-image/layer cache (reused across builds; clear with `apptainer cache clean`).
+# TMPDIR:   per-build scratch (ephemeral; auto-cleaned after a successful build).
+export APPTAINER_CACHEDIR="$XDG_CACHE_HOME/apptainer"
+export APPTAINER_TMPDIR="$XDG_CACHE_HOME/apptainer/tmp"
+
 # OpenBLAS — limit threads to physical cores, reserve main thread for Python
 export OPENBLAS_NUM_THREADS=$(( $(nproc) / 2 ))
 export OPENBLAS_MAIN_FREE=1
