@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Search papis library via fuzzel dmenu, open selected PDF in sioyek
+
+PAPERS=$(papis list --all \
+    --format "{doc[ref]}\t{doc[title]} — {doc[author]} ({doc[year]}) [{doc[tags]}]" \
+    2>/dev/null)
+
+[[ -z "$PAPERS" ]] && exit 0
+
+SELECTED=$(echo "$PAPERS" | awk -F'\t' '{print $2}' \
+    | fuzzel --dmenu \
+        --prompt "  Papers: " \
+        --width 80 \
+        --lines 15)
+
+[[ -z "$SELECTED" ]] && exit 0
+
+REF=$(echo "$PAPERS" | awk -F'\t' -v sel="$SELECTED" '$2 == sel {print $1; exit}')
+
+papis open "$REF"

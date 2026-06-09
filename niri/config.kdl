@@ -405,6 +405,7 @@ binds {
     Mod+Return { spawn "foot" "-e" "tmux" "new-session" "-A" "-s" "main"; }
     //---------------------------------------------------------------------------
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
+    Mod+Shift+P hotkey-overlay-title="Search Papers: papis" { spawn "papis-fuzzel"; }
     // firefox
     Mod+B hotkey-overlay-title="Open Firefox" { spawn "firefox"; }
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
