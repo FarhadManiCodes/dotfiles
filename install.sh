@@ -365,6 +365,12 @@ for file in "${DOTFILES}/bash/"*; do
 done
 echo "✅ Helper scripts installed"
 
+# ============ papis ==============================
+echo "Setting up papis..."
+mkdir -p "${XDG_CONFIG_HOME}/papis"
+ln -sf "${DOTFILES}/papis/config" "${XDG_CONFIG_HOME}/papis/config"
+echo "papis configured"
+
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
 mkdir -p "${HOME}/.config/systemd/user"

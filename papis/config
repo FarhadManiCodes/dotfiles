@@ -1,0 +1,67 @@
+# Papis configuration file
+# Generated for computational science workflow with LaTeX + Zotero integration
+
+[papers]
+dir = ~/.local/share/papis/papers
+
+[settings]
+# Editor and tools - match system config
+editor = nvim
+browser = firefox
+opentool = sioyek
+file-browser = xdg-open
+
+# Default library
+default-library = papers
+
+# Document naming - lowercase, hyphens for multi-word titles
+doc-paths-lowercase = True
+doc-paths-word-separator = -
+ref-word-separator = _
+
+# Info file
+info-name = info.yaml
+local-config-file = .papis.config
+notes-name = notes.md
+
+# BibTeX support - for LaTeX integration
+bibtex-journal-key = journal
+bibtex-unicode = True
+bibtex-export-file = False
+extra-bibtex-keys = ["doc_url"]
+bibtex-ignore-keys = []
+
+# Citation formatting - Harvard style (common in scientific writing)
+csl-style = harvard1
+csl-formatter = plain
+
+# Reference key generation - base format: smith_2020 (duplicates get _1, _2 suffix manually)
+ref-format = {doc[author_list][0][family]}_{doc[year]}
+multiple-authors-separator = ' and '
+multiple-authors-format = {au[family]}, {au[given]}
+
+# Search and display
+match-format = {doc[tags]}{doc.subfolder}{doc[title]}{doc[author]}{doc[year]}{doc[ref]}
+header-format = <ansired>{doc.html_escape[title]}</ansired>\n <ansigreen>{doc.html_escape[author]}</ansigreen>\n  <ansiblue>({doc.html_escape[year]})</ansiblue> [<ansiyellow>{doc.html_escape[tags]}</ansiyellow>]
+completion-format = {doc[ref]}
+completion-help-format = {doc[title]} - {doc[author]}
+
+# Advanced options
+add-interactive = False
+add-edit = True
+use-git = False
+mvtool = mv
+dir-umask = 493
+sort-field = year
+sort-reverse = True
+
+# Document organization
+add-folder-name = {doc[author_list][0][family]}_{doc[year]}
+add-file-name = {doc[title]:.40}
+
+# Zotero compatibility
+document-description-format = {doc[title]} - {doc[author]}
+unique-document-keys = ['doi', 'isbn', 'isbn10', 'eprint', 'url', 'doc_url']
+
+[tui]
+editmode = vi
