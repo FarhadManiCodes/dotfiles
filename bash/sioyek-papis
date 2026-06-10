@@ -19,7 +19,6 @@
 
 set -uo pipefail
 
-PAPERS="$HOME/.local/share/papis/papers"
 note() { notify-send "papis" "$1"; }
 
 # --- reassemble + normalise the selection ----------------------------------
@@ -35,38 +34,29 @@ DOI=$(printf '%s' "$DOI" | sed 's/[.,;:)]*$//')                   # strip traili
 ARXIV=$(printf '%s' "$NOSPACE" | grep -oiE '(arxiv:)?[0-9]{4}\.[0-9]{4,5}(v[0-9]+)?' | head -1)
 ARXIV=${ARXIV#[Aa][Rr][Xx][Ii][Vv]:}
 
-doi_lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
-
-# Collect papis_ids whose OWN doi equals / contains the given doi (case-insensitive).
+# Collect papis_ids whose OWN doi equals/contains the selection (case-insensitive).
+# Matching the doi FIELD (not the citations: list) avoids matching papers that
+# merely cite the target. Single awk pass over one papis dump; ENVIRON avoids
+# awk -v escape-sequence processing of the raw selection.
 local_ids_for_doi() {
-    local target; target=$(doi_lc "$1")
     papis list --all --format "{doc[doi]}@@@{doc[papis_id]}" 2>/dev/null \
-    | while IFS= read -r row; do
-        local d="${row%@@@*}" id="${row##*@@@}"
-        [[ -z "$d" || -z "$id" ]] && continue
-        local dl; dl=$(doi_lc "$d")
-        [[ "$dl" == "$target" || "$dl" == *"$target"* ]] && printf '%s\n' "$id"
-      done
+    | SEL="$1" awk -F'@@@' '
+        BEGIN { t = tolower(ENVIRON["SEL"]) }
+        $1 != "" && $2 != "" { d = tolower($1); if (d == t || index(d, t)) print $2 }'
 }
 
-# Normalise text for fuzzy matching: lowercase, non-alphanumeric -> space, squeeze.
-norm() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c '[:alnum:]' ' ' | tr -s ' ' | sed 's/^ *//; s/ *$//'; }
-
-# Collect papis_ids whose title contains the selection (normalised substring match).
-# More lenient than papis' matcher (handles hyphens/punctuation, e.g. "physics-informed").
+# Collect papis_ids whose title contains the selection, compared on a normalised
+# form (lowercase, non-alphanumerics -> spaces) so "physics informed" matches the
+# stored "Physics-informed ...". Single awk pass.
 local_ids_for_text() {
-    local q; q=$(norm "$1")
-    [[ -z "$q" ]] && return
     papis list --all --format "{doc[title]}@@@{doc[papis_id]}" 2>/dev/null \
-    | while IFS= read -r row; do
-        local t="${row%@@@*}" id="${row##*@@@}"
-        [[ -z "$t" || -z "$id" ]] && continue
-        local tn; tn=$(norm "$t")
-        [[ "$tn" == *"$q"* ]] && printf '%s\n' "$id"
-      done
+    | SEL="$1" awk -F'@@@' '
+        function norm(s) { s = tolower(s); gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s); return s }
+        BEGIN { q = norm(ENVIRON["SEL"]) }
+        q != "" && $1 != "" && $2 != "" { if (index(norm($1), q)) print $2 }'
 }
 
-# Open the document file inside a papis folder in a new sioyek window.
+# Open the (first) document file inside a papis folder in a new sioyek window.
 open_folder() {
     local folder="$1" file
     file=$(find "$folder" -maxdepth 1 -type f \
@@ -81,7 +71,29 @@ open_folder() {
 open_id() {
     local folder
     folder=$(papis list "papis_id:$1" --all -d 2>/dev/null | head -1)
-    [[ -n "$folder" ]] && open_folder "$folder" || note "Could not locate entry folder"
+    if [[ -n "$folder" ]]; then
+        open_folder "$folder"
+    else
+        note "Could not locate entry folder"
+    fi
+}
+
+# fuzzel dmenu picker over the lines on stdin; prints the chosen line (empty if cancelled).
+pick() { fuzzel --dmenu --prompt "papis> "; }
+
+# Present a fuzzel menu for several papis_ids and open the chosen one.
+choose_open() {
+    local -A ref2id=()
+    local lines=() id meta ref chosen
+    for id in "$@"; do
+        meta=$(papis list "papis_id:$id" --all --format "{doc[ref]} | {doc[title]}" 2>/dev/null | head -1)
+        ref="${meta%% | *}"
+        ref2id["$ref"]="$id"
+        lines+=("$meta")
+    done
+    chosen=$(printf '%s\n' "${lines[@]}" | pick)
+    [[ -z "$chosen" ]] && return 0
+    open_id "${ref2id[${chosen%% | *}]}"
 }
 
 # DOI looks complete enough to add (not a bare publisher prefix).
@@ -96,9 +108,6 @@ add_doi() {
     fi
 }
 
-# fuzzel dmenu wrapper; echoes the chosen line (empty if cancelled).
-pick() { fuzzel --dmenu --prompt "papis> " "$@"; }
-
 # =====================  main  ==============================================
 if [[ -n "$DOI" ]]; then
     mapfile -t IDS < <(local_ids_for_doi "$DOI")
@@ -106,18 +115,7 @@ if [[ -n "$DOI" ]]; then
         0)  if doi_complete "$DOI"; then add_doi "$DOI"
             else note "Partial DOI not in library; select the full DOI"; fi ;;
         1)  open_id "${IDS[0]}" ;;
-        *)  # several library entries match this (partial) DOI -> let the user choose
-            declare -A REF2ID=()
-            lines=()
-            for id in "${IDS[@]}"; do
-                meta=$(papis list "papis_id:$id" --all --format "{doc[ref]} | {doc[title]}" 2>/dev/null | head -1)
-                ref="${meta%% | *}"
-                REF2ID["$ref"]="$id"
-                lines+=("$meta")
-            done
-            chosen=$(printf '%s\n' "${lines[@]}" | pick)
-            [[ -z "$chosen" ]] && exit 0
-            open_id "${REF2ID[${chosen%% | *}]}" ;;
+        *)  choose_open "${IDS[@]}" ;;     # several entries match a partial DOI
     esac
     exit 0
 fi
@@ -133,18 +131,8 @@ fi
 mapfile -t IDS < <(local_ids_for_text "$QUERY")
 case ${#IDS[@]} in
     1)  open_id "${IDS[0]}"; exit 0 ;;
-    0)  : ;;  # fall through to arXiv / Crossref
-    *)  # multiple local hits -> choose
-        declare -A REF2ID=()
-        lines=()
-        for id in "${IDS[@]}"; do
-            meta=$(papis list "papis_id:$id" --all --format "{doc[ref]} | {doc[title]}" 2>/dev/null | head -1)
-            REF2ID["${meta%% | *}"]="$id"
-            lines+=("$meta")
-        done
-        chosen=$(printf '%s\n' "${lines[@]}" | pick)
-        [[ -z "$chosen" ]] && exit 0
-        open_id "${REF2ID[${chosen%% | *}]}"; exit 0 ;;
+    0)  : ;;                              # fall through to arXiv / Crossref
+    *)  choose_open "${IDS[@]}"; exit 0 ;;
 esac
 
 # ---- arXiv id (no DOI, looks like an arXiv id) ----------------------------
