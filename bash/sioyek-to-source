@@ -1,0 +1,47 @@
+#!/bin/bash
+# Jump to the END of a sioyek text selection in the running Neovim, via SyncTeX.
+#
+# Sioyek calls this with:   sioyek-to-source <pdf> "<page> <x> <y>"
+#   $1 = %{file_path}              absolute path to the PDF
+#   $2 = %{selection_end_document} -> "page x y" (ONE argv with spaces, see below)
+#
+# Sioyek splits the command on whitespace BEFORE expanding %{...} and passes each
+# piece as a separate argv. So a multi-value var arrives as a single argument
+# with embedded spaces -> we re-split $2 with `read`. With no selection the var
+# is left literal, so PAGE won't be numeric and we exit quietly.
+# page is 0-based from sioyek; the synctex CLI (like synctex_edit_query) is 1-based.
+#
+# Why coordinates beat the old text-search anchor: sioyek's own inverse search
+# feeds this same DocumentPos {page,x,y} straight into synctex_edit_query, so the
+# units already match what `synctex edit` consumes -- exact, and robust through
+# math and macros where a literal \V search breaks.
+
+PDF="$1"
+read -r PAGE X Y <<< "$2"
+
+# No selection (token unexpanded) or bad input -> nothing to do.
+[[ "$PAGE" =~ ^[0-9]+$ ]] || exit 0
+[[ -n "$PDF" && -f "$PDF" ]] || { notify-send "sioyek" "No PDF path"; exit 1; }
+
+SYNCTEX=$(command -v synctex || echo /usr/sbin/synctex)
+
+# Map (page+1, x, y) -> source file + line. Take the first result.
+OUT=$("$SYNCTEX" edit -o "$((PAGE + 1)):${X}:${Y}:${PDF}" 2>/dev/null)
+FILE=$(sed -n 's/^Input://p' <<<"$OUT" | head -n1)
+LINE=$(sed -n 's/^Line://p'  <<<"$OUT" | head -n1)
+
+if [[ -z "$FILE" || -z "$LINE" ]]; then
+    notify-send "sioyek" "SyncTeX found no source for this selection"
+    exit 1
+fi
+
+# synctex prints paths like /dir/./main.tex; normalise so nvim matches the
+# already-open buffer instead of opening a duplicate.
+FILE=$(realpath "$FILE" 2>/dev/null || echo "$FILE")
+
+# Hand off to vimtex's inverse-search, exactly like sioyek's own Alt-i path.
+# This targets the nvim that actually has FILE open (via vimtex's server
+# registry) and fires VimtexEventViewReverse, which focuses the foot window.
+# More reliable than picking an nvim socket by mtime.
+NVIM=$(command -v nvim)
+exec "$NVIM" --headless -c "VimtexInverseSearch ${LINE} '${FILE}'"

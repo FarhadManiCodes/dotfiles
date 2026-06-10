@@ -27,7 +27,11 @@ ESCAPED_FILE="${FILE//\"/\\\"}"
 nvim --server "$SERVER" --remote-send "<C-\><C-n>:e +$LINE \"$ESCAPED_FILE\"<CR>"
 
 # --- Focus foot terminal in Niri ---
+# Prefer foot windows whose title contains "nvim" (set by Neovim's titlestring);
+# fall back to the most-recently-focused foot window if none matches.
 WINDOW_ID=$(niri msg --json windows |
-    jq -r '[.[] | select(.app_id == "foot")] | first | .id // empty')
+    jq -r '([.[] | select(.app_id == "foot" and (.title | startswith("NVIM")))] | first | .id)
+            // ([.[] | select(.app_id == "foot")] | first | .id)
+            // empty')
 
 [[ -n "$WINDOW_ID" ]] && niri msg action focus-window --id "$WINDOW_ID"
