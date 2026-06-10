@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+# sioyek-papis: upsert a reference from a sioyek text selection into papis.
+#
+# sioyek calls this with %{selected_text}. The selection may be a DOI (full,
+# partial, or broken across PDF line breaks), a title, or a messy citation
+# string. Behaviour:
+#   * DOI found in the selection
+#       - already in the papis library  -> open it in a new sioyek window
+#       - not in the library            -> papis add --from doi (+ notify)
+#   * no DOI (title / citation text)
+#       - found locally by text         -> open it
+#       - not local                     -> Crossref search, pick in fuzzel, upsert
+#
+# Notes baked in from the sioyek config quirks:
+#   - sioyek splits the command on whitespace BEFORE expanding %{...} and passes
+#     each piece as a separate argv, so the selection arrives across $@ -> "$*".
+#   - the entry's OWN doi must be matched, not the `citations:` list in info.yaml,
+#     so we match against `papis list --format "{doc[doi]}"`, never grep the file.
+
+set -uo pipefail
+
+PAPERS="$HOME/.local/share/papis/papers"
+note() { notify-send "papis" "$1"; }
+
+# --- reassemble + normalise the selection ----------------------------------
+RAW="$*"
+NOSPACE=$(printf '%s' "$RAW" | tr -d '[:space:]')                 # for DOI rejoin
+QUERY=$(printf '%s' "$RAW" | tr '\n\r\t' '   ' | tr -s ' ' \
+        | sed 's/^ *//; s/ *$//')                                 # for text search
+[[ -z "$QUERY" ]] && { note "Empty selection"; exit 0; }
+
+# --- extract a DOI / arXiv id ----------------------------------------------
+DOI=$(printf '%s' "$NOSPACE" | grep -oiE '10\.[0-9]{4,9}/[^[:space:]]+' | head -1)
+DOI=$(printf '%s' "$DOI" | sed 's/[.,;:)]*$//')                   # strip trailing punct
+ARXIV=$(printf '%s' "$NOSPACE" | grep -oiE '(arxiv:)?[0-9]{4}\.[0-9]{4,5}(v[0-9]+)?' | head -1)
+ARXIV=${ARXIV#[Aa][Rr][Xx][Ii][Vv]:}
+
+doi_lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# Collect papis_ids whose OWN doi equals / contains the given doi (case-insensitive).
+local_ids_for_doi() {
+    local target; target=$(doi_lc "$1")
+    papis list --all --format "{doc[doi]}@@@{doc[papis_id]}" 2>/dev/null \
+    | while IFS= read -r row; do
+        local d="${row%@@@*}" id="${row##*@@@}"
+        [[ -z "$d" || -z "$id" ]] && continue
+        local dl; dl=$(doi_lc "$d")
+        [[ "$dl" == "$target" || "$dl" == *"$target"* ]] && printf '%s\n' "$id"
+      done
+}
+
+# Normalise text for fuzzy matching: lowercase, non-alphanumeric -> space, squeeze.
+norm() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c '[:alnum:]' ' ' | tr -s ' ' | sed 's/^ *//; s/ *$//'; }
+
+# Collect papis_ids whose title contains the selection (normalised substring match).
+# More lenient than papis' matcher (handles hyphens/punctuation, e.g. "physics-informed").
+local_ids_for_text() {
+    local q; q=$(norm "$1")
+    [[ -z "$q" ]] && return
+    papis list --all --format "{doc[title]}@@@{doc[papis_id]}" 2>/dev/null \
+    | while IFS= read -r row; do
+        local t="${row%@@@*}" id="${row##*@@@}"
+        [[ -z "$t" || -z "$id" ]] && continue
+        local tn; tn=$(norm "$t")
+        [[ "$tn" == *"$q"* ]] && printf '%s\n' "$id"
+      done
+}
+
+# Open the document file inside a papis folder in a new sioyek window.
+open_folder() {
+    local folder="$1" file
+    file=$(find "$folder" -maxdepth 1 -type f \
+            ! -name 'info.yaml' ! -name '*.yaml' ! -name 'notes.md' 2>/dev/null | head -1)
+    if [[ -n "$file" ]]; then
+        sioyek --new-window "$file" >/dev/null 2>&1 &
+    else
+        note "Entry is in the library but has no attached file"
+    fi
+}
+
+open_id() {
+    local folder
+    folder=$(papis list "papis_id:$1" --all -d 2>/dev/null | head -1)
+    [[ -n "$folder" ]] && open_folder "$folder" || note "Could not locate entry folder"
+}
+
+# DOI looks complete enough to add (not a bare publisher prefix).
+doi_complete() { [[ "$1" =~ ^10\.[0-9]{4,9}/.{3,}$ ]]; }
+
+add_doi() {
+    local out
+    if out=$(papis add --from doi "$1" --no-edit --batch 2>&1); then
+        note "Added to papis: $1"
+    else
+        note "papis add failed: $(printf '%s' "$out" | tail -1)"
+    fi
+}
+
+# fuzzel dmenu wrapper; echoes the chosen line (empty if cancelled).
+pick() { fuzzel --dmenu --prompt "papis> " "$@"; }
+
+# =====================  main  ==============================================
+if [[ -n "$DOI" ]]; then
+    mapfile -t IDS < <(local_ids_for_doi "$DOI")
+    case ${#IDS[@]} in
+        0)  if doi_complete "$DOI"; then add_doi "$DOI"
+            else note "Partial DOI not in library; select the full DOI"; fi ;;
+        1)  open_id "${IDS[0]}" ;;
+        *)  # several library entries match this (partial) DOI -> let the user choose
+            declare -A REF2ID=()
+            lines=()
+            for id in "${IDS[@]}"; do
+                meta=$(papis list "papis_id:$id" --all --format "{doc[ref]} | {doc[title]}" 2>/dev/null | head -1)
+                ref="${meta%% | *}"
+                REF2ID["$ref"]="$id"
+                lines+=("$meta")
+            done
+            chosen=$(printf '%s\n' "${lines[@]}" | pick)
+            [[ -z "$chosen" ]] && exit 0
+            open_id "${REF2ID[${chosen%% | *}]}" ;;
+    esac
+    exit 0
+fi
+
+# A DOI prefix was selected but no complete DOI could be extracted (e.g. a bare
+# "10.1103/"): don't fall through to a Crossref title search -- ask for the full DOI.
+if printf '%s' "$NOSPACE" | grep -qiE '10\.[0-9]{4,9}/'; then
+    note "Incomplete DOI selection; select the full DOI"
+    exit 0
+fi
+
+# ---- no DOI: local bibliographic search (normalised title match) ----------
+mapfile -t IDS < <(local_ids_for_text "$QUERY")
+case ${#IDS[@]} in
+    1)  open_id "${IDS[0]}"; exit 0 ;;
+    0)  : ;;  # fall through to arXiv / Crossref
+    *)  # multiple local hits -> choose
+        declare -A REF2ID=()
+        lines=()
+        for id in "${IDS[@]}"; do
+            meta=$(papis list "papis_id:$id" --all --format "{doc[ref]} | {doc[title]}" 2>/dev/null | head -1)
+            REF2ID["${meta%% | *}"]="$id"
+            lines+=("$meta")
+        done
+        chosen=$(printf '%s\n' "${lines[@]}" | pick)
+        [[ -z "$chosen" ]] && exit 0
+        open_id "${REF2ID[${chosen%% | *}]}"; exit 0 ;;
+esac
+
+# ---- arXiv id (no DOI, looks like an arXiv id) ----------------------------
+if [[ -n "$ARXIV" ]]; then
+    if out=$(papis add --from arxiv "$ARXIV" --no-edit --batch 2>&1); then
+        note "Added arXiv:$ARXIV to papis"; exit 0
+    fi
+    # else fall through to Crossref text search
+fi
+
+# ---- Crossref: resolve free text -> DOI -----------------------------------
+URI=$(printf '%s' "$QUERY" | jq -sRr @uri)
+JSON=$(curl -sS -m 10 \
+    "https://api.crossref.org/works?query.bibliographic=${URI}&rows=8&select=DOI,title,issued,author" 2>/dev/null)
+mapfile -t RESULTS < <(printf '%s' "$JSON" | jq -r '
+    .message.items[]?
+    | "\((.title[0]) // "?") — \(((.issued."date-parts"[0][0]) // "?")) — \(.DOI)"' 2>/dev/null)
+
+if [[ ${#RESULTS[@]} -eq 0 ]]; then
+    note "No Crossref match for: $QUERY"; exit 0
+fi
+
+chosen=$(printf '%s\n' "${RESULTS[@]}" | pick)
+[[ -z "$chosen" ]] && exit 0
+PICKED_DOI="${chosen##* — }"
+[[ -z "$PICKED_DOI" ]] && exit 0
+
+mapfile -t IDS < <(local_ids_for_doi "$PICKED_DOI")
+if [[ ${#IDS[@]} -gt 0 ]]; then
+    open_id "${IDS[0]}"
+else
+    add_doi "$PICKED_DOI"
+fi
