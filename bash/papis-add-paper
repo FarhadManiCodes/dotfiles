@@ -11,6 +11,25 @@ identifier="$2"
     exit 1
 }
 
+# --- confirm before adding (called from Firefox -> confirm via fuzzel GUI) --
+# Best-effort title fetch so the prompt shows WHAT will be added; falls back to
+# the identifier if the lookup fails or times out.
+fetch_title() {
+    case "$1" in
+        doi)   curl -sSL -m 8 "https://api.crossref.org/works/$2" 2>/dev/null \
+                 | jq -r '.message.title[0] // empty' 2>/dev/null ;;
+        arxiv) curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null \
+                 | tr '\n' ' ' | grep -oiP '<title>.*?</title>' | sed -n '2p' \
+                 | sed 's:</\?title>::Ig' | tr -s ' ' | sed 's/^ *//; s/ *$//' ;;
+    esac
+}
+
+title=$(fetch_title "$importer" "$identifier")
+add_line="Add to papis:  ${title:-$identifier}"
+choice=$(printf '%s\nCancel\n' "$add_line" \
+    | fuzzel --dmenu --prompt "papis ($importer)> " --width 90 --lines 3)
+[[ "$choice" == "$add_line" ]] || { notify-send -u low "Papis" "Cancelled"; exit 0; }
+
 notify-send -u low "Papis" "Adding via $importer…\n$identifier"
 
 if ! output=$(papis add --from "$importer" "$identifier" --no-edit 2>&1); then
