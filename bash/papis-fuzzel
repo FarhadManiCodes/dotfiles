@@ -1,20 +1,33 @@
 #!/usr/bin/env bash
 # Search papis library via fuzzel dmenu, open selected PDF in sioyek
+# Falls back to browser (DOI/URL) if no file is attached
 
 PAPERS=$(papis list --all \
-    --format "{doc[ref]}\t{doc[title]} — {doc[author]} ({doc[year]}) [{doc[tags]}]" \
+    --format "{doc[ref]}\t{doc[year]}\t{doc[author_list][0][family]}\t{doc[title]}\t{doc[files]}" \
     2>/dev/null)
 
 [[ -z "$PAPERS" ]] && exit 0
 
-SELECTED=$(echo "$PAPERS" | awk -F'\t' '{print $2}' \
+# Format: [year]  Author          Title...  (mark file-less papers with ↗)
+DISPLAY=$(echo "$PAPERS" | awk -F'\t' '{
+    icon = ($5 == "[]") ? " ↗" : ""
+    printf "%s\t[%s]  %-16s  %s%s\n", $1, $2, substr($3,1,16), substr($4,1,55), icon
+}')
+
+SELECTED=$(echo "$DISPLAY" | awk -F'\t' '{print $2}' \
     | fuzzel --dmenu \
         --prompt "  Papers: " \
-        --width 80 \
+        --width 90 \
         --lines 15)
 
 [[ -z "$SELECTED" ]] && exit 0
 
-REF=$(echo "$PAPERS" | awk -F'\t' -v sel="$SELECTED" '$2 == sel {print $1; exit}')
+REF=$(echo "$DISPLAY" | awk -F'\t' -v sel="$SELECTED" '$2 == sel {print $1; exit}')
 
-papis open "$REF"
+# Check if paper has files; if not, open URL in browser instead
+HAS_FILES=$(papis list --all --format "{doc[files]}" "$REF" 2>/dev/null)
+if [[ "$HAS_FILES" == "[]" ]]; then
+    papis browse "$REF"
+else
+    papis open "$REF"
+fi
