@@ -334,6 +334,14 @@ window-rule {
     open-floating true
 }
 
+// papis reference-key editor (papis-add-paper) — small floating prompt
+window-rule {
+    match app-id="papis-ref-edit"
+    open-floating true
+    default-column-width { fixed 720; }
+    default-window-height { fixed 220; }
+}
+
 // Tridactyl editor — half height, opens alongside Firefox
 window-rule {
     match app-id="tridactyl-editor"

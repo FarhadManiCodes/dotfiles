@@ -2,46 +2,103 @@
 # Add a paper to papis from a browser page — called by Tridactyl ,p binding
 # Usage: papis-add-paper <importer> <identifier>
 # Importers: doi (journal pages), arxiv (arXiv pages — also downloads PDF)
+#
+# Launched from Firefox (no terminal), so it confirms in a small floating foot
+# window: the title is shown and the suggested reference key is pre-filled and
+# editable (readline). Enter confirms, empty cancels. The key is kept UNIQUE —
+# papis allows duplicate refs but papis.nvim's sqlite cache enforces UNIQUE(ref),
+# so a clash there would break the nvim side; we disambiguate / re-prompt instead.
 
-importer="$1"
-identifier="$2"
+set -uo pipefail
+
+importer="${1:-}"
+identifier="${2:-}"
 
 [[ -z "$importer" || -z "$identifier" ]] && {
     notify-send -u critical "Papis" "Usage: papis-add-paper <importer> <identifier>"
     exit 1
 }
 
-# --- confirm before adding (called from Firefox -> confirm via fuzzel GUI) --
-# Best-effort title fetch so the prompt shows WHAT will be added; falls back to
-# the identifier if the lookup fails or times out.
-fetch_title() {
+# --- fetch metadata (best-effort) for the title + a suggested ref key --------
+META_TITLE=""; META_FAMILY=""; META_YEAR=""
+fetch_meta() {
     case "$1" in
-        doi)   curl -sSL -m 8 "https://api.crossref.org/works/$2" 2>/dev/null \
-                 | jq -r '.message.title[0] // empty' 2>/dev/null ;;
-        arxiv) curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null \
-                 | tr '\n' ' ' | grep -oiP '<title>.*?</title>' | sed -n '2p' \
-                 | sed 's:</\?title>::Ig' | tr -s ' ' | sed 's/^ *//; s/ *$//' ;;
+        doi)
+            local j; j=$(curl -sSL -m 8 "https://api.crossref.org/works/$2" 2>/dev/null) || return
+            META_TITLE=$(jq -r  '.message.title[0]                  // empty' <<<"$j" 2>/dev/null)
+            META_FAMILY=$(jq -r '.message.author[0].family          // empty' <<<"$j" 2>/dev/null)
+            META_YEAR=$(jq -r   '.message.issued."date-parts"[0][0] // empty' <<<"$j" 2>/dev/null)
+            ;;
+        arxiv)
+            local x; x=$(curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null) || return
+            x=$(printf '%s' "$x" | tr '\n' ' ')
+            META_TITLE=$(grep -oiP '<title>.*?</title>' <<<"$x" | sed -n '2p' \
+                          | sed 's:</\?title>::Ig' | tr -s ' ' | sed 's/^ *//; s/ *$//')
+            local name; name=$(grep -oiP '<author>\s*<name>.*?</name>' <<<"$x" | head -1 \
+                          | sed 's:.*<name>::I; s:</name>::I' | tr -s ' ' | sed 's/^ *//; s/ *$//')
+            META_FAMILY=${name##* }
+            META_YEAR=$(grep -oiP '<published>\K[0-9]{4}' <<<"$x" | head -1)
+            ;;
     esac
 }
 
-title=$(fetch_title "$importer" "$identifier")
-add_line="Add to papis:  ${title:-$identifier}"
-choice=$(printf '%s\nCancel\n' "$add_line" \
-    | fuzzel --dmenu --prompt "papis ($importer)> " --width 90 --lines 3)
-[[ "$choice" == "$add_line" ]] || { notify-send -u low "Papis" "Cancelled"; exit 0; }
+# papis-style citation key: alphanumerics joined by single underscores.
+sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'; }
 
-notify-send -u low "Papis" "Adding via $importer…\n$identifier"
+# Snapshot existing keys once; a key is "taken" if it matches exactly.
+existing_refs=$(papis list --all --format "{doc[ref]}" 2>/dev/null)
+ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
 
-if ! output=$(papis add --from "$importer" "$identifier" --no-edit 2>&1); then
-    notify-send -u critical "Papis" "Failed to add\n$identifier"
+# Append a/b/c… (then _2, _3…) until the key is free.
+free_ref() {
+    local base="$1" cand="$1" i
+    ref_taken "$cand" || { printf '%s' "$cand"; return; }
+    for i in {a..z}; do cand="${base}${i}"; ref_taken "$cand" || { printf '%s' "$cand"; return; }; done
+    i=2; while ref_taken "${base}_${i}"; do i=$((i+1)); done; printf '%s' "${base}_${i}"
+}
+
+# Edit the key in a small floating foot window; echoes the (sanitised) result.
+edit_ref() {
+    local prefill="$1" mesg="$2" out; out=$(mktemp)
+    # $1/$2/$3 below are positional args for the INNER bash -c, so single quotes
+    # are intentional (they must not expand in this outer shell).
+    # shellcheck disable=SC2016
+    footclient --app-id=papis-ref-edit --title="papis: reference key" \
+        bash -c '
+            printf "%s\n\nEdit the reference key, Enter to confirm, empty to cancel.\n\n" "$1"
+            read -e -r -i "$2" -p "ref> " k || k=""
+            printf "%s" "$k" > "$3"
+        ' _ "$mesg" "$prefill" "$out" 2>/dev/null
+    sanitize_ref "$(cat "$out" 2>/dev/null)"; rm -f "$out"
+}
+
+fetch_meta "$importer" "$identifier"
+
+base=$(sanitize_ref "$META_FAMILY")
+[[ -n "$META_YEAR" ]] && base="${base:+${base}_}$META_YEAR"
+[[ -z "$base" ]] && base=$(sanitize_ref "$identifier")
+suggest=$(free_ref "$base")          # first free variant of the suggestion
+
+title=${META_TITLE:-$identifier}
+mesg="Add to papis:
+  $title
+  $importer: $identifier"
+
+# Prompt, and keep prompting until the chosen key is non-empty and free.
+ref=$(edit_ref "$suggest" "$mesg")
+while [[ -n "$ref" ]] && ref_taken "$ref"; do
+    ref=$(edit_ref "$ref" "Key '$ref' already exists — choose another.")
+done
+[[ -z "$ref" ]] && { notify-send -u low "Papis" "Cancelled"; exit 0; }
+
+notify-send -u low "Papis" "Adding as $ref…\n$identifier"
+
+if ! output=$(papis add --from "$importer" "$identifier" --no-edit --set ref "$ref" 2>&1); then
+    notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
     exit 1
 fi
 
-# Parse ref from papis output — avoids broken lookup by arXiv/DOI identifier
-ref=$(echo "$output" | grep -oP "Created reference '\K[^']+" | head -1)
-
-files=$(papis list --all --format "{doc[files]}" "$ref" 2>/dev/null)
-
+files=$(papis list --all --format "{doc[files]}" "ref:$ref" 2>/dev/null)
 if [[ "$files" == "[]" || -z "$files" ]]; then
     notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref"
 else
