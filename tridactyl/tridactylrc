@@ -60,3 +60,8 @@ bind dt composite tabprev; tabclose #
 bind D tabclose
 unbind d
 
+" ===== Papis =====
+" ,p — add current page to papis library (arXiv → pdf included; journal → doi + pdf attempt)
+bind ,p js const ax=location.href.match(/arxiv\.org\/(?:abs|pdf)\/([\d.]+(?:v\d+)?)/);const doi=!ax?(document.querySelector('meta[name="citation_doi"]')?.content||(document.querySelector('meta[name="dc.identifier"]')?.content||'').replace(/^doi:/i,'')||(location.hostname==='doi.org'?decodeURIComponent(location.pathname.slice(1)):'')).trim():'';if(ax){tri.native.run('papis-add-paper arxiv "'+ax[1]+'"');}else if(doi){tri.native.run('papis-add-paper doi "'+doi.replace(/"/g,'\\"')+'"');}else{tri.excmds.fillcmdline_tmp(3000,'Papis: no DOI or arXiv ID found');}
+
+

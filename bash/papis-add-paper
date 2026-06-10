@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Add a paper to papis from a browser page — called by Tridactyl ,p binding
+# Usage: papis-add-paper <importer> <identifier>
+# Importers: doi (journal pages), arxiv (arXiv pages — also downloads PDF)
+
+importer="$1"
+identifier="$2"
+
+[[ -z "$importer" || -z "$identifier" ]] && {
+    notify-send -u critical "Papis" "Usage: papis-add-paper <importer> <identifier>"
+    exit 1
+}
+
+notify-send -u low "Papis" "Adding via $importer…\n$identifier"
+
+if ! output=$(papis add --from "$importer" "$identifier" --no-edit 2>&1); then
+    notify-send -u critical "Papis" "Failed to add\n$identifier"
+    exit 1
+fi
+
+# Parse ref from papis output — avoids broken lookup by arXiv/DOI identifier
+ref=$(echo "$output" | grep -oP "Created reference '\K[^']+" | head -1)
+
+files=$(papis list --all --format "{doc[files]}" "$ref" 2>/dev/null)
+
+if [[ "$files" == "[]" || -z "$files" ]]; then
+    notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref"
+else
+    notify-send -u low "Papis" "Added with PDF ✓\n$ref"
+fi
