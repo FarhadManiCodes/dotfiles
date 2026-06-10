@@ -105,7 +105,9 @@ ref="$OUT_KEY"; tags="$OUT_TAGS"
 
 notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 
-add_args=(--from "$importer" "$identifier" --no-edit --set ref "$ref")
+# --batch is required: --set turns the value into a second metadata source, and
+# without it papis prompts to merge importer-vs-command-line (no TTY -> "Aborted!").
+add_args=(--from "$importer" "$identifier" --no-edit --batch --set ref "$ref")
 [[ -n "$tags" ]] && add_args+=(--set tags "$tags")
 
 if ! output=$(papis add "${add_args[@]}" 2>&1); then
@@ -113,7 +115,8 @@ if ! output=$(papis add "${add_args[@]}" 2>&1); then
     exit 1
 fi
 
-tagnote=${tags:+\n[$tags]}
+tagnote=""
+[[ -n "$tags" ]] && tagnote="\\n[$tags]"
 files=$(papis list --all --format "{doc[files]}" "ref:$ref" 2>/dev/null)
 if [[ "$files" == "[]" || -z "$files" ]]; then
     notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref$tagnote"
