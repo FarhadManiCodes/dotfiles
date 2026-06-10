@@ -3,11 +3,12 @@
 # Usage: papis-add-paper <importer> <identifier>
 # Importers: doi (journal pages), arxiv (arXiv pages — also downloads PDF)
 #
-# Launched from Firefox (no terminal), so it confirms in a small floating foot
-# window: the title is shown and the suggested reference key is pre-filled and
-# editable (readline). Enter confirms, empty cancels. The key is kept UNIQUE —
-# papis allows duplicate refs but papis.nvim's sqlite cache enforces UNIQUE(ref),
-# so a clash there would break the nvim side; we disambiguate / re-prompt instead.
+# Launched from Firefox (no terminal), so it confirms in a small floating
+# footclient window showing the title + DOI/arXiv id. You edit a pre-filled
+# reference key (readline) and optionally type tags. Empty key cancels.
+# The key is kept UNIQUE — papis allows duplicate refs but papis.nvim's sqlite
+# cache enforces UNIQUE(ref), so a clash there would break the nvim side; we
+# auto-disambiguate the suggestion and re-prompt on a typed clash.
 
 set -uo pipefail
 
@@ -45,9 +46,11 @@ fetch_meta() {
 # papis-style citation key: alphanumerics joined by single underscores.
 sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'; }
 
-# Snapshot existing keys once; a key is "taken" if it matches exactly.
+# Snapshot existing keys + tags once. A key is "taken" if it matches exactly.
 existing_refs=$(papis list --all --format "{doc[ref]}" 2>/dev/null)
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
+existing_tags=$(papis list --all --format "{doc[tags]}" 2>/dev/null \
+                | tr ' ,' '\n' | grep -v '^$' | sort -u | paste -sd' ' -)
 
 # Append a/b/c… (then _2, _3…) until the key is free.
 free_ref() {
@@ -57,19 +60,24 @@ free_ref() {
     i=2; while ref_taken "${base}_${i}"; do i=$((i+1)); done; printf '%s' "${base}_${i}"
 }
 
-# Edit the key in a small floating foot window; echoes the (sanitised) result.
-edit_ref() {
-    local prefill="$1" mesg="$2" out; out=$(mktemp)
-    # $1/$2/$3 below are positional args for the INNER bash -c, so single quotes
+# Prompt for the reference key + tags in a small floating footclient window.
+# Sets globals OUT_KEY (sanitised) and OUT_TAGS. Args: <mesg> <key-prefill> <tags-prefill>
+OUT_KEY=""; OUT_TAGS=""
+prompt_meta() {
+    local out; out=$(mktemp)
+    # $1..$4 below are positional args for the INNER bash -c, so single quotes
     # are intentional (they must not expand in this outer shell).
     # shellcheck disable=SC2016
-    footclient --app-id=papis-ref-edit --title="papis: reference key" \
+    footclient --app-id=papis-ref-edit --title="papis: add reference" \
         bash -c '
-            printf "%s\n\nEdit the reference key, Enter to confirm, empty to cancel.\n\n" "$1"
-            read -e -r -i "$2" -p "ref> " k || k=""
-            printf "%s" "$k" > "$3"
-        ' _ "$mesg" "$prefill" "$out" 2>/dev/null
-    sanitize_ref "$(cat "$out" 2>/dev/null)"; rm -f "$out"
+            printf "%s\n\nEdit the key, Enter to confirm each field; empty key cancels.\n\n" "$1"
+            read -e -r -i "$2" -p "reference key> " k || k=""
+            read -e -r -i "$3" -p "tags (space-separated, optional)> " t || t=""
+            printf "%s\n%s" "$k" "$t" > "$4"
+        ' _ "$1" "$2" "$3" "$out" 2>/dev/null
+    OUT_KEY=$(sanitize_ref "$(sed -n 1p "$out" 2>/dev/null)")
+    OUT_TAGS=$(sed -n 2p "$out" 2>/dev/null | tr -s ' ' | sed 's/^ *//; s/ *$//')
+    rm -f "$out"
 }
 
 fetch_meta "$importer" "$identifier"
@@ -79,28 +87,36 @@ base=$(sanitize_ref "$META_FAMILY")
 [[ -z "$base" ]] && base=$(sanitize_ref "$identifier")
 suggest=$(free_ref "$base")          # first free variant of the suggestion
 
-title=${META_TITLE:-$identifier}
 mesg="Add to papis:
-  $title
+  ${META_TITLE:-$identifier}
   $importer: $identifier"
+[[ -n "$existing_tags" ]] && mesg="$mesg
+  existing tags: $existing_tags"
 
 # Prompt, and keep prompting until the chosen key is non-empty and free.
-ref=$(edit_ref "$suggest" "$mesg")
-while [[ -n "$ref" ]] && ref_taken "$ref"; do
-    ref=$(edit_ref "$ref" "Key '$ref' already exists — choose another.")
+prompt_meta "$mesg" "$suggest" ""
+while [[ -n "$OUT_KEY" ]] && ref_taken "$OUT_KEY"; do
+    prompt_meta "Key '$OUT_KEY' already exists — choose another.
+
+$mesg" "$OUT_KEY" "$OUT_TAGS"
 done
-[[ -z "$ref" ]] && { notify-send -u low "Papis" "Cancelled"; exit 0; }
+[[ -z "$OUT_KEY" ]] && { notify-send -u low "Papis" "Cancelled"; exit 0; }
+ref="$OUT_KEY"; tags="$OUT_TAGS"
 
 notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 
-if ! output=$(papis add --from "$importer" "$identifier" --no-edit --set ref "$ref" 2>&1); then
+add_args=(--from "$importer" "$identifier" --no-edit --set ref "$ref")
+[[ -n "$tags" ]] && add_args+=(--set tags "$tags")
+
+if ! output=$(papis add "${add_args[@]}" 2>&1); then
     notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
     exit 1
 fi
 
+tagnote=${tags:+\n[$tags]}
 files=$(papis list --all --format "{doc[files]}" "ref:$ref" 2>/dev/null)
 if [[ "$files" == "[]" || -z "$files" ]]; then
-    notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref"
+    notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref$tagnote"
 else
-    notify-send -u low "Papis" "Added with PDF ✓\n$ref"
+    notify-send -u low "Papis" "Added with PDF ✓\n$ref$tagnote"
 fi
