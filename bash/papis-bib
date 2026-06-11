@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# papis-bib: sync a LaTeX project's .bib with papis at compile time.
+#
+# Regenerates the .bib so it contains exactly the entries cited in the project's
+# .tex files, sourced from the papis library (and any hand-written entries
+# already present). Uses papis' own BibTeX parser (`papis bibtex`) rather than
+# grepping .tex/.bib content. Writes only when the result actually changed, so it
+# never retriggers latexmk -pvc. Meant for the vimtex compile hook; safe by hand.
+#
+# Usage: papis-bib [<texfile>|<dir>] [<bibfile>]
+
+set -uo pipefail
+
+arg="${1:-.}"
+if [[ -f "$arg" ]]; then dir=$(cd "$(dirname "$arg")" && pwd); else dir=$(cd "$arg" 2>/dev/null && pwd) || exit 0; fi
+
+# .bib path: read the resource NAME from \addbibresource/\bibliography (just a
+# filename, not bib content), default refs.bib.
+bibname=$(grep -rhoP '\\(addbibresource|bibliography)\{\K[^}]+' "$dir"/*.tex 2>/dev/null | head -1)
+[[ -n "$bibname" && "$bibname" != *.bib ]] && bibname="${bibname}.bib"
+bib="${2:-$dir/${bibname:-refs.bib}}"
+
+# Every .tex in the project (so multi-file \input projects are covered).
+tex_args=()
+for f in "$dir"/*.tex; do [[ -e "$f" ]] && tex_args+=(-f "$f"); done
+[[ ${#tex_args[@]} -eq 0 ]] && exit 0
+
+# read existing (keep hand-written entries) -> add the whole library -> keep only
+# cited -> dedup -> save. papis parses and serialises the BibTeX itself.
+read_args=()
+[[ -f "$bib" ]] && read_args=(read "$bib")
+
+tmp=$(mktemp)
+if papis bibtex "${read_args[@]}" add --all filter-cited "${tex_args[@]}" unique save -f "$tmp" >/dev/null 2>&1 \
+   && [[ -s "$tmp" ]]; then
+    if cmp -s "$tmp" "$bib"; then
+        rm -f "$tmp"; echo "papis-bib: $(basename "$bib") already up to date"
+    else
+        mv "$tmp" "$bib"
+        command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") from papis"
+        echo "papis-bib: updated $bib"
+    fi
+else
+    rm -f "$tmp"; echo "papis-bib: nothing cited / nothing to do"
+fi
