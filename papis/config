@@ -65,3 +65,8 @@ unique-document-keys = ['doi', 'isbn', 'isbn10', 'eprint', 'url', 'doc_url']
 
 [tui]
 editmode = vi
+
+[ask]
+llm = gemini/gemini-3-flash-preview
+summary-llm = gemini/gemini-3.1-flash-lite
+embedding = st-Qwen/Qwen3-Embedding-0.6B
