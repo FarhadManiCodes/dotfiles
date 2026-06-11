@@ -31,14 +31,13 @@ fetch_meta() {
             META_YEAR=$(jq -r   '.message.issued."date-parts"[0][0] // empty' <<<"$j" 2>/dev/null)
             ;;
         arxiv)
-            local x; x=$(curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null) || return
-            x=$(printf '%s' "$x" | tr '\n' ' ')
-            META_TITLE=$(grep -oiP '<title>.*?</title>' <<<"$x" | sed -n '2p' \
-                          | sed 's:</\?title>::Ig' | tr -s ' ' | sed 's/^ *//; s/ *$//')
-            local name; name=$(grep -oiP '<author>\s*<name>.*?</name>' <<<"$x" | head -1 \
-                          | sed 's:.*<name>::I; s:</name>::I' | tr -s ' ' | sed 's/^ *//; s/ *$//')
+            local x name; x=$(curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null) || return
+            # Parse the Atom XML with yq (-p=xml) instead of grep/sed on markup.
+            META_TITLE=$(yq -p=xml '.feed.entry.title' <<<"$x" 2>/dev/null \
+                          | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//; s/ *$//')
+            name=$(yq -p=xml '.feed.entry.author[0].name // .feed.entry.author.name // ""' <<<"$x" 2>/dev/null)
             META_FAMILY=${name##* }
-            META_YEAR=$(grep -oiP '<published>\K[0-9]{4}' <<<"$x" | head -1)
+            META_YEAR=$(yq -p=xml '.feed.entry.published // ""' <<<"$x" 2>/dev/null | cut -c1-4)
             ;;
     esac
 }
@@ -46,13 +45,13 @@ fetch_meta() {
 # papis-style citation key: alphanumerics joined by single underscores.
 sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'; }
 
-# Snapshot existing keys + tags once. A key is "taken" if it matches exactly.
-existing_refs=$(papis list --all --format "{doc[ref]}" 2>/dev/null)
+# Snapshot existing keys + tags once, read straight from YAML with yq: accurate
+# (handles any field content) and faster than papis' Python startup. -o=tsv keeps
+# values flat without "---" document separators between files.
+papers_glob=("$HOME"/.local/share/papis/papers/*/info.yaml)
+existing_refs=$(yq -o=tsv '.ref' "${papers_glob[@]}" 2>/dev/null)
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
-# Read tags straight from YAML with yq: accurate (handles any tag content) and
-# faster than parsing papis' Python-list-repr output (skips papis' slow startup).
-existing_tags=$(yq '.tags[]?' "$HOME"/.local/share/papis/papers/*/info.yaml 2>/dev/null \
-                | sort -u | paste -sd' ' -)
+existing_tags=$(yq -o=tsv '.tags[]?' "${papers_glob[@]}" 2>/dev/null | sort -u | paste -sd' ' -)
 
 # Append a/b/c… (then _2, _3…) until the key is free.
 free_ref() {
@@ -114,18 +113,17 @@ if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set
     exit 1
 fi
 
+folder=$(grep -oP "Document folder is '\K[^']+" <<<"$output" | head -1)
+
 # Store tags as a proper YAML list (papis.nvim requires list type, one element per
 # tag). papis --set only writes a string, so set the split list with yq directly.
-if [[ -n "$tags" ]]; then
-    folder=$(grep -oP "Document folder is '\K[^']+" <<<"$output" | head -1)
-    [[ -f "$folder/info.yaml" ]] && tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$folder/info.yaml"
-fi
+[[ -n "$tags" && -f "$folder/info.yaml" ]] && \
+    tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$folder/info.yaml"
 
-tagnote=""
-[[ -n "$tags" ]] && tagnote="\\n[$tags]"
-files=$(papis list --all --format "{doc[files]}" "ref:$ref" 2>/dev/null)
-if [[ "$files" == "[]" || -z "$files" ]]; then
-    notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref$tagnote"
-else
+tagnote=""; [[ -n "$tags" ]] && tagnote="\\n[$tags]"
+nfiles=0; [[ -f "$folder/info.yaml" ]] && nfiles=$(yq '(.files // []) | length' "$folder/info.yaml" 2>/dev/null)
+if [[ "${nfiles:-0}" -gt 0 ]]; then
     notify-send -u low "Papis" "Added with PDF ✓\n$ref$tagnote"
+else
+    notify-send -u normal "Papis" "Added — PDF not downloaded\n$ref$tagnote"
 fi
