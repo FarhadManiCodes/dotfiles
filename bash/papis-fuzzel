@@ -3,21 +3,27 @@
 # Falls back to browser (DOI/URL) if no file is attached
 
 PAPERS=$(papis list --all \
-    --format "{doc[ref]}\t{doc[year]}\t{doc[author_list][0][family]}\t{doc[title]}\t{doc[files]}" \
+    --format "{doc[ref]}\t{doc[year]}\t{doc[author_list][0][family]}\t{doc[title]}\t{doc[files]}\t{doc[tags]}" \
     2>/dev/null)
 
 [[ -z "$PAPERS" ]] && exit 0
 
-# Format: [year]  Author          Title...  (mark file-less papers with ↗)
+# Format: [year]  Author          Title...  #tags  (mark file-less papers with ↗)
+# Tags are appended so fuzzel's fuzzy filter matches them — type a tag to narrow.
 DISPLAY=$(echo "$PAPERS" | awk -F'\t' '{
     icon = ($5 == "[]") ? " ↗" : ""
-    printf "%s\t[%s]  %-16s  %s%s\n", $1, $2, substr($3,1,16), substr($4,1,55), icon
+    # tags render as a python list repr (brackets/quotes/commas); strip to bare
+    # words, then prefix each with # so fuzzel can fuzzy-match them.
+    t = $6; gsub(/[][]/, "", t); gsub("\047", "", t); gsub(/,/, " ", t)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", t); gsub(/[[:space:]]+/, " #", t)
+    tags = (t != "") ? "  #" t : ""
+    printf "%s\t[%s]  %-16s  %s%s%s\n", $1, $2, substr($3,1,16), substr($4,1,55), icon, tags
 }')
 
 SELECTED=$(echo "$DISPLAY" | awk -F'\t' '{print $2}' \
     | fuzzel --dmenu \
-        --prompt "  Papers: " \
-        --width 90 \
+        --prompt "  Papers (type a #tag to filter): " \
+        --width 100 \
         --lines 15)
 
 [[ -z "$SELECTED" ]] && exit 0
