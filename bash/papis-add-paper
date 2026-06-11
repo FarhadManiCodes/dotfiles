@@ -49,8 +49,10 @@ sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'
 # Snapshot existing keys + tags once. A key is "taken" if it matches exactly.
 existing_refs=$(papis list --all --format "{doc[ref]}" 2>/dev/null)
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
-existing_tags=$(papis list --all --format "{doc[tags]}" 2>/dev/null \
-                | tr ' ,' '\n' | grep -v '^$' | sort -u | paste -sd' ' -)
+# Read tags straight from YAML with yq: accurate (handles any tag content) and
+# faster than parsing papis' Python-list-repr output (skips papis' slow startup).
+existing_tags=$(yq '.tags[]?' "$HOME"/.local/share/papis/papers/*/info.yaml 2>/dev/null \
+                | sort -u | paste -sd' ' -)
 
 # Append a/b/c… (then _2, _3…) until the key is free.
 free_ref() {
@@ -107,12 +109,16 @@ notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 
 # --batch is required: --set turns the value into a second metadata source, and
 # without it papis prompts to merge importer-vs-command-line (no TTY -> "Aborted!").
-add_args=(--from "$importer" "$identifier" --no-edit --batch --set ref "$ref")
-[[ -n "$tags" ]] && add_args+=(--set tags "$tags")
-
-if ! output=$(papis add "${add_args[@]}" 2>&1); then
+if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set ref "$ref" 2>&1); then
     notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
     exit 1
+fi
+
+# Store tags as a proper YAML list (papis.nvim requires list type, one element per
+# tag). papis --set only writes a string, so set the split list with yq directly.
+if [[ -n "$tags" ]]; then
+    folder=$(grep -oP "Document folder is '\K[^']+" <<<"$output" | head -1)
+    [[ -f "$folder/info.yaml" ]] && tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$folder/info.yaml"
 fi
 
 tagnote=""
