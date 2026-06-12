@@ -68,5 +68,11 @@ editmode = vi
 
 [ask]
 llm = gemini/gemini-3-flash-preview
-summary-llm = gemini/gemini-3.1-flash-lite
-embedding = st-Qwen/Qwen3-Embedding-0.6B
+summary-llm = gemini/gemini-2.5-flash-lite
+embedding = openai/Qwen3-Embedding-4B
+max-sources = 8
+answer-length = about 500 words, but can be longer
+# multimodal enrichment of figures/equations/tables (vision model).
+# gemini-2.5-flash: strong scientific doc/figure parsing on existing Gemini infra.
+# thinking left at default; cap to low/disable only if indexing thousands of figures.
+enrichment-llm = gemini/gemini-2.5-flash
