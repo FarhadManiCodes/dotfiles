@@ -54,8 +54,10 @@ require_build_configured() {
 }
 
 list_executables() {
-    find "$BUILD_DIR" -maxdepth 2 -type f -executable \
-        ! -name "*.so" ! -name "*.a" \
+    # Recurse at any depth (targets can be nested in chapters/topic/ subdirs),
+    # but prune CMake's internal trees so its ABI-probe binaries don't show up.
+    find "$BUILD_DIR" \( -path '*/CMakeFiles' -o -name 'Testing' \) -prune -o \
+        -type f -executable ! -name "*.so" ! -name "*.a" ! -name "*.bin" \
         -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk '{print $2}'
 }
 
@@ -771,13 +773,126 @@ _samply_select() {
 }
 
 
+# ── Per-file build ────────────────────────────────────────────────────────────
+
+# Map a source file path to its scicore CMake target name.
+# Walks up from the file's directory looking for scicore_add_exercises(PREFIX).
+filepath_to_target() {
+    local filepath="$1"
+    local d
+    d=$(dirname "$filepath")
+    while [[ "$d" != "/" ]]; do
+        local cmake="$d/CMakeLists.txt"
+        if [[ -f "$cmake" ]]; then
+            local prefix
+            prefix=$(grep -oP '(?<=scicore_add_exercises\()[^)]+' "$cmake" 2>/dev/null \
+                | tr -d '[:space:]') || true
+            if [[ -n "$prefix" ]]; then
+                local stem
+                stem=$(basename "$filepath" .cpp)
+                echo "${prefix}_${stem}"
+                return 0
+            fi
+        fi
+        d=$(dirname "$d")
+    done
+    return 1
+}
+
+# Build (and run) a single CMake target derived from a source file path.
+cmd_compile_file() {
+    local filepath="${1:-}"
+    [[ -z "$filepath" ]] && die "Usage: tmux-cpp-tools compile-file <path/to/file.cpp>"
+    filepath=$(realpath "$filepath" 2>/dev/null) || die "File not found: $1"
+    [[ -f "$filepath" ]] || die "File not found: $filepath"
+    [[ "$filepath" == *.cpp ]] || die "Not a .cpp file: $filepath"
+
+    require_cmake
+    require_build_configured
+
+    local target
+    target=$(filepath_to_target "$filepath") \
+        || die "Cannot find scicore_add_exercises(...) for: $filepath"
+
+    local win_name
+    win_name=$(basename "$filepath" .cpp)
+    tmux new-window -n "$win_name" -c "${PROJECT_ROOT:-$PWD}" \
+        "tmux-cpp-tools _compile-file-session $(printf '%q' "$target") $(printf '%q' "$filepath"); $SHELL"
+}
+
+_compile_file_session() {
+    local target="$1"
+    local filepath="$2"
+    header "Building: $target"
+    local status=0
+    cmake --build "$BUILD_DIR" --target "$target" -j"$NCORES" || status=$?
+    if [[ $status -ne 0 ]]; then
+        printf '\n\033[1;31m✗ Build failed (exit %d)\033[0m\n' "$status"
+        return
+    fi
+    printf '\n\033[1;32m✓ Build succeeded\033[0m\n'
+
+    # Find and run the resulting binary
+    local bin
+    bin=$(find "$BUILD_DIR" -name "$target" -type f -executable 2>/dev/null | head -1) || true
+    if [[ -z "$bin" ]]; then
+        warn "Binary not found in $BUILD_DIR — skipping run."
+        return
+    fi
+    printf '\n\033[1;34m==> Running: %s\033[0m\n\n' "$(basename "$bin")"
+    local run_status=0
+    "$bin" || run_status=$?
+    if [[ $run_status -ne 0 ]]; then
+        printf '\n\033[1;31m✗ Exited with code %d\033[0m\n' "$run_status"
+    else
+        printf '\n\033[1;32m✓ Exited cleanly (0)\033[0m\n'
+    fi
+}
+
+# Query nvim for its current buffer, then delegate to compile-file.
+cmd_compile_nvim_file() {
+    require_cmake
+    require_build_configured
+
+    local nvim_pane
+    nvim_pane=$(find_nvim_pane)
+    [[ -z "$nvim_pane" ]] && die "No nvim pane found. Open nvim first."
+
+    local tmpfile
+    tmpfile=$(mktemp /tmp/nvim_current_file.XXXXX)
+    rm -f "$tmpfile"
+
+    # Ask nvim to write its current buffer path to tmpfile
+    tmux send-keys -t "$nvim_pane" \
+        ":silent call writefile([expand('%:p')], '${tmpfile}')" Enter
+
+    # Wait up to 1 s for nvim to respond
+    local attempts=0
+    while [[ ! -s "$tmpfile" && $attempts -lt 10 ]]; do
+        sleep 0.1
+        ((attempts++))
+    done
+
+    local filepath
+    filepath=$(cat "$tmpfile" 2>/dev/null | head -1) || true
+    rm -f "$tmpfile"
+
+    [[ -z "$filepath" ]] && die "Could not read current buffer from nvim (empty buffer?)."
+    [[ "$filepath" == *.cpp ]] || die "Current buffer is not a .cpp file: $filepath"
+    [[ -f "$filepath" ]] || die "File does not exist: $filepath"
+
+    cmd_compile_file "$filepath"
+}
+
 cmd_help() {
     printf '\ntmux-cpp-tools — C++ workflow helper\n\n'
     printf 'Usage: tmux-cpp-tools <command> [args]\n\n'
     printf 'Build:\n'
-    printf '  compile          cmake --build build -j%d\n' "$NCORES"
-    printf '  test             ctest --parallel %d\n' "$NCORES"
-    printf '  build-and-test   compile then test in one popup\n\n'
+    printf '  compile              cmake --build build -j%d\n' "$NCORES"
+    printf '  compile-file <path>  build + run one .cpp file (derives CMake target)\n'
+    printf '  compile-nvim-file    build + run the file currently open in nvim\n'
+    printf '  test                 ctest --parallel %d\n' "$NCORES"
+    printf '  build-and-test       compile then test in one popup\n\n'
     printf 'Run:\n'
     printf '  run              find and run executable (prompts for args)\n'
     printf '  debug            gdb --tui in dedicated window\n\n'
@@ -799,6 +914,9 @@ case "$subcommand" in
     compile)                cmd_compile ;;
     _compile-session)       _compile_session ;;
     compile-quiet)          cmd_compile_quiet ;;
+    compile-file)           cmd_compile_file "${1:-}" ;;
+    _compile-file-session)  _compile_file_session "$@" ;;
+    compile-nvim-file)      cmd_compile_nvim_file ;;
     test)                   cmd_test ;;
     _test-session)          _test_session ;;
     build-and-test)         cmd_build_and_test ;;
