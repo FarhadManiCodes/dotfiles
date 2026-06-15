@@ -110,7 +110,7 @@ alias vi="vim"
 # ============================================================================
 alias plc='fc -ln -1'                           # Print Last Command
 alias zsh-update='~/.config/zsh/update-plugins.sh'
-alias sysup='paru -Syu && uv tool upgrade --all && { npm outdated -g --parseable 2>/dev/null | grep -q . && npm update -g || echo "npm: nothing to update"; } && claude update'
+# sysup is a function (zsh/functions/sysup.zsh) — system/tooling update + llama PKGBUILD backup
 
 # ============================================================================
 # BTOP

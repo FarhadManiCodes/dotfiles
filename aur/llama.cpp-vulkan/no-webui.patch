@@ -1,0 +1,70 @@
+commit 4108e069966a7380f0af6c58e8babfb05250cd53
+Author: Farhad Mani <18470321+FarhadManiCodes@users.noreply.github.com>
+Date:   Thu Jun 11 11:04:34 2026 +0200
+
+    local: disable webui build (no npm, no HF prebuilt download)
+    
+    b9616 restructured the webui: LLAMA_BUILD_WEBUI is deprecated and only
+    disables the npm source build. A separate LLAMA_USE_PREBUILT_UI (default
+    ON) then downloads prebuilt UI assets from huggingface.co and embeds them.
+    Set both new flags OFF to build llama-server with no embedded UI, no npm,
+    and no network access.
+
+diff --git a/PKGBUILD b/PKGBUILD
+index 0d71482..b3823a7 100644
+--- a/PKGBUILD
++++ b/PKGBUILD
+@@ -19,8 +19,6 @@ depends=(
+ makedepends=(
+   cmake
+   git
+-  nodejs
+-  npm
+   shaderc
+   vulkan-headers
+   spirv-headers
+@@ -48,21 +46,13 @@ sha256sums=('1117845e93413cbacda813647b72a58ccbd989817731257c42f6f0985c4affe4'
+ 
+ prepare() {
+   ln -sf "${_pkgname}-${pkgver}" llama.cpp
+-
+-  # Tailwind v4's oxide scanner walks up looking for the nearest .git to anchor
+-  # .gitignore lookup. In AUR helpers (yay/paru) the parent .git is the AUR
+-  # clone, whose .gitignore is `*` + an allowlist for PKGBUILD/.SRCINFO. That
+-  # rule ignores tools/ui/src/lib/**/*.svelte, so Tailwind scans zero files and
+-  # the built bundle.css ships without any utility classes. An empty .git in
+-  # the extracted source tree stops the upward walk before that point.
+-  mkdir -p "${_pkgname}/.git"
+ }
+ 
+ build() {
+-  pushd "${_pkgname}/tools/ui"
+-  npm ci
+-  npm run build
+-  popd
++  # pushd "${_pkgname}/tools/ui"
++  # npm ci
++  # npm run build
++  # popd
+ 
+   local _cmake_options=(
+     -B build
+@@ -72,15 +62,15 @@ build() {
+     -DBUILD_SHARED_LIBS=ON
+     -DLLAMA_BUILD_TESTS=OFF
+     -DLLAMA_USE_SYSTEM_GGML=OFF
+-    -DLLAMA_BUILD_WEBUI=ON
++    -DLLAMA_BUILD_UI=OFF
++    -DLLAMA_USE_PREBUILT_UI=OFF
+     -DGGML_ALL_WARNINGS=OFF
+     -DGGML_ALL_WARNINGS_3RD_PARTY=OFF
+     -DGGML_BUILD_EXAMPLES=OFF
+     -DGGML_BUILD_TESTS=OFF
+     -DGGML_LTO=ON
+-    -DGGML_RPC=ON
++    -DGGML_RPC=OFF
+     -DGGML_VULKAN=ON
+-    -DGGML_CUDA_FA_ALL_QUANTS=ON
+     -DLLAMA_BUILD_NUMBER="${pkgver#b}" # 修正版本号
+     -Wno-dev
+   )
