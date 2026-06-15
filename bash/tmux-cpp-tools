@@ -305,8 +305,9 @@ cmd_run() {
     [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
 
     local exe
-    exe=$(printf '%s\n' "$list" | fzf --prompt="Run > " --reverse) || true
+    exe=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="Run > " --reverse) || true
     [[ -z "$exe" ]] && return 0
+    exe="$BUILD_DIR/$exe"
 
     printf '\nArguments (leave empty for none): '
     local args; read -r args
@@ -375,8 +376,9 @@ cmd_debug() {
     [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
 
     local exe
-    exe=$(printf '%s\n' "$list" | fzf --prompt="GDB > " --reverse) || true
+    exe=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="GDB > " --reverse) || true
     [[ -z "$exe" ]] && return 0
+    exe="$BUILD_DIR/$exe"
 
     check_build_type "debug"
     printf '\nArguments (leave empty for none): '
@@ -394,8 +396,9 @@ cmd_valgrind() {
     [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
 
     local exe
-    exe=$(printf '%s\n' "$list" | fzf --prompt="Valgrind > " --reverse) || true
+    exe=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="Valgrind > " --reverse) || true
     [[ -z "$exe" ]] && return 0
+    exe="$BUILD_DIR/$exe"
 
     printf '\nArguments (leave empty for none): '
     local args; read -r args
@@ -463,8 +466,9 @@ cmd_perf() {
     [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
 
     local exe
-    exe=$(printf '%s\n' "$list" | fzf --prompt="Perf > " --reverse) || true
+    exe=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="Perf > " --reverse) || true
     [[ -z "$exe" ]] && return 0
+    exe="$BUILD_DIR/$exe"
 
     check_build_type "release"
     printf 'Target: %s\n' "$exe"
@@ -685,15 +689,20 @@ _hyperfine_compare_session() {
     [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
 
     printf 'Select Command A  (newest first)\n\n'
+    local rel_list
+    rel_list=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||")
+
     local cmd_a
-    cmd_a=$(printf '%s\n' "$list" | fzf --prompt="A > " --reverse) || true
+    cmd_a=$(printf '%s\n' "$rel_list" | fzf --prompt="A > " --reverse) || true
     [[ -z "$cmd_a" ]] && return 0
 
     printf '\nSelect Command B:\n\n'
     local cmd_b
-    cmd_b=$(printf '%s\n' "$list" | grep -vF "$cmd_a" | fzf --prompt="B > " --reverse) || true
+    cmd_b=$(printf '%s\n' "$rel_list" | grep -vF "$cmd_a" | fzf --prompt="B > " --reverse) || true
     [[ -z "$cmd_b" ]] && return 0
 
+    cmd_a="$BUILD_DIR/$cmd_a"
+    cmd_b="$BUILD_DIR/$cmd_b"
     send_to_profile "hyperfine --shell=none --warmup 10 --min-runs 50 --output null '$cmd_a' '$cmd_b'"
 }
 
@@ -738,8 +747,9 @@ _pick_and_run() {
     [[ -z "$list" ]] && { warn "No executables found. Build first."; sleep 2; return 0; }
 
     local exe
-    exe=$(printf '%s\n' "$list" | fzf --prompt="Target > " --reverse) || true
+    exe=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="Target > " --reverse) || true
     [[ -z "$exe" ]] && return 0
+    exe="$BUILD_DIR/$exe"
 
     printf '\nArguments (leave empty for none): '
     local args; read -r args
