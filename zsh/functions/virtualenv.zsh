@@ -22,7 +22,7 @@ TEMPLATES=("basic" "ds" "de" "ml" "none")
 
 _is_template() {
   local arg="$1"
-  [[ " ${TEMPLATES[@]} " =~ " ${arg} " ]]
+  [[ " ${TEMPLATES[*]} " == *" ${arg} "* ]]
 }
 
 # UPDATED: Regex match for version numbers (e.g. 3.12, 3.12.1, 3.9)
