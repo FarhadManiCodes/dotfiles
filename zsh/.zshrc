@@ -147,8 +147,9 @@ fi
 # FZF integration
 command -v fzf >/dev/null 2>&1 && source <(fzf --zsh) 2>/dev/null
 
-# FNM (Fast Node Manager) - auto-switch node versions on cd
-command -v fnm >/dev/null 2>&1 && eval "$(fnm env --use-on-cd)"
+# Node: system nodejs/npm (pacman) cover all use here — shebangs, the bash LSP,
+# and interactive node. fnm was removed (empty globals, no per-project version
+# pinning needed), saving ~21ms of startup per shell.
 
 # ============================================================================
 # FOOT TERMINAL INTEGRATION (OSC 133 shell integration)

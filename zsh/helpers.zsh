@@ -156,7 +156,7 @@ loading_status() {
   command -v kubectl >/dev/null 2>&1 && echo "  ✅ kubectl" || echo "  ❌ kubectl"
   command -v gh >/dev/null 2>&1 && echo "  ✅ gh (GitHub CLI)" || echo "  ❌ gh"
   command -v lazygit >/dev/null 2>&1 && echo "  ✅ lazygit" || echo "  ❌ lazygit"
-  command -v fnm >/dev/null 2>&1 && echo "  ✅ fnm (Node)" || echo "  ❌ fnm"
+  command -v node >/dev/null 2>&1 && echo "  ✅ node ($(node --version 2>/dev/null))" || echo "  ❌ node"
 
   # Plugins
   echo ""

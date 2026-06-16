@@ -128,7 +128,6 @@ generate "gh"       "gh completion -s zsh"
 # 4. NODE JS
 # ============================================================================
 echo -e "\n${YELLOW}Node.js:${NC}"
-generate "fnm" "fnm completions --shell zsh"
 # NPM outputs raw shell script, needs wrapper
 generate_wrapper "npm" "npm completion"
 
