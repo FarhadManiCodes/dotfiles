@@ -87,7 +87,8 @@ _select_env() {
     return 1
   fi
   
-  _list_environments | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
+  # fast: the picker only needs names — skip the per-venv du/python walk.
+  _list_environments fast | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
 }
 
 # UPDATED: Safer .envrc creation
@@ -118,15 +119,23 @@ EOF
   echo "📄 Created .envrc"
 }
 
+# _list_environments [fast]
+# fast: print names only — skips the per-venv `du -sh` (full disk walk) and
+# `python --version` fork. Used by the interactive picker, which only needs names.
 _list_environments() {
+  local fast="$1"
   if [[ ! -d "$CENTRAL_VENVS" || -z "$(ls -A "$CENTRAL_VENVS" 2>/dev/null)" ]]; then
     echo "   (no environments found)"
     return
   fi
-  
+
   for env_dir in "$CENTRAL_VENVS"/*; do
     [[ ! -d "$env_dir" ]] && continue
     local name=$(basename "$env_dir")
+    if [[ -n "$fast" ]]; then
+      echo "   🐍 $name"
+      continue
+    fi
     local size=$(du -sh "$env_dir" 2>/dev/null | cut -f1 || echo "?")
     local py_ver=$("$env_dir/bin/python" --version 2>/dev/null | awk '{print $2}')
     echo "   🐍 $name ($size) [Py $py_ver]"
