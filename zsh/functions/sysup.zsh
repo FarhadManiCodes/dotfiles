@@ -1,7 +1,10 @@
 # sysup - full system + tooling update
 #
 # Order: pacman/AUR (paru) -> mirror llama.cpp-vulkan PKGBUILD backup -> uv
-# tools -> global npm packages -> Claude Code.
+# tools -> Claude Code.
+#
+# No npm step: there are no user npm globals, and system node/npm are pacman
+# packages already covered by paru -Syu above.
 #
 # The backup step runs right after paru because that's when paru's SaveChanges
 # rebases the local llama.cpp-vulkan patch onto the new upstream version; we
@@ -17,13 +20,6 @@ sysup() {
 
   echo "==> uv tools"
   uv tool upgrade --all
-
-  echo "==> npm globals"
-  if npm outdated -g --parseable 2>/dev/null | grep -q .; then
-    npm update -g
-  else
-    echo "   nothing to update"
-  fi
 
   echo "==> Claude Code"
   claude update
