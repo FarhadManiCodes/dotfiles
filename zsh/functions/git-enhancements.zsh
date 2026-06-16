@@ -85,6 +85,24 @@ gci() {
 # ENHANCED GIT STATUS FUNCTIONS
 # ============================================================================
 
+# Print the branch line + ahead/behind vs upstream (assumes inside a git repo).
+# Shared by gst and gstds.
+_git_branch_header() {
+  local cyan='\033[36m' yellow='\033[33m' reset='\033[0m'
+  local branch=$(git branch --show-current 2>/dev/null)
+  local upstream=$(git rev-parse --abbrev-ref @{u} 2>/dev/null)
+
+  if [[ -n "$upstream" ]]; then
+    local behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
+    local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
+    printf "🌳 Branch: ${cyan}%s${reset} → ${cyan}%s${reset}\n" "$branch" "$upstream"
+    [[ "$ahead"  -gt 0 ]] && printf "   📈 ${yellow}%s commits ahead${reset}\n" "$ahead"
+    [[ "$behind" -gt 0 ]] && printf "   📉 ${yellow}%s commits behind${reset}\n" "$behind"
+  else
+    printf "🌳 Branch: ${cyan}%s${reset} (no upstream)\n" "$branch"
+  fi
+}
+
 # Simple, fast git status for frequent command line use
 gst() {
   # Check if in git repo
@@ -97,23 +115,10 @@ gst() {
   local green='\033[32m'
   local red='\033[31m'
   local yellow='\033[33m'
-  local cyan='\033[36m'
   local reset='\033[0m'
 
-  # Branch info with ahead/behind status
-  local branch=$(git branch --show-current 2>/dev/null)
-  local upstream=$(git rev-parse --abbrev-ref @{u} 2>/dev/null)
-
   echo "📊 Git Status"
-  if [[ -n "$upstream" ]]; then
-    local behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
-    local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
-    printf "🌳 Branch: ${cyan}%s${reset} → ${cyan}%s${reset}\n" "$branch" "$upstream"
-    [[ "$ahead" -gt 0 ]] && printf "   📈 ${yellow}%s ahead${reset}\n" "$ahead"
-    [[ "$behind" -gt 0 ]] && printf "   📉 ${yellow}%s behind${reset}\n" "$behind"
-  else
-    printf "🌳 Branch: ${cyan}%s${reset} (no upstream)\n" "$branch"
-  fi
+  _git_branch_header
 
   echo ""
 
@@ -190,26 +195,13 @@ gstds() {
 
   # Colors (matching git's default scheme)
   local green='\033[32m'
-  local red='\033[31m'
   local yellow='\033[33m'
   local cyan='\033[36m'
   local blue='\033[34m'
   local magenta='\033[35m'
   local reset='\033[0m'
 
-  # Branch info
-  local branch=$(git branch --show-current 2>/dev/null)
-  local upstream=$(git rev-parse --abbrev-ref @{u} 2>/dev/null)
-
-  if [[ -n "$upstream" ]]; then
-    local behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
-    local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
-    printf "🌳 Branch: ${cyan}%s${reset} → ${cyan}%s${reset}\n" "$branch" "$upstream"
-    [[ "$ahead" -gt 0 ]] && printf "   📈 ${yellow}%s commits ahead${reset}\n" "$ahead"
-    [[ "$behind" -gt 0 ]] && printf "   📉 ${yellow}%s commits behind${reset}\n" "$behind"
-  else
-    printf "🌳 Branch: ${cyan}%s${reset} (no upstream)\n" "$branch"
-  fi
+  _git_branch_header
 
   echo ""
 
