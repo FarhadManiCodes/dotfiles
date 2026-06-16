@@ -166,6 +166,20 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 | `EDITOR` | `vim` |
 | `CENTRAL_VENVS` | `~/.central_venvs` |
 
+## Package notes
+
+System-level choices that aren't captured in any config file:
+
+- **`shellcheck-bin` (AUR), not repo `shellcheck`**: same upstream version, but the repo
+  package is dynamically linked against the Haskell runtime (`ghc-libs` + ~53 `haskell-*`
+  packages, ~190 MiB). `shellcheck-bin` is the official upstream static binary (sourced from
+  `koalaman/shellcheck` releases, checksum-pinned) with zero Haskell deps. Don't suggest
+  switching back to the repo build.
+- **Go toolchain intentionally not installed**: `go` was removed (unused, ~215 MiB). The nvim
+  config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
+  `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
+  files and are kept on purpose for if Go is picked up later. Not a misconfiguration; leave them.
+
 ## TODOs
 
 - Simplify `zsh/functions/virtualenv.zsh` (680 lines)
