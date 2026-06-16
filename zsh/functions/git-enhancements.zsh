@@ -225,7 +225,7 @@ gstds() {
     local data_files=$(echo "$all_files" | grep -E '\.(csv|parquet|json|jsonl|pkl|pickle|h5|hdf5|xlsx|xls|tsv|avro|orc)$')
     local notebook_files=$(echo "$all_files" | grep -E '\.ipynb$')
     local config_files=$(echo "$all_files" | grep -E '(config|requirements|environment|Dockerfile|\.env|\.ini|\.conf|dvc\.yaml|dvc\.lock|params\.yaml|metrics\.yaml)')
-    local model_files=$(echo "$all_files" | grep -E '\.(pt|pth|h5|pkl|joblib|onnx|pb|tflite)$')
+    local model_files=$(echo "$all_files" | grep -E '\.(pt|pth|joblib|onnx|pb|tflite)$')
     local doc_files=$(echo "$all_files" | grep -E '\.(md|rst|txt|pdf)$')
     local other_files=$(echo "$all_files" | grep -vE '\.(py|scala|sql|sh|yaml|yml|toml|r|R|csv|parquet|json|jsonl|pkl|pickle|h5|hdf5|xlsx|xls|tsv|avro|orc|ipynb|pt|pth|joblib|onnx|pb|tflite|md|rst|txt|pdf)$|(config|requirements|environment|Dockerfile|\.env|\.ini|\.conf|dvc\.|params\.|metrics\.)')
 
@@ -250,7 +250,7 @@ gstds() {
       _colorize_git_files "$config_files"
     fi
     if [[ -n "$doc_files" ]]; then
-      echo -e "${reset}📄 Documentation:${reset}"
+      echo -e "${green}📄 Documentation:${reset}"
       _colorize_git_files "$doc_files"
     fi
     if [[ -n "$other_files" ]]; then
