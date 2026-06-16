@@ -10,6 +10,30 @@
 [[ $- != *i* ]] && return
 
 # ============================================================================
+# CACHED TOOL INIT
+# ============================================================================
+# Several tools (starship, zoxide, direnv, fzf, dircolors) ship their shell
+# integration via `eval "$(tool init)"`. Running all of them forks ~20ms per
+# shell. Cache each tool's output and source the cache instead, regenerating
+# only when the cache is missing or the tool binary is newer than it (the same
+# freshness trick safe_source uses). First shell after a tool upgrade pays the
+# one-time regen; every other shell just sources a file.
+_cached_eval() {
+  local name="$1"; shift
+  local tool="$1"
+  command -v "$tool" >/dev/null 2>&1 || return 0
+  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/init"
+  local cache="$cache_dir/$name.zsh"
+  if [[ ! -s "$cache" || "${commands[$tool]}" -nt "$cache" ]]; then
+    mkdir -p "$cache_dir"
+    "$@" > "$cache" 2>/dev/null || { rm -f "$cache"; return 1; }
+  fi
+  # 2>/dev/null: fzf's integration emits a benign "can't change option: zle"
+  # under non-tty `zsh -i -c`; the old `source <(fzf --zsh) 2>/dev/null` hid it.
+  source "$cache" 2>/dev/null
+}
+
+# ============================================================================
 # ZSH OPTIONS
 # ============================================================================
 
@@ -52,7 +76,7 @@ fi
 unset _zcompdump
 
 
-command -v dircolors >/dev/null && eval "$(dircolors -b)"
+_cached_eval dircolors dircolors -b
 
 # Completion styling
 zstyle ':completion:*' menu select
@@ -128,13 +152,13 @@ fi
 # ============================================================================
 
 # Starship prompt
-command -v starship >/dev/null 2>&1 && eval "$(starship init zsh)"
+_cached_eval starship starship init zsh
 
 # Zoxide (better cd)
-command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init zsh)"
+_cached_eval zoxide zoxide init zsh
 
 # Direnv
-command -v direnv >/dev/null 2>&1 && eval "$(direnv hook zsh)"
+_cached_eval direnv direnv hook zsh
 # Skip direnv inside cloud FUSE mounts — stat calls are slow over rclone, no .envrc needed there
 if typeset -f _direnv_hook >/dev/null 2>&1; then
   eval "_direnv_hook_base() { ${functions[_direnv_hook]} }"
@@ -145,7 +169,7 @@ if typeset -f _direnv_hook >/dev/null 2>&1; then
 fi
 
 # FZF integration
-command -v fzf >/dev/null 2>&1 && source <(fzf --zsh) 2>/dev/null
+_cached_eval fzf fzf --zsh
 
 # Node: system nodejs/npm (pacman) cover all use here — shebangs, the bash LSP,
 # and interactive node. fnm was removed (empty globals, no per-project version
