@@ -33,4 +33,14 @@ else
   echo "  /etc/pam.d/swaylock already up to date"
 fi
 
+# --- /usr/lib/systemd/system-sleep/restart-swayidle : heal swayidle after resume ---
+# Must be executable (0755). System-sleep scripts run as root on suspend/resume.
+sleep_hook=/usr/lib/systemd/system-sleep/restart-swayidle
+if ! cmp -s "${DOTFILES}/system-sleep/restart-swayidle" "$sleep_hook" 2>/dev/null; then
+  install -D -m 0755 -o root -g root "${DOTFILES}/system-sleep/restart-swayidle" "$sleep_hook"
+  echo "  ${sleep_hook} installed"
+else
+  echo "  ${sleep_hook} already up to date"
+fi
+
 echo "✅ Root configs installed"

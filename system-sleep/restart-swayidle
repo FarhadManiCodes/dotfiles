@@ -1,0 +1,16 @@
+#!/bin/sh
+# /usr/lib/systemd/system-sleep/restart-swayidle
+# Restart the user's swayidle after resume. Across s2idle suspend/resume on the
+# 7840U, swayidle's idle timers desync and can spuriously fire locks; restarting
+# it on wake guarantees a clean timer state. Pairs with the loop-proof
+# dotfiles/systemd/user/swayidle.service (locks directly, not via lock-session).
+# Installed root-owned by install-root.sh.
+
+[ "$1" = "post" ] || exit 0
+
+# Restart swayidle in every active human (uid >= 1000) graphical session.
+for uid in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
+    [ "$uid" -ge 1000 ] 2>/dev/null || continue
+    user=$(id -nu "$uid" 2>/dev/null) || continue
+    systemctl --user --machine="${user}@.host" try-restart swayidle.service 2>/dev/null || true
+done

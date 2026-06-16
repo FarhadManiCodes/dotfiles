@@ -1,0 +1,27 @@
+[Unit]
+Description=Idle management (dim / lock / suspend) via swayidle
+Documentation=man:swayidle(1)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+# Locks DIRECTLY with `swaylock -f` instead of `loginctl lock-session`. The old
+# round-trip (timeout -> lock-session -> logind Lock signal -> swayidle `lock`
+# handler -> swaylock) was self-referential: after an s2idle suspend/resume
+# desynced swayidle's idle timers, it kept answering its own lock signal and
+# spun a lock/unlock loop (~every 30s, clocked by fprintd's grace timer).
+# `lock "swaylock -f"` is kept only to honor EXTERNAL loginctl lock-session.
+# Note: $$ is systemd-escaped $ so swayidle's `sh -c` does the substitution.
+ExecStart=/usr/bin/swayidle -w \
+    timeout 290 "brightnessctl -s set 10" \
+        resume "brightnessctl -r && niri msg action power-on-monitors" \
+    timeout 300 "swaylock -f" \
+    timeout 305 "niri msg action power-off-monitors" \
+    timeout 900 "[ $$(cat /sys/class/power_supply/AC/online) = 0 ] && systemctl suspend" \
+    before-sleep "swaylock -f" \
+    lock "swaylock -f"
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
