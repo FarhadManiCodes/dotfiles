@@ -36,6 +36,28 @@ safe_source() {
 }
 
 # ============================================================================
+# FZF RESULT HELPER
+# ============================================================================
+
+# _fzf_split <fzf-result> <key-var> <sel-var>
+# fzf --expect prints the pressed key on the first line and the selection
+# after. Split the raw result into the key (first line) and the selected item
+# (last line), assigning them to the caller-named variables. With no newline
+# (no --expect key, or empty result) the key is empty and the whole string is
+# the selection. Used by the fd/rg + fzf finders to replace hand-rolled
+# head/tail forks and ${r%%}/${r##} idioms.
+_fzf_split() {
+  local _r=$1
+  if [[ $_r == *$'\n'* ]]; then
+    typeset -g "$2=${_r%%$'\n'*}"
+    typeset -g "$3=${_r##*$'\n'}"
+  else
+    typeset -g "$2="
+    typeset -g "$3=$_r"
+  fi
+}
+
+# ============================================================================
 # STATUS & DEBUGGING
 # ============================================================================
 # --- Power Monitor Alias (CPU + GPU + NVMe) ---

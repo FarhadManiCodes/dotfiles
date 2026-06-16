@@ -47,8 +47,8 @@ fnb() {
       --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
       --header 'Enter: open notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
-  local key=$(echo "$result" | head -1)
-  local file=$(echo "$result" | tail -1)
+  local key file
+  _fzf_split "$result" key file
 
   if [ -n "$file" ]; then
     local dir=$(dirname "$file")
@@ -90,8 +90,8 @@ fdata() {
       --bind 'ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)' \
       --header '📊 Data & Model Files | Enter: edit | Ctrl+D: cd | Ctrl+V: copy path | Ctrl+O: open folder')
 
-  local key=$(echo "$result" | head -1)
-  local file=$(echo "$result" | tail -1)
+  local key file
+  _fzf_split "$result" key file
 
   if [[ -n "$file" ]]; then
     case "$key" in

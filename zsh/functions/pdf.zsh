@@ -38,9 +38,8 @@ rgbook() {
 
   [[ -z "$result" ]] && return 0
 
-  local key=$(head -1 <<< "$result")
-  local selection=$(tail -1 <<< "$result")
-
+  local key selection
+  _fzf_split "$result" key selection
   [[ -z "$selection" ]] && return 0
 
   # Format: path<TAB>filename:Page N:text
@@ -90,9 +89,8 @@ fbook() {
 
   [[ -z "$result" ]] && return 0
 
-  local key=${result%%$'\n'*}
-  local selection=${result##*$'\n'}
-
+  local key selection
+  _fzf_split "$result" key selection
   # Exit if no selection (user pressed escape)
   [[ -z "$selection" ]] && return 0
 

@@ -43,9 +43,8 @@ _rg_live() {
 
   [[ -z "$result" ]] && return 0
 
-  local key="${result%%$'\n'*}"
-  local selection="${result##*$'\n'}"
-
+  local key selection
+  _fzf_split "$result" key selection
   [[ -z "$selection" ]] && return 0
 
   local file="${selection%%:*}"
@@ -97,9 +96,8 @@ ff() {
 
   [[ -z "$result" ]] && return 0
 
-  local key="${result%%$'\n'*}"
-  local file="${result##*$'\n'}"
-
+  local key file
+  _fzf_split "$result" key file
   [[ -z "$file" ]] && return 0
 
   case "$key" in
@@ -143,9 +141,8 @@ fdir() {
 
   [[ -z "$result" ]] && return 0
 
-  local key="${result%%$'\n'*}"
-  local dir="${result##*$'\n'}"
-
+  local key dir
+  _fzf_split "$result" key dir
   [[ -z "$dir" ]] && return 0
 
   case "$key" in
@@ -186,9 +183,8 @@ fgit() {
 
   [[ -z "$result" ]] && return 0
 
-  local key="${result%%$'\n'*}"
-  local repo="${result##*$'\n'}"
-
+  local key repo
+  _fzf_split "$result" key repo
   [[ -z "$repo" ]] && return 0
 
   case "$key" in
