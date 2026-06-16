@@ -222,12 +222,13 @@ loading_status() {
   echo ""
 }
 
-# Quick reload with feedback
+# Quick reload — exec a fresh shell rather than re-sourcing .zshrc.
+# Re-sourcing would source the syntax-highlighting / autosuggestions plugins a
+# second time, double-wrapping their ZLE widgets. exec zsh guarantees a clean
+# load (direnv re-activates the project env automatically).
 reload() {
   echo "🔄 Reloading ZSH configuration..."
-  source ~/.zshrc
-  echo "✅ Configuration reloaded"
-  echo "💡 Run 'status' to verify everything loaded correctly"
+  exec zsh
 }
 
 # Safety environment loader
