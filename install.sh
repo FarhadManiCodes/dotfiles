@@ -132,6 +132,12 @@ mkdir -p "${XDG_CONFIG_HOME}/direnv"
 ln -sf "${DOTFILES}/direnv/direnvrc" "${XDG_CONFIG_HOME}/direnv/direnvrc"
 echo "Direnv configured"
 
+# ============ uv ==============================
+echo "Setting up uv..."
+mkdir -p "${XDG_CONFIG_HOME}/uv"
+ln -sf "${DOTFILES}/uv/uv.toml" "${XDG_CONFIG_HOME}/uv/uv.toml"
+echo "uv configured"
+
 # ============ gh ==============================
 echo "Setting up GitHub CLI..."
 mkdir -p "${XDG_CONFIG_HOME}/gh"

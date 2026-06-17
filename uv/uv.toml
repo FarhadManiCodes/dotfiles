@@ -1,0 +1,3 @@
+# Precompile .pyc at install time → faster first import of frequently-launched tools
+# (CLIs, Jupyter, etc.). Costs a little install time; harmless otherwise.
+compile-bytecode = true
