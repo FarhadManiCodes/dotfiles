@@ -2,9 +2,11 @@
 # Optimized for AMD Radeon 780M (RDNA3) + mpv on Arch Linux
 
 # ─── FORMAT ───────────────────────────────────────────────────────────────────
-# Priority: AV1+opus → VP9+opus → best available up to 1080p
-# RDNA3 hardware decodes all three natively via VAAPI
--f bestvideo[height<=1080][vcodec^=av01]+bestaudio[acodec=opus]/bestvideo[height<=1080][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=1080]+bestaudio
+# Priority: AV1+opus → VP9+opus → ≤1080p → any video+audio → anything.
+# 1080p AV1/VP9 is the preference; the trailing fallbacks ensure playback never
+# hard-fails ("Requested format is not available") when a video lacks those tiers.
+# RDNA3 hardware decodes all three native codecs via VAAPI.
+-f bestvideo[height<=1080][vcodec^=av01]+bestaudio[acodec=opus]/bestvideo[height<=1080][vcodec^=vp9]+bestaudio[acodec=opus]/bestvideo[height<=1080]+bestaudio/bestvideo+bestaudio/best
 
 # Merge into mkv (universal container, no transcoding, preserves all streams)
 --merge-output-format mkv
@@ -23,6 +25,18 @@
 --embed-subs
 --sub-langs "en,en-orig,fa,de,it,pt"  # preferred languages only
 --extractor-args "youtube:skip=translated_subs"  # drop auto-translated variants
+
+# ─── PO TOKEN (anti-bot) ──────────────────────────────────────────────────────
+# YouTube requires a Proof-of-Origin token for authenticated/most requests; without
+# it the request is downgraded to a DRM-only client → "Requested format is not
+# available". bgutil plugin (uv-installed in yt-dlp's venv) runs the Node generator
+# on demand — nothing stays in the background. Build: ~/.local/share/bgutil-pot.
+--extractor-args "youtubepot-bgutilscript:server_home=~/.local/share/bgutil-pot/server"
+# YouTube also gates streams behind JS signature / n-throttling challenges. yt-dlp
+# solves these via the yt-dlp-ejs scripts run in a JS runtime. Node (>=22, we have
+# v26) isn't auto-enabled like Deno, so enable it explicitly. yt-dlp sandboxes it
+# with `node --permission`.
+--js-runtimes node
 
 # ─── RELIABILITY ──────────────────────────────────────────────────────────────
 --continue                # resume interrupted downloads
