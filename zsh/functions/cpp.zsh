@@ -59,7 +59,7 @@ ct() {
   ctest --test-dir "$dir" --output-on-failure "$@"
 }
 
-# Symlink compile_commands.json to project root for clangd
+# Symlink compile_commands.json into the current dir for clangd (run from project root)
 ccdb() {
   local dir
   dir=$(_cmake_build_dir) || { echo "❌ No cmake build dir found. Run cmake-init first."; return 1 }
