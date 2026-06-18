@@ -18,8 +18,9 @@ CompileFlags:
   # a newer standard in a scratch dir, drop a compile_flags.txt with `-std=c++23`
   # there — scoped to that tree, overrides nothing.
   Add:
-    - -Wall                    # Enable all warnings
-    - -Wno-unused-parameter    # Suppress unused parameter warnings (common in templates)
+    - -Wall                    # Baseline warnings. (unused-parameter is handled
+                               # once in Diagnostics.Suppress below — that's
+                               # severity-independent and beats a -Wno flag here.)
 
   # Remove problematic flags that may appear in compile_commands.json
   # These can cause clangd to fail parsing on different architectures
