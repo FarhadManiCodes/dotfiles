@@ -13,7 +13,7 @@
 
 # ─── OUTPUT ───────────────────────────────────────────────────────────────────
 -P "~/Downloads/Videos"
--o "%(title)s.%(ext)s"
+-o "%(title)s [%(id)s].%(ext)s"  # id keeps same-title videos unique + archive-safe
 
 # ─── METADATA ─────────────────────────────────────────────────────────────────
 --embed-thumbnail
@@ -21,10 +21,9 @@
 --embed-chapters          # chapter markers visible in mpv timeline
 
 # ─── SUBTITLES ────────────────────────────────────────────────────────────────
---write-auto-subs
+--write-subs              # human-authored captions only — no auto-generated
 --embed-subs
---sub-langs "en,en-orig,fa,de,it,pt"  # preferred languages only
---extractor-args "youtube:skip=translated_subs"  # drop auto-translated variants
+--sub-langs "en,fa,de,it,pt"  # preferred languages only
 
 # ─── PO TOKEN (anti-bot) ──────────────────────────────────────────────────────
 # YouTube requires a Proof-of-Origin token for authenticated/most requests; without
@@ -50,7 +49,13 @@
 --throttled-rate 100K     # retry if speed drops below 100K (YouTube throttling)
 
 # ─── AUTH ─────────────────────────────────────────────────────────────────────
---cookies-from-browser firefox
+# Normal videos need no cookies (the PO token + JS solver above handle bot-gating).
+# Cookies are only for age-restricted / members / private / region-locked videos.
+# Read from a dedicated file, NOT --cookies-from-browser: replaying a live Firefox
+# session can make YouTube rotate it and log you out. The file currently holds only
+# a header (→ effectively cookieless); open it for how to populate from a separate
+# login. Never commit ~/.config/yt-dlp/cookies.txt.
+--cookies ~/.config/yt-dlp/cookies.txt
 
 # ─── NETWORK ──────────────────────────────────────────────────────────────────
 --socket-timeout 30

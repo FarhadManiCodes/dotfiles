@@ -15,6 +15,11 @@ INVIDIOUS_INSTANCES=(
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Validate a YouTube video ID (exactly 11 url-safe chars) before it ever reaches
+# a shell command or a cache filename — IDs originate from third-party Invidious
+# instances, so treat them as untrusted. Also rejects empty.
+valid_id() { [[ "$1" =~ ^[A-Za-z0-9_-]{11}$ ]]; }
+
 yts_curl() {
     curl -sf -L --compressed \
         -H "User-Agent: $USERAGENT" \
@@ -85,7 +90,7 @@ format_lines() {
 
 do_preview() {
     local video_id="$1"
-    [[ -z "$video_id" ]] && return 1
+    valid_id "$video_id" || return 1
 
     local cols="${FZF_PREVIEW_COLUMNS:-60}"
     local plines="${FZF_PREVIEW_LINES:-30}"
@@ -163,7 +168,9 @@ do_preview() {
 
 do_channel_lines() {
     local author_id="$1"
-    [[ -z "$author_id" ]] && { printf 'No channel ID\n' >&2; return 1; }
+    # Channel IDs vary in length; guard the charset so it's safe in a URL and as
+    # the ch-<id>.json cache filename (no path traversal, no shell metachars).
+    [[ "$author_id" =~ ^[A-Za-z0-9_-]+$ ]] || { printf 'yts: bad channel id\n' >&2; return 1; }
     local cache="$SESSION_CACHE/ch-${author_id}.json"
     if [[ ! -f "$cache" ]]; then
         # Invidious channel/videos endpoint is currently broken on all tested instances
@@ -228,6 +235,40 @@ PYEOF
 }
 
 # ---------------------------------------------------------------------------
+# Action handlers  (called from fzf bindings; build the URL from a validated id
+# rather than interpolating untrusted text into a shell string)
+# ---------------------------------------------------------------------------
+
+do_play() {
+    valid_id "$1" || { printf 'yts: bad video id\n' >&2; return 1; }
+    mpv "https://www.youtube.com/watch?v=$1"
+}
+
+do_download() {
+    valid_id "$1" || { printf 'yts: bad video id\n' >&2; return 1; }
+    local url="https://www.youtube.com/watch?v=$1"
+    # Detach so fzf stays responsive during the (potentially long) download;
+    # log output and notify on completion.
+    # shellcheck disable=SC2016  # $1 is expanded by the inner bash -c (url passed as _ "$url")
+    setsid -f bash -c '
+        log="${XDG_CACHE_HOME:-$HOME/.cache}/yts/download.log"
+        mkdir -p "$(dirname "$log")"
+        if yt-dlp "$1" >>"$log" 2>&1; then
+            notify-send yts "✓ Downloaded" 2>/dev/null
+        else
+            notify-send yts "✗ Download failed — see $log" 2>/dev/null
+        fi
+    ' _ "$url" >/dev/null 2>&1
+    notify-send yts "⬇ Download started" 2>/dev/null || true
+}
+
+do_copy() {
+    valid_id "$1" || return 1
+    wl-copy "https://www.youtube.com/watch?v=$1"
+    notify-send yts 'URL copied' 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -280,9 +321,9 @@ main() {
         --ansi \
         --preview="$script --preview {2}" \
         --preview-window='right:50%:wrap' \
-        --bind "enter:execute(mpv 'https://www.youtube.com/watch?v={2}')" \
-        --bind "ctrl-y:execute-silent(wl-copy 'https://www.youtube.com/watch?v={2}'; notify-send yts 'URL copied' 2>/dev/null; true)" \
-        --bind "ctrl-d:execute(yt-dlp 'https://www.youtube.com/watch?v={2}')" \
+        --bind "enter:execute($script --play {2})" \
+        --bind "ctrl-y:execute-silent($script --copy {2})" \
+        --bind "ctrl-d:execute-silent($script --download {2})" \
         --bind "ctrl-a:reload($script --channel-lines {3})+change-header(📺 Channel view — ctrl-z to go back)" \
         --bind "ctrl-z:reload(cat '$SESSION_CACHE/original_lines.txt')+change-header()" \
         --header $'enter:play  ctrl-y:copy  ctrl-d:download  ctrl-a:channel  ctrl-z:back  esc:quit' \
@@ -297,5 +338,8 @@ main() {
 case "${1:-}" in
     --preview)       shift; do_preview "$@" ;;
     --channel-lines) shift; do_channel_lines "$@" ;;
+    --play)          shift; do_play "$@" ;;
+    --download)      shift; do_download "$@" ;;
+    --copy)          shift; do_copy "$@" ;;
     *)               main "$@" ;;
 esac
