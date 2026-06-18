@@ -14,22 +14,17 @@ tmux split-window -v -c "$PROJECT_DIR"
 # Resize bottom (current focus) to 30%, top gets 70%
 tmux resize-pane -y 30%
 
-# Bottom pane: cmake auto-detect (current pane = bottom)
+# Bottom pane: detect state and point at the bindings (current pane = bottom).
+# Configuration/build go through tmux-cpp-tools (Prefix C / b / B) — no inline cmake.
 CMD="
 if [ -f CMakeLists.txt ]; then
     if [ -f build/CMakeCache.txt ]; then
-        echo '✅ Already configured. Run: cmake --build build -j\$(lscpu -p=Core,Socket | grep -v \"#\" | sort -u | wc -l)'
+        echo '✅ Configured — Prefix b to build · Prefix B for build/test/run · Prefix F to profile'
     else
-        echo '🔧 CMake project detected.'
-        mkdir -p build
-        echo '⚙️  Configuring...'
-        cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache -B build
-        ln -sf build/compile_commands.json compile_commands.json
-        echo '✅ Ready. Run: cmake --build build -j\$(lscpu -p=Core,Socket | grep -v \"#\" | sort -u | wc -l)'
+        echo '🔧 CMake project — Prefix C to configure (Debug/Release/ASan), then Prefix b to build'
     fi
 else
-    echo '⚠️  No CMakeLists.txt found.'
-    echo '💡 Tip: Use Prefix C → New Project to scaffold.'
+    echo '⚠️  No CMakeLists.txt — Prefix C → New Project to scaffold'
 fi
 "
 tmux send-keys "$CMD" C-m
@@ -54,12 +49,12 @@ tmux new-window -n "profile" -c "$PROJECT_DIR"
 # Split: focus lands on bottom pane
 tmux split-window -v -c "$PROJECT_DIR"
 
-# Bottom pane: benchmarking hints (current focus = bottom)
-tmux send-keys "echo '🚀 Profiling Ready'" C-m
+# Bottom pane: profiling hints pointing at the Prefix F / B menus (current focus = bottom)
+tmux send-keys "echo '🚀 Profile & Benchmark — Prefix F'" C-m
 tmux send-keys "echo '--------------------------------'" C-m
-tmux send-keys "echo '⏱️  Benchmark: hyperfine \"./build/<executable>\"'" C-m
-tmux send-keys "echo '🔥 Hotspots:  perf record -g ./build/<executable> && perf report'" C-m
-tmux send-keys "echo '🧠 Memory:    valgrind ./build/<executable>'" C-m
+tmux send-keys "echo '⏱️  b benchmarks   h hyperfine compare'" C-m
+tmux send-keys "echo '🔥 s perf stat    r perf record/report   f samply'" C-m
+tmux send-keys "echo '🧠 Memory check:  Prefix B → v (valgrind)'" C-m
 tmux send-keys "echo '--------------------------------'" C-m
 
 # Move to top pane and open btop
