@@ -10,9 +10,14 @@
 # =============================================================================
 
 CompileFlags:
-  # Treat all code as C++23 by default (fallback for projects without compile_commands.json)
+  # No global -std on purpose. clangd appends Add flags AFTER the project's
+  # compile command, and the last -std wins — so setting one here would silently
+  # override every project's real standard (verified on clangd 22: a c++17 CDB
+  # got reparsed as c++23). Projects with compile_commands.json now use their own
+  # -std; files with no CDB fall back to clang's built-in default (C++17). To get
+  # a newer standard in a scratch dir, drop a compile_flags.txt with `-std=c++23`
+  # there — scoped to that tree, overrides nothing.
   Add:
-    - -std=c++23
     - -Wall                    # Enable all warnings
     - -Wno-unused-parameter    # Suppress unused parameter warnings (common in templates)
 
