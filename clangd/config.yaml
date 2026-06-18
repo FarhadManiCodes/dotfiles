@@ -157,6 +157,6 @@ InlayHints:
 # 2. Use project-specific .clangd config to override
 #
 # If template errors are overwhelming:
-# 1. Use :lua vim.diagnostic.disable() to temporarily disable
+# 1. Toggle diagnostics off: :lua vim.diagnostic.enable(false)  (re-enable with true)
 # 2. Hover (K) on error to see full message
 # 3. Check if compile_commands.json has correct -std=c++XX flag
