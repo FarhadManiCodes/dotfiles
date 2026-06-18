@@ -274,9 +274,6 @@ spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
 //  start cliphist deamon
 spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
 spawn-at-startup "sh" "-c" "sleep 3 && wob-control led-sync"
-hotkey-overlay {
-    skip-at-startup
-}
 
 // Bayreuth: 49.95 N, 11.58 E. Temp: 4500K (low) to 6500K (high)
 spawn-at-startup "wlsunset" "-l" "49.9" "-L" "11.6" "-t" "4200" "-T" "6500"
@@ -284,6 +281,10 @@ spawn-at-startup "wlsunset" "-l" "49.9" "-L" "11.6" "-t" "4200" "-T" "6500"
 // Warm up study caches at startup (runs in background after 5s delay)
 spawn-at-startup "sh" "-c" "sleep 5 && find $HOME/Cloud/gdrive/FAU/Library -mindepth 2 -type f \\( -iname '*.pdf' -o -iname '*.djvu' -o -iname '*.epub' \\) -printf '%P\\n' > $HOME/.cache/book-resources.txt 2>/dev/null"
 
+// Don't show the hotkey help overlay on startup.
+hotkey-overlay {
+    skip-at-startup
+}
 
 // Uncomment this line to ask the clients to omit their client-side decorations if possible.
 // If the client will specifically ask for CSD, the request will be honored.
