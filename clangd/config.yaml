@@ -49,8 +49,12 @@ Index:
 
 Diagnostics:
   # Include management
-  UnusedIncludes: Strict      # Warn about unused #includes
-  MissingIncludes: Strict     # Warn about missing #includes
+  UnusedIncludes: Strict      # Flag dead #includes
+  MissingIncludes: None       # No IWYU nagging: too noisy on Trilinos/deal.II
+                              # umbrella headers + macros, and we run
+                              # --header-insertion=never anyway (see lsp.lua).
+                              # (Key is binary None/Strict; for a middle ground
+                              # keep Strict + Includes.IgnoreHeader regexes.)
 
   # Suppress common warnings in Trilinos/deal.II template-heavy code
   # These are often false positives in scientific computing codebases
