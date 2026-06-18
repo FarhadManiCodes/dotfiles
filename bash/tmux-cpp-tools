@@ -365,10 +365,32 @@ cmd_run() {
     list=$(list_executables)
     [[ -z "$list" ]] && die "No executables found in $BUILD_DIR/. Build first."
 
-    local exe
-    exe=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="Run > " --reverse) || true
-    [[ -z "$exe" ]] && return 0
-    exe="$BUILD_DIR/$exe"
+    local exe=""
+
+    # Honor a pinned target from .cpp-tools (EXECUTABLE=name) to skip the picker.
+    # .cpp-tools is a gitignored per-project file; read it in a subshell so a
+    # malformed file can neither abort us (set -e) nor leak variables.
+    local pinned=""
+    if [[ -f "$PROJECT_ROOT/.cpp-tools" ]]; then
+        # runtime per-project file — nothing for shellcheck to follow
+        # shellcheck source=/dev/null
+        pinned=$(set +u; source "$PROJECT_ROOT/.cpp-tools" 2>/dev/null; printf '%s' "${EXECUTABLE:-}") || true
+    fi
+    if [[ -n "$pinned" ]]; then
+        local p
+        while IFS= read -r p; do
+            [[ "${p##*/}" == "$pinned" ]] && { exe="$p"; break; }
+        done <<< "$list"
+        [[ -z "$exe" ]] && warn "EXECUTABLE='$pinned' (.cpp-tools) not among built targets — using picker."
+    fi
+
+    # Otherwise pick interactively.
+    if [[ -z "$exe" ]]; then
+        local sel
+        sel=$(printf '%s\n' "$list" | sed "s|${BUILD_DIR}/||" | fzf --prompt="Run > " --reverse) || true
+        [[ -z "$sel" ]] && return 0
+        exe="$BUILD_DIR/$sel"
+    fi
 
     printf '\nArguments (leave empty for none): '
     local args; read -r args
@@ -685,6 +707,13 @@ WarningsAsErrors: ''
 HeaderFilterRegex: 'include/.*'
 EOF
 
+    cat > "$name/.cpp-tools" << EOF
+# tmux-cpp-tools per-project settings — local & gitignored.
+# EXECUTABLE pins which built target 'run' (Prefix r) launches, skipping the
+# fzf picker. Pre-set to this project's target; edit or comment out as needed.
+EXECUTABLE=$name
+EOF
+
     git -C "$name" init -q
     git -C "$name" add .
     git -C "$name" commit -q -m "Initial commit"
@@ -692,9 +721,10 @@ EOF
     printf '\n\033[1;32m✓ Project created: %s/\033[0m\n' "$name"
     printf '\nStructure:\n'
     printf '  %s/\n' "$name"
-    printf '  ├── CMakeLists.txt  (C++17, target: %s)\n' "$name"
+    printf '  ├── CMakeLists.txt  (C++23, target: %s)\n' "$name"
     printf '  ├── src/main.cpp\n'
     printf '  ├── include/\n'
+    printf '  ├── .cpp-tools\n'
     printf '  └── build/\n'
     printf '\nNext: cd %s → Prefix C to configure → Prefix b to build\n' "$name"
     pause
