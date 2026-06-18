@@ -38,6 +38,10 @@ export CGO_ENABLED=0
 # C++ — ccache cmake integration
 export CMAKE_C_COMPILER_LAUNCHER=ccache
 export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+# Always emit compile_commands.json (Ninja/Makefile generators) so clangd has it
+# no matter how the tree was configured — cmake-init, a preset, or a bare cmake.
+# Without this, only the tmux Prefix-C path produced it.
+export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # Apptainer — keep cache + build scratch on DISK, not the RAM-backed /tmp (tmpfs).
 # CACHEDIR: persistent base-image/layer cache (reused across builds; clear with `apptainer cache clean`).
