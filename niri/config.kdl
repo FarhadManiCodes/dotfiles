@@ -258,7 +258,7 @@ layout {
 // See the binds section below for more spawn examples.
 spawn-at-startup "foot" "--server"
 spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
-spawn-at-startup "sh" "-c" "pkill wob 2>/dev/null; rm -f /tmp/wobpipe; mkfifo /tmp/wobpipe; tail -f /tmp/wobpipe | wob -c /home/farhad/dotfiles/wob/wob.ini"
+spawn-at-startup "sh" "-c" "pkill wob 2>/dev/null; rm -f /tmp/wobpipe; mkfifo /tmp/wobpipe; tail -f /tmp/wobpipe | wob -c $HOME/dotfiles/wob/wob.ini"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
 // Idle management (dim / lock / suspend) now runs as a systemd USER service:
 //   dotfiles/systemd/user/swayidle.service   (was: spawn-at-startup "swayidle" ...)
@@ -282,7 +282,7 @@ hotkey-overlay {
 spawn-at-startup "wlsunset" "-l" "49.9" "-L" "11.6" "-t" "4200" "-T" "6500"
 
 // Warm up study caches at startup (runs in background after 5s delay)
-spawn-at-startup "sh" "-c" "sleep 5 && find /home/farhad/Cloud/gdrive/FAU/Library -mindepth 2 -type f \\( -iname '*.pdf' -o -iname '*.djvu' -o -iname '*.epub' \\) -printf '%P\\n' > /home/farhad/.cache/book-resources.txt 2>/dev/null"
+spawn-at-startup "sh" "-c" "sleep 5 && find $HOME/Cloud/gdrive/FAU/Library -mindepth 2 -type f \\( -iname '*.pdf' -o -iname '*.djvu' -o -iname '*.epub' \\) -printf '%P\\n' > $HOME/.cache/book-resources.txt 2>/dev/null"
 
 
 // Uncomment this line to ask the clients to omit their client-side decorations if possible.
@@ -426,7 +426,7 @@ binds {
     Mod+B hotkey-overlay-title="Open Firefox" { spawn "firefox"; }
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
     Mod+E hotkey-overlay-title="Open File Manager: vifm" { spawn "foot" "--app-id=vifm" "-e" "vifm"; }
-    Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "/home/farhad/.local/bin/audio-switch"; }
+    Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "audio-switch"; }
     Mod+Shift+B hotkey-overlay-title="Bluetooth Manager" { spawn "foot" "-e" "bluetui"; }
     Mod+Shift+W hotkey-overlay-title="WiFi Manager" { spawn "foot" "-e" "impala"; }
     Mod+Shift+M hotkey-overlay-title="Mic Input Control" { spawn "mic-control"; }
@@ -448,7 +448,7 @@ binds {
     }
 
     // Mod+z — fuzzel library browser; opens with xdg-open (sioyek for PDF, zathura for DjVu, foliate for epub)
-    Mod+z { spawn "/home/farhad/.local/bin/book-resources"; }
+    Mod+z { spawn "book-resources"; }
 
     // Toggle foot terminal theme (light/dark)
     Mod+Alt+T hotkey-overlay-title="Toggle Foot Theme" { spawn "toggle-foot-theme.sh"; }
@@ -462,18 +462,18 @@ binds {
     // Example volume keys mappings for PipeWire & WirePlumber.
     // The allow-when-locked=true property makes them work even when the session is locked.
     // Audio (wob + wpctl)
-    XF86AudioRaiseVolume allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-up"; }
-    XF86AudioLowerVolume allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-down"; }
-    XF86AudioMute        allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "volume-mute"; }
-    XF86AudioMicMute     allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "mic-mute"; }
+    XF86AudioRaiseVolume allow-when-locked=true { spawn "wob-control" "volume-up"; }
+    XF86AudioLowerVolume allow-when-locked=true { spawn "wob-control" "volume-down"; }
+    XF86AudioMute        allow-when-locked=true { spawn "wob-control" "volume-mute"; }
+    XF86AudioMicMute     allow-when-locked=true { spawn "wob-control" "mic-mute"; }
     XF86AudioPlay        allow-when-locked=true { spawn "media-menu.sh" "call"; }
     // XF86AudioStop        allow-when-locked=true { spawn-sh "playerctl stop"; }
     // XF86AudioPrev        allow-when-locked=true { spawn-sh "playerctl previous"; }
     // XF86AudioNext        allow-when-locked=true { spawn-sh "playerctl next"; }
 
     // Brightness (wob + brightnessctl)
-    XF86MonBrightnessUp   allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "brightness-up"; }
-    XF86MonBrightnessDown allow-when-locked=true { spawn "/home/farhad/.local/bin/wob-control" "brightness-down"; }
+    XF86MonBrightnessUp   allow-when-locked=true { spawn "wob-control" "brightness-up"; }
+    XF86MonBrightnessDown allow-when-locked=true { spawn "wob-control" "brightness-down"; }
 
     // Open/close the Overview: a zoomed-out view of workspaces and windows.
     // You can also move the mouse into the top-left hot corner,
@@ -708,7 +708,7 @@ binds {
     // which ensures niri always processes them, even when an inhibitor is active.
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
 
-    Mod+Shift+E hotkey-overlay-title="Power Menu" { spawn "/home/farhad/.local/bin/powermenu"; }
+    Mod+Shift+E hotkey-overlay-title="Power Menu" { spawn "powermenu"; }
     Ctrl+Alt+Delete { quit; }
 
     // Powers off the monitors. To turn them back on, do any input like
