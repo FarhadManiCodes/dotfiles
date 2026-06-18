@@ -219,6 +219,67 @@ check_build_type() {
 
 # ── Commands ──────────────────────────────────────────────────────────────────
 
+# Configure the CMake build tree. Single source of truth for the flags shared by
+# the Prefix C menu — build type, ccache launchers, compile_commands.json export.
+cmd_configure() {
+    require_cmake
+    local type="${1:-Debug}" build_type cxx_flags="" c_flags=""
+    case "${type,,}" in
+        debug)          build_type="Debug" ;;
+        release)        build_type="Release" ;;
+        relwithdebinfo) build_type="RelWithDebInfo" ;;
+        asan)
+            build_type="Debug"
+            cxx_flags="-fsanitize=address,undefined -g"
+            c_flags="-fsanitize=address,undefined -g"
+            ;;
+        *) die "Unknown build type: $type (use Debug|Release|RelWithDebInfo|asan)" ;;
+    esac
+
+    header "Configuring ${build_type}${cxx_flags:+ +ASan/UBSan}"
+    local status=0
+    cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE="$build_type" \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+        -DCMAKE_CXX_FLAGS="$cxx_flags" \
+        -DCMAKE_C_FLAGS="$c_flags" \
+        -B "$BUILD_DIR" || status=$?
+    if [[ $status -eq 0 ]]; then
+        ln -sf build/compile_commands.json "$PROJECT_ROOT/compile_commands.json"
+        printf '\n\033[1;32m✓ Configured (%s)\033[0m\n' "$build_type"
+    else
+        printf '\n\033[1;31m✗ Configure failed (exit %d)\033[0m\n' "$status"
+    fi
+    pause
+}
+
+cmd_clean() {
+    require_cmake
+    require_build_configured
+    header "Cleaning build objects"
+    if cmake --build "$BUILD_DIR" --target clean; then
+        printf '\n\033[1;32m✓ Objects cleaned\033[0m\n'
+    fi
+    pause
+}
+
+cmd_clean_all() {
+    require_cmake
+    header "Removing $BUILD_DIR"
+    rm -rf "$BUILD_DIR"
+    rm -f "$PROJECT_ROOT/compile_commands.json"
+    printf '\n\033[1;32m✓ build/ removed\033[0m\n'
+    pause
+}
+
+cmd_ccache_stats() {
+    header "ccache statistics"
+    ccache -s
+    pause
+}
+
 cmd_compile() {
     require_cmake
     require_build_configured
@@ -898,11 +959,15 @@ cmd_help() {
     printf '\ntmux-cpp-tools — C++ workflow helper\n\n'
     printf 'Usage: tmux-cpp-tools <command> [args]\n\n'
     printf 'Build:\n'
+    printf '  configure <type>     cmake configure (Debug|Release|RelWithDebInfo|asan)\n'
     printf '  compile              cmake --build build -j%d\n' "$NCORES"
     printf '  compile-file <path>  build + run one .cpp file (derives CMake target)\n'
     printf '  compile-nvim-file    build + run the file currently open in nvim\n'
     printf '  test                 ctest --parallel %d\n' "$NCORES"
-    printf '  build-and-test       compile then test in one popup\n\n'
+    printf '  build-and-test       compile then test in one popup\n'
+    printf '  clean                cmake --target clean (keep cmake config)\n'
+    printf '  clean-all            rm -rf build + compile_commands.json\n'
+    printf '  ccache-stats         ccache -s\n\n'
     printf 'Run:\n'
     printf '  run              find and run executable (prompts for args)\n'
     printf '  debug            gdb --tui in dedicated window\n\n'
@@ -921,6 +986,10 @@ subcommand="${1:-help}"
 shift || true
 
 case "$subcommand" in
+    configure)              cmd_configure "${1:-}" ;;
+    clean)                  cmd_clean ;;
+    clean-all)              cmd_clean_all ;;
+    ccache-stats)           cmd_ccache_stats ;;
     compile)                cmd_compile ;;
     _compile-session)       _compile_session ;;
     compile-quiet)          cmd_compile_quiet ;;
