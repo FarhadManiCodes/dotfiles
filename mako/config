@@ -12,7 +12,7 @@ padding=12,16
 # --- Font ---
 font=FiraCode Nerd Font 11
 
-# --- Normal notifications ---
+# --- Default appearance (all urgencies; low/high override below) ---
 background-color=#2d3d6b
 text-color=#cdd6f4
 border-color=#89b4fa
@@ -32,13 +32,6 @@ background-color=#2d3d6b
 text-color=#a6adc8
 border-color=#585b70
 default-timeout=6000
-
-# --- Urgency: normal ---
-[urgency=normal]
-background-color=#2d3d6b
-text-color=#cdd6f4
-border-color=#89b4fa
-default-timeout=10000
 
 # --- Urgency: high (red border, no auto-dismiss) ---
 [urgency=high]
