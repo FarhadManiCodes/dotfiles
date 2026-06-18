@@ -90,12 +90,10 @@ Hover:
 # =============================================================================
 
 InlayHints:
-  # Disable inline hints for minimal UI
-  # You can still see types via hover (K)
-
-  # If you want to enable inlay hints later, uncomment:
+  # Inlay hints are ON. Toggle them live in nvim with <leader>ci (see lsp.lua).
   Enabled: Yes
-  ParameterNames: No # Show parameter names in function calls
+  ParameterNames: No        # Param-name hints at call sites — off (noisy in dense
+                            # HPC call chains; use <C-k> signature help instead)
   DeducedTypes: Yes         # Show deduced auto types
   Designators: Yes          # Show struct field names
 
