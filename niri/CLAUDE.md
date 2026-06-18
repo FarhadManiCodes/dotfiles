@@ -30,13 +30,15 @@ The configuration is organized into these major sections:
    - Shadow configuration (currently disabled)
    - Struts for outer gaps
 
-4. **Startup Programs**
+4. **Startup Programs** (niri `spawn-at-startup`)
    - swaybg (wallpaper)
    - wob (on-screen display for volume/brightness via FIFO at /tmp/wobpipe)
    - mate-polkit (authentication agent)
-   - swayidle (idle management and screen locking)
    - cliphist daemon (clipboard history)
    - wlsunset (screen temperature adjustment)
+   - Note: idle management (swayidle) is **not** spawned here — it runs as a
+     systemd user service (`systemd/user/swayidle.service`); rationale is in
+     `config.kdl`'s startup comment block.
 
 5. **Window Rules**
    - Firefox picture-in-picture: floating
