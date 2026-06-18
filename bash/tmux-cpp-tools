@@ -238,7 +238,8 @@ cmd_configure() {
 
     header "Configuring ${build_type}${cxx_flags:+ +ASan/UBSan}"
     local status=0
-    cmake -DCMAKE_BUILD_TYPE="$build_type" \
+    cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE="$build_type" \
         -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
         -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
         -DCMAKE_C_COMPILER_LAUNCHER=ccache \
