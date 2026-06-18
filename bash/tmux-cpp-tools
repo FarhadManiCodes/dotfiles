@@ -707,6 +707,13 @@ WarningsAsErrors: ''
 HeaderFilterRegex: 'include/.*'
 EOF
 
+    cat > "$name/.cpp-tools" << EOF
+# tmux-cpp-tools per-project settings — local & gitignored.
+# EXECUTABLE pins which built target 'run' (Prefix r) launches, skipping the
+# fzf picker. Pre-set to this project's target; edit or comment out as needed.
+EXECUTABLE=$name
+EOF
+
     git -C "$name" init -q
     git -C "$name" add .
     git -C "$name" commit -q -m "Initial commit"
@@ -717,6 +724,7 @@ EOF
     printf '  ├── CMakeLists.txt  (C++23, target: %s)\n' "$name"
     printf '  ├── src/main.cpp\n'
     printf '  ├── include/\n'
+    printf '  ├── .cpp-tools\n'
     printf '  └── build/\n'
     printf '\nNext: cd %s → Prefix C to configure → Prefix b to build\n' "$name"
     pause
