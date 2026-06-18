@@ -255,6 +255,31 @@ cmd_configure() {
     pause
 }
 
+cmd_clean() {
+    require_cmake
+    require_build_configured
+    header "Cleaning build objects"
+    if cmake --build "$BUILD_DIR" --target clean; then
+        printf '\n\033[1;32m✓ Objects cleaned\033[0m\n'
+    fi
+    pause
+}
+
+cmd_clean_all() {
+    require_cmake
+    header "Removing $BUILD_DIR"
+    rm -rf "$BUILD_DIR"
+    rm -f "$PROJECT_ROOT/compile_commands.json"
+    printf '\n\033[1;32m✓ build/ removed\033[0m\n'
+    pause
+}
+
+cmd_ccache_stats() {
+    header "ccache statistics"
+    ccache -s
+    pause
+}
+
 cmd_compile() {
     require_cmake
     require_build_configured
@@ -939,7 +964,10 @@ cmd_help() {
     printf '  compile-file <path>  build + run one .cpp file (derives CMake target)\n'
     printf '  compile-nvim-file    build + run the file currently open in nvim\n'
     printf '  test                 ctest --parallel %d\n' "$NCORES"
-    printf '  build-and-test       compile then test in one popup\n\n'
+    printf '  build-and-test       compile then test in one popup\n'
+    printf '  clean                cmake --target clean (keep cmake config)\n'
+    printf '  clean-all            rm -rf build + compile_commands.json\n'
+    printf '  ccache-stats         ccache -s\n\n'
     printf 'Run:\n'
     printf '  run              find and run executable (prompts for args)\n'
     printf '  debug            gdb --tui in dedicated window\n\n'
@@ -959,6 +987,9 @@ shift || true
 
 case "$subcommand" in
     configure)              cmd_configure "${1:-}" ;;
+    clean)                  cmd_clean ;;
+    clean-all)              cmd_clean_all ;;
+    ccache-stats)           cmd_ccache_stats ;;
     compile)                cmd_compile ;;
     _compile-session)       _compile_session ;;
     compile-quiet)          cmd_compile_quiet ;;
