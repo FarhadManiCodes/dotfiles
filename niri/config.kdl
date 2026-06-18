@@ -352,9 +352,8 @@ window-rule {
     default-window-height { proportion 0.5; }
 }
 
-// Block password managers from screen capture for security
-// (commented out — no password manager installed yet; revisit if KeePassXC/Bitwarden added)
-/- window-rule {
+// Block password managers from screen capture (inert until one is installed).
+window-rule {
     match app-id=r#"^org\.keepassxc\.KeePassXC$"#
     match app-id=r#"^org\.gnome\.World\.Secrets$"#
     match app-id=r#"^Bitwarden$"#
