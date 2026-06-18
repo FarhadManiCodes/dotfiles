@@ -692,7 +692,7 @@ EOF
     printf '\n\033[1;32m✓ Project created: %s/\033[0m\n' "$name"
     printf '\nStructure:\n'
     printf '  %s/\n' "$name"
-    printf '  ├── CMakeLists.txt  (C++17, target: %s)\n' "$name"
+    printf '  ├── CMakeLists.txt  (C++23, target: %s)\n' "$name"
     printf '  ├── src/main.cpp\n'
     printf '  ├── include/\n'
     printf '  └── build/\n'
