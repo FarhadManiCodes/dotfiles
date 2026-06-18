@@ -55,21 +55,12 @@ Diagnostics:
     - unknown-pragmas          # OpenMP/MPI pragmas
     - unused-local-typedef     # Template metaprogramming artifacts
 
-  # Enable clang-tidy checks (optional - can be slow)
-  # Uncomment to enable specific checks:
-  ClangTidy:
-    Add:
-      # Catch accidental copies of large matrices/vectors
-      - performance-unnecessary-copy-initialization
-      - performance-unnecessary-value-param
-      - performance-move-const-arg
-      # Catch implicit conversions that kill precision (e.g. double -> float)
-      - bugprone-narrowing-conversions
-  #     - modernize-*
-  #     - performance-*
-    Remove:
-      - modernize-use-trailing-return-type
-      - performance-no-int-to-ptr  # Often false positive in low-level memory managers
+  # clang-tidy is intentionally NOT enabled here — it stays opt-in per project.
+  # Drop a .clang-tidy at a project root to turn it on for that tree only.
+  # This mirrors nvim's lsp.lua, which deliberately omits --clang-tidy from the
+  # clangd cmd. Enabling checks in this global config would force them on for
+  # every project (clangd 11+ runs clang-tidy from config, not the CLI flag),
+  # which defeats that design.
 # =============================================================================
 # COMPLETION
 # =============================================================================
