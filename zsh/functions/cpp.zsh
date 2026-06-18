@@ -5,7 +5,7 @@
 
 # Find the active cmake build directory by looking for CMakeCache.txt
 _cmake_build_dir() {
-  for d in build cmake-build-debug cmake-build-release cmake-build cmake-build-*(N); do
+  for d in build build-san cmake-build-debug cmake-build-release cmake-build cmake-build-*(N); do
     [[ -f "$d/CMakeCache.txt" ]] && { echo "$d"; return 0 }
   done
   return 1
