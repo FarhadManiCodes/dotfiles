@@ -50,10 +50,16 @@ _env_path() {
   fi
 }
 
-_env_exists() { 
+_env_exists() {
   local name="$1"
   [[ -d "$(_env_path "$name")" ]]
 }
+
+# Human-readable size of a dir ("?" if it can't be read)
+_dir_size() { du -sh "$1" 2>/dev/null | cut -f1 || echo "?"; }
+
+# Bare Python version (e.g. 3.13.1) for a venv's python binary
+_py_ver() { "$1" --version 2>/dev/null | awk '{print $2}'; }
 
 # _get_envrc_env [file] — name of the env an .envrc points to ("local" or central name)
 _get_envrc_env() {
@@ -138,9 +144,7 @@ _list_environments() {
       echo "   🐍 $name"
       continue
     fi
-    local size=$(du -sh "$env_dir" 2>/dev/null | cut -f1 || echo "?")
-    local py_ver=$("$env_dir/bin/python" --version 2>/dev/null | awk '{print $2}')
-    echo "   🐍 $name ($size) [Py $py_ver]"
+    echo "   🐍 $name ($(_dir_size "$env_dir")) [Py $(_py_ver "$env_dir/bin/python")]"
   done
 }
 
@@ -446,8 +450,8 @@ vr() {
   fi
   
   local venv_path="$(_env_path "$env_name")"
-  local size=$(du -sh "$venv_path" 2>/dev/null | cut -f1)
-  
+  local size=$(_dir_size "$venv_path")
+
   echo "🗑️  Remove: $env_name"
   echo "   Location: $venv_path"
   echo "   Size: $size"
@@ -506,9 +510,7 @@ vl() {
   
   # Show local .venv if exists
   if [[ -d ".venv" ]]; then
-    local size=$(du -sh .venv 2>/dev/null | cut -f1)
-    local py_ver=$(.venv/bin/python --version 2>/dev/null | awk '{print $2}')
-    echo "   🏠 Local .venv: $size [Py $py_ver]"
+    echo "   🏠 Local .venv: $(_dir_size .venv) [Py $(_py_ver .venv/bin/python)]"
   fi
 }
 
@@ -561,10 +563,9 @@ show_project_info() {
   fi
   
   if [[ -d ".venv" ]]; then
-    local size=$(du -sh .venv 2>/dev/null | cut -f1)
-    echo "🏠 Local .venv: $size"
+    echo "🏠 Local .venv: $(_dir_size .venv)"
   fi
-  
+
   echo ""
 }
 
