@@ -115,7 +115,7 @@ filetype * handlr open %f
 " File previewers  (most-specific first, catch-all last)
 " ------------------------------------------------------------------------------
 
-" Markdown — glow for rendered output
+" Markdown — bat syntax highlighting (reliable in the preview pane)
 fileviewer {*.md,*.markdown} bat --color=always --plain --language=markdown %c
 
 " Directories — eza tree (depth 2, colours preserved)
