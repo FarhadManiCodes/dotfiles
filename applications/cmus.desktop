@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=cmus
 Comment=C* Music Player
-Exec=/home/farhad/.local/bin/cmus-open %f
+Exec=cmus-open %f
 Terminal=false
 Type=Application
 MimeType=audio/aac;audio/flac;audio/mp4;audio/mpeg;audio/ogg;audio/opus;audio/webm;audio/x-flac;audio/x-wav;audio/wav;
