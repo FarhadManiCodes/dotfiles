@@ -1,9 +1,9 @@
 [Desktop Entry]
 Name=Spotify Player
 Comment=Terminal Spotify client
-Exec=foot --app-id=spotify-player -e spotify_player
+Exec=footclient --app-id=spotify-player -e spotify_player
 Terminal=false
 Type=Application
-Categories=Audio;Music;Player;
+Categories=AudioVideo;Audio;Music;Player;
 Icon=spotify-client
 Keywords=spotify;music;podcast;

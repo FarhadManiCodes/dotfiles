@@ -163,7 +163,6 @@ ln -sf "${DOTFILES}/vifm/vifmrc" "${XDG_CONFIG_HOME}/vifm/vifmrc"
 mkdir -p "${XDG_CONFIG_HOME}/vifm/colors"
 ln -sf "${DOTFILES}/vifm/colors/catppuccin-mocha.vifm" "${XDG_CONFIG_HOME}/vifm/colors/catppuccin-mocha.vifm"
 ln -sf "${DOTFILES}/vifm/colors/zenburn-rich.vifm" "${XDG_CONFIG_HOME}/vifm/colors/zenburn-rich.vifm"
-ln -sf "${DOTFILES}/applications/vifm.desktop" "${XDG_DATA_HOME}/applications/vifm.desktop"
 ln -sf "${DOTFILES}/bash/vifm-open" "${HOME}/.local/bin/vifm-open"
 echo "vifm configured"
 
