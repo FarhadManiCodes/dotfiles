@@ -182,5 +182,4 @@ System-level choices that aren't captured in any config file:
 
 ## TODOs
 
-- Simplify `zsh/functions/virtualenv.zsh` (680 lines)
 - Decide on `zsh/archive/productivity/duckdb.sh` — revive or delete
