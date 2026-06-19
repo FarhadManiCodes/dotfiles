@@ -55,7 +55,7 @@ For everything else: command palette via `:` (e.g., `:toggle_dark_mode`).
 | `should_highlight_unselected_search` | `1` | Highlight every search match, not just the current. |
 | `wheel_zoom_on_cursor` | `1` | Zoom toward cursor on scroll (not viewport center). |
 | `preserve_image_colors_in_dark_mode` | `1` | Don't recolor raster images when in custom-color mode. |
-| `inverse_search_command` | `niri-synctex %1 %2` | SyncTeX → nvim via `~/.local/bin/niri-synctex`. |
+| `inverse_search_command` | `nvim --headless -c "VimtexInverseSearch %2 '%1'"` | SyncTeX → nvim via vimtex's server registry; the foot window is then focused by the `VimtexEventViewReverse` autocmd in nvim-config (Wayland/niri). |
 
 ## Known gotcha: ASCII only
 
