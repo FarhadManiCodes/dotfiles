@@ -514,60 +514,9 @@ vl() {
   fi
 }
 
-# Show active environment info
-vinfo() {
-  if [[ -z "$VIRTUAL_ENV" ]]; then
-    echo "⚪ No active environment"
-    return 0
-  fi
-  
-  echo ""
-  echo "🐍 Active Environment Info"
-  echo "=========================="
-  echo "Name: $(basename "$VIRTUAL_ENV")"
-  echo "Python: $("$VIRTUAL_ENV/bin/python" --version)"
-  echo "Location: $VIRTUAL_ENV"
-  echo "Packages: $(uv pip list 2>/dev/null | wc -l)"
-  echo ""
-  echo "📦 Top 10 packages:"
-  uv pip list 2>/dev/null | head -11 | tail -10
-  echo ""
-}
-
 # =============================================================================
 # UTILITIES
 # =============================================================================
-
-# Show project environment status
-show_project_info() {
-  echo ""
-  echo "🔍 Project Environment Status"
-  echo "============================="
-  echo "📁 Directory: $PWD"
-  echo "📋 Project: $(basename "$PWD")"
-  
-  local current_env=$(_get_envrc_env)
-  if [[ -n "$current_env" ]]; then
-    echo "📄 .envrc → $current_env"
-    _env_exists "$current_env" && echo "✅ Environment exists" || echo "❌ Environment missing!"
-    echo "🔄 Direnv: $(direnv status 2>/dev/null | head -1)"
-  else
-    echo "📄 No .envrc found"
-    echo "💡 Use 'vp' to set up project environment"
-  fi
-  
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo "🟢 Active: $(basename "$VIRTUAL_ENV")"
-  else
-    echo "⚪ No active environment"
-  fi
-  
-  if [[ -d ".venv" ]]; then
-    echo "🏠 Local .venv: $(_dir_size .venv)"
-  fi
-
-  echo ""
-}
 
 # Check health of .envrc files
 check_envrc_health() {
@@ -629,7 +578,6 @@ show_python_info() {
 # ALIASES
 # =============================================================================
 
-alias project-info='show_project_info'
 alias check-envrc='check_envrc_health'
 alias python-info='show_python_info'
 
@@ -655,13 +603,11 @@ CORE COMMANDS:
   vp                               - Auto-setup project environment
   vd                               - Deactivate
   vl                               - List centralized environments
-  vinfo                            - Show active environment info
   vr <name>                        - Delete environment (shows size)
   vs                               - Sync from requirements.txt
   vf                               - Remove .envrc
 
 UTILITIES:
-  project-info                     - Show project status
   check-envrc                      - Health check .envrc files
   python-info                      - Show Python/uv/direnv info
 
