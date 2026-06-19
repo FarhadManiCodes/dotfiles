@@ -25,8 +25,7 @@ _is_template() {
   [[ " ${TEMPLATES[*]} " == *" ${arg} "* ]]
 }
 
-# UPDATED: Regex match for version numbers (e.g. 3.12, 3.12.1, 3.9)
-# This prevents the script from breaking when Python 3.15 comes out.
+# Match a Python version number: 3.9, 3.12, 3.12.1 (any major, so 3.15+ keeps working)
 _is_version() {
   local arg="$1"
   [[ "$arg" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
@@ -99,7 +98,7 @@ _select_env() {
   _list_environments fast | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
 }
 
-# UPDATED: Safer .envrc creation
+# Write the .envrc that activates env "$1"; back up any non-generated .envrc first
 _create_envrc() {
   local env_name="$1"
   local venv_path="$(_env_path "$env_name")"
