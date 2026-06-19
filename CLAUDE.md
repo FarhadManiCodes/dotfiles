@@ -131,7 +131,6 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 ### Window manager (Niri)
 
 - `niri/config.kdl` — keybindings, workspaces, window rules
-- `waybar/` — archived config (not installed)
 - `mako/config` — notification daemon
 - `fuzzel/fuzzel.ini` — app launcher
 - `swaylock/config` — lock screen. `daemonize` is **required** (swayidle runs with `-w`, which
