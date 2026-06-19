@@ -25,8 +25,7 @@ _is_template() {
   [[ " ${TEMPLATES[*]} " == *" ${arg} "* ]]
 }
 
-# UPDATED: Regex match for version numbers (e.g. 3.12, 3.12.1, 3.9)
-# This prevents the script from breaking when Python 3.15 comes out.
+# Match a Python version number: 3.9, 3.12, 3.12.1 (any major, so 3.15+ keeps working)
 _is_version() {
   local arg="$1"
   [[ "$arg" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
@@ -50,22 +49,30 @@ _env_path() {
   fi
 }
 
-_env_exists() { 
+_env_exists() {
   local name="$1"
   [[ -d "$(_env_path "$name")" ]]
 }
 
+# Human-readable size of a dir ("?" if it can't be read)
+_dir_size() { du -sh "$1" 2>/dev/null | cut -f1 || echo "?"; }
+
+# Bare Python version (e.g. 3.13.1) for a venv's python binary
+_py_ver() { "$1" --version 2>/dev/null | awk '{print $2}'; }
+
+# _get_envrc_env [file] — name of the env an .envrc points to ("local" or central name)
 _get_envrc_env() {
-  [[ -f ".envrc" ]] || return 1
-  
-  # Check if it's local
-  if grep -q "source ./.venv/bin/activate" .envrc 2>/dev/null; then
+  local file="${1:-.envrc}"
+  [[ -f "$file" ]] || return 1
+
+  # Local .venv — _create_envrc writes `source .venv/bin/activate` (./ optional)
+  if grep -qE 'source (\./)?\.venv/bin/activate' "$file" 2>/dev/null; then
     echo "local"
     return 0
   fi
-  
-  # Check if it's centralized
-  grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p'
+
+  # Centralized — pull the env name out of the activate path
+  grep -o 'source.*activate' "$file" 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p'
 }
 
 _reload_direnv() {
@@ -91,7 +98,7 @@ _select_env() {
   _list_environments fast | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
 }
 
-# UPDATED: Safer .envrc creation
+# Write the .envrc that activates env "$1"; back up any non-generated .envrc first
 _create_envrc() {
   local env_name="$1"
   local venv_path="$(_env_path "$env_name")"
@@ -136,9 +143,7 @@ _list_environments() {
       echo "   🐍 $name"
       continue
     fi
-    local size=$(du -sh "$env_dir" 2>/dev/null | cut -f1 || echo "?")
-    local py_ver=$("$env_dir/bin/python" --version 2>/dev/null | awk '{print $2}')
-    echo "   🐍 $name ($size) [Py $py_ver]"
+    echo "   🐍 $name ($(_dir_size "$env_dir")) [Py $(_py_ver "$env_dir/bin/python")]"
   done
 }
 
@@ -159,15 +164,15 @@ _install_template() {
       echo "⚡ Installing basic development packages..."
       uv pip install requests black flake8 pytest pylint mypy --python "$python_path"
       ;;
-    "ds"|"data-science")
+    "ds")
       echo "📊 Installing data science packages..."
       uv pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy --python "$python_path"
       ;;
-    "de"|"data-engineering")
+    "de")
       echo "🔧 Installing data engineering packages..."
       uv pip install ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow black flake8 pylint mypy --python "$python_path"
       ;;
-    "ml"|"machine-learning")
+    "ml")
       echo "🤖 Installing ML packages..."
       uv pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy --python "$python_path"
       echo "💡 For PyTorch/TensorFlow, run 'uv pip install torch' manually."
@@ -444,8 +449,8 @@ vr() {
   fi
   
   local venv_path="$(_env_path "$env_name")"
-  local size=$(du -sh "$venv_path" 2>/dev/null | cut -f1)
-  
+  local size=$(_dir_size "$venv_path")
+
   echo "🗑️  Remove: $env_name"
   echo "   Location: $venv_path"
   echo "   Size: $size"
@@ -504,67 +509,13 @@ vl() {
   
   # Show local .venv if exists
   if [[ -d ".venv" ]]; then
-    local size=$(du -sh .venv 2>/dev/null | cut -f1)
-    local py_ver=$(.venv/bin/python --version 2>/dev/null | awk '{print $2}')
-    echo "   🏠 Local .venv: $size [Py $py_ver]"
+    echo "   🏠 Local .venv: $(_dir_size .venv) [Py $(_py_ver .venv/bin/python)]"
   fi
-}
-
-# Show active environment info
-vinfo() {
-  if [[ -z "$VIRTUAL_ENV" ]]; then
-    echo "⚪ No active environment"
-    return 0
-  fi
-  
-  echo ""
-  echo "🐍 Active Environment Info"
-  echo "=========================="
-  echo "Name: $(basename "$VIRTUAL_ENV")"
-  echo "Python: $("$VIRTUAL_ENV/bin/python" --version)"
-  echo "Location: $VIRTUAL_ENV"
-  echo "Packages: $(uv pip list 2>/dev/null | wc -l)"
-  echo ""
-  echo "📦 Top 10 packages:"
-  uv pip list 2>/dev/null | head -11 | tail -10
-  echo ""
 }
 
 # =============================================================================
 # UTILITIES
 # =============================================================================
-
-# Show project environment status
-show_project_info() {
-  echo ""
-  echo "🔍 Project Environment Status"
-  echo "============================="
-  echo "📁 Directory: $PWD"
-  echo "📋 Project: $(basename "$PWD")"
-  
-  local current_env=$(_get_envrc_env)
-  if [[ -n "$current_env" ]]; then
-    echo "📄 .envrc → $current_env"
-    _env_exists "$current_env" && echo "✅ Environment exists" || echo "❌ Environment missing!"
-    echo "🔄 Direnv: $(direnv status 2>/dev/null | head -1)"
-  else
-    echo "📄 No .envrc found"
-    echo "💡 Use 'vp' to set up project environment"
-  fi
-  
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo "🟢 Active: $(basename "$VIRTUAL_ENV")"
-  else
-    echo "⚪ No active environment"
-  fi
-  
-  if [[ -d ".venv" ]]; then
-    local size=$(du -sh .venv 2>/dev/null | cut -f1)
-    echo "🏠 Local .venv: $size"
-  fi
-  
-  echo ""
-}
 
 # Check health of .envrc files
 check_envrc_health() {
@@ -573,22 +524,16 @@ check_envrc_health() {
   
   while IFS= read -r -d '' envrc_file; do
     local dir=$(dirname "$envrc_file")
-    
-    # Check for local .venv
-    if grep -q "source ./.venv/bin/activate" "$envrc_file" 2>/dev/null; then
+    local env_name=$(_get_envrc_env "$envrc_file")
+
+    if [[ "$env_name" == "local" ]]; then
       if [[ -d "$dir/.venv" ]]; then
         echo "✅ $dir/.envrc → local .venv"
       else
         echo "❌ $dir/.envrc → local .venv (missing)"
         ((issues++))
       fi
-      continue
-    fi
-    
-    # Check for centralized env
-    local env_name=$(grep -o 'source.*activate' "$envrc_file" 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
-    
-    if [[ -n "$env_name" ]]; then
+    elif [[ -n "$env_name" ]]; then
       if _env_exists "$env_name"; then
         echo "✅ $dir/.envrc → $env_name"
       else
@@ -632,7 +577,6 @@ show_python_info() {
 # ALIASES
 # =============================================================================
 
-alias project-info='show_project_info'
 alias check-envrc='check_envrc_health'
 alias python-info='show_python_info'
 
@@ -658,13 +602,11 @@ CORE COMMANDS:
   vp                               - Auto-setup project environment
   vd                               - Deactivate
   vl                               - List centralized environments
-  vinfo                            - Show active environment info
   vr <name>                        - Delete environment (shows size)
   vs                               - Sync from requirements.txt
   vf                               - Remove .envrc
 
 UTILITIES:
-  project-info                     - Show project status
   check-envrc                      - Health check .envrc files
   python-info                      - Show Python/uv/direnv info
 
