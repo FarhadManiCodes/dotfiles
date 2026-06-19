@@ -5,6 +5,6 @@ Exec=foot -e vim %F
 Terminal=false
 Type=Application
 MimeType=text/plain;text/x-matlab;text/x-fortran;text/rust;text/x-go;text/x-cmake;text/x-bibtex;application/toml;application/x-ipynb+json;
-Categories=TextEditor;
+Categories=Utility;TextEditor;
 Icon=vim
 NoDisplay=true

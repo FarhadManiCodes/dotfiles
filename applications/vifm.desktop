@@ -5,5 +5,5 @@ Exec=/home/farhad/.local/bin/vifm-open %u
 Terminal=false
 Type=Application
 MimeType=inode/directory;
-Categories=FileManager;
+Categories=System;FileManager;
 Icon=utilities-terminal
