@@ -165,15 +165,15 @@ _install_template() {
       echo "⚡ Installing basic development packages..."
       uv pip install requests black flake8 pytest pylint mypy --python "$python_path"
       ;;
-    "ds"|"data-science")
+    "ds")
       echo "📊 Installing data science packages..."
       uv pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy --python "$python_path"
       ;;
-    "de"|"data-engineering")
+    "de")
       echo "🔧 Installing data engineering packages..."
       uv pip install ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow black flake8 pylint mypy --python "$python_path"
       ;;
-    "ml"|"machine-learning")
+    "ml")
       echo "🤖 Installing ML packages..."
       uv pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy --python "$python_path"
       echo "💡 For PyTorch/TensorFlow, run 'uv pip install torch' manually."
