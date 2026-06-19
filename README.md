@@ -12,7 +12,6 @@ All configs are symlinked from this repo so changes here immediately take effect
 | Editor | Neovim (primary) · Vim (lightweight editing) |
 | Terminal | Foot |
 | Compositor | Niri |
-| Bar | Waybar |
 | Multiplexer | Tmux |
 | Launcher | Fuzzel |
 | Notifications | Mako |
@@ -91,7 +90,6 @@ dotfiles/
 │   └── ignore              # global gitignore
 │
 ├── niri/config.kdl         # Window manager
-├── waybar/                 # config + style.css
 ├── foot/foot.ini
 ├── swaylock/config
 ├── mako/config
