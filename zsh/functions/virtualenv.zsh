@@ -55,17 +55,19 @@ _env_exists() {
   [[ -d "$(_env_path "$name")" ]]
 }
 
+# _get_envrc_env [file] — name of the env an .envrc points to ("local" or central name)
 _get_envrc_env() {
-  [[ -f ".envrc" ]] || return 1
-  
-  # Check if it's local
-  if grep -q "source ./.venv/bin/activate" .envrc 2>/dev/null; then
+  local file="${1:-.envrc}"
+  [[ -f "$file" ]] || return 1
+
+  # Local .venv — _create_envrc writes `source .venv/bin/activate` (./ optional)
+  if grep -qE 'source (\./)?\.venv/bin/activate' "$file" 2>/dev/null; then
     echo "local"
     return 0
   fi
-  
-  # Check if it's centralized
-  grep -o 'source.*activate' .envrc 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p'
+
+  # Centralized — pull the env name out of the activate path
+  grep -o 'source.*activate' "$file" 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p'
 }
 
 _reload_direnv() {
@@ -573,22 +575,16 @@ check_envrc_health() {
   
   while IFS= read -r -d '' envrc_file; do
     local dir=$(dirname "$envrc_file")
-    
-    # Check for local .venv
-    if grep -q "source ./.venv/bin/activate" "$envrc_file" 2>/dev/null; then
+    local env_name=$(_get_envrc_env "$envrc_file")
+
+    if [[ "$env_name" == "local" ]]; then
       if [[ -d "$dir/.venv" ]]; then
         echo "✅ $dir/.envrc → local .venv"
       else
         echo "❌ $dir/.envrc → local .venv (missing)"
         ((issues++))
       fi
-      continue
-    fi
-    
-    # Check for centralized env
-    local env_name=$(grep -o 'source.*activate' "$envrc_file" 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p')
-    
-    if [[ -n "$env_name" ]]; then
+    elif [[ -n "$env_name" ]]; then
       if _env_exists "$env_name"; then
         echo "✅ $dir/.envrc → $env_name"
       else
