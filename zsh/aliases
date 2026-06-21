@@ -153,3 +153,13 @@ alias zhist='sqlite3 ~/.local/share/zathura/bookmarks.sqlite "SELECT file FROM f
 # ============================================================================
 alias syncbooks='systemctl --user start study-library-sync.service && journalctl --user -u study-library-sync.service -f'
 
+# ============================================================================
+# YT-DLP
+# ============================================================================
+# Lean audio download: bestaudio only (no fetch-then-discard), no subtitles,
+# into a separate folder. Everything else is inherited from
+# ~/.config/yt-dlp/config (PO token, --embed-thumbnail/--embed-metadata ->
+# tagged audio with cover art). Mirrors the GUI's Audio mode.
+command -v yt-dlp >/dev/null 2>&1 && \
+  alias yta='yt-dlp -f "bestaudio/best" -x -P ~/Downloads/Audio --no-write-subs --no-embed-subs'
+
