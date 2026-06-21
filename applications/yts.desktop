@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=YouTube Search
-Comment=Search and play YouTube videos via Invidious + fzf
-Exec=footclient --app-id=yts -e yts
-Terminal=false
-Type=Application
-Categories=AudioVideo;Network;
-Icon=multimedia-video-player
-Keywords=youtube;search;video;stream;fzf;
