@@ -5,5 +5,5 @@ FILE="$1"
 if cmus-remote -Q &>/dev/null 2>&1; then
     [ -n "$FILE" ] && cmus-remote -f "$FILE"
 else
-    exec foot --app-id=cmus -e cmus
+    exec footclient --app-id=cmus cmus
 fi
