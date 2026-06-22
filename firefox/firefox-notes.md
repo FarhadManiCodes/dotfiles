@@ -66,7 +66,6 @@ Restart Firefox after changes.
 | uBlock Origin | Active | Strict mode + annoyances + DE/FA/IT lists |
 | Proton VPN | Active | Browser-only, not system-wide. NetShield not available in extension |
 | DownThemAll | Active | Default settings, configure if issues arise |
-| Zotero Connector | Disabled | Enable manually when needed |
 
 ---
 

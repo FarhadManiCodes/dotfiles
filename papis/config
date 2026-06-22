@@ -1,5 +1,5 @@
 # Papis configuration file
-# Generated for computational science workflow with LaTeX + Zotero integration
+# Generated for computational science workflow with LaTeX
 
 [papers]
 dir = ~/.local/share/papis/papers
@@ -59,7 +59,7 @@ sort-reverse = True
 add-folder-name = {doc[author_list][0][family]}_{doc[year]}
 add-file-name = {doc[title]:.40}
 
-# Zotero compatibility
+# Deduplication keys + human-readable document description
 document-description-format = {doc[title]} - {doc[author]}
 unique-document-keys = ['doi', 'isbn', 'isbn10', 'eprint', 'url', 'doc_url']
 
