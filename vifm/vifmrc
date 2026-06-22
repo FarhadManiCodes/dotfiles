@@ -109,7 +109,9 @@ command! fnb : let $DUMMY = term('vifm-pick fnb')
 " File openers  (xdg-open as catch-all; specific openers added per need)
 " ------------------------------------------------------------------------------
 
-filetype * handlr open %f
+" setsid -f detaches the opener into its own session so the viewer survives
+" closing vifm (otherwise it shares vifm's session and dies on the terminal's SIGHUP)
+filetype * setsid -f handlr open %f
 
 " ------------------------------------------------------------------------------
 " File previewers  (most-specific first, catch-all last)
