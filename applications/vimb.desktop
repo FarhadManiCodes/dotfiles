@@ -6,4 +6,5 @@ Exec=env WEBKIT_DISABLE_DMABUF_RENDERER=1 GSK_RENDERER=ngl GDK_BACKEND=wayland v
 Terminal=false
 Type=Application
 Categories=GTK;Network;WebBrowser;
+Icon=internet-web-browser
 MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
