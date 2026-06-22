@@ -50,5 +50,5 @@ if [[ "${1}" == "right" ]]; then
     fi
 else
     path=$(pick_mount "Open USB: ")
-    foot -e vifm "$path"
+    footclient --app-id=vifm vifm "$path"
 fi

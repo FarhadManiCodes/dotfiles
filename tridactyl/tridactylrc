@@ -52,7 +52,7 @@ bind gr reader
 " ===== Downloads =====
 " Open Downloads folder in vifm — mirrors niri Mod+E
 unbind <C-e>
-bind <C-e> exclaim_quiet foot --app-id=vifm -e vifm ~/Downloads
+bind <C-e> exclaim_quiet footclient --app-id=vifm vifm ~/Downloads
 
 " ===== Tab management =====
 " Move to left tab before closing — less disorienting than the default

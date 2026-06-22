@@ -33,8 +33,9 @@ confirm() {
 }
 
 # --- Pre-shutdown teardown ---
+# The foot server is a niri-spawned scope, torn down when niri quits / the session
+# ends — nothing to stop here. Only rclone mounts need an explicit graceful stop.
 pre_shutdown() {
-    systemctl --user stop foot-server.socket
     systemctl --user stop $(systemctl --user list-units 'rclone@*' --state=running --no-legend | awk '{print $1}') 2>/dev/null
 }
 

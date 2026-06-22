@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Vim
 Comment=Text editor
-Exec=foot -e vim %F
+Exec=footclient vim %F
 Terminal=false
 Type=Application
 MimeType=text/plain;text/x-matlab;text/x-fortran;text/rust;text/x-go;text/x-cmake;text/x-bibtex;application/toml;application/x-ipynb+json;

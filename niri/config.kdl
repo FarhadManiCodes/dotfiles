@@ -190,15 +190,15 @@ binds {
     // Launchers
     Mod+T hotkey-overlay-title="Open a Terminal: foot" { spawn "footclient"; }
     // Mod+Return: foot + tmux (attach session "main", create if absent).
-    Mod+Return { spawn "foot" "-e" "tmux" "new-session" "-A" "-s" "main"; }
+    Mod+Return { spawn "footclient" "tmux" "new-session" "-A" "-s" "main"; }
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
     Mod+Shift+P hotkey-overlay-title="Search Papers: papis" { spawn "papis-fuzzel"; }
     Mod+B hotkey-overlay-title="Open Firefox" { spawn "firefox"; }
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
-    Mod+E hotkey-overlay-title="Open File Manager: vifm" { spawn "foot" "--app-id=vifm" "-e" "vifm"; }
+    Mod+E hotkey-overlay-title="Open File Manager: vifm" { spawn "footclient" "--app-id=vifm" "vifm"; }
     Mod+Shift+A hotkey-overlay-title="Switch Audio Output" { spawn "audio-switch"; }
-    Mod+Shift+B hotkey-overlay-title="Bluetooth Manager" { spawn "foot" "-e" "bluetui"; }
-    Mod+Shift+W hotkey-overlay-title="WiFi Manager" { spawn "foot" "-e" "impala"; }
+    Mod+Shift+B hotkey-overlay-title="Bluetooth Manager" { spawn "footclient" "bluetui"; }
+    Mod+Shift+W hotkey-overlay-title="WiFi Manager" { spawn "footclient" "impala"; }
     Mod+Shift+M hotkey-overlay-title="Mic Input Control" { spawn "mic-control"; }
     Mod+M hotkey-overlay-title="Media Controls" { spawn "media-menu.sh"; }
     // Lock screen — Ctrl+Alt+L (Mod+L is reserved for Vim navigation).

@@ -131,7 +131,7 @@ else
   open_url "https://docs.google.com/${service}/d/${file_id}/edit"
 
   # Companion terminal — niri rule sets it to 25%, --sync mode resizes Firefox to 75%
-  foot --app-id gdocs-sync --title "gdocs-sync: $fname" -- \
+  footclient --app-id gdocs-sync --title "gdocs-sync: $fname" -- \
     bash -c '"$0" --sync "$1" "$2"' \
     "$SELF" "$remote_file_path" "$file" &
   disown

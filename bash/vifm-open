@@ -4,4 +4,4 @@
 path="${1:-$HOME}"
 path="${path#file://}"
 path=$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$path")
-exec foot --app-id=vifm -e vifm "$path"
+exec footclient --app-id=vifm vifm "$path"
