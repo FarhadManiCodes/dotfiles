@@ -23,8 +23,37 @@ sysup() {
 
   echo "==> Claude Code"
   claude update
+  _sysup_prune_claude_versions
 
   echo "==> sysup done"
+}
+
+# Keep only the current Claude version plus the single newest older one. The
+# native installer drops a new ~223 MB binary per update and never prunes the
+# superseded ones, so they pile up in ~/.local/share/claude/versions.
+_sysup_prune_claude_versions() {
+  local dir="$HOME/.local/share/claude/versions"
+  [[ -d "$dir" ]] || return 0
+
+  local current=$(readlink -f "$HOME/.local/bin/claude")
+  current=${current:t}
+
+  # Keep the current version, plus the newest of the rest (one old fallback).
+  local -a versions=("${(@f)$(ls -t "$dir")}") keep=("$current")
+  local v
+  for v in $versions; do
+    [[ "$v" == "$current" ]] && continue
+    keep+=("$v")
+    break
+  done
+
+  local removed=0
+  for v in $versions; do
+    (( ${keep[(Ie)$v]} )) && continue
+    rm -rf "$dir/$v" && (( removed++ ))
+  done
+
+  (( removed )) && echo "   pruned ${removed} old Claude version(s); kept ${(j:, :)keep}"
 }
 
 # Mirror the rebased PKGBUILD from the paru cache clone into the tracked dotfiles
