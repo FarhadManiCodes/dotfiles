@@ -1,4 +1,4 @@
-commit ac39aebb114df59dd457087b0eafbd41b20dc04e
+commit 98789005e0009381478ab5e9db14827e96e0aee7
 Author: Farhad Mani <18470321+FarhadManiCodes@users.noreply.github.com>
 Date:   Thu Jun 11 11:04:34 2026 +0200
 
@@ -11,7 +11,7 @@ Date:   Thu Jun 11 11:04:34 2026 +0200
     and no network access.
 
 diff --git a/PKGBUILD b/PKGBUILD
-index 0cc344c..14a2f8f 100644
+index 09d512a..94bb83b 100644
 --- a/PKGBUILD
 +++ b/PKGBUILD
 @@ -19,8 +19,6 @@ depends=(
@@ -23,7 +23,7 @@ index 0cc344c..14a2f8f 100644
    shaderc
    vulkan-headers
    spirv-headers
-@@ -48,21 +46,13 @@ sha256sums=('4b9d764c1aa5854c7a4233adcb8656ce6b20855b7a42dc2f54e00a90f242f596'
+@@ -48,21 +46,13 @@ sha256sums=('453592c22b1ee1c69c6ee0252c0a2e42e285086cba6c81f7f5b3c9fdd711a722'
  
  prepare() {
    ln -sf "${_pkgname}-${pkgver}" llama.cpp
