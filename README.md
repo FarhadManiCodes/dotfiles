@@ -2,7 +2,7 @@
 
 Personal dotfiles for **Arch Linux + Niri (Wayland)** — data engineering / scientific computing setup.
 
-All configs are symlinked from this repo so changes here immediately take effect.
+All user configs are symlinked from this repo via `install.sh` so changes here immediately take effect. System-level files are installed via `install-root.sh`.
 
 ## Stack
 
@@ -13,21 +13,27 @@ All configs are symlinked from this repo so changes here immediately take effect
 | Terminal | Foot |
 | Compositor | Niri |
 | Multiplexer | Tmux |
+| Browser | Firefox (userChrome) + Tridactyl · vimb |
+| File Manager | vifm (TUI) · pcmanfm-qt (GUI) |
 | Launcher | Fuzzel |
 | Notifications | Mako |
+| Lock screen | Swaylock |
+| Status / OSD | wob |
 | Git TUI | Lazygit |
 | Python REPL | ptpython |
 | Data | DuckDB |
-| Lock screen | Swaylock |
-| PDF | Zathura |
+| PDF / Reading | Zathura · Sioyek · Foliate · Papis |
 | Video | mpv |
+| Music | spotify-player · cmus |
+| AUR Helper | paru |
 
 ## Installation
 
 ```bash
 git clone --recurse-submodules git@github.com:FarhadManiCodes/dotfiles.git ~/dotfiles
 cd ~/dotfiles
-bash install.sh
+bash install.sh           # user-level: symlinks into ~/.config (no sudo)
+sudo bash install-root.sh # system-level: root-owned files under /etc
 ```
 
 > `--recurse-submodules` is required to pull the Neovim config.
@@ -58,13 +64,15 @@ vim +PlugInstall +qall
     email = you@example.com
 ```
 
-## Structure
+## Architecture & Structure
 
 ```
 dotfiles/
-├── install.sh              # Symlinks everything
+├── install.sh              # Symlinks user-level configs (no sudo)
+├── install-root.sh         # Copies system-level configs to /etc
 ├── .gitignore
 ├── .claudeignore
+├── CLAUDE.md               # Claude/agent instructions and repo overview
 │
 ├── nvim/                   # Neovim config (git submodule → FarhadManiCodes/nvim-config)
 ├── vim/                    # Vim config (lightweight editing)
@@ -75,32 +83,47 @@ dotfiles/
 │   ├── .zshrc / .zshenv
 │   ├── aliases
 │   ├── helpers.zsh
-│   ├── functions/          # bat, clipboard, cpp, fzf, git, pdf, search, virtualenv
+│   ├── functions/          # auto-loaded functions (fzf, cpp, pdf, search, etc.)
 │   ├── generate-completions.sh
 │   └── update-plugins.sh
 │
 ├── tmux/
 │   ├── tmux.conf
-│   └── layouts/
-│       ├── cpp_layout.sh
-│       └── archive/        # old layouts kept for reference
+│   └── layouts/            # default and archive layouts
 │
 ├── git/
 │   ├── config              # aliases, delta, diff/merge settings (no user info)
 │   └── ignore              # global gitignore
 │
+├── firefox/                # Firefox userChrome.css
+├── tridactyl/              # Firefox vim bindings config
+├── vimb/                   # vimb browser config
+├── uv/                     # uv configuration
+├── pam/                    # PAM config for Swaylock (root-owned)
+├── system-sleep/           # systemd sleep hooks (root-owned)
+├── systemd/user/           # User systemd services
+│
 ├── niri/config.kdl         # Window manager
 ├── foot/foot.ini
 ├── swaylock/config
 ├── mako/config
+├── wob/wob.ini             # overlay bar (volume/brightness)
 ├── fuzzel/fuzzel.ini
+├── environment.d/          # Wayland environment variables
+├── paru/paru.conf          # AUR helper config
 ├── lazygit/config.yml
 ├── ptpython/config.py
 ├── starship.toml
 ├── bat/config
 ├── btop/btop.conf
 ├── zathura/zathurarc
+├── sioyek/                 # Sioyek PDF reader config
+├── foliate/                # Foliate e-book reader themes & settings
+├── papis/                  # Bibliography manager config
 ├── mpv/mpv.conf
+├── yt-dlp/config
+├── spotify-player/         # CLI Spotify client
+├── cmus/rc                 # CLI music player
 ├── glow/glow.yml
 ├── gh/config.yml           # hosts.yml not tracked — contains auth tokens
 ├── direnv/direnvrc
@@ -108,13 +131,18 @@ dotfiles/
 ├── clangd/config.yaml
 ├── ccache/ccache.conf
 ├── handlr/handlr.toml
+├── latexmk/latexmkrc
+├── vifm/                   # vifm file manager config & colors
 ├── gtk-3.0/settings.ini
 ├── gtk-4.0/settings.ini
-├── pcmanfm-qt/default/settings.conf
-├── pcmanfm-qt/default/bookmarks.xml
+├── pcmanfm-qt/default/     # settings & bookmarks
 ├── mimeapps.list
+├── xdg/user-dirs.dirs
+├── bash/                   # Helper scripts linked to ~/.local/bin/
+├── applications/           # Custom .desktop files linked to ~/.local/share/applications/
 ├── duckdb/.duckdbrc
-└── fonts/
+├── fonts/                  # Custom fonts copied to ~/.local/share/fonts/
+└── aur/                    # Local AUR PKGBUILD overrides (e.g. llama.cpp-vulkan patch)
 ```
 
 ## What is not tracked
@@ -141,5 +169,4 @@ cd ~/dotfiles && git add nvim && git commit -m "chore(nvim): update submodule"
 
 ## TODOs
 
-- [ ] Simplify `zsh/functions/virtualenv.zsh` (currently 680 lines)
 - [ ] Decide on `zsh/archive/productivity/duckdb.sh` — revive or delete

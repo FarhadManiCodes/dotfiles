@@ -65,14 +65,17 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Aliases**: `zsh/aliases`
 - **Helpers**: `zsh/helpers.zsh` — `safe_source` and utility functions
 - **Functions** (`zsh/functions/`):
+  - `audio.zsh` — `playaudio` fzf-driven mpv queue for `~/Audio`
   - `bat.zsh` — theme-aware bat wrapper
   - `clipboard.zsh` — Wayland file copy
   - `cpp.zsh` — C++ build helpers (cmake/ninja/ccache)
   - `fzf.zsh` — FZF config + `fnb` (Jupyter finder) + `fdata` (data file finder)
   - `git-enhancements.zsh` — `gci`, `gst`, `gstds`
   - `last_working_dir.zsh` — restore last directory
+  - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
+  - `sysup.zsh` — full system update (paru → llama.cpp PKGBUILD backup → uv → Claude Code)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (not tracked): fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, forgit
 
