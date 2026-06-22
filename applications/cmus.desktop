@@ -6,4 +6,4 @@ Terminal=false
 Type=Application
 MimeType=audio/aac;audio/flac;audio/mp4;audio/mpeg;audio/ogg;audio/opus;audio/webm;audio/x-flac;audio/x-wav;audio/wav;
 Categories=AudioVideo;Audio;Player;
-Icon=multimedia-player
+Icon=audio-player
