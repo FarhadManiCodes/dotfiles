@@ -109,3 +109,41 @@ fbook() {
       ;;
   esac
 }
+
+# ============================================================================
+# PDF page surgery (qpdf - lossless, preserves links + outline)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# pdfsel - extract pages from a PDF
+# Usage: pdfsel <input.pdf> <pages> [output.pdf]
+#   pages: qpdf ranges - 1-5 | 1,3,5 | 1-5,8,10-12 | r3-r1 (last 3) | z (last)
+#   output defaults to <input>_sel.pdf
+# ----------------------------------------------------------------------------
+pdfsel() {
+  if (( $# < 2 )); then
+    echo "usage: pdfsel <input.pdf> <pages> [output.pdf]" >&2
+    echo "  pages: 1-5 | 1,3,5 | 1-5,8 | r3-r1 (last 3) | z (last)" >&2
+    return 1
+  fi
+  local in="$1" pages="$2" out="${3:-${1:r}_sel.pdf}"
+  [[ -f "$in" ]] || { echo "pdfsel: no such file: $in" >&2; return 1; }
+  qpdf "$in" --pages . "$pages" -- "$out" && echo "→ $out"
+}
+
+# ----------------------------------------------------------------------------
+# pdfmerge - concatenate PDFs (last argument is the output file)
+# Usage: pdfmerge <in1.pdf> <in2.pdf> [in3.pdf ...] <output.pdf>
+# ----------------------------------------------------------------------------
+pdfmerge() {
+  if (( $# < 3 )); then
+    echo "usage: pdfmerge <in1.pdf> <in2.pdf> [...] <output.pdf>" >&2
+    return 1
+  fi
+  local out="${@[-1]}" ins=("${@[1,-2]}") f
+  for f in "$ins[@]"; do
+    [[ -f "$f" ]] || { echo "pdfmerge: no such file: $f" >&2; return 1; }
+    [[ "$f" == "$out" ]] && { echo "pdfmerge: output would overwrite input: $f" >&2; return 1; }
+  done
+  qpdf "$ins[1]" --pages "$ins[@]" -- "$out" && echo "→ $out (${#ins} files)"
+}

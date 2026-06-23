@@ -181,6 +181,17 @@ System-level choices that aren't captured in any config file:
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
   files and are kept on purpose for if Go is picked up later. Not a misconfiguration; leave them.
+- **`qpdf` is a deliberate hand-install, not orphaned**: no config references it, but it's the
+  only tool here that preserves **hyperlinks** through page extraction/merge (verified on a papis
+  paper: 56 links + outline kept; `mutool` keeps bookmarks but drops links; `pdfjam`/`gs`
+  re-process). Backs the `pdfsel`/`pdfmerge` zsh functions (`zsh/functions/pdf.zsh`), which use
+  `qpdf <in> --pages . <range> --` (first file as primary → links **and** outline survive).
+  Don't flag it for removal.
+- **`pdfjam` is free, not a swappable dependency**: it's a script *inside* `texlive-binextra`
+  (kept for LaTeX anyway) that wraps `\includepdf` via `pdflatex` — it does not call qpdf/mutool,
+  and LaTeX does not depend on it. Its only real niche is n-up/booklet imposition, which qpdf and
+  mutool can't do. Use `pdfsel`/`pdfmerge` (qpdf, lossless) for select/merge; reserve pdfjam (or
+  raw `pdfpages`) for imposition.
 
 ## TODOs
 
