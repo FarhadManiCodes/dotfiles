@@ -1,6 +1,5 @@
 # papis-ask: run `papis ask` against a local llama.cpp embedding server.
-# Qwen3-Embedding-4B (Q8) is served over llama-server's OpenAI-compatible API;
-# paper-qa reaches it via LiteLLM's openai/ provider (OPENAI_API_BASE in papis/secrets).
+# Qwen3-Embedding-4B (Q8) is served over llama-server's OpenAI-compatible API.
 
 PAPIS_ASK_EMBED_MODEL="Qwen/Qwen3-Embedding-4B-GGUF:Q8_0"
 PAPIS_ASK_EMBED_PORT=8088
@@ -39,7 +38,7 @@ _papis_ask_ensure_embed() {
 
 # Ensure the embedding server is up, then run papis ask (works for `pask index` too).
 pask() {
-  ( source ~/.config/papis/secrets 2>/dev/null
+  ( source ~/.config/secrets/papis.env 2>/dev/null
     _papis_ask_ensure_embed && papis ask "$@" )
 }
 
