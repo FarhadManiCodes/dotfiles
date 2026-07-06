@@ -13,6 +13,9 @@ __pycache__/
 .venv/
 venv/
 ENV/
+# direnv (virtualenv.zsh) - centralized envs embed an absolute machine path;
+# local envs are a personal tooling choice either way.
+.envrc
 
 # --- IDEs & Editors ---
 .vscode/

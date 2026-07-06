@@ -388,9 +388,16 @@ vp() {
     fi
     return 0
   fi
-  
+
+  # No .envrc yet - an existing local .venv wins over a centralized lookup
+  if [[ -d ".venv" ]]; then
+    echo "🎯 Found local .venv"
+    _create_envrc "local"
+    return 0
+  fi
+
   local project_name=$(basename "$PWD")
-  
+
   if _env_exists "$project_name"; then
     echo "🎯 Found environment: $project_name"
     _create_envrc "$project_name"
