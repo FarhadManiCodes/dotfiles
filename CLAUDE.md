@@ -75,7 +75,7 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
-  - `sysup.zsh` — full system update (paru → llama.cpp PKGBUILD backup → uv → Claude Code)
+  - `sysup.zsh` — full system update (paru → uv → Claude Code)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (not tracked): fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search, forgit
 

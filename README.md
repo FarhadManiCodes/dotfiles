@@ -141,8 +141,7 @@ dotfiles/
 ├── bash/                   # Helper scripts linked to ~/.local/bin/
 ├── applications/           # Custom .desktop files linked to ~/.local/share/applications/
 ├── duckdb/.duckdbrc
-├── fonts/                  # Custom fonts copied to ~/.local/share/fonts/
-└── aur/                    # Local AUR PKGBUILD overrides (e.g. llama.cpp-vulkan patch)
+└── fonts/                  # Custom fonts copied to ~/.local/share/fonts/
 ```
 
 ## What is not tracked
