@@ -69,7 +69,7 @@ editmode = vi
 [ask]
 llm = gemini/gemini-3-flash-preview
 summary-llm = gemini/gemini-2.5-flash-lite
-embedding = openai/Qwen3-Embedding-4B
+embedding = gemini/gemini-embedding-2
 max-sources = 8
 answer-length = about 500 words, but can be longer
 # multimodal enrichment of figures/equations/tables (vision model).

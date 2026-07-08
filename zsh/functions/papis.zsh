@@ -36,10 +36,14 @@ _papis_ask_ensure_embed() {
   return 1
 }
 
-# Ensure the embedding server is up, then run papis ask (works for `pask index` too).
+# Ensure the embedding server is up (only if the local embedding model is
+# configured), then run papis ask (works for `pask index` too).
 pask() {
   ( source ~/.config/secrets/papis.env 2>/dev/null
-    _papis_ask_ensure_embed && papis ask "$@" )
+    if [[ "$(papis config ask.embedding 2>/dev/null)" == openai/* ]]; then
+      _papis_ask_ensure_embed || exit 1
+    fi
+    papis ask "$@" )
 }
 
 # Stop the warm embedding server when you're done (frees ~4 GB).
