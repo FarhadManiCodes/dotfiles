@@ -111,6 +111,7 @@ alias vi="vim"
 alias plc='fc -ln -1'                           # Print Last Command
 alias zsh-update='~/.config/zsh/update-plugins.sh'
 # sysup is a function (zsh/functions/sysup.zsh) — full system + tooling update
+# sysclean is a function (zsh/functions/sysclean.zsh) — smart system & cache cleanup
 
 # ============================================================================
 # BTOP
