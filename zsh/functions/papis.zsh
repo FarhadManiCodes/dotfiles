@@ -92,10 +92,14 @@ _papis_ask_refine_pending() {
 
 # Ensure the embedding server is up (only if the local embedding model is
 # configured), auto-refine pending PDFs matching any given queries, then run
-# a single unscoped `papis ask index`. The index itself is always unscoped
-# because papis_ask's own incremental check makes that a cheap no-op for
-# every paper the query didn't touch -- so query args here only decide what
-# gets refined (where OR-via-union applies), never what gets indexed.
+# papis ask index. Without --force the index call is always unscoped, since
+# papis_ask's own incremental check makes that a cheap no-op for every paper
+# the query didn't touch. --force is different: it bypasses that check, so
+# dropping the query there would silently force-reindex the *entire*
+# library instead of just what matched -- so --force keeps the query,
+# looping per query when there's more than one (each pass only touches its
+# own match; papis_ask's deletion check is whole-library-aware so this can't
+# delete anything out of scope, see the papis-ask deletion-scope fix).
 pask() {
   ( source ~/.config/secrets/papis.env 2>/dev/null
     if [[ "$(papis config ask.embedding 2>/dev/null)" == openai/* ]]; then
@@ -104,10 +108,11 @@ pask() {
 
     if [[ "$1" == "index" ]]; then
       local -a rest=("${@:2}") flags=() queries=()
-      local a
+      local a is_force=0
       for a in "${rest[@]}"; do
         if [[ "$a" == -* ]]; then
           flags+=("$a")
+          [[ "$a" == "-f" || "$a" == "--force" ]] && is_force=1
         else
           queries+=("$a")
         fi
@@ -117,7 +122,14 @@ pask() {
         _papis_ask_refine_pending "${queries[@]}"
       fi
 
-      papis ask index "${flags[@]}"
+      if (( is_force )) && (( ${#queries} )); then
+        local q
+        for q in "${queries[@]}"; do
+          papis ask index "${flags[@]}" "$q"
+        done
+      else
+        papis ask index "${flags[@]}"
+      fi
     else
       papis ask "$@"
     fi
