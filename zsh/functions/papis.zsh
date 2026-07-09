@@ -51,7 +51,13 @@ _papis_ask_needs_refine() {
 _papis_ask_refine_pending() {
   local query="$1"
   local -a pdfs pending
-  pdfs=("${(@f)$(papis list --all -f "$query" 2>/dev/null | grep -i '\.pdf$')}")
+  # papis list --all -f "" matches zero documents (unlike omitting the query
+  # entirely, which matches all) -- so the arg must be dropped, not empty.
+  if [[ -n "$query" ]]; then
+    pdfs=("${(@f)$(papis list --all -f "$query" 2>/dev/null | grep -i '\.pdf$')}")
+  else
+    pdfs=("${(@f)$(papis list --all -f 2>/dev/null | grep -i '\.pdf$')}")
+  fi
   (( ${#pdfs} )) || return 0
   local p
   for p in "${pdfs[@]}"; do
