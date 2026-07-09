@@ -36,12 +36,47 @@ _papis_ask_ensure_embed() {
   return 1
 }
 
+# paper-refinery: pre-chunk PDFs with `refinery`/`refinery-batch` so `papis ask
+# index` has <pdf>.chunks.json to read. papis-ask itself never calls refinery
+# (it's a pure file consumer, per docs/paper-refinery-integration.md) -- this is
+# the "run refinery first" step, kept here so `pask index` stays one command.
+
+_papis_ask_needs_refine() {
+  local pdf="$1" chunks="${1%.pdf}.chunks.json"
+  [[ ! -f "$chunks" || "$pdf" -nt "$chunks" ]]
+}
+
+# Refine (single `refinery` or, for more than one PDF, `refinery-batch`)
+# whichever PDFs matching $query lack fresh chunks.json. No-op if all current.
+_papis_ask_refine_pending() {
+  local query="$1"
+  local -a pdfs pending
+  pdfs=("${(@f)$(papis list --all -f "$query" 2>/dev/null | grep -i '\.pdf$')}")
+  (( ${#pdfs} )) || return 0
+  local p
+  for p in "${pdfs[@]}"; do
+    _papis_ask_needs_refine "$p" && pending+=("$p")
+  done
+  (( ${#pending} )) || return 0
+  echo "papis-ask: refining ${#pending} PDF(s) before indexing…" >&2
+  if (( ${#pending} == 1 )); then
+    refinery "${pending[1]}"
+  else
+    refinery-batch "${pending[@]}"
+  fi
+}
+
 # Ensure the embedding server is up (only if the local embedding model is
-# configured), then run papis ask (works for `pask index` too).
+# configured), auto-refine pending PDFs before an `index`, then run papis ask.
 pask() {
   ( source ~/.config/secrets/papis.env 2>/dev/null
     if [[ "$(papis config ask.embedding 2>/dev/null)" == openai/* ]]; then
       _papis_ask_ensure_embed || exit 1
+    fi
+    if [[ "$1" == "index" && "$*" != *--no-refine* && "$*" != *--raw* ]]; then
+      local query=""
+      [[ "$2" != -* && -n "$2" ]] && query="$2"
+      _papis_ask_refine_pending "$query"
     fi
     papis ask "$@" )
 }

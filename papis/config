@@ -72,7 +72,3 @@ summary-llm = gemini/gemini-2.5-flash-lite
 embedding = gemini/gemini-embedding-2
 max-sources = 8
 answer-length = about 500 words, but can be longer
-# multimodal enrichment of figures/equations/tables (vision model).
-# gemini-2.5-flash: strong scientific doc/figure parsing on existing Gemini infra.
-# thinking left at default; cap to low/disable only if indexing thousands of figures.
-enrichment-llm = gemini/gemini-2.5-flash
