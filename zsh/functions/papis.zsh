@@ -46,20 +46,38 @@ _papis_ask_needs_refine() {
   [[ ! -f "$chunks" || "$pdf" -nt "$chunks" ]]
 }
 
-# Refine (single `refinery` or, for more than one PDF, `refinery-batch`)
-# whichever PDFs matching $query lack fresh chunks.json. No-op if all current.
-_papis_ask_refine_pending() {
+# papis' own query language has no OR (docmatcher.py ANDs every space-separated
+# term/key:value pair together) and `papis ask index` takes exactly one query
+# argument -- so "match paper A OR paper B" can't be expressed in one papis
+# call at all. _papis_ask_refine_pending and pask's index branch both accept
+# multiple query strings and union/loop across them instead.
+
+_papis_ask_matching_pdfs() {
   local query="$1"
-  local -a pdfs pending
   # papis list --all -f "" matches zero documents (unlike omitting the query
   # entirely, which matches all) -- so the arg must be dropped, not empty.
   if [[ -n "$query" ]]; then
-    pdfs=("${(@f)$(papis list --all -f "$query" 2>/dev/null | grep -i '\.pdf$')}")
+    papis list --all -f "$query" 2>/dev/null | grep -i '\.pdf$'
   else
-    pdfs=("${(@f)$(papis list --all -f 2>/dev/null | grep -i '\.pdf$')}")
+    papis list --all -f 2>/dev/null | grep -i '\.pdf$'
   fi
+}
+
+# Refine (single `refinery` or, for more than one PDF, `refinery-batch`)
+# whichever PDFs matching any of $queries lack fresh chunks.json (deduped
+# union across queries). No-op if all current.
+_papis_ask_refine_pending() {
+  local -a queries=("$@")
+  (( ${#queries} )) || queries=("")
+  local -A seen
+  local -a pdfs pending
+  local q p
+  for q in "${queries[@]}"; do
+    for p in "${(@f)$(_papis_ask_matching_pdfs "$q")}"; do
+      [[ -n "$p" && -z "${seen[$p]}" ]] && { seen[$p]=1; pdfs+=("$p") }
+    done
+  done
   (( ${#pdfs} )) || return 0
-  local p
   for p in "${pdfs[@]}"; do
     _papis_ask_needs_refine "$p" && pending+=("$p")
   done
@@ -73,18 +91,37 @@ _papis_ask_refine_pending() {
 }
 
 # Ensure the embedding server is up (only if the local embedding model is
-# configured), auto-refine pending PDFs before an `index`, then run papis ask.
+# configured), auto-refine pending PDFs matching any given queries, then run
+# a single unscoped `papis ask index`. The index itself is always unscoped
+# because papis_ask's own incremental check makes that a cheap no-op for
+# every paper the query didn't touch -- so query args here only decide what
+# gets refined (where OR-via-union applies), never what gets indexed.
 pask() {
   ( source ~/.config/secrets/papis.env 2>/dev/null
     if [[ "$(papis config ask.embedding 2>/dev/null)" == openai/* ]]; then
       _papis_ask_ensure_embed || exit 1
     fi
-    if [[ "$1" == "index" && "$*" != *--no-refine* && "$*" != *--raw* ]]; then
-      local query=""
-      [[ "$2" != -* && -n "$2" ]] && query="$2"
-      _papis_ask_refine_pending "$query"
+
+    if [[ "$1" == "index" ]]; then
+      local -a rest=("${@:2}") flags=() queries=()
+      local a
+      for a in "${rest[@]}"; do
+        if [[ "$a" == -* ]]; then
+          flags+=("$a")
+        else
+          queries+=("$a")
+        fi
+      done
+
+      if [[ "${flags[*]}" != *--no-refine* && "${flags[*]}" != *--raw* ]]; then
+        _papis_ask_refine_pending "${queries[@]}"
+      fi
+
+      papis ask index "${flags[@]}"
+    else
+      papis ask "$@"
     fi
-    papis ask "$@" )
+  )
 }
 
 # Stop the warm embedding server when you're done (frees ~4 GB).
