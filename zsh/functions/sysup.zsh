@@ -34,7 +34,7 @@ _sysup_prune_claude_versions() {
   # Only completed release binaries (e.g. 2.1.185), newest first. Skip the
   # native updater's *.tmp.* partials — counting those made every run report a
   # prune even when nothing changed, and they clean themselves up.
-  local -a versions=("${(@M)${(@f)$(ls -t "$dir")}:#<->.<->.<->}")
+  local -a versions=("${(@M)${(@f)$(command ls -t "$dir")}:#<->.<->.<->}")
 
   # Keep the current version, plus the newest of the rest (one old fallback).
   local -a keep=("$current")
