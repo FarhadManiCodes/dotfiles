@@ -72,3 +72,5 @@ summary-llm = gemini/gemini-2.5-flash-lite
 embedding = gemini/gemini-embedding-2
 max-sources = 8
 answer-length = about 500 words, but can be longer
+# terminal-only LaTeX -> Unicode rendering (mathunicode); --no-math for raw LaTeX
+render-math = True
