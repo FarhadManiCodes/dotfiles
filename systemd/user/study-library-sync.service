@@ -4,6 +4,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+IOSchedulingClass=idle
+CPUWeight=10
 ExecStart=/usr/bin/rclone sync gdrive:FAU/Library %h/.local/share/study-library --progress
 
 [Install]
