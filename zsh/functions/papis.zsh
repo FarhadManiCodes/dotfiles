@@ -1,5 +1,7 @@
-# papis-ask: run `papis ask` against a local llama.cpp embedding server.
-# Qwen3-Embedding-4B (Q8) is served over llama-server's OpenAI-compatible API.
+# papis-ask: run `papis ask` against papis' configured embedding backend
+# (`ask.embedding` in papis/config; currently gemini/gemini-embedding-2).
+# When `ask.embedding` is set to an openai/* model instead, this also manages
+# a local llama.cpp embedding server (llama-server, OpenAI-compatible API).
 
 PAPIS_ASK_EMBED_MODEL="Qwen/Qwen3-Embedding-4B-GGUF:Q8_0"
 PAPIS_ASK_EMBED_PORT=8088
