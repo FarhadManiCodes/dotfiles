@@ -81,6 +81,10 @@ spawn-at-startup "wlsunset" "-l" "49.9" "-L" "11.6" "-t" "4200" "-T" "6500"
 // Warm up study caches at startup (runs in background after 5s delay)
 spawn-at-startup "sh" "-c" "sleep 5 && find $HOME/Cloud/gdrive/FAU/Library -mindepth 2 -type f \\( -iname '*.pdf' -o -iname '*.djvu' -o -iname '*.epub' \\) -printf '%P\\n' > $HOME/.cache/book-resources.txt 2>/dev/null"
 
+// Pre-warm git for the last working dir (fsmonitor daemon spawn + page cache) so
+// starship's first git call doesn't race the boot storm (rclone mounts, wireplumber).
+spawn-at-startup "sh" "-c" "d=$(cat $HOME/.cache/zsh/lwd 2>/dev/null); [ -d \"$d\" ] || d=$HOME; git -C \"$d\" rev-parse --is-inside-work-tree >/dev/null 2>&1; git -C \"$d\" remote get-url origin >/dev/null 2>&1; git -C \"$d\" status --porcelain >/dev/null 2>&1"
+
 // Idle management (dim / lock / suspend) now runs as a systemd USER service:
 //   dotfiles/systemd/user/swayidle.service   (was: spawn-at-startup "swayidle" ...)
 // Moved out of niri so it restarts cleanly. Across s2idle suspend/resume on the
