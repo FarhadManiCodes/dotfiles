@@ -7,9 +7,20 @@
 # grepping .tex/.bib content. Writes only when the result actually changed, so it
 # never retriggers latexmk -pvc. Meant for the vimtex compile hook; safe by hand.
 #
-# Usage: papis-bib [<texfile>|<dir>] [<bibfile>]
+# Safety net: `filter-cited` matches citation keys via a plain regex search of
+# the .tex text, so it has no idea what \nocite{*} means and drops any entry
+# whose key isn't literally spelled out somewhere in the source (as happened to
+# a CV that used \nocite{*} + \printbibliography instead of \cite{key} -- it
+# got reduced from 22 entries down to 1). Rather than trying to special-case
+# every citation style, we just refuse to write a result with fewer entries
+# than the file already has. Pass --force to bypass.
+#
+# Usage: papis-bib [--force] [<texfile>|<dir>] [<bibfile>]
 
 set -uo pipefail
+
+force=0
+if [[ "${1:-}" == "--force" ]]; then force=1; shift; fi
 
 arg="${1:-.}"
 if [[ -f "$arg" ]]; then dir=$(cd "$(dirname "$arg")" && pwd); else dir=$(cd "$arg" 2>/dev/null && pwd) || exit 0; fi
@@ -19,6 +30,15 @@ if [[ -f "$arg" ]]; then dir=$(cd "$(dirname "$arg")" && pwd); else dir=$(cd "$a
 bibname=$(grep -rhoP '\\(addbibresource|bibliography)\{\K[^}]+' "$dir"/*.tex 2>/dev/null | head -1)
 [[ -n "$bibname" && "$bibname" != *.bib ]] && bibname="${bibname}.bib"
 bib="${2:-$dir/${bibname:-refs.bib}}"
+
+# Per-project opt-out: a LaTeX comment "% papis-bib: ignore" (any case,
+# anywhere) in any project .tex file means this bib isn't managed by papis at
+# all (e.g. someone else's exported publication list) -- skip entirely rather
+# than touching it.
+if grep -qiE '^\s*%+\s*papis-bib:\s*ignore\b' "$dir"/*.tex 2>/dev/null; then
+    echo "papis-bib: ignore flag found, skipping $dir"
+    exit 0
+fi
 
 # Every .tex in the project (so multi-file \input projects are covered).
 tex_args=()
@@ -36,9 +56,19 @@ if papis bibtex "${read_args[@]}" add --all filter-cited "${tex_args[@]}" unique
     if cmp -s "$tmp" "$bib"; then
         rm -f "$tmp"; echo "papis-bib: $(basename "$bib") already up to date"
     else
-        mv "$tmp" "$bib"
-        command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") from papis"
-        echo "papis-bib: updated $bib"
+        old_count=0
+        [[ -f "$bib" ]] && old_count=$(grep -c '^@' "$bib")
+        new_count=$(grep -c '^@' "$tmp")
+        if (( force == 0 && new_count < old_count )); then
+            rm -f "$tmp"
+            msg="papis-bib: REFUSING to overwrite $(basename "$bib") -- would shrink $old_count -> $new_count entries. Run 'papis-bib --force' if this is really intended."
+            echo "$msg"
+            command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused to overwrite" "$(basename "$bib"): $old_count -> $new_count entries"
+        else
+            mv "$tmp" "$bib"
+            command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") from papis ($old_count -> $new_count entries)"
+            echo "papis-bib: updated $bib ($old_count -> $new_count entries)"
+        fi
     fi
 else
     rm -f "$tmp"; echo "papis-bib: nothing cited / nothing to do"
