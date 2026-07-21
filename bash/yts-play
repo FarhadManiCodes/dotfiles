@@ -1,0 +1,14 @@
+#!/bin/bash
+# Play a URL in the persistent yts mpv (spawns it if not already running).
+#   -a, --audio   audio-only (yt-dlp fetches bestaudio, no wasted video bytes)
+# Reuses yts's own play path (ensure_mpv + loadfile over the IPC socket), so
+# behaviour matches the GUI. Bound to ,y / ,Y / ;y / ;Y in tridactylrc.
+AUDIO=False
+case "$1" in
+  -a|--audio) AUDIO=True; shift ;;
+esac
+URL="$1"
+[ -n "$URL" ] || { echo "usage: yts-play [-a] <url>" >&2; exit 2; }
+exec /home/farhad/.local/share/yts-gui/venv/bin/python -c \
+  'import sys; from yts.actions import play; sys.exit(0 if play(sys.argv[1], audio=sys.argv[2]=="True") else 1)' \
+  "$URL" "$AUDIO"
