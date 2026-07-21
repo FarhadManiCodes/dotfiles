@@ -7,6 +7,14 @@ Wants=network-online.target
 Type=notify
 Environment=RCLONE_CONFIG=%h/.config/rclone/rclone.conf
 
+# Yield CPU to interactive work during the post-login mount/cache-warm burst.
+# With --vfs-cache-mode full each mount pins a core for ~10-15s reconciling its
+# cache, starving starship's git call so it blows command_timeout (2000ms). At
+# CPUWeight=25 the foreground shell (weight 100) wins ~4:1 when contended. IO is
+# left at the normal class so opening cloud files stays responsive.
+Nice=15
+CPUWeight=25
+
 # Auto-create the specific mount folder
 ExecStartPre=/usr/bin/mkdir -p %h/Cloud/%i
 
