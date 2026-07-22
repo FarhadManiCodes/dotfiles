@@ -97,9 +97,28 @@ sysclean() {
     echo "   Systemd journal logs older than 2 weeks cleaned."
   fi
 
-  # 8. Browser web caches (only on --all)
+  # 8. Claude Code orphaned file-history (undo snapshots for deleted sessions)
+  echo "==> 8. Claude Code orphaned file-history"
+  local claude_hist="$HOME/.claude/file-history"
+  local claude_proj="$HOME/.claude/projects"
+  if [[ -d "$claude_hist" && -d "$claude_proj" ]]; then
+    local -A _live
+    local f
+    for f in "$claude_proj"/**/*.jsonl(N); do
+      _live[${f:t:r}]=1
+    done
+    local d removed=0
+    for d in "$claude_hist"/*(N/); do
+      [[ -z ${_live[${d:t}]} ]] && rm -rf -- "$d" && (( removed++ ))
+    done
+    echo "   Removed $removed orphaned file-history dir(s)."
+  else
+    echo "   No Claude file-history to check."
+  fi
+
+  # 9. Browser web caches (only on --all)
   if [[ "$all" == true ]]; then
-    echo "==> 8. Browser web content cache"
+    echo "==> 9. Browser web content cache"
     if [[ -d ~/.cache/mozilla/firefox ]]; then
       rm -rf ~/.cache/mozilla/firefox/*/cache2/* 2>/dev/null
       echo "   Firefox web asset cache cleared."
