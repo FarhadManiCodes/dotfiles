@@ -25,24 +25,30 @@ if [[ "${1:-}" == "--force" ]]; then force=1; shift; fi
 arg="${1:-.}"
 if [[ -f "$arg" ]]; then dir=$(cd "$(dirname "$arg")" && pwd); else dir=$(cd "$arg" 2>/dev/null && pwd) || exit 0; fi
 
-# .bib path: read the resource NAME from \addbibresource/\bibliography (just a
-# filename, not bib content), default refs.bib.
+# .bib path: read the resource NAME (just a filename, not bib content).
+#   LaTeX: \addbibresource{refs.bib} / \bibliography{refs}
+#   Typst: #bibliography("refs.bib")  (path is the first string arg)
+# default refs.bib.
 bibname=$(grep -rhoP '\\(addbibresource|bibliography)\{\K[^}]+' "$dir"/*.tex 2>/dev/null | head -1)
+[[ -z "$bibname" ]] && bibname=$(grep -rhoP '#bibliography\(\s*"\K[^"]+' "$dir"/*.typ 2>/dev/null | head -1)
 [[ -n "$bibname" && "$bibname" != *.bib ]] && bibname="${bibname}.bib"
 bib="${2:-$dir/${bibname:-refs.bib}}"
 
-# Per-project opt-out: a LaTeX comment "% papis-bib: ignore" (any case,
-# anywhere) in any project .tex file means this bib isn't managed by papis at
-# all (e.g. someone else's exported publication list) -- skip entirely rather
-# than touching it.
-if grep -qiE '^\s*%+\s*papis-bib:\s*ignore\b' "$dir"/*.tex 2>/dev/null; then
+# Per-project opt-out: a comment "papis-bib: ignore" (any case, anywhere) in any
+# project source file means this bib isn't managed by papis at all (e.g. someone
+# else's exported publication list) -- skip entirely rather than touching it.
+#   LaTeX comment: % papis-bib: ignore
+#   Typst comment: // papis-bib: ignore
+if grep -qiE '^\s*(%+|//)\s*papis-bib:\s*ignore\b' "$dir"/*.tex "$dir"/*.typ 2>/dev/null; then
     echo "papis-bib: ignore flag found, skipping $dir"
     exit 0
 fi
 
-# Every .tex in the project (so multi-file \input projects are covered).
+# Every source file in the project (so multi-file \input / #include projects are
+# covered). filter-cited greps the text for citation keys, so Typst's @key and
+# #cite(<key>) are matched the same way as LaTeX \cite{key}.
 tex_args=()
-for f in "$dir"/*.tex; do [[ -e "$f" ]] && tex_args+=(-f "$f"); done
+for f in "$dir"/*.tex "$dir"/*.typ; do [[ -e "$f" ]] && tex_args+=(-f "$f"); done
 [[ ${#tex_args[@]} -eq 0 ]] && exit 0
 
 # read existing (keep hand-written entries) -> add the whole library -> keep only
