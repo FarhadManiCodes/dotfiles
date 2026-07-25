@@ -59,6 +59,12 @@ keys_of() { grep -oP '^@\w+\{\s*\K[^,]+' "$1" 2>/dev/null | sort -u; }
 # indent a newline-separated list as "  - item" bullets.
 bullets() { while IFS= read -r l; do [[ -n "$l" ]] && printf '  - %s\n' "$l"; done; }
 
+# "N entry" / "N entries" — count-aware noun (count is the number of lines in $1).
+n_entries() {
+    local n; n=$(grep -c . <<<"$1")
+    (( n == 1 )) && printf '%s entry' "$n" || printf '%s entries' "$n"
+}
+
 # print the entry block for one key (papis puts the closing brace on its own line).
 entry_block() {
     awk -v k="$2" '
@@ -134,7 +140,7 @@ prune_mode() {
     if [[ -n "$removed" ]]; then
         echo "Uncited entries in $(basename "$bib") (no source cites them):"
         bullets <<<"$removed"
-        read -rp "Remove these $(grep -c . <<<"$removed") uncited entries? [y/N] " ans
+        read -rp "Remove $(n_entries "$removed") (uncited)? [y/N] " ans
         if [[ "$ans" == [yY] ]]; then
             mv "$pruned" "$work"; changed=1; echo "  removed."
         else
@@ -160,7 +166,7 @@ prune_mode() {
         if [[ -n "$diffkeys" ]]; then
             echo "Cited entries whose $(basename "$bib") version differs from papis:"
             bullets <<<"$diffkeys"
-            read -rp "Update these $(grep -c . <<<"$diffkeys") entries from the library? [y/N] " ans
+            read -rp "Update $(n_entries "$diffkeys") from the library? [y/N] " ans
             if [[ "$ans" == [yY] ]]; then
                 mv "$updated" "$work"; changed=1; echo "  updated."
             else
