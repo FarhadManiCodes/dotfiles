@@ -1,81 +1,185 @@
 #!/usr/bin/env bash
-# papis-bib: sync a LaTeX project's .bib with papis at compile time.
+# papis-bib: keep a LaTeX/Typst project's .bib in sync with papis.
 #
-# Regenerates the .bib so it contains exactly the entries cited in the project's
-# .tex files, sourced from the papis library (and any hand-written entries
-# already present). Uses papis' own BibTeX parser (`papis bibtex`) rather than
-# grepping .tex/.bib content. Writes only when the result actually changed, so it
-# never retriggers latexmk -pvc. Meant for the vimtex compile hook; safe by hand.
+#   papis-bib [<src>|<dir>] [<bib>]           auto-sync   (additive, default)
+#   papis-bib --prune [<src>|<dir>] [<bib>]   cleanup     (interactive)
 #
-# Safety net: `filter-cited` matches citation keys via a plain regex search of
-# the .tex text, so it has no idea what \nocite{*} means and drops any entry
-# whose key isn't literally spelled out somewhere in the source (as happened to
-# a CV that used \nocite{*} + \printbibliography instead of \cite{key} -- it
-# got reduced from 22 entries down to 1). Rather than trying to special-case
-# every citation style, we just refuse to write a result with fewer entries
-# than the file already has. Pass --force to bypass.
+# AUTO-SYNC -- safe for the compile hook: non-interactive and NEVER destructive.
+#   Adds entries newly cited in the sources (resolved from the papis library)
+#   that are missing from the .bib, and keeps every existing entry exactly as
+#   it is. Hand edits and no-longer-cited entries both survive; the .bib only
+#   ever grows. Uncited entries don't render in a normal bibliography, so
+#   keeping them is harmless -- removing them is the job of --prune. On a key
+#   clash the entry already in the .bib WINS (your version is never clobbered).
 #
-# Usage: papis-bib [--force] [<texfile>|<dir>] [<bibfile>]
+# PRUNE -- manual only, interactive (needs a TTY). Two batch-confirmed phases:
+#   1. Remove uncited : lists entries no source cites, asks once, removes them.
+#   2. Update differing: lists cited entries whose .bib version differs from the
+#      papis library, asks once, refreshes them from the library.
+#   This is the ONLY path that deletes or overwrites existing entries.
+#
+# Bib filename: \addbibresource/\bibliography{} (.tex), or the first quoted
+# *.bib string (.typ -- covers #bibliography(), #load-bibliography(), arrays).
+# Per-project opt-out: a "papis-bib: ignore" comment (% for .tex, // for .typ)
+# anywhere in a source file skips the project entirely.
+#
+# The papis library is never modified: only `update --from` is used (library as
+# source). `update --to` (which would write to the library) is never called.
 
 set -uo pipefail
 
-force=0
-if [[ "${1:-}" == "--force" ]]; then force=1; shift; fi
+prune=0
+if [[ "${1:-}" == "--prune" ]]; then prune=1; shift; fi
 
 arg="${1:-.}"
 if [[ -f "$arg" ]]; then dir=$(cd "$(dirname "$arg")" && pwd); else dir=$(cd "$arg" 2>/dev/null && pwd) || exit 0; fi
 
-# .bib path: read the resource NAME (just a filename, not bib content).
-#   LaTeX: \addbibresource{refs.bib} / \bibliography{refs}
-#   Typst: #bibliography("refs.bib")  (path is the first string arg)
-# default refs.bib.
+# --- .bib filename (a name, not bib content) --------------------------------
 bibname=$(grep -rhoP '\\(addbibresource|bibliography)\{\K[^}]+' "$dir"/*.tex 2>/dev/null | head -1)
-[[ -z "$bibname" ]] && bibname=$(grep -rhoP '#bibliography\(\s*"\K[^"]+' "$dir"/*.typ 2>/dev/null | head -1)
+# Typst: match any quoted "*.bib" -- keys off the extension, so it works
+# regardless of the call (#bibliography, alexandria's #load-bibliography, ...).
+[[ -z "$bibname" ]] && bibname=$(grep -rhoP '"\K[^"]+\.bib(?=")' "$dir"/*.typ 2>/dev/null | head -1)
 [[ -n "$bibname" && "$bibname" != *.bib ]] && bibname="${bibname}.bib"
 bib="${2:-$dir/${bibname:-refs.bib}}"
 
-# Per-project opt-out: a comment "papis-bib: ignore" (any case, anywhere) in any
-# project source file means this bib isn't managed by papis at all (e.g. someone
-# else's exported publication list) -- skip entirely rather than touching it.
-#   LaTeX comment: % papis-bib: ignore
-#   Typst comment: // papis-bib: ignore
+# --- per-project opt-out ----------------------------------------------------
 if grep -qiE '^\s*(%+|//)\s*papis-bib:\s*ignore\b' "$dir"/*.tex "$dir"/*.typ 2>/dev/null; then
     echo "papis-bib: ignore flag found, skipping $dir"
     exit 0
 fi
 
-# Every source file in the project (so multi-file \input / #include projects are
-# covered). filter-cited greps the text for citation keys, so Typst's @key and
-# #cite(<key>) are matched the same way as LaTeX \cite{key}.
-tex_args=()
-for f in "$dir"/*.tex "$dir"/*.typ; do [[ -e "$f" ]] && tex_args+=(-f "$f"); done
-[[ ${#tex_args[@]} -eq 0 ]] && exit 0
+# --- source files (multi-file \input / #include projects) -------------------
+src_args=()
+for f in "$dir"/*.tex "$dir"/*.typ; do [[ -e "$f" ]] && src_args+=(-f "$f"); done
+[[ ${#src_args[@]} -eq 0 ]] && exit 0
 
-# read existing (keep hand-written entries) -> add the whole library -> keep only
-# cited -> dedup -> save. papis parses and serialises the BibTeX itself.
-read_args=()
-[[ -f "$bib" ]] && read_args=(read "$bib")
+# citation keys of a papis-serialised .bib, one per line, sorted+unique.
+keys_of() { grep -oP '^@\w+\{\s*\K[^,]+' "$1" 2>/dev/null | sort -u; }
 
-tmp=$(mktemp)
-if papis bibtex "${read_args[@]}" add --all filter-cited "${tex_args[@]}" unique save -f "$tmp" >/dev/null 2>&1 \
-   && [[ -s "$tmp" ]]; then
-    if cmp -s "$tmp" "$bib"; then
-        rm -f "$tmp"; echo "papis-bib: $(basename "$bib") already up to date"
-    else
-        old_count=0
-        [[ -f "$bib" ]] && old_count=$(grep -c '^@' "$bib")
-        new_count=$(grep -c '^@' "$tmp")
-        if (( force == 0 && new_count < old_count )); then
-            rm -f "$tmp"
-            msg="papis-bib: REFUSING to overwrite $(basename "$bib") -- would shrink $old_count -> $new_count entries. Run 'papis-bib --force' if this is really intended."
-            echo "$msg"
-            command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused to overwrite" "$(basename "$bib"): $old_count -> $new_count entries"
-        else
-            mv "$tmp" "$bib"
-            command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") from papis ($old_count -> $new_count entries)"
-            echo "papis-bib: updated $bib ($old_count -> $new_count entries)"
-        fi
+# indent a newline-separated list as "  - item" bullets.
+bullets() { while IFS= read -r l; do [[ -n "$l" ]] && printf '  - %s\n' "$l"; done; }
+
+# print the entry block for one key (papis puts the closing brace on its own line).
+entry_block() {
+    awk -v k="$2" '
+        $0 ~ "^@[a-zA-Z]+\\{[[:space:]]*" k "," { p = 1 }
+        p { print }
+        p && /^\}/ { p = 0 }
+    ' "$1"
+}
+
+# =============================================================================
+# AUTO-SYNC (default)
+# =============================================================================
+auto_sync() {
+    local cited out
+    cited=$(mktemp); out=$(mktemp)
+
+    # 1. library entries whose key is cited somewhere in the sources.
+    if ! papis bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited" >/dev/null 2>&1; then
+        rm -f "$cited" "$out"; echo "papis-bib: papis error, nothing changed"; return 0
     fi
-else
-    rm -f "$tmp"; echo "papis-bib: nothing cited / nothing to do"
-fi
+
+    # 2. union = existing (read first, so it WINS on a key clash) + cited-from-library.
+    local read_existing=()
+    [[ -f "$bib" ]] && read_existing=(read "$bib")
+    if ! papis bibtex "${read_existing[@]}" read "$cited" unique save -f "$out" >/dev/null 2>&1 || [[ ! -s "$out" ]]; then
+        rm -f "$cited" "$out"; echo "papis-bib: nothing to sync"; return 0
+    fi
+    rm -f "$cited"
+
+    if [[ -f "$bib" ]] && cmp -s "$out" "$bib"; then
+        rm -f "$out"; echo "papis-bib: $(basename "$bib") already up to date"; return 0
+    fi
+
+    # Backstop: an additive union can never legitimately shrink. Fewer entries
+    # than before means papis choked -- refuse rather than write a truncated .bib.
+    local old=0 new
+    [[ -f "$bib" ]] && old=$(grep -c '^@' "$bib")
+    new=$(grep -c '^@' "$out")
+    if (( new < old )); then
+        rm -f "$out"
+        echo "papis-bib: REFUSING -- additive sync produced fewer entries ($old -> $new); papis likely errored."
+        command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused" "$(basename "$bib"): $old -> $new entries"
+        return 1
+    fi
+
+    mv "$out" "$bib"
+    echo "papis-bib: synced $(basename "$bib") ($old -> $new entries)"
+    command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") ($old -> $new entries)"
+}
+
+# =============================================================================
+# PRUNE (interactive)
+# =============================================================================
+prune_mode() {
+    if [[ ! -t 0 ]]; then
+        echo "papis-bib --prune: needs an interactive terminal; aborting."; return 1
+    fi
+    if [[ ! -f "$bib" ]]; then
+        echo "papis-bib --prune: $bib does not exist, nothing to prune."; return 0
+    fi
+
+    # Normalise through papis up front so later diffs reflect content, not the
+    # difference between hand formatting and papis' serialisation.
+    local work; work=$(mktemp)
+    papis bibtex read "$bib" save -f "$work" >/dev/null 2>&1
+    local changed=0
+
+    # ---- Phase 1: remove uncited -------------------------------------------
+    local pruned removed
+    pruned=$(mktemp)
+    papis bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned" >/dev/null 2>&1
+    removed=$(comm -23 <(keys_of "$work") <(keys_of "$pruned"))
+    if [[ -n "$removed" ]]; then
+        echo "Uncited entries in $(basename "$bib") (no source cites them):"
+        bullets <<<"$removed"
+        read -rp "Remove these $(grep -c . <<<"$removed") uncited entries? [y/N] " ans
+        if [[ "$ans" == [yY] ]]; then
+            mv "$pruned" "$work"; changed=1; echo "  removed."
+        else
+            rm -f "$pruned"; echo "  kept."
+        fi
+    else
+        rm -f "$pruned"; echo "papis-bib --prune: no uncited entries."
+    fi
+
+    # ---- Phase 2: update entries that differ from the library --------------
+    local updated; updated=$(mktemp)
+    papis bibtex read "$work" update --from --all save -f "$updated" >/dev/null 2>&1
+    if ! cmp -s "$work" "$updated"; then
+        local diffkeys=""
+        while read -r k; do
+            [[ -z "$k" ]] && continue
+            if ! diff -q <(entry_block "$work" "$k") <(entry_block "$updated" "$k") >/dev/null 2>&1; then
+                diffkeys+="$k"$'\n'
+            fi
+        done < <(comm -12 <(keys_of "$work") <(keys_of "$updated"))
+        diffkeys=${diffkeys%$'\n'}
+
+        if [[ -n "$diffkeys" ]]; then
+            echo "Cited entries whose $(basename "$bib") version differs from papis:"
+            bullets <<<"$diffkeys"
+            read -rp "Update these $(grep -c . <<<"$diffkeys") entries from the library? [y/N] " ans
+            if [[ "$ans" == [yY] ]]; then
+                mv "$updated" "$work"; changed=1; echo "  updated."
+            else
+                rm -f "$updated"; echo "  kept."
+            fi
+        else
+            rm -f "$updated"
+        fi
+    else
+        rm -f "$updated"; echo "papis-bib --prune: no entries differ from the library."
+    fi
+
+    # ---- Write back only if the user confirmed a change --------------------
+    if (( changed )); then
+        mv "$work" "$bib"
+        echo "papis-bib --prune: wrote $(basename "$bib") ($(grep -c '^@' "$bib") entries)."
+    else
+        rm -f "$work"; echo "papis-bib --prune: no changes made."
+    fi
+}
+
+if (( prune )); then prune_mode; else auto_sync; fi
