@@ -28,6 +28,22 @@
 
 set -uo pipefail
 
+# Track every temp file and remove them on any exit (incl. Ctrl-C at a prompt),
+# so an interrupted run never leaves scratch files behind.
+TMPS=()
+cleanup() { (( ${#TMPS[@]} )) && rm -f "${TMPS[@]}" 2>/dev/null; }
+trap cleanup EXIT INT TERM
+mktmp() { local t; t=$(mktemp "$@") || exit 1; TMPS+=("$t"); printf '%s' "$t"; }
+
+# Atomically replace $bib with the contents of $1. The staging temp is created
+# in $bib's own directory so the final `mv` is a same-filesystem rename (atomic)
+# rather than a cross-fs copy from /tmp -- the .bib is never left half-written.
+commit_bib() {
+    local staged
+    staged=$(mktmp -p "$(dirname "$bib")" ".$(basename "$bib").XXXXXX") || return 1
+    cp -- "$1" "$staged" && mv -- "$staged" "$bib"
+}
+
 prune=0
 if [[ "${1:-}" == "--prune" ]]; then prune=1; shift; fi
 
@@ -79,7 +95,7 @@ entry_block() {
 # =============================================================================
 auto_sync() {
     local cited out
-    cited=$(mktemp); out=$(mktemp)
+    cited=$(mktmp); out=$(mktmp)
 
     # 1. library entries whose key is cited somewhere in the sources.
     if ! papis bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited" >/dev/null 2>&1; then
@@ -110,7 +126,9 @@ auto_sync() {
         return 1
     fi
 
-    mv "$out" "$bib"
+    if ! commit_bib "$out"; then
+        echo "papis-bib: failed to write $bib"; return 1
+    fi
     echo "papis-bib: synced $(basename "$bib") ($old -> $new entries)"
     command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") ($old -> $new entries)"
 }
@@ -128,13 +146,13 @@ prune_mode() {
 
     # Normalise through papis up front so later diffs reflect content, not the
     # difference between hand formatting and papis' serialisation.
-    local work; work=$(mktemp)
+    local work; work=$(mktmp)
     papis bibtex read "$bib" save -f "$work" >/dev/null 2>&1
-    local changed=0
+    local changed=0 ans
 
     # ---- Phase 1: remove uncited -------------------------------------------
     local pruned removed
-    pruned=$(mktemp)
+    pruned=$(mktmp)
     papis bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned" >/dev/null 2>&1
     removed=$(comm -23 <(keys_of "$work") <(keys_of "$pruned"))
     if [[ -n "$removed" ]]; then
@@ -151,7 +169,7 @@ prune_mode() {
     fi
 
     # ---- Phase 2: update entries that differ from the library --------------
-    local updated; updated=$(mktemp)
+    local updated; updated=$(mktmp)
     papis bibtex read "$work" update --from --all save -f "$updated" >/dev/null 2>&1
     if ! cmp -s "$work" "$updated"; then
         local diffkeys=""
@@ -181,10 +199,13 @@ prune_mode() {
 
     # ---- Write back only if the user confirmed a change --------------------
     if (( changed )); then
-        mv "$work" "$bib"
-        echo "papis-bib --prune: wrote $(basename "$bib") ($(grep -c '^@' "$bib") entries)."
+        if commit_bib "$work"; then
+            echo "papis-bib --prune: wrote $(basename "$bib") ($(grep -c '^@' "$bib") entries)."
+        else
+            echo "papis-bib --prune: failed to write $bib"; return 1
+        fi
     else
-        rm -f "$work"; echo "papis-bib --prune: no changes made."
+        echo "papis-bib --prune: no changes made."
     fi
 }
 
