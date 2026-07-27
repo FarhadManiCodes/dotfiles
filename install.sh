@@ -285,12 +285,9 @@ mkdir -p "${XDG_CONFIG_HOME}/ccache"
 ln -sf "${DOTFILES}/ccache/ccache.conf" "${XDG_CONFIG_HOME}/ccache/ccache.conf"
 echo "Ccache configured"
 
-# ============ gtk ==============================
-echo "Setting up GTK..."
-mkdir -p "${XDG_CONFIG_HOME}/gtk-3.0" "${XDG_CONFIG_HOME}/gtk-4.0"
-ln -sf "${DOTFILES}/gtk-3.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-3.0/settings.ini"
-ln -sf "${DOTFILES}/gtk-4.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-4.0/settings.ini"
-echo "GTK configured"
+# GTK appearance is not configured here: the xdg-desktop-portal Settings
+# interface overrides gtk-{3,4}.0/settings.ini for every key it serves
+# (font-name, gtk-theme, icon-theme, cursor-theme). Use dconf instead.
 
 # ============ wob ==============================
 echo "Setting up wob..."
@@ -309,7 +306,19 @@ echo "latexmk configured"
 # ============ xdg user dirs ==============================
 echo "Setting up XDG user dirs..."
 ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
-xdg-user-dirs-update
+
+# Create the folders ourselves instead of calling xdg-user-dirs-update: when a
+# listed folder is missing it rewrites user-dirs.dirs via rename(), which
+# replaces the symlink above with a plain file. Mask the login-time unit for
+# the same reason — the file is ours, nothing else may write it.
+(
+  # shellcheck source=xdg/user-dirs.dirs
+  . "${DOTFILES}/xdg/user-dirs.dirs"
+  for var in $(compgen -A variable XDG_ | grep '_DIR$'); do
+    mkdir -p "${!var}"
+  done
+)
+systemctl --user mask xdg-user-dirs.service >/dev/null 2>&1
 echo "XDG user dirs configured"
 
 

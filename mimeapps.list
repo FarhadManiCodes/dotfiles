@@ -1,6 +1,3 @@
-[Added Associations]
-application/pdf=sioyek.desktop;firefox.desktop;
-
 [Default Applications]
 application/epub+zip=com.github.johnfactotum.Foliate.desktop;
 application/json=nvim.desktop;

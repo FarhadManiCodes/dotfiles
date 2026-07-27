@@ -144,6 +144,21 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
 
+### GTK appearance — dconf, not settings.ini
+
+**Not tracked here, and deliberately so.** GTK font/theme/icons/cursor are governed by dconf,
+read through the `xdg-desktop-portal` Settings interface, which overrides
+`gtk-{3,4}.0/settings.ini` for every key it serves (`font-name`, `gtk-theme`, `icon-theme`,
+`cursor-theme`). Verified: a user `settings.ini` asking for a different font is ignored even with
+the distro's `/usr/share/gtk-*/settings.ini` hidden. Both `settings.ini` files were removed in the
+2026-07-27 audit — they had silently set nothing, and a commit intending `Noto Sans 11` never took
+effect (GTK apps render in `Adwaita Sans 11`, GTK's own default).
+
+To change GTK appearance: `gsettings set org.gnome.desktop.interface font-name '<font>'`
+(same for `gtk-theme`, `icon-theme`, `cursor-theme`, `color-scheme`). Editing a `settings.ini`
+does nothing on this session. `color-scheme` stays `default` on purpose — GTK apps are always
+light and do not follow the foot/foliate theme toggles.
+
 ## Modifying configs
 
 **Add a new config to dotfiles**:
