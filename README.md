@@ -133,8 +133,6 @@ dotfiles/
 ├── handlr/handlr.toml
 ├── latexmk/latexmkrc
 ├── vifm/                   # vifm file manager config & colors
-├── gtk-3.0/settings.ini
-├── gtk-4.0/settings.ini
 ├── pcmanfm-qt/default/     # settings & bookmarks
 ├── mimeapps.list
 ├── xdg/user-dirs.dirs

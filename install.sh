@@ -285,12 +285,9 @@ mkdir -p "${XDG_CONFIG_HOME}/ccache"
 ln -sf "${DOTFILES}/ccache/ccache.conf" "${XDG_CONFIG_HOME}/ccache/ccache.conf"
 echo "Ccache configured"
 
-# ============ gtk ==============================
-echo "Setting up GTK..."
-mkdir -p "${XDG_CONFIG_HOME}/gtk-3.0" "${XDG_CONFIG_HOME}/gtk-4.0"
-ln -sf "${DOTFILES}/gtk-3.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-3.0/settings.ini"
-ln -sf "${DOTFILES}/gtk-4.0/settings.ini" "${XDG_CONFIG_HOME}/gtk-4.0/settings.ini"
-echo "GTK configured"
+# GTK appearance is not configured here: the xdg-desktop-portal Settings
+# interface overrides gtk-{3,4}.0/settings.ini for every key it serves
+# (font-name, gtk-theme, icon-theme, cursor-theme). Use dconf instead.
 
 # ============ wob ==============================
 echo "Setting up wob..."
