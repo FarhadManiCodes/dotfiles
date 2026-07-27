@@ -309,7 +309,19 @@ echo "latexmk configured"
 # ============ xdg user dirs ==============================
 echo "Setting up XDG user dirs..."
 ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
-xdg-user-dirs-update
+
+# Create the folders ourselves instead of calling xdg-user-dirs-update: when a
+# listed folder is missing it rewrites user-dirs.dirs via rename(), which
+# replaces the symlink above with a plain file. Mask the login-time unit for
+# the same reason — the file is ours, nothing else may write it.
+(
+  # shellcheck source=xdg/user-dirs.dirs
+  . "${DOTFILES}/xdg/user-dirs.dirs"
+  for var in $(compgen -A variable XDG_ | grep '_DIR$'); do
+    mkdir -p "${!var}"
+  done
+)
+systemctl --user mask xdg-user-dirs.service >/dev/null 2>&1
 echo "XDG user dirs configured"
 
 
