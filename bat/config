@@ -1,4 +1,4 @@
---theme=auto
+--theme=auto:always
 --theme-dark="OneHalfDark"
 --theme-light="GitHub"
 --style=numbers,changes,header-filename,grid

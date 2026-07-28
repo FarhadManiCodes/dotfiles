@@ -66,7 +66,6 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Helpers**: `zsh/helpers.zsh` — `safe_source` and utility functions
 - **Functions** (`zsh/functions/`):
   - `audio.zsh` — `playaudio` fzf-driven mpv queue for `~/Audio`
-  - `bat.zsh` — theme-aware bat wrapper
   - `clipboard.zsh` — Wayland file copy
   - `cpp.zsh` — C++ build helpers (cmake/ninja/ccache)
   - `fzf.zsh` — FZF config + `fnb` (Jupyter finder) + `fdata` (data file finder)
