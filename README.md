@@ -127,7 +127,6 @@ dotfiles/
 ├── glow/glow.yml
 ├── gh/config.yml           # hosts.yml not tracked — contains auth tokens
 ├── direnv/direnvrc
-├── ripgrep-all/config.jsonc
 ├── clangd/config.yaml
 ├── ccache/ccache.conf
 ├── handlr/handlr.toml

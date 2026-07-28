@@ -144,11 +144,8 @@ mkdir -p "${XDG_CONFIG_HOME}/gh"
 ln -sf "${DOTFILES}/gh/config.yml" "${XDG_CONFIG_HOME}/gh/config.yml"
 echo "GitHub CLI configured"
 
-# ============ ripgrep-all ==============================
-echo "Setting up ripgrep-all..."
-mkdir -p "${XDG_CONFIG_HOME}/ripgrep-all"
-ln -sf "${DOTFILES}/ripgrep-all/config.jsonc" "${XDG_CONFIG_HOME}/ripgrep-all/config.jsonc"
-echo "ripgrep-all configured"
+# ripgrep-all is not configured here: rga writes its own config.jsonc (and
+# schema) on first run, and every adapter we want is enabled by default.
 
 # ============ mako ==============================
 echo "Setting up mako..."
