@@ -1,12 +1,14 @@
 -- DuckDB Global Configuration
 -- Location: ~/.duckdbrc
--- This file is automatically loaded by DuckDB
+-- Read by the DuckDB *CLI*, which is not currently installed — the duckdb used
+-- by the `de` venv template is the Python package, which ignores this file.
+-- Kept for if/when the CLI is installed again.
 
 -- ============================================================================
 -- DISPLAY SETTINGS (matches your terminal aesthetic)
 -- ============================================================================
 
--- Custom prompt - clean pipe cursor (matches your vim/terminal theme)
+-- Custom prompt
 .prompt '🦆 '
 
 -- Better table formatting
@@ -71,8 +73,4 @@ USING SAMPLE $n;
 .print "   describe_all()                 - Overview of all tables"
 .print "   profile_column('table', 'col') - Advanced column statistics"
 .print "   sample('table', 10)            - Random sample"
-.print ""
-.print "🎨 Custom | prompt enabled (matches your terminal theme)"
-.print ""
-.print "💡 For project data, use 'duck' command in directories with ./data/"
 .print ""
