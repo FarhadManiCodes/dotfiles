@@ -41,20 +41,14 @@ git:
     - colorArg: always
       pager: delta --dark --paging=never
       useConfig: false
-  # Merging strategy
+  # Merging strategy. There is no git.merging.tool key (checked against
+  # lazygit's config.json schema) — lazygit shells out to `git mergetool`, so the
+  # [mergetool "nvimdiff"] block in git/config is what gives the 3-pane view.
   merging:
-    # This ensures Lazygit respects the [mergetool "nvimdiff"] in your.gitconfig
-    # When you press 'M', it will open the 3-pane Neovim view
-    tool: nvimdiff
     args: '--no-ff'
   # Workflow Prefs
   commit:
     signOff: false
-    verbose: true # Show diff while typing commit message
-  pull:
-    mode: 'merge'
-  push:
-    autoSetUpstream: true # Saves you from typing --set-upstream
   # Performance
   autoFetch: true
   autoRefresh: true
@@ -63,13 +57,13 @@ git:
   allBranchesLogCmds:
     - 'git log --graph --all --color=always --abbrev-commit --decorate --date=relative  --pretty=medium'
 os:
-  # EDIT COMMAND
-  # If you run lazygit FROM INSIDE Neovim (using a terminal buffer),
-  # this prevents opening a nested Neovim instance.
-  editCommand: "nvim"
-  editCommandTemplate: "{{editor}} +{{line}} {{filename}}"
-  # On Arch, use xdg-open to open PR links/files in browser
-  openCommand: 'xdg-open {{filename}}'
+  # editPreset sets edit / editAtLine / editAtLineAndWait / openDirInEditor in
+  # one go. The old editCommand / editCommandTemplate keys do not exist in
+  # lazygit's schema and were silently ignored.
+  editPreset: nvim
+  # Open a file with the desktop handler. Links use os.openLink, which already
+  # defaults to xdg-open on Linux.
+  open: 'xdg-open {{filename}}'
 # ==============================================================================
 #  CUSTOM COMMANDS (Data Engineering / DVC)
 # ==============================================================================
