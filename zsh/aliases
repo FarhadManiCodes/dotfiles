@@ -101,8 +101,6 @@ command -v lazygit >/dev/null 2>&1 && alias lg=lazygit
 # ============================================================================
 # VIM
 # ============================================================================
-# Uncomment and adjust if you have a custom vim config
-# alias vi="vi -u $DOTFILES/vim/config/minimal.vim"
 alias vi="vim"
 
 # ============================================================================
