@@ -1,5 +1,5 @@
 # Enhanced Git Shell Integration for Data Science
-# ~/dotfiles/zsh/git-enhancements.zsh
+# ~/dotfiles/zsh/functions/git-enhancements.zsh
 
 # ============================================================================
 # INTERACTIVE COMMIT WITH DATA SCIENCE TYPES

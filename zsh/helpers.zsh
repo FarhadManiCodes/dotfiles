@@ -253,16 +253,6 @@ reload() {
   exec zsh
 }
 
-# Safety environment loader
-safety_load() {
-  if [[ -f "$HOME/.safety/.safety_profile" ]]; then
-    source "$HOME/.safety/.safety_profile"
-    echo "✅ Safety environment loaded"
-  else
-    echo "⚠️  Safety profile not found at ~/.safety/.safety_profile"
-  fi
-}
-
 # ============================================================================
 # ALIASES FOR HELPERS
 # ============================================================================

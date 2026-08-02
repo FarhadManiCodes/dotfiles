@@ -26,14 +26,8 @@ typeset -U path
 path=(
   $HOME/.local/bin
   $HOME/.cargo/bin
-  /usr/local/go/bin
-  $HOME/go/bin
   $path
 )
-
-# Go
-export GOPATH="$HOME/go"
-export CGO_ENABLED=0
 
 # C++ — ccache cmake integration
 export CMAKE_C_COMPILER_LAUNCHER=ccache
