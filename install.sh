@@ -22,7 +22,10 @@ else
 endif
 VIMRC
 
-# Symlink entire vim config directory
+# Symlink entire vim config directory. This is the first section to write into
+# XDG_CONFIG_HOME, so create it here — on a genuinely fresh machine ~/.config
+# does not exist yet and this symlink silently failed.
+mkdir -p "${XDG_CONFIG_HOME}"
 ln -snf "${DOTFILES}/vim" "${XDG_CONFIG_HOME}/vim"
 echo "Vim configured"
 
