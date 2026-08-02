@@ -89,7 +89,7 @@ dotfiles/
 │
 ├── tmux/
 │   ├── tmux.conf
-│   └── layouts/            # default and archive layouts
+│   └── layouts/            # cpp_layout.sh
 │
 ├── git/
 │   ├── config              # aliases, delta, diff/merge settings (no user info)
@@ -165,4 +165,4 @@ cd ~/dotfiles && git add nvim && git commit -m "chore(nvim): update submodule"
 
 ## TODOs
 
-- [ ] Decide on `zsh/archive/productivity/duckdb.sh` — revive or delete
+_None open._

@@ -83,8 +83,7 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 ### Tmux
 
 - **Config**: `tmux/tmux.conf` — prefix `Ctrl-a`
-- **Layouts**: `tmux/layouts/cpp_layout.sh` (active)
-- **Archive**: `tmux/layouts/archive/` — old layouts kept for reference
+- **Layouts**: `tmux/layouts/cpp_layout.sh` — the only one; `Prefix W` runs it directly
 
 ### Shell key commands
 
@@ -215,4 +214,7 @@ System-level choices that aren't captured in any config file:
 
 ## TODOs
 
-- Decide on `zsh/archive/productivity/duckdb.sh` — revive or delete
+None open. The `zsh/archive/` and `tmux/layouts/archive/` trees were deleted in the 2026-08-02
+audit (~7,000 lines): nothing sourced them, and every file was either superseded by a live
+counterpart or depended on tooling that is gone (duckdb CLI, jupyter). Recover any of it with
+`git show 906941b:<path>`.
