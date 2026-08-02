@@ -147,6 +147,23 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
 
+### Light/dark theme — how tools follow `Mod+Alt+T`
+
+`bash/toggle-foot-theme.sh` signals foot (SIGUSR1 dark / SIGUSR2 light) and writes
+`~/.local/state/foot_theme_state`. Tools follow in one of two ways, **preferring the first**:
+
+1. **Terminal-native** — the tool asks the terminal. `bat` uses `--theme=auto:always` (OSC 11),
+   and tmux uses palette indices (`colour13`, `default`) that foot re-resolves per theme. Nothing
+   to maintain; works for future tools too.
+2. **The state file** — for tools that cannot self-detect. `ptpython/config.py` reads it, and so
+   does vim: inside tmux, vim's OSC 11 query is answered by *tmux*, not foot, so native detection
+   is unreliable there. `vim/config/basic.vim` picks onedark or PaperColor at `VimEnter`;
+   `<leader>tt` still cycles manually from whatever it picked.
+
+Deliberately **not** following: GTK apps (see below — always light), Firefox, and the readers
+(sioyek F8, zathura fixed gruvbox). Note vim's theme is applied on `VimEnter`, which fires *after*
+`-c` commands — worth knowing when testing.
+
 ### GTK appearance — dconf, not settings.ini
 
 **Not tracked here, and deliberately so.** GTK font/theme/icons/cursor are governed by dconf,

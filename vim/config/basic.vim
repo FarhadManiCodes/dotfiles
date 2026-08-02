@@ -118,8 +118,34 @@ function! OpenTerminal()
 endfunction
 nnoremap <leader>pt :call OpenTerminal()<CR>
 
-" Load colorscheme after plugins are loaded
+" Start in whichever theme foot is currently using, so Mod+Alt+T doesn't leave
+" vim mismatched inside its own terminal. bat and tmux self-detect (OSC 11 and
+" palette indices respectively), but vim cannot: inside tmux its OSC 11 query is
+" answered by tmux rather than by foot. So read the state file that
+" toggle-foot-theme.sh writes. <leader>tt still cycles manually from here.
+function! s:FootTheme() abort
+    let l:dir = empty($XDG_STATE_HOME) ? $HOME . '/.local/state' : $XDG_STATE_HOME
+    let l:state = l:dir . '/foot_theme_state'
+    let l:light = filereadable(l:state) && get(readfile(l:state), 0, '') ==# 'light'
+
+    if l:light
+        set background=light
+        colorscheme PaperColor
+        let l:ll = 'PaperColor'
+    else
+        set background=dark
+        colorscheme onedark
+        let l:ll = 'one'
+    endif
+
+    if exists('g:lightline') && exists('*lightline#init')
+        let g:lightline.colorscheme = l:ll
+        call lightline#init()
+        call lightline#colorscheme()
+    endif
+endfunction
+
 augroup load_colorscheme
     autocmd!
-    autocmd VimEnter * ++nested colorscheme onedark
+    autocmd VimEnter * ++nested call s:FootTheme()
 augroup END
