@@ -36,6 +36,10 @@ export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wra
 
 # ============================================================================
 # Data Science Finders (cherry-picked from old fzf-enhancements)
+#
+# fnb and fdata are MIRRORED in bash/vifm-pick (vifm needs a script, and these
+# cd, which only works in the interactive shell). The fdata extension list is
+# identical in both — change one, change the other.
 # ============================================================================
 
 # Jupyter notebook finder — Enter: edit, Ctrl+D: cd to folder
