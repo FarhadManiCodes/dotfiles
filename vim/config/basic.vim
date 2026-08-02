@@ -12,7 +12,9 @@ set splitright
 set splitbelow
 set hlsearch
 set incsearch
-set clipboard=unnamed,unnamedplus
+" No 'clipboard' setting: this vim is built -clipboard -xterm_clipboard
+" -wayland_clipboard, so has('clipboard_working') is 0 and neither "+ nor "*
+" exists. See the wl-copy/wl-paste mappings in mappings.vim.
 set wildmenu
 set wildoptions=pum
 set undofile
