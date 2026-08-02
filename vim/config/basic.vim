@@ -12,7 +12,9 @@ set splitright
 set splitbelow
 set hlsearch
 set incsearch
-set clipboard=unnamed,unnamedplus
+" No 'clipboard' setting: this vim is built -clipboard -xterm_clipboard
+" -wayland_clipboard, so has('clipboard_working') is 0 and neither "+ nor "*
+" exists. See the wl-copy/wl-paste mappings in mappings.vim.
 set wildmenu
 set wildoptions=pum
 set undofile
@@ -32,8 +34,11 @@ set updatetime=300
 set shortmess+=I
 set noshowcmd
 
-" Shell (interactive so .zshrc and prompt are loaded)
-set shell=/bin/zsh\ -i
+" Shell. Deliberately NOT `zsh -i`: that made every :! and system() call cost
+" ~63ms instead of ~6ms. :terminal still loads .zshrc, because zsh sees a pty on
+" stdin and turns interactive on its own. Trade-off: shell aliases are not
+" available inside :!cmd.
+set shell=/bin/zsh
 
 " Terminal settings
 if has('terminal')

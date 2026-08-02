@@ -1,6 +1,5 @@
 " YAML-specific settings
-autocmd FileType yaml setlocal ts=2 sts=2 sw=2 expandtab
-
-
-" Fix YAML on save
-autocmd BufWritePre *.yaml,*.yml :ALEFix
+augroup yaml_settings
+  autocmd!
+  autocmd FileType yaml setlocal ts=2 sts=2 sw=2 expandtab
+augroup END

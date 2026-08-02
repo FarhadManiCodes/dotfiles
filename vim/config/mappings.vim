@@ -53,3 +53,12 @@ nnoremap <leader>= gg=G``
 " Goyo + Limelight keybindings
 nnoremap <leader>gy :Goyo<CR>
 nnoremap <leader>ll :Limelight!!<CR>
+
+" Wayland clipboard. Arch's non-GUI vim is built -clipboard -xterm_clipboard
+" -wayland_clipboard, so has('clipboard_working') is 0 and BOTH the "+ and "*
+" registers are unavailable — 'clipboard=unnamedplus' cannot work here. Pipe to
+" wl-clipboard instead. <leader>P rather than <leader>p: <leader>pt is taken, so
+" <leader>p would stall for 'timeoutlen' waiting to see if a 't' follows.
+nnoremap <silent> <leader>y :.w !wl-copy<CR><CR>
+xnoremap <silent> <leader>y :w !wl-copy<CR><CR>
+nnoremap <silent> <leader>P :r !wl-paste --no-newline<CR>
