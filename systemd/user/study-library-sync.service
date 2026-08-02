@@ -2,6 +2,10 @@
 Description=Sync study library from Google Drive
 After=network-online.target
 
+# Type=oneshot with no Restart= already lands in `failed` on error (verified),
+# so it needs no StartLimit tuning — only the notification.
+OnFailure=notify-failure@%n.service
+
 [Service]
 Type=oneshot
 IOSchedulingClass=idle

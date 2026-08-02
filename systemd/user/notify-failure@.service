@@ -1,0 +1,8 @@
+[Unit]
+Description=Failure notification for %i
+# Deliberately no OnFailure= here: a notifier that notifies about its own
+# failure loops. service-failed-notify always exits 0 for the same reason.
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/service-failed-notify %i

@@ -1,0 +1,40 @@
+#!/bin/bash
+# Desktop notification + persistent breadcrumb when a systemd user unit fails.
+#
+# Invoked by notify-failure@.service, which services reference as
+#   OnFailure=notify-failure@%n.service
+# so $1 arrives as the full failed unit name, e.g. "rclone@gdrive.service".
+#
+# A mako popup is ephemeral and useless if nobody is at the machine, so this
+# also appends to a breadcrumb file. The authoritative record is still
+# `systemctl --user --failed`; this just makes it human-readable after the fact.
+#
+# Never exits non-zero: notify-failure@.service deliberately carries no
+# OnFailure of its own, and a notifier that fails must not become noise.
+
+set -u
+unit="${1:-unknown.service}"
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/service-failures"
+mkdir -p "$state_dir"
+
+case "$unit" in
+    rclone@*.service)
+        remote="${unit#rclone@}"; remote="${remote%.service}"
+        title="Cloud mount failed: ${remote}"
+        # shellcheck disable=SC2088  # literal tilde: this is display text, not a path
+        body="~/Cloud/${remote} is unavailable. Often auth — check: rclone lsd ${remote}:"
+        ;;
+    study-library-sync.service)
+        title="Study library sync failed"
+        body="The gdrive:FAU/Library sync did not complete."
+        ;;
+    *)
+        title="Service failed: ${unit}"
+        body="journalctl --user -u ${unit} -e"
+        ;;
+esac
+
+printf '%s  %s\n' "$(date -Is)" "$unit" >> "$state_dir/failures.log"
+notify-send -a "" -u critical "$title" "$body" 2>/dev/null || true
+exit 0
