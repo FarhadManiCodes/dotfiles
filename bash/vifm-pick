@@ -2,6 +2,15 @@
 # Unified fzf picker helper for vifm commands.
 # Usage: vifm-pick <fbook|rgbook|fdata|fnb>
 # Results written to /tmp/vifm-pick-{action,file,dir,page}; vifm reads and acts.
+#
+# MIRRORS the interactive shell finders — keep the search halves in sync:
+#   fbook, rgbook  <-> zsh/functions/pdf.zsh
+#   fdata, fnb     <-> zsh/functions/fzf.zsh
+# Identical in both: the rga command, the awk formatter, the rga preview and the
+# fdata extension list. Only the fzf key handling and what happens to the
+# selection differ, and deliberately so: the zsh versions `cd`, which only works
+# in the interactive shell, while vifm cannot read a function's output and needs
+# these temp files.
 
 cmd="${1:-}"
 rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-dir \

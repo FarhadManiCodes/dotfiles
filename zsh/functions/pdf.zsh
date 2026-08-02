@@ -1,5 +1,9 @@
 # ============================================================================
 # PDF/Book Search Functions (rga + fzf)
+#
+# fbook and rgbook are MIRRORED in bash/vifm-pick (vifm needs a script, and
+# these cd, which only works in the interactive shell). The rga command, awk
+# formatter and rga preview are identical in both — change one, change the other.
 # ============================================================================
 
 # Default library path (local sync from cloud, can override with STUDY_LIBRARY env var)
