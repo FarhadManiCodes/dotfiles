@@ -5,15 +5,6 @@
 let g:vim_config_dir = expand('~/.config/vim')
 let g:vim_config_subdir = g:vim_config_dir . '/config'
 
-" Fallback to minimal config for vi/view
-if v:progname ==# 'vi' || v:progname ==# 'view'
-    let s:minimal_config = g:vim_config_subdir . '/minimal.vim'
-    if filereadable(s:minimal_config)
-        execute 'source ' . s:minimal_config
-    endif
-    finish
-endif
-
 " Source configuration files in order
 execute 'source ' . g:vim_config_subdir . '/basic.vim'
 execute 'source ' . g:vim_config_subdir . '/plugins.vim'

@@ -51,9 +51,10 @@ Used for markdown, config files, quick edits. Not for development.
 
 - **Entry**: `vim/vimrc` → sources `~/.config/vim/config/*.vim`
 - **Config modules**: `basic.vim`, `plugins.vim`, `plugins_config.vim`, `autocmds.vim`, `mappings.vim`, `python.vim`, `yaml.vim`, `json.vim`
-- **Fallback**: `minimal.vim` auto-loaded when invoked as `vi` or `view`
-- **Plugins** (12): auto-pairs, vim-surround, tcomment, vim-repeat, vim-unimpaired, lightline, onedark, PaperColor, vim-markdown, Goyo, Limelight, vim-tmux-navigator, rainbow_csv, vim-envx
+- **Plugins** (14): auto-pairs, vim-surround, tcomment, vim-repeat, vim-unimpaired, lightline, onedark, PaperColor, vim-markdown, Goyo, Limelight, vim-tmux-navigator, rainbow_csv, vim-envx
 - **Theme toggle**: `<leader>tt` — cycles onedark → PaperColor light → PaperColor dark
+- **Clipboard**: `\y` copies to the Wayland clipboard, `\P` pastes. This vim is built
+  `-clipboard`, so `"+`/`"*` do not exist — the mappings pipe to `wl-copy`/`wl-paste`.
 - **Leader**: `\`
 
 Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect immediately.
