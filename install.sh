@@ -65,7 +65,7 @@ echo "✅ Tmux configured"
 echo "Setting up Neovim..."
 git submodule update --init --recursive
 rm -rf "${XDG_CONFIG_HOME}/nvim"
-ln -sf "${DOTFILES}/nvim" "${XDG_CONFIG_HOME}/nvim"
+ln -snf "${DOTFILES}/nvim" "${XDG_CONFIG_HOME}/nvim"
 echo "Neovim configured"
 
 # ============ ptpython ==============================
