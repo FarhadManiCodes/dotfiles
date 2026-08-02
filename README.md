@@ -137,8 +137,7 @@ dotfiles/
 ├── xdg/user-dirs.dirs
 ├── bash/                   # Helper scripts linked to ~/.local/bin/
 ├── applications/           # Custom .desktop files linked to ~/.local/share/applications/
-├── duckdb/.duckdbrc
-└── fonts/                  # Custom fonts copied to ~/.local/share/fonts/
+└── duckdb/.duckdbrc
 ```
 
 ## What is not tracked

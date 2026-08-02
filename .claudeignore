@@ -9,7 +9,6 @@ gh/hosts.yml
 **/*.key
 
 # Large generated/binary files
-fonts/
 nvim/lazy-lock.json
 
 # Zsh plugin repos (large, not config)

@@ -349,13 +349,9 @@ echo "Setting up DuckDB..."
 ln -sf "${DOTFILES}/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
 echo "DuckDB configured"
 
-#########
-# Fonts #
-#########
-echo "🔤 Installing fonts..."
-mkdir -p "${XDG_DATA_HOME}"
-cp -rf "${DOTFILES}/fonts" "${XDG_DATA_HOME}"
-echo "✅ Fonts installed"
+# No font step: the fonts in use (FiraCode Nerd Font, JetBrains Mono) come from
+# packages. This used to copy 15MB of unreferenced Inconsolata/MesloLGS without
+# running fc-cache, so fontconfig never saw them anyway.
 
 # ============ audio directory ==============================
 mkdir -p "${HOME}/Audio/Recordings"
