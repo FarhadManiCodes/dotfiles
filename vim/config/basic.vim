@@ -34,8 +34,11 @@ set updatetime=300
 set shortmess+=I
 set noshowcmd
 
-" Shell (interactive so .zshrc and prompt are loaded)
-set shell=/bin/zsh\ -i
+" Shell. Deliberately NOT `zsh -i`: that made every :! and system() call cost
+" ~63ms instead of ~6ms. :terminal still loads .zshrc, because zsh sees a pty on
+" stdin and turns interactive on its own. Trade-off: shell aliases are not
+" available inside :!cmd.
+set shell=/bin/zsh
 
 " Terminal settings
 if has('terminal')
