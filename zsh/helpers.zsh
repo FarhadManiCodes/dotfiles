@@ -114,11 +114,15 @@ batt() {
     if [[ "$bat_status" == "Discharging" ]]; then
         color="\e[31m" # Red
         icon="▼"
-        local energy_now=$(cat /sys/class/power_supply/BAT0/energy_now)
-        local time_min=$(awk -v e=$energy_now -v p=$power_mw 'BEGIN {printf "%d", (e/p)*60}')
-        local hours=$((time_min / 60))
-        local mins=$((time_min % 60))
-        time_str="${hours}h ${mins}m remaining"
+        # power_now can read 0 while discharging (charge-threshold transitions
+        # on this ThinkPad). awk treats division by zero as fatal, so guard it.
+        if (( power_mw > 0 )); then
+            local energy_now=$(cat /sys/class/power_supply/BAT0/energy_now)
+            local time_min=$(awk -v e=$energy_now -v p=$power_mw 'BEGIN {printf "%d", (e/p)*60}')
+            time_str="$((time_min / 60))h $((time_min % 60))m remaining"
+        else
+            time_str="calculating..."
+        fi
     else
         color="\e[32m" # Green
         icon="▲"

@@ -38,14 +38,18 @@ export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wra
 # Data Science Finders (cherry-picked from old fzf-enhancements)
 # ============================================================================
 
-# Jupyter notebook finder — Enter: open, Ctrl+D: cd to folder
+# Jupyter notebook finder — Enter: edit, Ctrl+D: cd to folder
+# Enter used to launch jupyter (or tmux-jupyter-auto). Neither exists any more:
+# the tmux helper was deleted in 6388290 and jupyter is not installed, so both
+# branches only ever printed "not available". Opens in $EDITOR instead, matching
+# fdata and the application/x-ipynb+json -> vim.desktop mapping in mimeapps.list.
 fnb() {
   local result=$(fd --type f --extension ipynb 2>/dev/null |
     fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
       --preview-window='right:30%' \
       --expect 'ctrl-d' \
       --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
-      --header 'Enter: open notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
+      --header 'Enter: edit notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key file
   _fzf_split "$result" key file
@@ -55,13 +59,7 @@ fnb() {
     if [ "$key" = "ctrl-d" ]; then
       cd "$dir" && pwd
     else
-      echo "📁 Changing to: $dir"
-      cd "$dir"
-      if [ -n "$TMUX" ]; then
-        tmux-jupyter-auto 2>/dev/null || echo "tmux-jupyter-auto not available"
-      else
-        jupyter notebook "$(basename "$file")" 2>/dev/null || echo "Jupyter not available"
-      fi
+      ${EDITOR:-vim} "$file"
     fi
   fi
 }
