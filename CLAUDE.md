@@ -114,7 +114,8 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Theme**: Catppuccin Frappé — compact tab strip, flat tabs, Catppuccin-colored navbar
 - **Prerequisite**: `toolkit.legacyUserProfileCustomizations.stylesheets` must be `true` in `about:config`
 - **Install**: `install.sh` reads `~/.mozilla/firefox/profiles.ini` to find the default-release profile automatically
-- **Note**: only one file tracked; no `userContent.css`
+- **Note**: `userChrome.css` is the only stylesheet — no `userContent.css`. `firefox-notes.md`
+  sits alongside it as documentation and is not installed anywhere.
 - **about:config**:
   - `dom.screenwakelock.enabled = false` — disables the Screen Wake Lock API so Firefox cannot request suspend inhibition via xdg-desktop-portal. Intentional: swayidle timers are the sole authority for when the system suspends; no app should override that.
   - `network.manage-offline-status = false` — stops Firefox polling WiFi state via deprecated WEXT ioctls (kernel warns: "uses wireless extensions"). Firefox's Socket Thread made these calls; iwd + status bar handle network state instead.
@@ -126,10 +127,13 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - **Theme**: tokyonight
 - **Hints**: numeric + vimperator-reflow filter, 100ms delay
 - **Editor**: `footclient --app-id tridactyl-editor vim +%l %f` — opens as half-width tiled column in niri (see niri window rule)
-- **Native messenger**: installed via `tridactyl-native` (AUR/paru) — required for `Ctrl+I` editor integration
-- **Search engines**: DDG (default), `g`, `eco`, `yt`, `ss`, `gh`, `aw`, `wiki`, `cpp`
+- **Native messenger**: not a package — `~/.local/share/tridactyl/native_main`, self-installed
+  with Tridactyl's `:installnative` and owned by no package (`pacman -Qo` confirms). Required for
+  `Ctrl+I` editor integration and for every `tri.native.run` binding below (`,p`, `,y`, `,Y`,
+  `;y`, `;Y`). The add-on itself is the `firefox-tridactyl` package.
+- **Search engines**: DDG (default), `g`, `eco`, `yt`, `ss`, `gs`, `gh`, `aw`, `wiki`, `cpp`
 - **Quickmarks**: `gocl` (Claude), `gogem` (Gemini), `goyt` (YouTube)
-- **Key bindings**: `d` close+move left, `D` close, `gr` reader mode, `Ctrl+E` open Downloads in vifm, `f`/`F` hints current/new tab
+- **Key bindings**: `dt` close+move left (plain `d` is unbound), `D` close, `gr` reader mode, `Ctrl+E` open Downloads in vifm, `f`/`F` hints current/new tab
 - **Reload config**: `:source` in Firefox command bar
 
 ### Window manager (Niri)
