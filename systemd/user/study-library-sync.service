@@ -6,7 +6,10 @@ After=network-online.target
 Type=oneshot
 IOSchedulingClass=idle
 CPUWeight=10
-ExecStart=/usr/bin/rclone sync gdrive:FAU/Library %h/.local/share/study-library --progress
+# --progress draws a TTY meter; in a service it lands in the journal as
+# carriage-return-mangled redraws. --stats-one-line gives one clean line instead.
+ExecStart=/usr/bin/rclone sync gdrive:FAU/Library %h/.local/share/study-library \
+    --stats 1m --stats-one-line
 
 [Install]
 WantedBy=graphical-session.target
