@@ -3,6 +3,18 @@ Description=Rclone mount for %I
 After=network-online.target
 Wants=network-online.target
 
+# Retries used to be every 10s forever: with RestartSec=10 the default
+# StartLimitIntervalSec=10s window never elapsed, so the burst never tripped and
+# a permanently broken mount (e.g. revoked OAuth) retried ~8,640 times a day
+# without ever reaching `failed` — invisible to `systemctl --user --failed`.
+# Widened so the burst can trip; combined with the backoff below the unit tries
+# for ~25 minutes before giving up, which is far longer than any start observed
+# here (9/9 mounts in 30 days came up within 10s).
+StartLimitIntervalSec=3600
+StartLimitBurst=10
+
+OnFailure=notify-failure@%n.service
+
 [Service]
 Type=notify
 Environment=RCLONE_CONFIG=%h/.config/rclone/rclone.conf
@@ -34,14 +46,19 @@ ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --low-level-retries 10 \
     --no-modtime \
     --no-checksum \
-    --log-level INFO \
+    --log-level NOTICE \
     --log-file %h/.cache/rclone/logs/rclone-%i.log
 
 # Lazy Unmount (Detaches immediately, prevents shutdown hangs)
 ExecStop=/bin/fusermount3 -uz %h/Cloud/%i
 
+# Exponential backoff (systemd >= 254): 10s, 20s, 39s, 77s, 152s, then 300s.
+# Keeps the old self-healing behaviour through a slow network start while
+# capping a permanent failure at ~10 attempts instead of thousands a day.
 Restart=on-failure
 RestartSec=10
+RestartSteps=5
+RestartMaxDelaySec=300
 
 [Install]
 WantedBy=graphical-session.target

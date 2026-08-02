@@ -162,6 +162,45 @@ To change GTK appearance: `gsettings set org.gnome.desktop.interface font-name '
 does nothing on this session. `color-scheme` stays `default` on purpose — GTK apps are always
 light and do not follow the foot/foliate theme toggles.
 
+### systemd user services & failure notification
+
+Units live in `systemd/user/`, symlinked by `install.sh`, which enables them from an **explicit
+list** (a glob can't enable the `rclone@` template and would wrongly enable the timer-driven
+`study-library-sync.service`).
+
+Failures are surfaced by `OnFailure=notify-failure@%n.service` → `bash/service-failed-notify`,
+which raises a mako notification *and* appends to
+`~/.local/state/service-failures/failures.log` — a popup is useless if nobody is at the machine.
+`notify-failure@.service` deliberately has no `OnFailure` of its own, and the script always exits
+0, so a failing notifier can't loop.
+
+Check remotely with `systemctl --user --failed`.
+
+### rclone — the Google Drive client_id must be replaced during 2026
+
+Both remotes use rclone's **shared** OAuth app. Google is retiring the shared Drive client_id
+"during 2026" (no date given), after which the `rclone@gdrive` mount and `study-library-sync`
+stop working. The shared app's global quota is also already producing occasional
+`Error 403: Quota exceeded` in the logs. Dropbox is unaffected.
+
+Fixing it needs a browser on this machine but **no sudo** — everything is user-level:
+
+1. https://console.developers.google.com → project → enable **Google Drive API**
+2. Credentials → consent screen: External, scopes `auth/docs`, `auth/drive`,
+   `auth/drive.metadata.readonly`, add yourself as a test user
+3. Create OAuth client → **Desktop app** → note the ID and secret
+4. **Audience → PUBLISH APP** — if left in Testing, grants expire every 7 days
+5. Then:
+
+```bash
+systemctl --user stop rclone@gdrive.service
+rclone config update gdrive client_id=ID client_secret=SECRET
+rclone config reconnect gdrive:        # opens a browser on 127.0.0.1:53682
+systemctl --user start rclone@gdrive.service
+```
+
+`~/.config/rclone/rclone.conf` holds the tokens and is intentionally untracked.
+
 ## Modifying configs
 
 **Add a new config to dotfiles**:
