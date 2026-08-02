@@ -93,6 +93,15 @@
     # Combined git + DVC status (requires dvc installed)
     dvc-status = "!f() { echo '=== Git Status ==='; git status -s; if command -v dvc >/dev/null 2>&1; then echo '\\n=== DVC Status ==='; dvc status; fi; }; f"
 
+    # Git + DVC in one step. Guarded like dvc-status: dvc is not currently
+    # installed, so these report that rather than failing obscurely.
+    dvc-push-all = "!f() { git push \"$@\" || return 1; if command -v dvc >/dev/null 2>&1; then dvc push; else echo 'dvc not installed - pushed git only'; fi; }; f"
+    dvc-pull-all = "!f() { git pull \"$@\" || return 1; if command -v dvc >/dev/null 2>&1; then dvc pull; else echo 'dvc not installed - pulled git only'; fi; }; f"
+
+    # Strip outputs from tracked notebooks before committing. Needs nbstripout
+    # (not installed yet: pip/uv install nbstripout).
+    clean-notebooks = "!f() { if ! command -v nbstripout >/dev/null 2>&1; then echo 'nbstripout not installed'; return 1; fi; git ls-files -z '*.ipynb' | xargs -0 -r nbstripout && echo 'Stripped outputs from tracked notebooks'; }; f"
+
     # Quick repo info
     info = "!f() { echo 'Repository: '$(basename $(git rev-parse --show-toplevel)); echo 'Branch: '$(git branch --show-current); echo 'Remote: '$(git remote get-url origin 2>/dev/null || echo 'none'); echo 'Last commit: '$(git log -1 --pretty=format:'%h - %s (%ar)'); }; f"
 
