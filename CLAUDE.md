@@ -256,6 +256,18 @@ System-level choices that aren't captured in any config file:
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
   files and are kept on purpose for if Go is picked up later. Not a misconfiguration; leave them.
+- **Tor Browser is deliberately unconfigured — do not add config for it.** Its anonymity depends
+  on every user looking identical, so a `user.js`, `userChrome.css` or extra extension makes you
+  *more* fingerprintable. The profile is clean (only bundled NoScript) and should stay that way;
+  nothing about it belongs in this repo.
+  - Installed by the AUR `tor-browser-bin`, whose `/usr/bin/tor-browser` extracts the tarball from
+    `/opt/tor-browser/` into `~/.local/opt/tor-browser/{app,VERSION,LOG}` on first launch. Do not
+    confuse that with `~/.local/share/torbrowser/`, which belongs to the unrelated
+    `torbrowser-launcher` — 370 MiB of that was removed in the 2026-08-02 audit after the package
+    itself had been uninstalled.
+  - `browser.security_level.security_slider` is **`safest: 1, safer: 2, standard: 4`** (verified in
+    the bundle's own `modules/SecurityLevel.sys.mjs`). Currently 4 = Standard, deliberately.
+    Change it via the shield icon, never by editing prefs — a hand-edit desyncs `security_custom`.
 - **`aocl-gcc` (686 MiB) is load-bearing — do not flag it as unused.** Nothing declares a
   dependency on it (`blas-aocl-gcc` shows `Required By: None`) and numpy ignores it entirely
   (wheels bundle their own OpenBLAS — see `uv/README.md`), so an audit will keep concluding it is
