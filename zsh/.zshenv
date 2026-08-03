@@ -43,8 +43,19 @@ export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 export APPTAINER_CACHEDIR="$XDG_CACHE_HOME/apptainer"
 export APPTAINER_TMPDIR="$XDG_CACHE_HOME/apptainer/tmp"
 
-# OpenBLAS — limit threads to physical cores, reserve main thread for Python
+# OpenBLAS — limit threads to physical cores, reserve main thread for Python.
+# Governs the OpenBLAS bundled inside numpy/scipy wheels (they ignore system BLAS).
 export OPENBLAS_NUM_THREADS=$(( $(nproc) / 2 ))
+
+# AOCL BLIS — the same cap for C++. `-lblas` resolves to /usr/lib/libblas.so ->
+# AOCL libblis-mt, which with no BLIS_NUM_THREADS/OMP_NUM_THREADS defaults to all
+# 16 logical cores (measured). Pinned to physical cores to match the Python side
+# and leave headroom for interactive work, consistent with -j and the rclone
+# CPUWeight. Costs about 7.6% on an idle-machine 2000^3 dgemm: 5 runs each gave
+# 469 GFLOP/s at 16 threads vs 433 at 8, with non-overlapping ranges. Accepted
+# deliberately — SMT wins on throughput here, but saturating all 16 logical
+# cores leaves nothing for interactive work.
+export BLIS_NUM_THREADS=$(( $(nproc) / 2 ))
 export OPENBLAS_MAIN_FREE=1
 
 # Less

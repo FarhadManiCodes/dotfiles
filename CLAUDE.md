@@ -256,6 +256,24 @@ System-level choices that aren't captured in any config file:
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
   files and are kept on purpose for if Go is picked up later. Not a misconfiguration; leave them.
+- **`aocl-gcc` (686 MiB) is load-bearing — do not flag it as unused.** Nothing declares a
+  dependency on it (`blas-aocl-gcc` shows `Required By: None`) and numpy ignores it entirely
+  (wheels bundle their own OpenBLAS — see `uv/README.md`), so an audit will keep concluding it is
+  dead weight. It is not: C++ projects here link `-lblas`/`-llapack`.
+  - Already the default, no config needed: `blas-aocl-gcc` points
+    `/usr/lib/lib{blas,cblas,lapack,lapacke}.so` at `libblis-mt`/`libflame` and installs
+    `/usr/include/cblas.h` (byte-identical to AOCL's), so `-lblas` and CMake's
+    `find_package(BLAS)`/`find_package(LAPACK)` resolve to AOCL at build *and* run time.
+  - **`PKG_CONFIG_PATH` is deliberately not set globally.** AOCL's pkgconfig dir also holds
+    `fftw3*.pc`, and pkg-config always searches `PKG_CONFIG_PATH` *before* the compiled-in
+    defaults — so exposing it at all makes `pkg-config fftw3` return AOCL's FFTW 3.3.10 instead of
+    the system 3.3.11. Both carry soname `libfftw3.so.3`, so you would link AOCL's and load the
+    system's at runtime. Set `PKG_CONFIG_PATH=/opt/aocl/gcc/lib_LP64/pkgconfig` per project if you
+    need the BLIS-native API (`blis.h`, `blis`/`blis-mt`/`flame` modules).
+  - Thread count is pinned in `zsh/.zshenv`; unset, BLIS uses all 16 logical cores.
+- **`rust` (306 MiB) is not removable like Go was**: `paru` is written in Rust and depends on
+  `libalpm.so>=14`, so it needs rebuilding whenever pacman bumps that soname. Keeping rust
+  installed avoids re-fetching it each time.
 - **`qpdf` is a deliberate hand-install, not orphaned**: no config references it, but it's the
   only tool here that preserves **hyperlinks** through page extraction/merge (verified on a papis
   paper: 56 links + outline kept; `mutool` keeps bookmarks but drops links; `pdfjam`/`gs`
