@@ -120,6 +120,29 @@ only panes where the program was started from a shell are. Normal use is unaffec
 
 ---
 
+## 6b. Replace the hand-installed `mutool` with the packaged one — needs sudo
+
+`~/.local/bin/mutool` is a 43.8 MiB binary hand-placed on 2026-05-24, owned by no
+package, and it is the only `mutool` on this system. It is genuinely used — the PDF notes
+in `CLAUDE.md` rely on it (keeps bookmarks, drops links, unlike `qpdf`) — but a
+hand-dropped binary gets no security updates and no soname tracking.
+
+Arch ships it in `mupdf-tools`, which links the shared mupdf libraries instead of
+bundling them:
+
+```bash
+pacman -Si mupdf-tools            # check size first
+sudo pacman -S mupdf-tools
+rm ~/.local/bin/mutool            # then confirm: command -v mutool -> /usr/bin/mutool
+mutool -v
+```
+
+Also unaccounted for in `~/.local/bin`: **`agy`, 172 MiB** (an AI CLI agent, v1.1.0,
+placed 2026-07-08) and **`~/.local/share/sioyek/sioyek`, 46 MiB**. Both hand-installed
+and owned by no package. Not defects — just know they exist and get no updates.
+
+---
+
 ## 6. Remove the `postgresql` server — needs sudo
 
 66 MiB, service **disabled**, and `/var/lib/postgres/data` is **empty** — `initdb` was

@@ -309,6 +309,14 @@ System-level choices that aren't captured in any config file:
   re-process). Backs the `pdfsel`/`pdfmerge` zsh functions (`zsh/functions/pdf.zsh`), which use
   `qpdf <in> --pages . <range> --` (first file as primary → links **and** outline survive).
   Don't flag it for removal.
+- **Hand-installed binaries in `~/.local/bin`, owned by no package** — they get no updates, so
+  don't assume `pacman -Qo` accounts for everything here:
+  - `sioyek` is a 3-line **wrapper** (tracked as `bash/sioyek`) that forces
+    `QT_QPA_PLATFORM=wayland` and execs the real 46 MiB binary at
+    `~/.local/share/sioyek/sioyek`. Without the wrapper sioyek falls back to XWayland.
+    The binary itself is deliberately not tracked — too large, and not a config.
+  - `mutool` (43.8 MiB) duplicates Arch's `mupdf-tools` — see `TODO.md` item 6b.
+  - `agy` (172 MiB, an AI CLI agent) is unrelated to these dotfiles.
 - **`pdfjam` is free, not a swappable dependency**: it's a script *inside* `texlive-binextra`
   (kept for LaTeX anyway) that wraps `\includepdf` via `pdflatex` — it does not call qpdf/mutool,
   and LaTeX does not depend on it. Its only real niche is n-up/booklet imposition, which qpdf and
