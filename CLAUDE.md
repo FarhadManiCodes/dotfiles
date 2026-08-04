@@ -146,6 +146,14 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 - `pam/swaylock` → `/etc/pam.d/swaylock` (copied by `install-root.sh`, root-owned) — fingerprint +
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
+- `system-sleep/` → `/usr/lib/systemd/system-sleep/` (installed 0755 by `install-root.sh`, root-owned).
+  Both hooks are **load-bearing hardware workarounds**, not conveniences:
+  - `restart-swayidle` — swayidle does not survive resume; restarted here.
+  - `fix-wifi.sh` — unloads/reloads `ath11k_pci` around suspend. The Qualcomm QCNFA765 does not
+    reliably re-associate otherwise, so without this hook WiFi is dead after every resume.
+    Was hand-installed and **untracked** until the 2026-08-04 audit; a fresh `install-root.sh`
+    would have silently dropped it. The third file there, `tlp`, belongs to the `tlp` package —
+    don't track that one.
 
 ### Light/dark theme — how tools follow `Mod+Alt+T`
 
