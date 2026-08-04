@@ -291,6 +291,15 @@ System-level choices that aren't captured in any config file:
     system's at runtime. Set `PKG_CONFIG_PATH=/opt/aocl/gcc/lib_LP64/pkgconfig` per project if you
     need the BLIS-native API (`blis.h`, `blis`/`blis-mt`/`flame` modules).
   - Thread count is pinned in `zsh/.zshenv`; unset, BLIS uses all 16 logical cores.
+    `BLIS_NUM_THREADS` **outranks** `OMP_NUM_THREADS` (measured), so a project setting
+    `OMP_NUM_THREADS` for its own parallel regions will not resize BLIS.
+  - **Don't wrap BLAS calls in an `omp parallel` region.** `omp_max_active_levels` is 1 by
+    default, so BLIS collapses to a single thread inside an active region — no
+    oversubscription, but a real loss: 4×1500³ dgemm ran 435 GFLOP/s letting BLIS thread vs
+    265 GFLOP/s hand-parallelised over 4 OpenMP threads (3 runs, ±1 ms).
+  - Verified sound in the 2026-08-03 second check: libFLAME exports 12,161 symbols with 0 of 30
+    common LAPACK routines missing, and `dgemm`/`dgesv`/`dsyev` are numerically exact. The one
+    rough edge is a link-time `libaoclutils.so ... not found` warning — see `TODO.md` item 4.
 - **`rust` (306 MiB) is not removable like Go was**: `paru` is written in Rust and depends on
   `libalpm.so>=14`, so it needs rebuilding whenever pacman bumps that soname. Keeping rust
   installed avoids re-fetching it each time.
@@ -308,7 +317,11 @@ System-level choices that aren't captured in any config file:
 
 ## TODOs
 
-None open. The `zsh/archive/` and `tmux/layouts/archive/` trees were deleted in the 2026-08-02
+Nothing open in the configs themselves. Items that need the user — a browser, a decision, or
+root — live in `TODO.md`; don't act on those, and don't re-derive their context. Investigated
+issues that were **accepted** are in `revisit.md`.
+
+The `zsh/archive/` and `tmux/layouts/archive/` trees were deleted in the 2026-08-02
 audit (~7,000 lines): nothing sourced them, and every file was either superseded by a live
 counterpart or depended on tooling that is gone (duckdb CLI, jupyter). Recover any of it with
 `git show 906941b:<path>`.
