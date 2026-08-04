@@ -21,7 +21,7 @@ All user configs are symlinked from this repo via `install.sh` so changes here i
 | Status / OSD | wob |
 | Git TUI | Lazygit |
 | Python REPL | ptpython |
-| Data | DuckDB |
+| Data | Polars · DuckDB (Python) · psql · sqlite3 |
 | PDF / Reading | Zathura · Sioyek · Foliate · Papis |
 | Video | mpv |
 | Music | spotify-player · cmus |
@@ -164,4 +164,6 @@ cd ~/dotfiles && git add nvim && git commit -m "chore(nvim): update submodule"
 
 ## TODOs
 
-_None open._
+Open items that need a person — a browser, a decision, or root — are in
+[`TODO.md`](TODO.md). Issues investigated and **accepted** (nothing to fix) are in
+[`revisit.md`](revisit.md).

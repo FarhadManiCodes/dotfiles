@@ -33,14 +33,20 @@ else
   echo "  /etc/pam.d/swaylock already up to date"
 fi
 
-# --- /usr/lib/systemd/system-sleep/restart-swayidle : heal swayidle after resume ---
+# --- /usr/lib/systemd/system-sleep/* : suspend/resume hooks ---
 # Must be executable (0755). System-sleep scripts run as root on suspend/resume.
-sleep_hook=/usr/lib/systemd/system-sleep/restart-swayidle
-if ! cmp -s "${DOTFILES}/system-sleep/restart-swayidle" "$sleep_hook" 2>/dev/null; then
-  install -D -m 0755 -o root -g root "${DOTFILES}/system-sleep/restart-swayidle" "$sleep_hook"
-  echo "  ${sleep_hook} installed"
-else
-  echo "  ${sleep_hook} already up to date"
-fi
+#   restart-swayidle — heal swayidle after resume
+#   fix-wifi.sh      — cycle ath11k_pci around suspend; the QCNFA765 does not
+#                      reliably come back without it. Load-bearing: without this
+#                      hook WiFi is dead after every resume until a manual reload.
+for hook in restart-swayidle fix-wifi.sh; do
+  sleep_hook="/usr/lib/systemd/system-sleep/${hook}"
+  if ! cmp -s "${DOTFILES}/system-sleep/${hook}" "$sleep_hook" 2>/dev/null; then
+    install -D -m 0755 -o root -g root "${DOTFILES}/system-sleep/${hook}" "$sleep_hook"
+    echo "  ${sleep_hook} installed"
+  else
+    echo "  ${sleep_hook} already up to date"
+  fi
+done
 
 echo "✅ Root configs installed"
