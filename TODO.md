@@ -4,16 +4,57 @@ Left over from the 2026-07/08 config audit. Each item is something no script in 
 repo can do: it needs a browser, a decision, or root. Delete an entry once it's done.
 
 For issues that were investigated and **accepted** (nothing to do), see `revisit.md`.
+For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
+
+## Suggested order
+
+Section numbers below are historical (they grew as findings landed) — this is the order
+worth doing them in.
+
+| Do | Item | Needs | Why this order |
+|---|---|---|---|
+| 1 | **2** — rclone `client_id` | browser, 10 min | The only thing here that is actually *broken*. Everything else is tidying. |
+| 2 | **1** — push `papis-ask` | nothing | 3 commits on one disk. |
+| 3 | **1b** — give `SpackStream` a remote | `gh`, a visibility choice | 2 commits that exist nowhere else. |
+| 4 | **5b** — press `Alt+n` in sioyek | nothing | Closes the one untested seam; also settles the page-label question. |
+| 5 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
+| 6 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
+| 7 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
+| 8 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
+| 9 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
+| 10 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+| 11 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
+
+Done: **1** (dotfiles pushed), **5** (tmux-resurrect verified).
 
 ---
 
-## 1. Push the audit — no sudo
+## 1. ~~Push the dotfiles audit~~ — DONE, but `papis-ask` is still local
 
-58 commits sit unpushed on `master`. Everything else below assumes these are in.
+`dotfiles` is pushed (61 audit commits, `origin/master` in sync). **`~/projects/papis-ask`
+still has 3 unpushed commits** — the whole note-ingestion feature:
 
 ```bash
-cd ~/dotfiles && git push
+cd ~/projects/papis-ask && git push        # branch: personal
 ```
+
+---
+
+## 1b. `projects/SpackStream` has no git remote at all — no sudo
+
+2 commits, 15 files, 260 KB: the HPC container definitions (`cpp-linalg` with AOCL
+prebuilt externals, mdspan, dev/release switch, image slimming). Last touched
+2026-06-09. There is **nowhere to push it** — no remote is configured, so this work
+exists on exactly one disk with no copy anywhere.
+
+```bash
+cd ~/projects/SpackStream
+gh repo create SpackStream --private --source=. --remote=origin --push
+```
+
+Pick the visibility yourself. Nothing else in `~/projects` is exposed this way —
+`paper-refinery`, `mathunicode`, `yts`, `cv-generator` and `Installs/sioyek` are all
+clean and fully pushed.
 
 ---
 
@@ -141,6 +182,10 @@ If nothing happens, the likely cause is sioyek's argv splitting: this command
 passes five `%{...}` placeholders where the existing ones pass at most two.
 `journalctl --user -f` while pressing the key will show the script's stderr.
 
+---
+
+## 6b. Replace the hand-installed `mutool` with the packaged one — needs sudo
+
 `~/.local/bin/mutool` is a 43.8 MiB binary hand-placed on 2026-05-24, owned by no
 package, and it is the only `mutool` on this system. It is genuinely used — the PDF notes
 in `CLAUDE.md` rely on it (keeps bookmarks, drops links, unlike `qpdf`) — but a
@@ -229,3 +274,30 @@ can `docker run -v /:/host` and edit the host filesystem as root. Three options,
 
 Nothing needs to be added to this repo either way — `lazydocker`'s defaults are fine, and
 a config only becomes worth tracking once you've customised it.
+
+---
+
+## 9. `sysclean --all` removes orphans unattended — your call
+
+`zsh/functions/sysclean.zsh:56`:
+
+```zsh
+sudo pacman -Rns "${orphans[@]}" --noconfirm
+```
+
+This does both of the things you have said not to do: `--noconfirm`, and running
+`sudo pacman` without you seeing it. `-Rns` also strips config files, on whatever
+`pacman -Qtdq` happens to return that day.
+
+**The risk is latent, not active.** `-Qtdq` returns nothing right now, and it only lists
+packages installed *as dependencies* — so `aocl-gcc` and `blas-aocl-gcc` are safe despite
+showing `Required By: None`, because both are **explicitly installed**. But the first time
+something does appear there, it is removed without being shown to you.
+
+Suggested change: print the list, drop `--noconfirm`, let it be a decision.
+
+Also dead code in the same function: lines 44/46 (`pacman -Sc/-Scc --noconfirm`) are
+unreachable — `paccache` is installed, so the `paccache` branch always wins.
+
+Left alone deliberately: it is your script, and changing what a cleanup tool deletes is
+not something to do on someone's behalf.
