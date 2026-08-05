@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# sioyek <A-n> -> append a note block to the papis notes.md of the PDF being
+# read, then open it in nvim so the thought gets written while it is fresh.
+#
+# Invoked by sioyek as (see sioyek/prefs_user.config):
+#   sioyek-papis-note %{file_path} %{page_number} %{current_page_label} \
+#                     %{offset_y_document} %{selected_text}
+#
+# sioyek splits the command on whitespace BEFORE expanding %{...}, so each
+# placeholder arrives as exactly one argv element even when it contains spaces
+# or newlines -- the same contract sioyek-papis and sioyek-to-source rely on.
+# A selection is optional: with none, this still records the page so you can
+# write a page-level thought.
+
+set -uo pipefail
+
+notify() {
+  notify-send -a sioyek "papis note" "$1" 2>/dev/null
+  printf 'sioyek-papis-note: %s\n' "$1" >&2
+}
+
+pdf=${1:-}
+page=${2:-}
+label=${3:-}
+offset=${4:-}
+sel=${5:-}
+
+[ -n "$pdf" ] || { notify "sioyek passed no file path"; exit 1; }
+
+dir=$(dirname -- "$pdf")
+info="$dir/info.yaml"
+# The papis document folder IS the PDF's directory, so no query language is
+# needed -- but a PDF opened from anywhere else has no info.yaml, and silently
+# writing a note next to it would be worse than saying so.
+[ -f "$info" ] || { notify "not a papis document: $(basename -- "$pdf")"; exit 1; }
+
+# Read notes-name from the config file rather than `papis config notes-name`:
+# same answer, no interpreter start-up on a keypress.
+notes_name=$(sed -n 's/^notes-name *= *//p' "${XDG_CONFIG_HOME:-$HOME/.config}/papis/config" 2>/dev/null | head -1)
+notes="$dir/${notes_name:-notes.md}"
+
+# Fast path: once the note exists and is registered there is nothing for papis
+# to do, so skip it entirely. Only the first capture per document pays.
+if [ ! -f "$notes" ] || ! grep -q '^notes:' "$info"; then
+  # `--editor true` is a no-op editor: papis still creates the file and writes
+  # the `notes:` key, which is how this avoids hand-editing info.yaml.
+  papis edit --doc-folder "$dir" --notes --editor true >/dev/null 2>&1 \
+    || { notify "papis could not create the note"; exit 1; }
+  [ -f "$notes" ] || { notify "papis reported success but $notes is missing"; exit 1; }
+fi
+
+# Visible heading uses sioyek's own page label -- what you actually see on
+# screen, including roman-numeral front matter. Both values go in the metadata
+# comment because sioyek does not document which of the two is 1-based, and a
+# future jump-back command will want whichever turns out to be right.
+shown=${label:-$page}
+
+# Decided before the append block opens the file: testing -s inside it would be
+# reading and writing the same path in one redirection.
+sep=""
+[ -s "$notes" ] && sep=$'\n'
+
+{
+  printf '%s' "$sep"
+  printf '## p.%s — %s\n' "${shown:-?}" "$(date +%F)"
+  printf '<!--sioyek page=%s label=%s offset_y=%s-->\n' "$page" "$label" "$offset"
+  if [ -n "$sel" ]; then
+    # Fenced so indexing can drop it: the paper's own text is already embedded
+    # from the PDF, and embedding it again would crowd out other sources.
+    printf '\n<!--quote-->\n'
+    printf '%s\n' "$sel" | sed 's/^/> /'
+    printf '<!--/quote-->\n'
+  fi
+  printf '\n'
+} >> "$notes" || { notify "could not append to $notes"; exit 1; }
+
+# +$ opens on the last line, directly under the block just written.
+footclient --app-id papis-note nvim '+$' "$notes" \
+  || notify "note written, but the editor did not open"
