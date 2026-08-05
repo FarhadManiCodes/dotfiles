@@ -120,7 +120,26 @@ only panes where the program was started from a shell are. Normal use is unaffec
 
 ---
 
-## 6b. Replace the hand-installed `mutool` with the packaged one — needs sudo
+## 5b. Press `Alt+n` in sioyek once — no sudo, 2 minutes
+
+The whole sioyek -> papis -> `pask` note loop is built and tested, but never run
+against real sioyek. Everything except the keypress itself was verified (script
+end-to-end against a throwaway library, papis-ask unit tests, a live index of a
+real note), so this is the one seam left.
+
+Open any PDF **that lives in the papis library**, select a sentence, press `Alt+n`:
+
+1. nvim should open in a half-width column with the cursor under a new block
+2. check the heading page matches what sioyek shows. If it is off by one, swap
+   `%{current_page_label}` and `%{page_number}` in `sioyek/prefs_user.config` —
+   sioyek documents neither as 1-based, so both are passed and this is the only
+   way to find out which is right
+3. type a thought, save, then `pask index` and ask something only your note says.
+   The source should read `@<ref> (note)`
+
+If nothing happens, the likely cause is sioyek's argv splitting: this command
+passes five `%{...}` placeholders where the existing ones pass at most two.
+`journalctl --user -f` while pressing the key will show the script's stderr.
 
 `~/.local/bin/mutool` is a 43.8 MiB binary hand-placed on 2026-05-24, owned by no
 package, and it is the only `mutool` on this system. It is genuinely used — the PDF notes

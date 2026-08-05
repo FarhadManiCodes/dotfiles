@@ -78,9 +78,13 @@ Both `page` and `label` are recorded because sioyek does not document which of
 shows; if it ever reads one off from what sioyek displays, swap the two in
 `prefs_user.config`.
 
-Notes only become answerable by `pask` once note ingestion lands in papis-ask — it
-currently discovers notes but logs `would index note` instead of embedding them
-(`papis_ask/main.py`, `TODO(stage 4)`).
+Notes are answerable by `pask`: papis-ask embeds them, stripping the fenced quotes and
+HTML comments first, and cites them as `@ref (note)` so an answer never passes your own
+thinking off as the authors'. A capture you have not written under yet is skipped
+entirely — a heading and a quote alone have nothing in them to index.
+
+Editing a note re-embeds only that note (`determine_file_status` keys on mtime), so
+`pask index` after a reading session is cheap.
 
 ## Notable prefs
 
