@@ -143,6 +143,12 @@ window-rule {
     default-window-height { proportion 0.5; }
 }
 
+// Papis note editor — half width, opens as a column beside sioyek (Alt+n)
+window-rule {
+    match app-id="papis-note"
+    default-column-width { proportion 0.5; }
+}
+
 // Block password managers from screen capture (inert until one is installed).
 window-rule {
     match app-id=r#"^org\.keepassxc\.KeePassXC$"#

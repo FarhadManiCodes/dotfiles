@@ -42,6 +42,46 @@ See `~/Installs/sioyek/CLAUDE.md` for the full build/flag rationale.
 
 For everything else: command palette via `:` (e.g., `:toggle_dark_mode`).
 
+### Custom commands
+
+Defined with `new_command` in `prefs_user.config`, bound in `keys_user.config`. Each
+shells out to a script in `dotfiles/bash/` (symlinked into `~/.local/bin`).
+
+| Key | Action | Script |
+|---|---|---|
+| `<A-n>` | Append a note for this page + selection to the document's papis `notes.md`, then open it in nvim | `sioyek-papis-note` |
+| `<A-p>` | Upsert a selected DOI / title into papis — opens the entry if present, else adds it | `sioyek-papis` |
+| `i` | Jump to the end of the selection in nvim (SyncTeX) | `sioyek-to-source` |
+| `<A-i>` | SyncTeX at the mouse cursor, no selection needed | built-in `synctex_under_cursor` |
+| `ss` | Search the selection on Google Scholar | `scholar-search` |
+| `sw` | Search the selection on Wikipedia | `wike` |
+
+**`<A-n>` note format.** Quotes are wrapped in `<!--quote-->` fences and the page
+position is stored as an HTML comment, so that papis-ask can strip both before
+embedding — the paper's own text is already indexed from the PDF, and embedding it a
+second time from a note would crowd out other sources. A selection is optional; with
+none you get just the page heading to write a page-level thought under.
+
+```markdown
+## p.7 — 2026-08-05
+<!--sioyek page=6 label=7 offset_y=3412.8-->
+
+<!--quote-->
+> the residual is bounded by the discrete inf-sup constant
+<!--/quote-->
+
+this is the assumption that breaks for a non-conforming mesh
+```
+
+Both `page` and `label` are recorded because sioyek does not document which of
+`%{page_number}` / `%{current_page_label}` is 1-based. The label is what the heading
+shows; if it ever reads one off from what sioyek displays, swap the two in
+`prefs_user.config`.
+
+Notes only become answerable by `pask` once note ingestion lands in papis-ask — it
+currently discovers notes but logs `would index note` instead of embedding them
+(`papis_ask/main.py`, `TODO(stage 4)`).
+
 ## Notable prefs
 
 | Pref | Value | Why |
