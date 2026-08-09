@@ -201,28 +201,45 @@ which raises a mako notification *and* appends to
 
 Check remotely with `systemctl --user --failed`.
 
-### rclone — the Google Drive client_id must be replaced during 2026
+### rclone — Google Drive uses a personal OAuth client
 
-Both remotes use rclone's **shared** OAuth app. Google is retiring the shared Drive client_id
-"during 2026" (no date given), after which the `rclone@gdrive` mount and `study-library-sync`
-stop working. The shared app's global quota is also already producing occasional
-`Error 403: Quota exceeded` in the logs. Dropbox is unaffected.
+**Done 2026-08-09.** `gdrive` has its own `client_id`/`client_secret` (GCP project
+`rclone-personal`, Desktop-app client, app **published**, unverified). The reason was that Google
+is going to start charging for API calls on rclone's built-in client, so **rclone disables its own
+default client-ID** and drops it in a release (announced 2026-07-06, "later in 2026, following 90
+days of notice") — the risk was a routine `sysup` pulling that release and stopping
+`rclone@gdrive` on next start.
 
-Fixing it needs a browser on this machine but **no sudo** — everything is user-level:
+Nothing was ever actually broken. An earlier version of this section claimed the shared quota was
+producing `Error 403: Quota exceeded` in the logs; **it was not** — zero 403s and zero rate-limit
+errors in the entire journal for both units, the only errors ever recorded being one DNS event at
+boot on 2026-07-24.
 
-1. https://console.developers.google.com → project → enable **Google Drive API**
-2. Credentials → consent screen: External, scopes `auth/docs`, `auth/drive`,
-   `auth/drive.metadata.readonly`, add yourself as a test user
-3. Create OAuth client → **Desktop app** → note the ID and secret
-4. **Audience → PUBLISH APP** — if left in Testing, grants expire every 7 days
-5. Then:
+**`Dropbox` still uses rclone's shared client, deliberately** — the retirement covers Drive and
+Photos only, and it shows no rate limiting. If a Drive or Photos remote is ever added, four traps,
+all of which fail quietly:
+
+- **Publish the app** (Audience → PUBLISH APP). Google's own OAuth docs: an External app with
+  publishing status *Testing* "is issued a refresh token expiring in 7 days", so the mount
+  authenticates fine and then dies weekly.
+- **Pass `config_refresh_token=false`** to `rclone config update`, or it tries to refresh the *old*
+  token against the *new* client and you cannot tell which half failed.
+- **Scopes must be pasted into "Manually add scopes"** on the *Data Access* page — Google's picker
+  does not list them. The console moved to **Google Auth Platform** (`/auth/branding`,
+  `/auth/audience`, `/auth/scopes`, `/auth/clients`), so rclone's docs and most guides describe a
+  menu that no longer exists.
+- Application type **Desktop app** — loopback `127.0.0.1:53682` is implicit, no redirect URI to
+  register. Answer `n` to "Configure this as a Shared Drive (Team Drive)?".
 
 ```bash
 systemctl --user stop rclone@gdrive.service
-rclone config update gdrive client_id=ID client_secret=SECRET
-rclone config reconnect gdrive:        # opens a browser on 127.0.0.1:53682
+rclone config update gdrive client_id=ID client_secret=SECRET config_refresh_token=false
+rclone config reconnect gdrive:        # y to "replace it?"; opens 127.0.0.1:53682
 systemctl --user start rclone@gdrive.service
 ```
+
+Success is the **`NOTICE: ... shared Google Drive client_id` line disappearing** from
+`rclone about gdrive:` — there are no errors to "stop".
 
 `~/.config/rclone/rclone.conf` holds the tokens and is intentionally untracked.
 
