@@ -13,36 +13,36 @@ worth doing them in.
 
 | Do | Item | Needs | Why this order |
 |---|---|---|---|
-| 1 | **1b** — give `SpackStream` a remote | `gh`, a visibility choice | 2 commits that exist nowhere else. |
-| 2 | **5b** — press `Alt+n` in sioyek | nothing | Closes the one untested seam; also settles the page-label question. |
-| 3 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
-| 4 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
-| 5 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
-| 6 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
-| 7 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
-| 8 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
-| 9 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
+| 1 | **5b** — press `Alt+n` in sioyek | nothing | Closes the one untested seam; also settles the page-label question. |
+| 2 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
+| 3 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
+| 4 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
+| 5 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
+| 6 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
+| 7 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+| 8 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
 
-Done: **1** (both repos pushed), **2** (rclone own client_id, 2026-08-09),
-**5** (tmux-resurrect verified).
+Done: **1** (both repos pushed), **1b** (`SpackStream` on GitHub, 2026-08-09),
+**2** (rclone own client_id, 2026-08-09), **5** (tmux-resurrect verified).
+
+Everything left is either one `sudo` line, or a decision only you can make. Nothing on
+this list is broken.
 
 ---
 
-## 1b. `projects/SpackStream` has no git remote at all — no sudo
+## 1b. ~~`projects/SpackStream` has no git remote~~ — DONE 2026-08-09
 
-2 commits, 15 files, 260 KB: the HPC container definitions (`cpp-linalg` with AOCL
-prebuilt externals, mdspan, dev/release switch, image slimming). Last touched
-2026-06-09. There is **nowhere to push it** — no remote is configured, so this work
-exists on exactly one disk with no copy anywhere.
+Now at `github.com/FarhadManiCodes/SpackStream`, **private**, default branch `main`,
+both commits on the remote (`83ebbe0`), local == remote, clean tree. Private chosen
+deliberately: the goal was getting it off a single disk, and private → public stays a
+one-command decision later, whereas public → private does not undo clones or indexing.
 
-```bash
-cd ~/projects/SpackStream
-gh repo create SpackStream --private --source=. --remote=origin --push
-```
+Scanned before publishing, in case it is ever made public: no secrets, no personal email
+(commits use the GitHub `noreply` address), and the only institutional references
+(`fritz.nhr.fau.de`, `hpc.fau.de`, `/home/{hpc,vault,woody}`, module names) are all
+publicly documented by NHR@FAU.
 
-Pick the visibility yourself. Nothing else in `~/projects` is exposed this way —
-`paper-refinery`, `mathunicode`, `yts`, `cv-generator` and `Installs/sioyek` are all
-clean and fully pushed.
+Everything in `~/projects` now has a remote and is pushed.
 
 ---
 
