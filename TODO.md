@@ -13,30 +13,18 @@ worth doing them in.
 
 | Do | Item | Needs | Why this order |
 |---|---|---|---|
-| 1 | **2** — rclone `client_id` | browser, 10 min | The only thing here that is actually *broken*. Everything else is tidying. |
-| 2 | **1** — push `papis-ask` | nothing | 3 commits on one disk. |
-| 3 | **1b** — give `SpackStream` a remote | `gh`, a visibility choice | 2 commits that exist nowhere else. |
-| 4 | **5b** — press `Alt+n` in sioyek | nothing | Closes the one untested seam; also settles the page-label question. |
-| 5 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
-| 6 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
-| 7 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
-| 8 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
-| 9 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
-| 10 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
-| 11 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
+| 1 | **1b** — give `SpackStream` a remote | `gh`, a visibility choice | 2 commits that exist nowhere else. |
+| 2 | **5b** — press `Alt+n` in sioyek | nothing | Closes the one untested seam; also settles the page-label question. |
+| 3 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
+| 4 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
+| 5 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
+| 6 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
+| 7 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
+| 8 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+| 9 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
 
-Done: **1** (dotfiles pushed), **5** (tmux-resurrect verified).
-
----
-
-## 1. ~~Push the dotfiles audit~~ — DONE, but `papis-ask` is still local
-
-`dotfiles` is pushed (61 audit commits, `origin/master` in sync). **`~/projects/papis-ask`
-still has 3 unpushed commits** — the whole note-ingestion feature:
-
-```bash
-cd ~/projects/papis-ask && git push        # branch: personal
-```
+Done: **1** (both repos pushed), **2** (rclone own client_id, 2026-08-09),
+**5** (tmux-resurrect verified).
 
 ---
 
@@ -58,27 +46,17 @@ clean and fully pushed.
 
 ---
 
-## 2. rclone: replace the Google Drive `client_id` — no sudo, needs a browser
+## 2. ~~rclone: replace the Google Drive `client_id`~~ — DONE 2026-08-09
 
-`~/.config/rclone/rclone.conf` has **no `client_id`**, so both remotes use rclone's
-built-in one. That client is shared by every rclone user on earth and its Google API
-quota is permanently exhausted — this is the root cause of the sync failures, not the
-logging. Google also began throttling the shared client harder during 2026.
+`gdrive` now uses a personal OAuth client (GCP project `rclone-personal`, Desktop app,
+published). Verified after the reconnect: `client_id`/`client_secret` written, token hash
+changed, the `NOTICE: ... shared Google Drive client_id` line **gone** from
+`rclone about gdrive:`, mount serving real file contents at `~/Cloud/gdrive`, and
+`study-library-sync.service` run manually → `Result=success`.
 
-Fix: create a personal OAuth client (free, 10 min, no billing account).
-
-1. https://console.cloud.google.com → new project
-2. **APIs & Services → Library** → enable *Google Drive API*
-3. **OAuth consent screen** → External → add your own email as a test user
-4. **Credentials → Create credentials → OAuth client ID → Desktop app**
-5. `rclone config` → edit each Drive remote → paste `client_id` + `client_secret`
-   → re-authorise when prompted
-
-Verify: `systemctl --user start rclone@<remote>` then
-`journalctl --user -u rclone@<remote> -n 30` — no 403 `userRateLimitExceeded`.
-
-The service already notifies on failure (`notify-failure@`), so a silent breakage
-can't recur — but the quota problem itself is only fixable here.
+Procedure and the four traps are in `CLAUDE.md` under "rclone — Google Drive uses a
+personal OAuth client", in case a Drive or Photos remote is ever added. `Dropbox` still
+uses rclone's shared client, deliberately: the retirement covers Drive and Photos only.
 
 ---
 
