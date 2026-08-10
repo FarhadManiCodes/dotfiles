@@ -1,33 +1,42 @@
 # TODO — actions that need me, not the config
 
-Left over from the 2026-07/08 config audit. Each item is something no script in this
-repo can do: it needs a browser, a decision, or root. Delete an entry once it's done.
+Left over from the 2026-07/08 config audit. Each item needed a browser, a decision, or
+root — something no script in this repo could do.
 
-For issues that were investigated and **accepted** (nothing to do), see `revisit.md`.
+**All items are closed as of 2026-08-10.** The entries are kept rather than deleted,
+because several of them record *why* the obvious action was wrong; the reasoning is the
+part worth not rediscovering. New items go at the bottom.
+
+For issues investigated and **accepted** (nothing to do), see `revisit.md`.
 For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 
-## Suggested order
+## Status
 
-Section numbers below are historical (they grew as findings landed) — this is the order
-worth doing them in.
+| Item | Outcome |
+|---|---|
+| **1** | dotfiles + `papis-ask` pushed |
+| **1b** | `SpackStream` on GitHub, private (2026-08-09) |
+| **2** | rclone on a personal Drive `client_id` (2026-08-09) |
+| **3** | `sysclean --all` run — 1.4 GB reclaimed, not the estimated 2.7 (2026-08-10) |
+| **4** | AOCL `libaoclutils` symlink; linker warning gone (2026-08-10) |
+| **5** | tmux-resurrect verified working |
+| **5b** | `Alt+n` in real sioyek — **found two placeholder bugs** (2026-08-10) |
+| **6** | `postgresql` server → container; `psql` protected (2026-08-10) |
+| **6b** | decided: **keep** the hand-built `mutool` |
+| **7** | decided: **no** `smartd` — wrong tool for a single NVMe |
+| **8** | Docker socket + group; Postgres container on `@postgres` (2026-08-10) |
+| **9** | `sysclean` now prompts before removing packages (2026-08-10) |
 
-| Do | Item | Needs | Why this order |
-|---|---|---|---|
-| 1 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+**Four items closed by rejecting the audit's own recommendation** after checking it: **6**
+(the stated reason — 66 MiB — was noise), **7** (smartd is built for multi-disk ATA, not
+one NVMe), **6b** (the swap costs ~23 MiB *more* and doesn't fix the real exposure), and
+**3** (the 2.7 GB estimate was the whole cache, not the recoverable part). Two items' own
+commands were **unsafe as written**: **6**'s `pacman -Rs` would have deleted `psql`, and
+**9** described an `--all` hazard that actually ran in every mode.
 
-Done: **1** (both repos pushed), **1b** (`SpackStream` on GitHub, 2026-08-09),
-**2** (rclone own client_id, 2026-08-09), **4** (AOCL symlink, 2026-08-10),
-**5** (tmux-resurrect verified), **5b** (`Alt+n` in real sioyek, 2026-08-10 — found two
-placeholder bugs), **6** (`postgresql` → container, 2026-08-10),
-**7** (decided: no smartd on NVMe), **8** (Docker socket + group, 2026-08-10),
-**6b** (decided: keep `mutool`), **9** (`sysclean` now prompts, 2026-08-10).
-
-**One item left, and it is optional space.** Nothing on this list is broken. Item 3 is now
-safe to run: `sysclean` no longer removes packages without asking.
-
-Three of the closed items were closed by **rejecting the audit's own recommendation** after
-checking it — 6 (reason was weak), 7 (wrong tool for NVMe), 6b (premise was factually
-wrong, the swap costs more than it saves). Worth remembering when reading the rest.
+Deferred by agreement, not closed: the **nvim submodule audit** (its own session — healthy
+baseline, see `AUDIT-2026-08.md`), and optionally a weekly NVMe-health timer as the
+sane alternative to `smartd` (item 7).
 
 ---
 
@@ -61,20 +70,28 @@ uses rclone's shared client, deliberately: the retirement covers Drive and Photo
 
 ---
 
-## 3. Reclaim ~2.7 GB — no sudo
+## 3. ~~Reclaim ~2.7 GB~~ — DONE 2026-08-10, reclaimed ~1.4 GB
 
-Plain `sysclean` frees nothing (already clean). The space is all in the pacman
-package cache, which needs the deep pass:
+`sysclean --all` run after the item 9 fixes. Pacman cache **2.7 G → 1.3 G**, uv cache
+cleared, ccache cleared (`0.0 / 5.0`), paru 1.3 M. Filesystem now 25 G used, 926 G free.
 
-```bash
-sysclean --all
-```
+**The "~2.7 GB" estimate was too high** — that was the whole cache, but `paccache -rk1`
+keeps one version of every *installed* package, and those 272 files are the remaining
+1.3 G. The recoverable part was the older versions, not the cache.
 
-Current: pacman cache 2.7 G, uv cache 83 M, paru cache 1.3 M.
+Nothing was lost: `postgresql-libs`, `aocl-gcc`, `blas-aocl-gcc`, `qpdf`,
+`ripgrep-all`, `pacman-contrib`, `docker` and `smartmontools` all still installed,
+`psql 18.4` still runs, and `pacman -Qtdq` is empty so the orphan step had nothing to
+prompt about.
 
-This is **not** neglect — `paccache.timer` is enabled and prunes automatically. 2.7 G is
-just the steady state at its default `-k3` (three versions of every package kept). If
-you'd rather it stayed small on its own, drop it to one version via a drop-in:
+**The item 9 journal change proved itself on this very run.** Journal held at 24 M with
+the oldest entry 2026-07-19, and the 2026-07-24 rclone DNS error — the evidence used
+earlier that day to disprove the "403 quota exceeded" claim — is **still there**. Under the
+previous `--vacuum-time=2weeks` this run would have deleted it, since it was 17 days old.
+
+Still **not** neglect: `paccache.timer` is enabled and prunes automatically, and the
+steady state is its default `-k3` (three versions kept). To keep it smaller without
+running this by hand:
 
 ```bash
 sudo systemctl edit paccache.timer   # or override PACCACHE_ARGS in the service
