@@ -13,17 +13,20 @@ worth doing them in.
 
 | Do | Item | Needs | Why this order |
 |---|---|---|---|
-| 1 | **5b** — press `Alt+n` in sioyek | nothing | Closes the one untested seam; also settles the page-label question. |
-| 2 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
-| 3 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
-| 4 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
-| 5 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
-| 6 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
-| 7 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
-| 8 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
+| 1 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
+| 2 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
+| 3 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
+| 4 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
+| 5 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
+| 6 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+| 7 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
 
 Done: **1** (both repos pushed), **1b** (`SpackStream` on GitHub, 2026-08-09),
-**2** (rclone own client_id, 2026-08-09), **5** (tmux-resurrect verified).
+**2** (rclone own client_id, 2026-08-09), **5** (tmux-resurrect verified),
+**5b** (`Alt+n` in real sioyek, 2026-08-10 — found two placeholder bugs).
+
+Items 4, 6, 7 and 6b are four independent `sudo` one-liners and could be done in one
+pass. Only **8** and **9** need a decision from you.
 
 Everything left is either one `sudo` line, or a decision only you can make. Nothing on
 this list is broken.
@@ -139,26 +142,31 @@ only panes where the program was started from a shell are. Normal use is unaffec
 
 ---
 
-## 5b. Press `Alt+n` in sioyek once — no sudo, 2 minutes
+## 5b. ~~Press `Alt+n` in sioyek once~~ — DONE 2026-08-10, and it found two bugs
 
-The whole sioyek -> papis -> `pask` note loop is built and tested, but never run
-against real sioyek. Everything except the keypress itself was verified (script
-end-to-end against a throwaway library, papis-ask unit tests, a live index of a
-real note), so this is the one seam left.
+Worth having done: the keypress was the one untested seam, and **both things it could
+have got wrong, it had**. Neither was detectable from the harness, which supplies argv
+directly instead of letting sioyek build it.
 
-Open any PDF **that lives in the papis library**, select a sentence, press `Alt+n`:
+1. **`%{current_page_label}` is not a command placeholder.** sioyek substitutes it only
+   into the status-bar format string (`main_widget.cpp:1441`); the command list
+   (`:4188`–`4270`) omits it, so it arrived as the literal text `%{current_page_label}`
+   and appeared in a note heading.
+2. **`%{page_number}` is 0-based in commands** — `:4210` passes
+   `get_current_page_number()` raw while the status bar renders it `+ 1` (`:1440`). A
+   capture on page 7 recorded page 6.
 
-1. nvim should open in a half-width column with the cursor under a new block
-2. check the heading page matches what sioyek shows. If it is off by one, swap
-   `%{current_page_label}` and `%{page_number}` in `sioyek/prefs_user.config` —
-   sioyek documents neither as 1-based, so both are passed and this is the only
-   way to find out which is right
-3. type a thought, save, then `pask index` and ask something only your note says.
-   The source should read `@<ref> (note)`
+Fixed by dropping the label placeholder and adding the `+1` in the script; the marker now
+stores the 1-based page, which is also what `goto_page_with_page_number` wants
+(`input.cpp:3587` does `stoi(text) - 1`). Full list of valid placeholders is in
+`sioyek/README.md` — anything not on it passes through silently.
 
-If nothing happens, the likely cause is sioyek's argv splitting: this command
-passes five `%{...}` placeholders where the existing ones pass at most two.
-`journalctl --user -f` while pressing the key will show the script's stderr.
+Verified on a real capture (Kalman 1960, p.7): `## p.7`, marker `page=7` with no `label=`
+field, no literal `%{` anywhere, quote fenced 1/1, and `indexable_prose` reducing 2260
+chars to 1277 — quote and markers stripped, heading kept, prose intact.
+
+Still unspent: a live `pask index` of the note (costs embedding quota). The offline path
+is proven; that would only confirm the `@Kalman_1960 (note)` source marker end to end.
 
 ---
 
