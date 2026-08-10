@@ -4,6 +4,10 @@
 #   sysclean        # Safe routine cleanup (keeps rollback packages & active caches)
 #   sysclean --all  # Deep aggressive cleanup (wipes uv/ccache/web caches & old rollbacks)
 #   sysclean -a     # Same as --all
+#
+# Package removal (step 3) is the one part that is NOT unattended and is not
+# gated by --all: it happens in both modes, so pacman is left to prompt. See the
+# comment there for why `pacman -Qtdq` is not a list of unwanted packages.
 
 sysclean() {
   local all=false
@@ -40,20 +44,31 @@ sysclean() {
       sudo paccache -ruk1
     fi
   else
+    # Fallback only if pacman-contrib is ever removed; paccache is preferred
+    # because it can keep N versions. No --noconfirm: pacman should ask.
     if [[ "$all" == true ]]; then
-      sudo pacman -Scc --noconfirm
+      sudo pacman -Scc
     else
-      sudo pacman -Sc --noconfirm
+      sudo pacman -Sc
     fi
   fi
 
   # 3. Orphaned dependencies
+  #
+  # `pacman -Qtdq` lists packages installed *as dependencies* and no longer
+  # required -- which is not the same as unwanted. A package you rely on lands
+  # there the moment whatever pulled it in is removed: postgresql-libs (it owns
+  # psql) appeared exactly that way on 2026-08-10 when the postgresql server was
+  # removed. So pacman asks, rather than this deciding for you.
+  #
+  # -Rs, not -Rns: -n is --nosave, which deletes config files instead of leaving
+  # .pacsave, so a mistaken removal takes the configuration with it.
   echo "==> 3. Orphaned system packages"
   local -a orphans
   orphans=($(pacman -Qtdq 2>/dev/null))
   if (( ${#orphans[@]} )); then
-    echo "   Removing ${#orphans[@]} orphaned package(s): ${orphans[*]}"
-    sudo pacman -Rns "${orphans[@]}" --noconfirm
+    echo "   ${#orphans[@]} orphaned package(s): ${orphans[*]}"
+    sudo pacman -Rs "${orphans[@]}"
   else
     echo "   No orphaned packages found."
   fi
@@ -92,9 +107,15 @@ sysclean() {
     sudo rm -rf /var/lib/systemd/coredump/* 2>/dev/null
     echo "   Systemd coredumps cleared."
   fi
+  # 2 months, not 2 weeks. The journal is the only record of what a service did
+  # weeks ago, and short retention destroys evidence to reclaim nothing: it sits
+  # at ~24 MB, and journald already caps itself (SystemMaxUse defaults to 10% of
+  # the filesystem, capped at 4G). A 2-week window would have deleted the
+  # 2026-07-24 rclone errors that were needed on 2026-08-10 to disprove a claim
+  # about *why* a service was failing.
   if command -v journalctl >/dev/null 2>&1; then
-    sudo journalctl --vacuum-time=2weeks >/dev/null 2>&1
-    echo "   Systemd journal logs older than 2 weeks cleaned."
+    sudo journalctl --vacuum-time=2months >/dev/null 2>&1
+    echo "   Systemd journal logs older than 2 months cleaned."
   fi
 
   # 8. Claude Code orphaned file-history (undo snapshots for deleted sessions)
