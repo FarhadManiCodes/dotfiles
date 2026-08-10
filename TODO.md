@@ -13,18 +13,17 @@ worth doing them in.
 
 | Do | Item | Needs | Why this order |
 |---|---|---|---|
-| 1 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
-| 2 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+| 1 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
 
 Done: **1** (both repos pushed), **1b** (`SpackStream` on GitHub, 2026-08-09),
 **2** (rclone own client_id, 2026-08-09), **4** (AOCL symlink, 2026-08-10),
 **5** (tmux-resurrect verified), **5b** (`Alt+n` in real sioyek, 2026-08-10 — found two
 placeholder bugs), **6** (`postgresql` → container, 2026-08-10),
 **7** (decided: no smartd on NVMe), **8** (Docker socket + group, 2026-08-10),
-**6b** (decided: keep `mutool`).
+**6b** (decided: keep `mutool`), **9** (`sysclean` now prompts, 2026-08-10).
 
-Two items left, and neither is a defect: **9** is a decision about your own script, **3**
-is optional space. Nothing on this list is broken.
+**One item left, and it is optional space.** Nothing on this list is broken. Item 3 is now
+safe to run: `sysclean` no longer removes packages without asking.
 
 Three of the closed items were closed by **rejecting the audit's own recommendation** after
 checking it — 6 (reason was weak), 7 (wrong tool for NVMe), 6b (premise was factually
@@ -288,27 +287,32 @@ customised.
 
 ---
 
-## 9. `sysclean --all` removes orphans unattended — your call
+## 9. ~~`sysclean` removed orphans unattended~~ — DONE 2026-08-10
 
-`zsh/functions/sysclean.zsh:56`:
+Three changes to `zsh/functions/sysclean.zsh`, all deliberately confined to the offending
+lines:
 
-```zsh
-sudo pacman -Rns "${orphans[@]}" --noconfirm
-```
+1. **`pacman -Rns … --noconfirm` → `pacman -Rs …`.** Dropping `--noconfirm` lets pacman
+   print the list and ask; the old code echoed the names and then removed them anyway, so
+   you saw it happen but could not stop it. Dropping `-n` (`--nosave`) means a mistaken
+   removal leaves `.pacsave` instead of deleting the configuration too.
+2. **`journalctl --vacuum-time` 2 weeks → 2 months.** Short retention reclaimed nothing
+   and destroyed evidence: the journal sits at ~24 MB and journald already caps itself
+   (`SystemMaxUse` defaults to 10% of the filesystem, 4 G cap, no overrides in
+   `journald.conf`).
+3. **The unreachable `pacman -Sc/-Scc --noconfirm` fallback** kept as a genuine fallback
+   for a machine without `pacman-contrib`, but with `--noconfirm` removed.
 
-This does both of the things you have said not to do: `--noconfirm`, and running
-`sudo pacman` without you seeing it. `-Rns` also strips config files, on whatever
-`pacman -Qtdq` happens to return that day.
+**This item's own framing was wrong in one respect:** the orphan block is **not** gated
+behind `--all` — it ran in *both* modes, while the function's docstring calls the plain
+mode "Safe routine cleanup". That is now noted in the docstring.
 
-**The risk is latent, not active.** `-Qtdq` returns nothing right now, and it only lists
-packages installed *as dependencies* — so `aocl-gcc` and `blas-aocl-gcc` are safe despite
-showing `Required By: None`, because both are **explicitly installed**. But the first time
-something does appear there, it is removed without being shown to you.
+And the risk turned out not to be latent. On **2026-08-10**, removing the `postgresql`
+server made `postgresql-libs` — which owns `psql` — an orphan candidate. It was only saved
+by marking it `--asexplicit` first. `pacman -Qtdq` lists packages installed *as
+dependencies* and no longer required, which is **not** the same as unwanted; that reasoning
+now lives in a comment at the call site.
 
-Suggested change: print the list, drop `--noconfirm`, let it be a decision.
-
-Also dead code in the same function: lines 44/46 (`pacman -Sc/-Scc --noconfirm`) are
-unreachable — `paccache` is installed, so the `paccache` branch always wins.
-
-Left alone deliberately: it is your script, and changing what a cleanup tool deletes is
-not something to do on someone's behalf.
+Verified: `zsh -n` parses, the function still defines, no `--noconfirm` remains, and
+`2months` is a valid systemd time span (`systemd-analyze timespan`, with a deliberately
+bogus control to prove the check could fail).
