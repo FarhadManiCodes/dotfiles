@@ -62,6 +62,26 @@ embedding — the paper's own text is already indexed from the PDF, and embeddin
 second time from a note would crowd out other sources. A selection is optional; with
 none you get just the page heading to write a page-level thought under.
 
+**Two placeholder facts, verified in sioyek's source, that cost a broken note before they
+were found** (`pdf_viewer/main_widget.cpp`):
+
+- **`%{page_number}` is 0-based in commands.** The command path substitutes
+  `get_current_page_number()` raw (`:4210`), while the status bar renders
+  `get_current_page_number() + 1` (`:1440`) — so a script receives one *less* than the
+  page the reader sees. `sioyek-papis-note` adds it back; the number it writes is also
+  what `goto_page_with_page_number` expects, since that does `stoi(text) - 1`.
+- **`%{current_page_label}` does not exist as a command placeholder.** It is substituted
+  only into the status-bar format string (`:1441`); the command substitution list
+  (`:4188`–`4270`) does not include it, so in a `new_command` it arrives as the literal
+  text `%{current_page_label}`. It reached a note heading exactly that way.
+
+The valid command placeholders are: `file_path`, `file_name`, `selected_text`,
+`selection_begin_document`, `selection_end_document`, `page_number`, `command_text`,
+`mouse_pos_window`, `mouse_pos_document`, `paper_name`, `sioyek_path`, `local_database`,
+`shared_database`, `selected_rect`, `line_text`, `offset_x`, `offset_y`,
+`offset_x_document`, `offset_y_document`, `zoom_level` — plus legacy `%1`–`%5`. Anything
+else passes through untouched, **silently**.
+
 ```markdown
 ## p.7 — 2026-08-05
 <!--sioyek page=6 label=7 offset_y=3412.8-->

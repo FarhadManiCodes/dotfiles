@@ -1,16 +1,35 @@
 #!/usr/bin/env bash
 # sioyek <A-n> -> append a note block to the papis notes.md of the PDF being
 # read, then open it in nvim so the thought gets written while it is fresh.
+# sioyek <A-N> -> --open: just read the existing notes, appending nothing.
 #
 # Invoked by sioyek as (see sioyek/prefs_user.config):
-#   sioyek-papis-note %{file_path} %{page_number} %{current_page_label} \
-#                     %{offset_y_document} %{selected_text}
+#   sioyek-papis-note %{file_path} %{page_number} %{offset_y_document} \
+#                     %{selected_text}
+#   sioyek-papis-note --open %{file_path}
+#
+# --open shares this script rather than getting its own so that the papis-folder
+# lookup, the notes-name resolution and the editor invocation have exactly one
+# implementation. It deliberately does NOT create a note: <A-N> is for reading,
+# and a keypress meant to check whether notes exist should not answer by making
+# an empty one.
 #
 # sioyek splits the command on whitespace BEFORE expanding %{...}, so each
 # placeholder arrives as exactly one argv element even when it contains spaces
 # or newlines -- the same contract sioyek-papis and sioyek-to-source rely on.
 # A selection is optional: with none, this still records the page so you can
 # write a page-level thought.
+#
+# %{page_number} is 0-BASED. Verified in sioyek's source: the command path does
+#   command_parts[i].replace("%{page_number}", QString::number(get_current_page_number()));
+# while the status bar renders get_current_page_number() + 1 -- so the number the
+# reader sees is one more than the number this script receives. Everything below
+# is 1-based, matching both the status bar and goto_page_with_page_number, which
+# does stoi(text) - 1 on what you type.
+#
+# There is deliberately no %{current_page_label} here: it is a *status-bar* token
+# only, absent from the command substitution list, so it arrives as the literal
+# string "%{current_page_label}". That is how it reached a heading once.
 
 set -uo pipefail
 
@@ -19,11 +38,16 @@ notify() {
   printf 'sioyek-papis-note: %s\n' "$1" >&2
 }
 
+open_only=0
+if [ "${1:-}" = "--open" ]; then
+  open_only=1
+  shift
+fi
+
 pdf=${1:-}
 page=${2:-}
-label=${3:-}
-offset=${4:-}
-sel=${5:-}
+offset=${3:-}
+sel=${4:-}
 
 [ -n "$pdf" ] || { notify "sioyek passed no file path"; exit 1; }
 
@@ -39,6 +63,16 @@ info="$dir/info.yaml"
 notes_name=$(sed -n 's/^notes-name *= *//p' "${XDG_CONFIG_HOME:-$HOME/.config}/papis/config" 2>/dev/null | head -1)
 notes="$dir/${notes_name:-notes.md}"
 
+# Read-only path: open what exists, say so when nothing does, and stop before
+# anything can be written. `+1` rather than `+$` because reading starts at the
+# top, unlike a capture which starts at the block just appended.
+if [ "$open_only" -eq 1 ]; then
+  [ -s "$notes" ] || { notify "no notes yet for $(basename -- "$dir") -- press A-n to start one"; exit 0; }
+  footclient --app-id papis-note nvim '+1' "$notes" \
+    || { notify "could not open $notes"; exit 1; }
+  exit 0
+fi
+
 # Fast path: once the note exists and is registered there is nothing for papis
 # to do, so skip it entirely. Only the first capture per document pays.
 if [ ! -f "$notes" ] || ! grep -q '^notes:' "$info"; then
@@ -49,11 +83,12 @@ if [ ! -f "$notes" ] || ! grep -q '^notes:' "$info"; then
   [ -f "$notes" ] || { notify "papis reported success but $notes is missing"; exit 1; }
 fi
 
-# Visible heading uses sioyek's own page label -- what you actually see on
-# screen, including roman-numeral front matter. Both values go in the metadata
-# comment because sioyek does not document which of the two is 1-based, and a
-# future jump-back command will want whichever turns out to be right.
-shown=${label:-$page}
+# 0-based -> what the reader sees. Guarded so a non-numeric page can never make
+# the heading read "p." with nothing after it.
+case $page in
+  '' | *[!0-9]*) shown='?' ;;
+  *) shown=$((page + 1)) ;;
+esac
 
 # Decided before the append block opens the file: testing -s inside it would be
 # reading and writing the same path in one redirection.
@@ -62,8 +97,8 @@ sep=""
 
 {
   printf '%s' "$sep"
-  printf '## p.%s — %s\n' "${shown:-?}" "$(date +%F)"
-  printf '<!--sioyek page=%s label=%s offset_y=%s-->\n' "$page" "$label" "$offset"
+  printf '## p.%s — %s\n' "$shown" "$(date +%F)"
+  printf '<!--sioyek page=%s offset_y=%s-->\n' "$shown" "$offset"
   if [ -n "$sel" ]; then
     # Fenced so indexing can drop it: the paper's own text is already embedded
     # from the PDF, and embedding it again would crowd out other sources.
