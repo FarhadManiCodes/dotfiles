@@ -395,7 +395,16 @@ System-level choices that aren't captured in any config file:
     `QT_QPA_PLATFORM=wayland` and execs the real 46 MiB binary at
     `~/.local/share/sioyek/sioyek`. Without the wrapper sioyek falls back to XWayland.
     The binary itself is deliberately not tracked — too large, and not a config.
-  - `mutool` (43.8 MiB) duplicates Arch's `mupdf-tools` — see `TODO.md` item 6b.
+  - `mutool` (42 MiB) — **decided 2026-08-10: keep it, do not swap for `mupdf-tools`.** It is
+    byte-identical to `~/Installs/sioyek/mupdf/build/release/mutool`, i.e. a by-product of the
+    sioyek build at `-march=znver4`, not a stray download. Its live use is the vifm PDF text
+    preview (`vifm/vifmrc:149`). Swapping it would **add ~23 MiB net**, not save any:
+    `mupdf-tools` is 737 KiB but pulls `libmupdf` (55.9 MiB) plus `tesseract`, `leptonica` and
+    `gumbo-parser` — an OCR stack, none of it installed. It would also not fix the thing that
+    matters: sioyek **statically bundles the same mupdf 1.26.11** (pinned as a submodule at
+    `d189cc131`), and sioyek is what actually opens untrusted downloaded PDFs, so patching the
+    occasionally-used CLI to 1.28.0 would buy a false sense of security. `mutool` refreshes for
+    free whenever sioyek is rebuilt.
   - `agy` (172 MiB, an AI CLI agent) is unrelated to these dotfiles.
 - **`pdfjam` is free, not a swappable dependency**: it's a script *inside* `texlive-binextra`
   (kept for LaTeX anyway) that wraps `\includepdf` via `pdflatex` — it does not call qpdf/mutool,

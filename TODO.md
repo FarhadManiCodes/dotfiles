@@ -13,18 +13,22 @@ worth doing them in.
 
 | Do | Item | Needs | Why this order |
 |---|---|---|---|
-| 1 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
+| 1 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
 | 2 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
-| 3 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
 
 Done: **1** (both repos pushed), **1b** (`SpackStream` on GitHub, 2026-08-09),
 **2** (rclone own client_id, 2026-08-09), **4** (AOCL symlink, 2026-08-10),
 **5** (tmux-resurrect verified), **5b** (`Alt+n` in real sioyek, 2026-08-10 — found two
 placeholder bugs), **6** (`postgresql` → container, 2026-08-10),
-**7** (decided: no smartd on NVMe), **8** (Docker socket + group, 2026-08-10).
+**7** (decided: no smartd on NVMe), **8** (Docker socket + group, 2026-08-10),
+**6b** (decided: keep `mutool`).
 
-Three items left. Only **9** genuinely needs you; the other two are optional tidying.
-Nothing on this list is broken.
+Two items left, and neither is a defect: **9** is a decision about your own script, **3**
+is optional space. Nothing on this list is broken.
+
+Three of the closed items were closed by **rejecting the audit's own recommendation** after
+checking it — 6 (reason was weak), 7 (wrong tool for NVMe), 6b (premise was factually
+wrong, the swap costs more than it saves). Worth remembering when reading the rest.
 
 ---
 
@@ -172,22 +176,30 @@ is proven; that would only confirm the `@Kalman_1960 (note)` source marker end t
 
 ---
 
-## 6b. Replace the hand-installed `mutool` with the packaged one — needs sudo
+## 6b. `mutool` — decided 2026-08-10: **keep it**, do not swap for `mupdf-tools`
 
-`~/.local/bin/mutool` is a 43.8 MiB binary hand-placed on 2026-05-24, owned by no
-package, and it is the only `mutool` on this system. It is genuinely used — the PDF notes
-in `CLAUDE.md` rely on it (keeps bookmarks, drops links, unlike `qpdf`) — but a
-hand-dropped binary gets no security updates and no soname tracking.
+Every premise in the original version of this item was wrong, so it is written out here
+rather than deleted.
 
-Arch ships it in `mupdf-tools`, which links the shared mupdf libraries instead of
-bundling them:
+- **It is not a hand-dropped download.** `~/.local/bin/mutool` is byte-identical (sha256
+  `b5e0c5ac…`) to `~/Installs/sioyek/mupdf/build/release/mutool` — a by-product of the
+  sioyek build, at `-march=znver4`. Provenance is a source tree you maintain.
+- **Swapping it costs ~23 MiB, it does not save any.** This item claimed `mupdf-tools`
+  "links the shared mupdf libraries instead of bundling them", implying smaller. Actual:
+  `mupdf-tools` 737 KiB **+ `libmupdf` 55.9 MiB + `tesseract` 4.8 MiB + `leptonica`
+  3.6 MiB + `gumbo-parser` 381 KiB**, none installed — an OCR stack pulled in to replace
+  42 MiB.
+- **It would not fix the actual exposure.** The only untrusted-input path is the vifm PDF
+  preview (`vifm/vifmrc:149`, `mutool draw -F txt`). But sioyek **statically bundles the
+  same mupdf 1.26.11** (submodule pinned at `d189cc131`, 0 shared `libmupdf` in `ldd`, and
+  0 `mutool` strings — so sioyek does not call it, they merely share a build). Sioyek is
+  what actually opens downloaded papers. Patching the CLI to 1.28.0 while the reader stays
+  at 1.26.11 buys a false sense of security.
 
-```bash
-pacman -Si mupdf-tools            # check size first
-sudo pacman -S mupdf-tools
-rm ~/.local/bin/mutool            # then confirm: command -v mutool -> /usr/bin/mutool
-mutool -v
-```
+The real hygiene action, if any: rebuild sioyek — that refreshes `mutool` for free at
+znver4. Note it would not reach mupdf 1.28.0, because the submodule pin is upstream
+sioyek's choice. The checkout is 15 commits behind `upstream/development` (34 behind
+`upstream/main`), last built 2026-07-20.
 
 Also unaccounted for in `~/.local/bin`: **`agy`, 172 MiB** (an AI CLI agent, v1.1.0,
 placed 2026-07-08) and **`~/.local/share/sioyek/sioyek`, 46 MiB**. Both hand-installed
