@@ -13,23 +13,18 @@ worth doing them in.
 
 | Do | Item | Needs | Why this order |
 |---|---|---|---|
-| 1 | **4** — AOCL symlink | sudo, 1 line | Removes a warning from every C++ link. |
-| 2 | **6** — remove `postgresql` | sudo, 1 line | 66 MiB, never initialised. |
-| 3 | **7** — enable `smartd` | sudo, 1 line | Only real config gap in 177 packages. |
-| 4 | **8** — make Docker usable | sudo + a privilege decision | Needs you to choose group vs rootless. |
-| 5 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
-| 6 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
-| 7 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
+| 1 | **6b** — packaged `mutool` | sudo | Replaces a hand-dropped binary that gets no updates. |
+| 2 | **3** — `sysclean --all` | sudo | Reclaims 2.7 GB; purely optional, `paccache.timer` already manages it. |
+| 3 | **9** — `sysclean` `--noconfirm` | a decision | Latent, not active. Read before changing. |
 
 Done: **1** (both repos pushed), **1b** (`SpackStream` on GitHub, 2026-08-09),
-**2** (rclone own client_id, 2026-08-09), **5** (tmux-resurrect verified),
-**5b** (`Alt+n` in real sioyek, 2026-08-10 — found two placeholder bugs).
+**2** (rclone own client_id, 2026-08-09), **4** (AOCL symlink, 2026-08-10),
+**5** (tmux-resurrect verified), **5b** (`Alt+n` in real sioyek, 2026-08-10 — found two
+placeholder bugs), **6** (`postgresql` → container, 2026-08-10),
+**7** (decided: no smartd on NVMe), **8** (Docker socket + group, 2026-08-10).
 
-Items 4, 6, 7 and 6b are four independent `sudo` one-liners and could be done in one
-pass. Only **8** and **9** need a decision from you.
-
-Everything left is either one `sudo` line, or a decision only you can make. Nothing on
-this list is broken.
+Three items left. Only **9** genuinely needs you; the other two are optional tidying.
+Nothing on this list is broken.
 
 ---
 
@@ -84,9 +79,16 @@ sudo systemctl edit paccache.timer   # or override PACCACHE_ARGS in the service
 
 ---
 
-## 4. AOCL: one symlink to silence the linker — needs sudo
+## 4. ~~AOCL: one symlink to silence the linker~~ — DONE 2026-08-10
 
-Every C++ link against `-llapack` prints:
+`/usr/local/lib/libaoclutils.so → /opt/aocl/gcc/lib_LP64/libaoclutils.so` is in place and
+the warning is gone. Verified with more than an empty `main`: a real `dgesv` link is clean
+*and* solves correctly (`[[2,1],[1,3]]x=(3,5)` → `x=(0.8, 1.4)`, exact), and `ldd` confirms
+`libaoclutils.so` still loads from `/opt/aocl/...` via the absolute `DT_NEEDED` — so this
+changed link time only, not runtime resolution. Keep the reasoning below; if a future
+`blas-aocl-gcc` ships the symlink itself, this one becomes harmless.
+
+Every C++ link against `-llapack` used to print:
 
 ```
 ld: warning: libaoclutils.so, needed by /usr/lib/liblapack.so, not found
@@ -193,73 +195,84 @@ and owned by no package. Not defects — just know they exist and get no updates
 
 ---
 
-## 6. Remove the `postgresql` server — needs sudo
+## 6. ~~Remove the `postgresql` server~~ — DONE 2026-08-10, replaced by a container
 
-66 MiB, service **disabled**, and `/var/lib/postgres/data` is **empty** — `initdb` was
-never run, so the server has never been used. The `psql` client you actually use comes
-from **`postgresql-libs`**, a separate package that stays:
+Removed in favour of a container (version pinning per project, throw-away state). Full
+write-up in `CLAUDE.md` under "Docker — socket-activated, and Postgres runs in a
+container". Verified: server gone, `psql 18.4` works, insert/read-back through the
+container round-trips.
+
+**The command originally written here was unsafe.** `pacman -Rs postgresql` would also
+have removed `postgresql-libs` — which is where `psql` lives — because it was installed
+as a dependency and `Required By: postgresql` only. What was actually run:
 
 ```bash
-pacman -Qoq /usr/bin/psql     # → postgresql-libs, not postgresql
-sudo pacman -Rs postgresql
+sudo pacman -D --asexplicit postgresql-libs    # protects it from -Rs *and* from sysclean
+sudo pacman -R postgresql                      # -R, not -Rs
 ```
+
+The `--asexplicit` step matters beyond this one removal: without it `pacman -Qtdq` lists
+`postgresql-libs` as an orphan, and `sysclean --all` runs `pacman -Rns --noconfirm` on
+that list (item 9). Confirmed afterwards that `-Qtdq` is empty.
+
+Also note the audit's stated reason was weak — "66 MiB, never initialised". 66 MiB is
+noise next to `aocl-gcc` (686) or `agy` (172), and a disabled service costs nothing at
+runtime. The real reason to remove it was architectural, not space.
+
+`@postgres` was **kept**, not deleted: it is a mounted btrfs subvolume (so `rm -rf` gives
+`EBUSY`, and removing it properly means an fstab edit whose failure mode is a boot
+failure), and it now backs the container's `PGDATA` as a bind-mount. `chattr +C` was set
+on it while empty, which had to happen before `initdb`.
 
 ---
 
-## 7. Enable `smartd` for disk-health monitoring — needs sudo
+## 7. `smartd` — decided 2026-08-10: **don't enable the daemon**
 
-`smartmontools` is installed but `smartd.service` is **disabled**, so nothing watches
-SMART attributes. This was the only real configuration gap found across all 177
-explicitly-installed packages.
+`smartmontools 7.5` is installed and `smartd.service` is disabled. The audit called this
+"the only real configuration gap in 177 packages", which overstates it for **this**
+hardware: one consumer NVMe (`nvme0n1`, SK Hynix 954 GB).
 
-```bash
-sudo systemctl enable --now smartd.service
-systemctl status smartd            # confirm it found the NVMe
-```
+Why the daemon is the wrong tool here:
 
-Stock `/etc/smartd.conf` (`DEVICESCAN`) is fine to start with. If you want failures to
-reach you the same way service failures do, add
-`OnFailure=notify-failure@%n.service` — but note `notify-failure@` is a **user** unit
-and `smartd` is system-level, so it would need a system-level equivalent of
-`bash/service-failed-notify`. Worth doing only if you want the symmetry.
+- NVMe has no ATA SMART attributes — the data lives in the **NVMe Health Information log
+  (page 0x02)**, and the fields that predict anything (`percentage_used`,
+  `available_spare` vs threshold, `media_and_data_integrity_errors`, `critical_warning`)
+  move on a scale of **weeks to months**. 30-minute polling buys nothing.
+- smartd is built for multi-disk ATA/SCSI servers: scheduled offline self-tests, and
+  alerting by **mailing root**. There is no MTA here, so its alerts go nowhere and the
+  only thing gained is journal lines.
+- NVMe also tends to fail abruptly (controller death, read-only lockdown), which SMART
+  does not foresee.
+
+What to do instead: read it occasionally, `sudo smartctl -a /dev/nvme0n1`. Temperature is
+readable without root via hwmon (40.9 °C when checked).
+
+Optional follow-up if you want to be *told*: a weekly system timer that reads the health
+log and notifies only when a threshold trips. That fits this repo's existing pattern for
+root-owned tracked files (`pam/`, `system-sleep/` installed by `install-root.sh`) and
+would be the system-level counterpart to `bash/service-failed-notify` — `notify-failure@`
+is a **user** unit, so smartd could not use it. Strictly better than smartd for this
+machine, but it is new code, not a one-liner.
 
 ---
 
-## 8. Make Docker actually usable — decided: KEEP — needs sudo
+## 8. ~~Make Docker actually usable~~ — DONE 2026-08-10: socket + group
 
-Decision made 2026-08-03: keep it (217 MiB — `docker` 114 + `docker-buildx` 62 +
-`docker-compose` 28 + `lazydocker` 13). But right now it is installed and **not usable**:
+`docker.socket` enabled; `docker.service` and `containerd.service` stay disabled and are
+started on demand. User added to the `docker` group (gid 968), **knowingly accepting that
+this is equivalent to passwordless root**. Rootless was evaluated and rejected — it
+bypasses the `@docker` subvolume, needs two uninstalled packages, and would have required
+subuid chowning for the Postgres bind-mount.
 
-- `docker.service`, `docker.socket`, `containerd.service` — all **disabled**
-- you are **not in the `docker` group** (the group exists, gid 968), so every command
-  needs `sudo docker`
-- no `~/.docker`, no `~/.config/lazydocker` — both use built-in defaults
+Verified: socket activation works (`docker.service` went inactive → active on first
+command, containerd pulled in automatically), driver `overlayfs`, root `/var/lib/docker`
+on the `@docker` subvolume, and a `postgres:18` container serving on `127.0.0.1:5432` with
+a real insert/read-back through host `psql`.
 
-To make it work on demand without a boot-time daemon, enable the **socket**, not the
-service — dockerd then starts on first use and stays out of the way:
-
-```bash
-sudo systemctl enable --now docker.socket
-```
-
-Group membership is the other half, and it is a **real privilege decision, not a
-formality**: the `docker` group is equivalent to passwordless root, because anyone in it
-can `docker run -v /:/host` and edit the host filesystem as root. Three options, pick one:
-
-1. **Stay out of the group**, use `sudo docker` — no privilege escalation, mildly annoying.
-2. **Join the group** — convenient, and accepts that `docker` == root on this machine:
-   ```bash
-   sudo usermod -aG docker farhad    # then log out and back in
-   ```
-3. **Rootless Docker** — keeps convenience without the root-equivalence:
-   ```bash
-   dockerd-rootless-setuptool.sh install
-   systemctl --user enable --now docker    # then DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
-   ```
-   Fits this setup best, given Apptainer was already chosen for unprivileged containers.
-
-Nothing needs to be added to this repo either way — `lazydocker`'s defaults are fine, and
-a config only becomes worth tracking once you've customised it.
+Full reasoning and the container command live in `CLAUDE.md` under "Docker —
+socket-activated, and Postgres runs in a container". Nothing was added to this repo:
+`lazydocker` and Docker both run on defaults, and a config is only worth tracking once
+customised.
 
 ---
 

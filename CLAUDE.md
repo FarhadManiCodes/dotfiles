@@ -243,6 +243,69 @@ Success is the **`NOTICE: ... shared Google Drive client_id` line disappearing**
 
 `~/.config/rclone/rclone.conf` holds the tokens and is intentionally untracked.
 
+### btrfs subvolume layout — what it is for
+
+`/etc/fstab` mounts seven subvolumes off one filesystem: `@` → `/`, `@home`, `@snapshots` →
+`/.snapshots`, `@log` → `/var/log`, `@pkg` → `/var/cache/pacman/pkg`, `@docker` →
+`/var/lib/docker`, `@postgres` → `/var/lib/postgres`.
+
+The point is **exclusion from snapshots**, and it is load-bearing: `snapper` +`snap-pac` are
+installed with `snapper-timeline.timer` and `snapper-cleanup.timer` enabled, and `/.snapshots`
+holds real hourly snapshots of root. Without `@docker` and `@pkg`, image layers and the package
+cache would be captured in every one of them. `/home` has a snapper config but is **not**
+actually snapshotted (`/home/.snapshots` is empty and fstab does not mount it).
+
+Consequences worth knowing before "tidying" anything here:
+
+- A **mounted subvolume cannot be `rm -rf`'d** — it returns `EBUSY`. Removing one means editing
+  fstab *first*, then `umount`, then `btrfs subvolume delete` from a `subvolid=5` mount. Deleting
+  the subvolume while its fstab line remains is a **boot failure**, so this is not a tidy-up.
+- An empty subvolume costs metadata only (~16 KiB); btrfs subvolumes share the pool, so
+  `df`/`findmnt` against one reports the whole filesystem. Never a reason to remove one.
+
+### Docker — socket-activated, and Postgres runs in a container
+
+**Decided 2026-08-10.** `docker.socket` is enabled; `docker.service` and `containerd.service`
+stay **disabled on purpose** — the socket starts them on the first `docker` command and systemd
+pulls containerd in as a dependency. Storage driver is `overlayfs` with root `/var/lib/docker`,
+i.e. on the `@docker` subvolume.
+
+The user is in the `docker` group (gid 968). That is **equivalent to passwordless root** — anyone
+who can reach the socket can `docker run -v /:/host` — and was accepted knowingly for usability.
+
+**Rootless Docker was considered and rejected**, because it fits this machine badly: it stores
+data in `~/.local/share/docker`, bypassing the purpose-built `@docker` subvolume; it needs
+`rootlesskit` + `slirp4netns` (not installed); and a bind-mount of `/var/lib/postgres` would need
+chowning to subuid `100998` instead of just working. `subuid`/`subgid` *are* configured
+(`farhad:100000:65536`) if that is ever revisited.
+
+**The host `postgresql` server was removed** (2026-08-10) in favour of a container — per-project
+version pinning, and throw-away state. Two things about that are easy to get wrong:
+
+- **`postgresql-libs` must stay marked `--asexplicit`.** `psql` lives in it, not in `postgresql`.
+  It was installed as a dependency of `postgresql`, so once the server went it became an orphan
+  candidate: `pacman -Qtdq` would list it, and `sysclean --all` runs
+  `pacman -Rns --noconfirm` on that list (see `TODO.md` 9). `pacman -Rs postgresql` would also
+  have taken it. It is now `Install Reason: Explicitly installed` and absent from `-Qtdq`.
+- **`chattr +C` on `/var/lib/postgres` had to be set while the directory was empty.** The flag
+  only applies to files created afterwards, so it must precede `initdb` — a database under btrfs
+  CoW fragments badly. It also disables the subvolume's `compress=zstd:1` for that data, which is
+  what you want.
+
+```bash
+docker run -d --name pg --restart unless-stopped \
+  -e POSTGRES_PASSWORD=dev -e PGDATA=/var/lib/postgresql/data \
+  -v /var/lib/postgres:/var/lib/postgresql/data \
+  -p 127.0.0.1:5432:5432 postgres:18
+```
+
+`-p 127.0.0.1:5432:5432`, **never** `-p 5432:5432`: Docker's default publishes on `0.0.0.0` and
+installs its own rules in the `DOCKER` iptables chain, which **bypass host firewall config**. On a
+laptop that joins untrusted networks, the bare form exposes the database to the local network.
+
+Backups are `pg_dump`, not snapshots — a btrfs snapshot of a running database captures a torn
+state. Nothing tries to: snapper has configs for `home` and `root` only.
+
 ## Modifying configs
 
 **Add a new config to dotfiles**:
