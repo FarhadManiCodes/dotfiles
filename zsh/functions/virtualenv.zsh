@@ -86,16 +86,40 @@ _reload_direnv() {
 
 _select_env() {
   local prompt="${1:-🐍 Select environment: }"
-  
-  if ! command -v fzf >/dev/null; then
-    echo "📋 Available environments:"
-    _list_environments
-    echo "💡 Install fzf for interactive selection"
+
+  # A project-local .venv is offered FIRST when the current directory has one.
+  # It is deliberately not added to _list_environments: that backs `vl`'s
+  # "Centralized environments ($CENTRAL_VENVS)" heading, which a local entry
+  # would make untrue. `uv venv` creates .venv by default, so this is the common
+  # project layout, and without it a bare `va` reported "(no environments
+  # found)" with a perfectly good .venv sitting in the current directory.
+  local -a entries
+  [[ -d ".venv" ]] && entries+=("   🐍 local (./.venv)")
+
+  # fast: the picker only needs names — skip the per-venv du/python walk.
+  # The "(no environments found)" placeholder is dropped, or picking it would
+  # feed awk a line whose $2 is the word "environments".
+  local line
+  while IFS= read -r line; do
+    [[ "$line" == *"(no environments found)"* ]] && continue
+    entries+=("$line")
+  done < <(_list_environments fast)
+
+  # Informational output goes to stderr throughout: stdout here IS the return
+  # value (callers use `selected=$(_select_env)`), so anything echoed to stdout
+  # is taken as an environment name.
+  if (( ${#entries[@]} == 0 )); then
+    echo "📋 No environments found (create one with: vc <name>, or vc local)" >&2
     return 1
   fi
-  
-  # fast: the picker only needs names — skip the per-venv du/python walk.
-  _list_environments fast | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
+
+  if ! command -v fzf >/dev/null; then
+    printf '%s\n' "📋 Available environments:" "${entries[@]}" >&2
+    echo "💡 Install fzf for interactive selection" >&2
+    return 1
+  fi
+
+  printf '%s\n' "${entries[@]}" | fzf --prompt="$prompt" --height=40% | awk '{print $2}'
 }
 
 # Write the .envrc that activates env "$1"; back up any non-generated .envrc first
@@ -317,9 +341,18 @@ vc() {
 # Activate/switch environment
 va() {
   local selected="$1"
-  
-  # Handle local activation
-  if [[ "$selected" == "local" || "$selected" == "." ]]; then
+
+  # Interactive selection if no argument. Deliberately BEFORE the local branch
+  # below, so that choosing "local" in the picker does exactly what typing
+  # `va local` does — session activation, no .envrc written. Ordered the other
+  # way round, a picked "local" fell through to the .envrc handling instead.
+  [[ -z "$selected" ]] && {
+    selected=$(_select_env)
+    [[ -z "$selected" ]] && return 0
+  }
+
+  # Handle local activation ("local" or ".", typed or picked)
+  if _is_local_name "$selected"; then
     if [[ ! -d ".venv" ]]; then
       echo "❌ No local .venv found in current directory"
       echo "💡 Create one with: vc local"
@@ -329,13 +362,7 @@ va() {
     echo "✅ Activated local .venv"
     return 0
   fi
-  
-  # Interactive selection if no argument
-  [[ -z "$selected" ]] && { 
-    selected=$(_select_env)
-    [[ -z "$selected" ]] && return 0
-  }
-  
+
   # Validate environment exists
   if ! _env_exists "$selected"; then
     echo "❌ Environment '$selected' not found"
