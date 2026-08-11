@@ -222,9 +222,11 @@ command! FZF : let $FZF_PICK = term('fd --type f --hidden --follow --exclude .gi
             \| endif
 nnoremap F :FZF<cr>
 
-" USB drive mounting via udisksctl (replaces udiskie)
-nnoremap <space>m :!udisksctl mount -b %f<cr>
-nnoremap <space>u :!udisksctl unmount -b %f<cr>
+" USB media — mount/unmount/navigate (backed by 'mediaprg' above).
+" In the menu: Enter mounts + navigates, m toggles mount/unmount, r reloads.
+" Replaces the old `udisksctl -b %f` pair, which needed the cursor parked on
+" the device node in /dev to do anything.
+nnoremap <space>m :media<cr>
 
 " ------------------------------------------------------------------------------
 
