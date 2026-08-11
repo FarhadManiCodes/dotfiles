@@ -112,7 +112,7 @@ straight to `/dev/sda`); `vifm-media` and `lsblk` both handle it.
 | `z <dir>` | Jump (zoxide) |
 | `ll`, `la` | eza listings |
 | `vc [name] [template]` | Create venv |
-| `va [name]` | Activate venv |
+| `va [name]` | Activate venv. Bare `va` picks from central venvs **plus** a `./.venv` if the current dir has one (listed as `local`). `va local` / picking `local` activates for the session only; `va <central-name>` writes an `.envrc` so direnv takes over. |
 | `vl` | List venvs |
 | `fnb` | Find + open Jupyter notebook |
 | `fdata` | Find data/model files |
