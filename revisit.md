@@ -1,8 +1,9 @@
 # Revisit
 
-Investigated issues. All three below are **accepted** — each was diagnosed to a
-non-config root cause (hardware/firmware or upstream bug), not anything these dotfiles
-can fix. Recheck the listed trigger on the next relevant upgrade.
+Investigated issues, **accepted** — nothing to do. The first group was diagnosed to a
+non-config root cause (hardware/firmware or upstream bug); the last entry records tools
+that were priced and declined, so they are not re-proposed. Recheck the listed trigger on
+the next relevant upgrade.
 
 ---
 
@@ -53,3 +54,41 @@ One line at (cold) boot. Bluetooth works fully — all A2DP endpoints register.
   firmware bump, benign).
 - **Fix:** none (upstream bluez bug; no config affects the race).
 - **Recheck:** bluez update resolving #1905, or a BT controller firmware update.
+
+---
+
+## nvim additions investigated and DECLINED (2026-08-12)
+
+Priced during the nvim audit and rejected. Recorded because each is the kind of thing an
+audit will keep suggesting.
+
+- **marksman** (markdown LSP) — **declined on cost/benefit.** 21 MiB plus
+  `dotnet-runtime-9.0` at 70 MiB, i.e. a .NET runtime on the machine, and its entire value
+  is the *link graph between files*. Measured: **2** markdown links between `.md` files in
+  all of dotfiles, **1** papis note, **0** wiki-links, **0** cross-links. Same shape as
+  preferring `shellcheck-bin` over the Haskell-linked repo build. It is not a linter — link
+  integrity only, nothing about prose.
+- **CMake LSP** — **declined.** 28 `CMakeLists.txt`/`.cmake` files, so the need is real, but
+  both options are **AUR-only**: `cmake-language-server` (Python, effectively unmaintained
+  upstream) and `neocmakelsp` (Rust, alive but young). Highlighting already works — the
+  `cmake` parser is declared and installed — and clangd covers the code itself. If ever
+  revisited, `neocmakelsp` is the one to pick.
+- **`taplo`** (TOML) and **`harper-ls`** (prose/grammar) — **not investigated properly**,
+  only noted. taplo is AUR-only; harper-ls would be the tool for prose quality if the spell
+  wordlist ever proves insufficient. Neither is a gap, just unexplored.
+- **`g:rcsv_max_columns`** — the one real knob for wide-CSV performance (default 30, caps
+  rainbow highlighting). Deliberately **unset**: no CSV has been slow. Set it only against
+  an actual symptom, and note that `g:rcsv_align_mode` — which the config used to set — was
+  never an option at all.
+- **A local `queries/zsh/textobjects.scm`** — deferred, not declined. Upstream's zsh query
+  defines neither `@block` nor `@parameter.outer`, so `ab`/`ib` and `aa` do nothing in shell
+  files (`af`/`if`, `]m`/`[m`, `al`, `ai`, `a/` all work). Same fix already used for SQL in
+  `queries/sql/textobjects.scm` if it becomes annoying.
+
+**jupytext is installed per-venv, when notebooks are actually needed** — not as a uv tool
+and not system-wide, matching how jupyter is handled here generally. So `.ipynb` opening as
+raw JSON is the **expected** state most of the time, not a fault: the spec resolves the CLI
+venv-first and only arms the plugin when one exists, precisely because its read path
+truncates notebooks when the binary is missing. `uv pip install jupytext` in the project
+venv, then `:restart`. `:checkhealth jupytext` reports which binary it found, or warns that
+notebooks will open as JSON.

@@ -34,9 +34,10 @@ one NVMe), **6b** (the swap costs ~23 MiB *more* and doesn't fix the real exposu
 commands were **unsafe as written**: **6**'s `pacman -Rs` would have deleted `psql`, and
 **9** described an `--all` hazard that actually ran in every mode.
 
-Deferred by agreement, not closed: the **nvim submodule audit** (its own session — healthy
-baseline, see `AUDIT-2026-08.md`), and optionally a weekly NVMe-health timer as the
-sane alternative to `smartd` (item 7).
+The **nvim submodule audit** was deferred here and has since been done (2026-08-11/12) —
+see the nvim section of `AUDIT-2026-08.md` for the findings, and `revisit.md` for the
+additions that were investigated and declined. Still optional and untouched: a weekly
+NVMe-health timer as the sane alternative to `smartd` (item 7).
 
 ---
 
