@@ -101,10 +101,12 @@ audit will keep suggesting.
   rainbow highlighting). Deliberately **unset**: no CSV has been slow. Set it only against
   an actual symptom, and note that `g:rcsv_align_mode` — which the config used to set — was
   never an option at all.
-- **A local `queries/zsh/textobjects.scm`** — deferred, not declined. Upstream's zsh query
-  defines neither `@block` nor `@parameter.outer`, so `ab`/`ib` and `aa` do nothing in shell
-  files (`af`/`if`, `]m`/`[m`, `al`, `ai`, `a/` all work). Same fix already used for SQL in
-  `queries/sql/textobjects.scm` if it becomes annoying.
+- **A local `queries/zsh/textobjects.scm`** — **done 2026-08-13**, no longer deferred.
+  Upstream's zsh query defines neither `@block` nor `@parameter.outer`, so `ab`/`ib` and `aa`
+  were no-ops in shell files. Added both, same approach as `queries/sql/textobjects.scm`.
+  The `;; extends` first line is load-bearing — without it the file replaces upstream's query
+  rather than adding to it. `ac`/`ic` and `]] [[ ][ []` stay no-ops deliberately: shell has
+  no class.
 
 **jupytext is installed per-venv, when notebooks are actually needed** — not as a uv tool
 and not system-wide, matching how jupyter is handled here generally. So `.ipynb` opening as
