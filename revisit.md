@@ -68,14 +68,35 @@ audit will keep suggesting.
   all of dotfiles, **1** papis note, **0** wiki-links, **0** cross-links. Same shape as
   preferring `shellcheck-bin` over the Haskell-linked repo build. It is not a linter — link
   integrity only, nothing about prose.
-- **CMake LSP** — **declined.** 28 `CMakeLists.txt`/`.cmake` files, so the need is real, but
-  both options are **AUR-only**: `cmake-language-server` (Python, effectively unmaintained
-  upstream) and `neocmakelsp` (Rust, alive but young). Highlighting already works — the
-  `cmake` parser is declared and installed — and clangd covers the code itself. If ever
-  revisited, `neocmakelsp` is the one to pick.
-- **`taplo`** (TOML) and **`harper-ls`** (prose/grammar) — **not investigated properly**,
-  only noted. taplo is AUR-only; harper-ls would be the tool for prose quality if the spell
-  wordlist ever proves insufficient. Neither is a gap, just unexplored.
+- **CMake LSP** — **reversed on evidence, 2026-08-13: `neocmakelsp` is going in.** The
+  original "declined" rested on two things that did not survive checking. First, the need is
+  real: **27 of 37** CMake files are authored (SciCpp's `chapters/*/` tree, toy-pde-solver's
+  `src`+`tests`, three playground projects) — the count only looked inflated because the
+  *largest* files on disk are vendored spack/git ones. Second, the cost is near zero:
+  `neocmakelsp` needs only `cmake` at runtime and builds with the **rust already installed**
+  for paru. Upstream is alive — v0.11.0 on 2026-07-25, pushed daily, 424 stars — whereas
+  `cmake-language-server` was **last pushed 2025-02-11, 18 months idle**, which is what
+  "unmaintained" was guessing at. Ignore `neocmakelsp-bin` (0.6.22, April 2024, dead).
+  Invocation is `neocmakelsp stdio`; config is `init_options` plus its own
+  `.neocmake.toml`/`$XDG_CONFIG_HOME/neocmakelsp/config.toml`. Formatting is **external** —
+  `[format] program = "gersemi"`, so `python-gersemi` (extra) is required for `<leader>cf`.
+- **`taplo`** (TOML) — **accepted 2026-08-13, pending install.** Not AUR-only as first
+  recorded: **`taplo-cli` 0.10.0 is in `extra`**, 11.9 MiB, upstream healthy. Serves 12
+  authored TOML files of which **7 are `pyproject.toml`** (papis-ask, paper-refinery,
+  mathunicode, cv-generator, yts), where SchemaStore validation is the draw — the same thing
+  `yamlls` already gives YAML. Nothing shadows it: the `toml` parser gives highlighting, but
+  there is no validation today. Invocation `taplo lsp stdio`; **verify `taplo lsp --help`
+  first**, since upstream warns the LSP is not in every build.
+- **`harper-ls`** (grammar) — **open, decide by measurement.** Not the narrow tool first
+  assumed: it ships dedicated `harper-tex` and `harper-typst` crates, and `backend.rs`
+  dispatches `"typst"` and `"tex"|"latex"` to them, so it could *replace* Neovim's spell
+  rather than merely duplicate it. `harper` 2.7.0 is in `extra`; 112 MiB but with **no
+  runtime deps beyond glibc** — unlike marksman, which is smaller only until you count its
+  70 MiB .NET runtime. Two questions settle it, both cheap on a real `.tex`: does it avoid
+  flagging `\mathbf`/`\frac` (our treesitter route leaked those **648×** on the papis
+  corpus), and how much of the 453-word list would need porting to its `userDictPath`? Win
+  the first with a manageable second and it replaces the spell setup; otherwise skip it,
+  since grammar alone was not judged worth the size.
 - **`g:rcsv_max_columns`** — the one real knob for wide-CSV performance (default 30, caps
   rainbow highlighting). Deliberately **unset**: no CSV has been slow. Set it only against
   an actual symptom, and note that `g:rcsv_align_mode` — which the config used to set — was
