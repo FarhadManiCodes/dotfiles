@@ -9,14 +9,27 @@ ships inside the wheel. Benchmarked on this machine — not worth the complexity
 
 ### Why a source build was even needed
 
-PyPI numpy/scipy wheels bundle their own OpenBLAS and ignore the system BLAS
-(`/usr/lib/libblas.so` → AOCL) entirely. uv vs pip is irrelevant — same wheel. The only way to
-use AOCL is to compile numpy from source and point Meson at AOCL via pkg-config.
+PyPI numpy/scipy wheels bundle their own OpenBLAS and ignore the system BLAS entirely — which
+is now doubly true, since there is no system `blas` provider at all any more (see `revisit.md`).
+uv vs pip is irrelevant — same wheel. The only way to use AOCL is to compile numpy from source
+and point Meson at AOCL via pkg-config.
+
+Re-verified 2026-08-14 on numpy 2.5.2 with `~/learning/playground/numpy-blas-check`, which reads
+the process's own `/proc/self/maps` rather than trusting build metadata:
+
+```
+build config : scipy-openblas 0.3.34
+loaded .so   : .venv/.../numpy.libs/libscipy_openblas64_-61654e39.so   (24 MiB, inside the wheel)
+find_library('blas') -> None          AOCL loaded by numpy -> NO
+threadpoolctl: openblas 0.3.34  threads=8  arch=SkylakeX
+```
 
 ### Benchmark (float64, 8 threads, performance governor, AC power)
 
 Both backends verified at ~7.9 cores / 8 threads (no thread-count bias); AOCL affinity tuning
 did not help. OpenBLAS 0.3.31 runs AVX-512 `SkylakeX` (no dedicated Zen 4 kernel); AOCL is `zen4`.
+Still `SkylakeX` at 0.3.34 (2026-08-14) — so OpenBLAS wins these sizes *without* a Zen 4 kernel,
+and a future one would only widen the gap.
 
 GEMM `C=A@B` — AOCL vs OpenBLAS GFLOPS:
 
@@ -41,16 +54,18 @@ OpenBLAS wheel is the better default.
 
 ### Recipe, if a future large-GEMM workload justifies revisiting (per-project, not global)
 
-AOCL's own `.pc` files are broken — they hardcode `prefix=/opt/aocl/5.2.0/gcc`, a path that
-does not exist, so pkg-config detection passes but linking dies (`ld: cannot find -lblis-mt`).
-Generate corrected copies, then source-build numpy:
+AOCL's own `.pc` files are broken — they hardcode a version-stamped `prefix=` that does not
+exist (`/opt/aocl/5.3.0/gcc/MT` as of 5.3.0; it was `/opt/aocl/5.2.0/gcc` before), so
+pkg-config detection passes but linking dies (`ld: cannot find -lblis-mt`). Note 5.3.0 also
+moved the trees down a level into `MT/`. Rewrite `prefix=` outright rather than matching the
+old string, so this survives the next bump:
 
 ```bash
 mkdir -p ~/.config/aocl-pkgconfig
 for f in blis-mt flame aocl-utils; do
-  sed -e 's#/opt/aocl/5.2.0/gcc#/opt/aocl/gcc#g' \
+  sed -e 's#^prefix=.*#prefix=/opt/aocl/gcc/MT#' \
       -e 's#^libdir=.*#libdir=${prefix}/lib_LP64#' \
-      /opt/aocl/gcc/lib_LP64/pkgconfig/$f.pc > ~/.config/aocl-pkgconfig/$f.pc
+      /opt/aocl/gcc/MT/lib_LP64/pkgconfig/$f.pc > ~/.config/aocl-pkgconfig/$f.pc
 done
 
 PKG_CONFIG_PATH=~/.config/aocl-pkgconfig \
