@@ -159,15 +159,6 @@ mkdir -p "${XDG_CONFIG_HOME}/neocmakelsp"
 ln -sf "${DOTFILES}/neocmakelsp/config.toml" "${XDG_CONFIG_HOME}/neocmakelsp/config.toml"
 echo "neocmakelsp configured"
 
-# ============ taplo ==============================
-# taplo has no XDG user-level config -- it only searches the project directory --
-# so lua/config/lsp.lua passes this file explicitly with `taplo lsp --config`.
-# A project's own .taplo.toml still overrides it (verified).
-echo "Setting up taplo..."
-mkdir -p "${XDG_CONFIG_HOME}/taplo"
-ln -sf "${DOTFILES}/taplo/config.toml" "${XDG_CONFIG_HOME}/taplo/config.toml"
-echo "taplo configured"
-
 # ============ mako ==============================
 echo "Setting up mako..."
 mkdir -p "${XDG_CONFIG_HOME}/mako"

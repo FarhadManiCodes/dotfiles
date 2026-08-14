@@ -80,7 +80,19 @@ audit will keep suggesting.
   Invocation is `neocmakelsp stdio`; config is `init_options` plus its own
   `.neocmake.toml`/`$XDG_CONFIG_HOME/neocmakelsp/config.toml`. Formatting is **external** —
   `[format] program = "gersemi"`, so `python-gersemi` (extra) is required for `<leader>cf`.
-- **`taplo`** (TOML) — **accepted 2026-08-13, pending install.** Not AUR-only as first
+- **`taplo`** (TOML) — **tried and REMOVED, 2026-08-13.** Installed, configured and
+  verified working, then dropped once its real coverage was measured rather than assumed.
+  The pitch was "it catches config that silently does nothing", the failure class this audit
+  kept finding by hand. Measured, that holds for **`uv.toml` only**: `uv` accepts a misspelt
+  `concurent-downloads` with exit 0 and no warning, and taplo flags it. It does **not** hold
+  for the case actually used to justify it — **ruff refuses to start** on an unknown key
+  (`Failed to parse pyproject.toml`), so there taplo is merely *earlier*, not new
+  information. And coverage is patchy anyway: a misspelt `addoptss` under
+  `[tool.pytest.ini_options]` produced **0 diagnostics**, because the pyproject schema does
+  not reach into every tool's sub-table, and `handlr.toml` / `spotify-player/*.toml` /
+  `icons/settings.toml` matched no rule at all. Verdict: insurance that fires perhaps twice a
+  year, against 12 MiB plus a tracked config, an install.sh entry and a `--config` flag in
+  `cmd`. Not worth carrying. Superseded detail, for anyone reconsidering: Not AUR-only as first
   recorded: **`taplo-cli` 0.10.0 is in `extra`**, 11.9 MiB, upstream healthy. Serves 12
   authored TOML files of which **7 are `pyproject.toml`** (papis-ask, paper-refinery,
   mathunicode, cv-generator, yts), where SchemaStore validation is the draw — the same thing
