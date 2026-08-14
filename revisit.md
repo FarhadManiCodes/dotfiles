@@ -99,7 +99,29 @@ audit will keep suggesting.
   `yamlls` already gives YAML. Nothing shadows it: the `toml` parser gives highlighting, but
   there is no validation today. Invocation `taplo lsp stdio`; **verify `taplo lsp --help`
   first**, since upstream warns the LSP is not in every build.
-- **`harper-ls`** (grammar) — **open, decide by measurement.** Not the narrow tool first
+- **`harper-ls`** (grammar) — **measured and REJECTED, 2026-08-13. Installed, scored,
+  uninstalled.** Not because it handles LaTeX badly — **it handles math better than Neovim
+  does** — but because its dictionary is worse at this subject matter. On the real
+  `main.tex` it flagged **34** where Neovim's spell flags **5** (all genuine unknown names),
+  and it mis-suggests on domain vocabulary: `vorticity -> voracity`,
+  `incompressible -> compressible`, `Kalman` unrecognised. All clean under Neovim's, because
+  the tracked 466-word list knows them; adopting harper would mean porting that list to its
+  `userDictPath` *and* accepting a weaker dictionary, for 112 MiB. With `SpellCheck = false`
+  it still flagged 10 on that file via compound-word linters.
+
+  **The genuine trade, worth keeping in mind if this is ever revisited:** neither parses
+  LaTeX perfectly, and they fail on *opposite* constructs. Neovim leaks out of
+  `\begin{align}` (flagged `Cx` in `y &= Cx + Du`) and out of `\texttt{}`; harper leaks out
+  of `\begin{verbatim}` (flagged `recieve` in a code block). In practice the math leak is
+  rare — zero occurrences in the real `main.tex` — while harper's vocabulary noise is
+  pervasive. **This could flip** if the writing shifts to heavy `align`/`gather` with
+  single-letter matrix names; try adding those tokens to the wordlist first. What harper
+  genuinely adds and Neovim cannot: repeated words (`this this`) and indefinite articles
+  (`a apple`) — real but small. Sentence capitalisation is *not* one, Neovim already catches
+  it via `spellcapcheck`. Re-score with `~/learning/playground/harper-vs-spell` (fixtures,
+  both configs, scoring table) rather than re-deriving any of this.
+
+  Superseded first impression: Not the narrow tool first
   assumed: it ships dedicated `harper-tex` and `harper-typst` crates, and `backend.rs`
   dispatches `"typst"` and `"tex"|"latex"` to them, so it could *replace* Neovim's spell
   rather than merely duplicate it. `harper` 2.7.0 is in `extra`; 112 MiB but with **no
