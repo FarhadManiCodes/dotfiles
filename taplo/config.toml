@@ -9,12 +9,27 @@
 #   * LSP settings.evenBetterToml -> still 0; taplo ignores editor settings here
 #   * an explicit [[rule]] below  -> 2 diagnostics, exactly the two real errors
 # So the catalog alone is useless; the include/url pair is what does the work.
+#
+# Why this is worth the file at all: the single most repeated finding of the
+# 2026-07/08 audit was config that LOOKS live and silently does nothing --
+# g:rcsv_align_mode, g:dbs, the gtk settings.ini pair, twilight's hex colours,
+# and ruff's own settings-vs-init_options. A schema catches that class
+# mechanically. Verified: `slect = [...]` instead of `select` under
+# [tool.ruff.lint] -- which ruff ignores in silence -- is flagged here.
 
 [[rule]]
 include = ["**/pyproject.toml"]
 [rule.schema]
 url = "https://json.schemastore.org/pyproject.json"
 
+# uv.toml has a schema; starship.toml does not (schemastore 404s on
+# starship.json), so there is deliberately no rule for it.
+[[rule]]
+include = ["**/uv.toml"]
+[rule.schema]
+url = "https://json.schemastore.org/uv.json"
+
+# Not speculative: 2 Cargo.toml files here.
 [[rule]]
 include = ["**/Cargo.toml"]
 [rule.schema]
