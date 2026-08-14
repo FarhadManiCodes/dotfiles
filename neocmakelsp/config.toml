@@ -1,0 +1,22 @@
+# neocmakelsp — user-level config ($XDG_CONFIG_HOME/neocmakelsp/config.toml).
+#
+# The formatter is EXTERNAL. neocmakelsp's own formatting is a passthrough
+# (measured: `project(demo   CXX)` came back untouched), so gersemi does the work.
+#
+# The trailing "-" is LOAD-BEARING, not style. neocmakelsp pipes the buffer to
+# this program's stdin; gersemi given no file operand reads nothing, exits 0, and
+# prints ZERO bytes. neocmakelsp treats that as a successful format producing an
+# empty document and applies it, so `<leader>cf` EMPTIED the buffer -- measured,
+# 6 lines to 1 blank line. With "-" gersemi reads stdin and it formats correctly.
+# Same failure shape as the jupytext read path: an exit code of 0 with no output
+# is indistinguishable from success unless you look.
+# 100, not the default 80: the only thing lint reported on real files here was
+# C0301 "Line too long (87/80)", and 80 contradicts this machine's own conventions
+# -- treesj splits at 100 and the C++ style is 100 columns. Left at 80 the lint is
+# pure noise about lines that are deliberately that length; at 100 it stays quiet
+# until something is actually long.
+line_max_words = 100
+
+[format]
+program = "gersemi"
+args = ["--indent", "2", "-"]

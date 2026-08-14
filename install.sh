@@ -150,6 +150,24 @@ echo "GitHub CLI configured"
 # ripgrep-all is not configured here: rga writes its own config.jsonc (and
 # schema) on first run, and every adapter we want is enabled by default.
 
+# ============ neocmakelsp ==============================
+# The trailing "-" in its [format] args is load-bearing: gersemi with no file
+# operand exits 0 printing nothing, which neocmakelsp applies as a successful
+# empty format and blanks the buffer. See the comments in the file itself.
+echo "Setting up neocmakelsp..."
+mkdir -p "${XDG_CONFIG_HOME}/neocmakelsp"
+ln -sf "${DOTFILES}/neocmakelsp/config.toml" "${XDG_CONFIG_HOME}/neocmakelsp/config.toml"
+echo "neocmakelsp configured"
+
+# ============ taplo ==============================
+# taplo has no XDG user-level config -- it only searches the project directory --
+# so lua/config/lsp.lua passes this file explicitly with `taplo lsp --config`.
+# A project's own .taplo.toml still overrides it (verified).
+echo "Setting up taplo..."
+mkdir -p "${XDG_CONFIG_HOME}/taplo"
+ln -sf "${DOTFILES}/taplo/config.toml" "${XDG_CONFIG_HOME}/taplo/config.toml"
+echo "taplo configured"
+
 # ============ mako ==============================
 echo "Setting up mako..."
 mkdir -p "${XDG_CONFIG_HOME}/mako"
