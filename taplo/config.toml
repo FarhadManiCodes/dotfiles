@@ -1,0 +1,26 @@
+# taplo — global config, passed explicitly via `taplo lsp --config` in
+# lua/config/lsp.lua (taplo has no XDG user-level default; it only searches the
+# project directory, so without this every repo would need its own .taplo.toml).
+#
+# Schema ASSOCIATION is the point, and it is not automatic. Measured:
+#   * no config at all            -> 0 diagnostics on a pyproject.toml with
+#                                    `version = 123` and a misspelt key
+#   * [schema] catalogs = [...]   -> still 0; a catalog does not associate anything
+#   * LSP settings.evenBetterToml -> still 0; taplo ignores editor settings here
+#   * an explicit [[rule]] below  -> 2 diagnostics, exactly the two real errors
+# So the catalog alone is useless; the include/url pair is what does the work.
+
+[[rule]]
+include = ["**/pyproject.toml"]
+[rule.schema]
+url = "https://json.schemastore.org/pyproject.json"
+
+[[rule]]
+include = ["**/Cargo.toml"]
+[rule.schema]
+url = "https://json.schemastore.org/cargo.json"
+
+[[rule]]
+include = ["**/.taplo.toml", "**/taplo.toml"]
+[rule.schema]
+url = "https://json.schemastore.org/taplo.json"
