@@ -149,3 +149,44 @@ venv-first and only arms the plugin when one exists, precisely because its read 
 truncates notebooks when the binary is missing. `uv pip install jupytext` in the project
 venv, then `:restart`. `:checkhealth jupytext` reports which binary it found, or warns that
 notebooks will open as JSON.
+
+---
+
+## No system `blas` provider — ACCEPTED (2026-08-14)
+
+`pacman -Qi blas` finds nothing, and `-lblas` / `-llapack` do not resolve. This is
+deliberate, not a gap, and an audit will keep proposing a fix for it.
+
+- **Investigated:** the AUR adapter `blas-aocl-gcc` — 16 symlinks, 0 bytes of code — was the
+  only package putting AOCL in that slot. It is **orphaned** (`Maintainer: null`; last
+  touched 2024-03-04, flagged out-of-date 2026-08-10), and AOCL 5.3.0 moved its trees to
+  `MT/`,
+  dangling all 13 of its hardcoded paths; `ldconfig` then pruned the four `.so.3` links.
+  Removed 2026-08-14. AOCL itself (`aocl-gcc`, maintained, 3 maintainers) is untouched and
+  is still this machine's BLAS — projects link it explicitly through CMake's native
+  `BLA_VENDOR=AOCL_mt`, which is *better* than the symlinks were (it supplies the `-fopenmp`
+  libflame needs, and picks MT/ST + LP64/ILP64 instead of hardcoding one combination).
+- **Why nothing was installed in its place:** no installed package declares a `blas`
+  dependency — checked across every entry in the local database. `blas-openblas` (official,
+  `extra`) would fill the slot, but it would only ever serve a hypothetical future consumer,
+  and would not be used by any project here.
+- **Accepted risk:** if some package ever *does* pull in `blas`, pacman resolves it to
+  netlib reference BLAS, which is roughly an order of magnitude slower than AOCL. It will
+  appear in the transaction list, so the cost is visible at install time, not silent.
+- **Do not:** reinstall `blas-aocl-gcc`, or fork it. AOCL ships no `libblas.so` at all, so
+  `-lblas` was always the adapter's invention rather than something AMD supports.
+- **Recheck:** if `blas-aocl` is ever adopted on the AUR and updated for the `MT/` layout,
+  or if a wanted package starts depending on `blas`.
+
+## AOCL `.pc` files hardcode a nonexistent prefix — ACCEPTED (upstream packaging bug)
+
+`pkg-config --libs blis-mt` emits `-L/opt/aocl/5.3.0/gcc/MT/lib`, a path that does not exist
+(`/opt/aocl/` contains only `gcc/`). Affects every AOCL module: `blis-mt`, `flame`,
+`aocl-utils`, `fftw3*`.
+
+- **Investigated:** AMD's tarball assumes a version-stamped install root; the AUR PKGBUILD
+  relocates it to `/opt/aocl/gcc` without rewriting `prefix=` in the `.pc` files.
+- **Fix:** none needed for CMake projects — they use `BLA_VENDOR=AOCL_mt` and never consult
+  pkg-config. For a non-CMake build, override the variable:
+  `pkg-config --define-variable=prefix=/opt/aocl/gcc/MT --libs flame`.
+- **Recheck:** next `aocl-gcc` bump.

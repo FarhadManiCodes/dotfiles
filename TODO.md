@@ -18,7 +18,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **1b** | `SpackStream` on GitHub, private (2026-08-09) |
 | **2** | rclone on a personal Drive `client_id` (2026-08-09) |
 | **3** | `sysclean --all` run — 1.4 GB reclaimed, not the estimated 2.7 (2026-08-10) |
-| **4** | AOCL `libaoclutils` symlink; linker warning gone (2026-08-10) |
+| **4** | AOCL `libaoclutils` symlink; linker warning gone (2026-08-10) — symlink **retired 2026-08-14**, no longer needed |
 | **5** | tmux-resurrect verified working |
 | **5b** | `Alt+n` in real sioyek — **found two placeholder bugs** (2026-08-10) |
 | **6** | `postgresql` server → container; `psql` protected (2026-08-10) |
@@ -100,14 +100,27 @@ sudo systemctl edit paccache.timer   # or override PACCACHE_ARGS in the service
 
 ---
 
-## 4. ~~AOCL: one symlink to silence the linker~~ — DONE 2026-08-10
+## 4. ~~AOCL: one symlink to silence the linker~~ — DONE 2026-08-10, **retired 2026-08-14**
 
-`/usr/local/lib/libaoclutils.so → /opt/aocl/gcc/lib_LP64/libaoclutils.so` is in place and
-the warning is gone. Verified with more than an empty `main`: a real `dgesv` link is clean
-*and* solves correctly (`[[2,1],[1,3]]x=(3,5)` → `x=(0.8, 1.4)`, exact), and `ldd` confirms
-`libaoclutils.so` still loads from `/opt/aocl/...` via the absolute `DT_NEEDED` — so this
-changed link time only, not runtime resolution. Keep the reasoning below; if a future
-`blas-aocl-gcc` ships the symlink itself, this one becomes harmless.
+The symlink is **gone**, and nothing replaced it — the problem it solved no longer exists.
+Three things had to be true, and AOCL 5.3.0 plus the adapter removal falsified all of them:
+
+- the warning came from `/usr/lib/liblapack.so`, a `blas-aocl-gcc` symlink. That package was
+  removed on 2026-08-14 (see the AOCL section of `CLAUDE.md`), so there is no such file.
+- 5.3.0 moved the library trees into `MT/`, so the symlink's target
+  (`/opt/aocl/gcc/lib_LP64/libaoclutils.so`) had been **dangling since 2026-08-11** —
+  provably contributing nothing, since a dangling symlink cannot satisfy a link.
+- 5.3.0's `libflame.so` records *absolute* `DT_NEEDED` paths for both `libaoclutils.so` and
+  `libblis-mt.so`, so `ld` resolves the transitive dependency with no help at all.
+
+Verified: a clean CMake build of `~/learning/playground/aocl-check` (real `dgemm`/`dtrsm`/
+`dgesv`, all exact) emits **no linker warnings**. Removed with
+`sudo rm /usr/local/lib/libaoclutils.so`; `/usr/local/lib` is now empty.
+
+The reasoning below is kept because one part of it still governs: **never** put AOCL's lib
+dir on the runtime loader path. That is now recorded in `CLAUDE.md`, along with the sharper
+version of it found on 2026-08-14 — `DT_RUNPATH` is searched *before* `ld.so.cache`, so even
+a per-binary AOCL rpath hijacks FFTW unless `/usr/lib` is listed first.
 
 Every C++ link against `-llapack` used to print:
 
