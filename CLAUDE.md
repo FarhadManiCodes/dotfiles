@@ -376,20 +376,49 @@ System-level choices that aren't captured in any config file:
   - `browser.security_level.security_slider` is **`safest: 1, safer: 2, standard: 4`** (verified in
     the bundle's own `modules/SecurityLevel.sys.mjs`). Currently 4 = Standard, deliberately.
     Change it via the shield icon, never by editing prefs — a hand-edit desyncs `security_custom`.
-- **`aocl-gcc` (686 MiB) is load-bearing — do not flag it as unused.** Nothing declares a
-  dependency on it (`blas-aocl-gcc` shows `Required By: None`) and numpy ignores it entirely
-  (wheels bundle their own OpenBLAS — see `uv/README.md`), so an audit will keep concluding it is
-  dead weight. It is not: C++ projects here link `-lblas`/`-llapack`.
-  - Already the default, no config needed: `blas-aocl-gcc` points
-    `/usr/lib/lib{blas,cblas,lapack,lapacke}.so` at `libblis-mt`/`libflame` and installs
-    `/usr/include/cblas.h` (byte-identical to AOCL's), so `-lblas` and CMake's
-    `find_package(BLAS)`/`find_package(LAPACK)` resolve to AOCL at build *and* run time.
-  - **`PKG_CONFIG_PATH` is deliberately not set globally.** AOCL's pkgconfig dir also holds
-    `fftw3*.pc`, and pkg-config always searches `PKG_CONFIG_PATH` *before* the compiled-in
-    defaults — so exposing it at all makes `pkg-config fftw3` return AOCL's FFTW 3.3.10 instead of
-    the system 3.3.11. Both carry soname `libfftw3.so.3`, so you would link AOCL's and load the
-    system's at runtime. Set `PKG_CONFIG_PATH=/opt/aocl/gcc/lib_LP64/pkgconfig` per project if you
-    need the BLIS-native API (`blis.h`, `blis`/`blis-mt`/`flame` modules).
+- **`aocl-gcc` (1.6 GiB at 5.3.0) is load-bearing — do not flag it as unused.** Nothing declares
+  a dependency on it (`Required By: None`) and numpy ignores it entirely (wheels bundle their own
+  OpenBLAS — see `uv/README.md`), so an audit will keep concluding it is dead weight. It is not:
+  C++ projects here link it for BLAS/LAPACK. Measured on this machine it beats OpenBLAS on DTRSM
+  by 43–213% — the routine direct solvers live on — and ties on large DGEMM
+  (`~/learning/playground/blas_bench/RESULTS_SUMMARY.md`).
+  - **There is deliberately no system `blas` provider.** The AUR adapter `blas-aocl-gcc`, which
+    symlinked `/usr/lib/lib{blas,cblas,lapack,lapacke}.so` at AOCL, was **removed 2026-08-14**:
+    it is orphaned upstream (no maintainer, flagged out-of-date), and AOCL 5.3.0 moved the
+    library trees down into `MT/` (multi-threaded) and `ST/` subdirectories, dangling all 13 of
+    its hardcoded symlinks — `ldconfig` then pruned the four `.so.3` ones, silently. **`-lblas`
+    no longer resolves, and never should:** AOCL ships no `libblas.so` at all, so that name was
+    always the adapter's invention. Don't reinstall it, and don't add a replacement provider —
+    nothing on the system depends on `blas`.
+  - **How to link AOCL.** CMake has native support since 3.27, and it is strictly better than the
+    old symlinks: it adds the `-fopenmp` that libflame needs (the symlinks silently omitted it)
+    and picks MT/ST and LP64/ILP64 correctly instead of hardcoding one combination.
+    ```cmake
+    list(APPEND CMAKE_LIBRARY_PATH "/opt/aocl/gcc/MT/lib_LP64")
+    set(BLA_VENDOR AOCL_mt)
+    find_package(BLAS REQUIRED)
+    find_package(LAPACK REQUIRED)
+    ```
+    Copy the full pattern — layout probe plus RPATH — from
+    `~/learning/playground/aocl-check/CMakeLists.txt`. Running that project verifies the wiring
+    end to end (`dgemm`/`dtrsm`/`dgesv`, exit 0 = correct).
+  - **Never add AOCL's lib dir to `/etc/ld.so.conf.d/`**, despite what the `aocl-gcc` install
+    scriptlet suggests. It ships `libfftw3.so.3` (FFTW 3.3.10) with the *same soname* as the
+    system fftw (3.3.11), so a global entry would hijack FFTW for every process on the machine.
+    Use per-target `BUILD_RPATH`/`INSTALL_RPATH`; binaries then run in a clean environment with
+    no `LD_LIBRARY_PATH`.
+  - **Put `/usr/lib` first in that RPATH** — `"/usr/lib:${AOCL_LIB_DIR}"`. `DT_RUNPATH` is
+    searched *before* `ld.so.cache`, so a bare AOCL rpath reproduces the FFTW hijack inside that
+    one binary: measured, a program linked against system `-lfftw3` then loads AOCL's 3.3.10 at
+    runtime and warns ``Symbol `fftw_version' has different size in shared object``. Ordering
+    `/usr/lib` first fixes it and costs nothing; `libblis-mt`/`libflame` still resolve from AOCL.
+    Both `blas_bench` and `aocl-check` do this.
+  - **`PKG_CONFIG_PATH` is deliberately not set globally**, for that same FFTW reason —
+    pkg-config searches it *before* the compiled-in defaults, so exposing it makes
+    `pkg-config fftw3` return AOCL's 3.3.10. Set it per project if you need the BLIS-native API
+    (`blis.h`, `blis`/`blis-mt`/`flame` modules). The `.pc` files are also **broken out of the
+    box**: they hardcode `prefix=/opt/aocl/5.3.0/gcc/MT`, which does not exist. Override it with
+    `pkg-config --define-variable=prefix=/opt/aocl/gcc/MT --libs flame`.
   - Thread count is pinned in `zsh/.zshenv`; unset, BLIS uses all 16 logical cores.
     `BLIS_NUM_THREADS` **outranks** `OMP_NUM_THREADS` (measured), so a project setting
     `OMP_NUM_THREADS` for its own parallel regions will not resize BLIS.
