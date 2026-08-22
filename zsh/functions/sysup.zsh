@@ -1,6 +1,6 @@
 # sysup - full system + tooling update
 #
-# Order: pacman/AUR (paru) -> uv tools -> Claude Code.
+# Order: pacman/AUR (paru) -> uv tools -> Claude Code -> fwupd metadata (if stale).
 #
 # No npm step: there are no user npm globals, and system node/npm are pacman
 # packages already covered by paru -Syu above.
@@ -16,7 +16,22 @@ sysup() {
   claude update
   _sysup_prune_claude_versions
 
+  echo "==> Firmware metadata (fwupd)"
+  _sysup_fwupd_refresh_if_stale
+
   echo "==> sysup done"
+}
+
+# fwupd's lvfs metadata is timestamped by its own cache file; refresh only if
+# it's missing or older than ~3 months, so sysup doesn't prompt for sudo every run.
+_sysup_fwupd_refresh_if_stale() {
+  local meta="/var/lib/fwupd/metadata/lvfs/firmware.xml.zst"
+  if [[ ! -f "$meta" ]] || [[ -n $(find "$meta" -mtime +90 2>/dev/null) ]]; then
+    echo "   last refresh >3 months ago (or never) — running sudo fwupdmgr refresh"
+    sudo fwupdmgr refresh
+  else
+    echo "   refreshed within the last 3 months, skipping"
+  fi
 }
 
 # Keep only the current Claude version plus the single newest older one. The
