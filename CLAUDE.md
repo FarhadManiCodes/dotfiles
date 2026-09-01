@@ -16,9 +16,16 @@ sudo bash install-root.sh                  # system-level: root-owned files unde
 ```
 
 `install.sh` never uses sudo (user configs only). Root-owned system files live in their own
-directories (e.g. `pam/`) and are installed by `install-root.sh` — kept separate so the main
-install stays sudo-free. These are **copied**, not symlinked (an auth file must not point at a
-user-writable path).
+directories (`pam/`, `system-sleep/`, `sysctl/`) and are installed by `install-root.sh` — kept
+separate so the main install stays sudo-free. These are **copied**, not symlinked (an auth file
+must not point at a user-writable path, and `sysctl.d` is read at boot before `$HOME` is
+guaranteed mounted).
+
+`sysctl/99-performance.conf` holds VM tuning (swappiness, cache pressure, dirty ratios) plus
+`net.ipv4.tcp_mtu_probing = 1`. It was hand-written and **untracked** until 2026-09-01 — a fresh
+`install-root.sh` would have dropped it silently, the same trap `fix-wifi.sh` fell into. The MTU
+line is preventive, not a fix: no VPN is installed and the journal shows no black-hole events,
+but probing is inert on a healthy path so it costs nothing to carry.
 
 Post-install:
 - Zsh plugins: `~/.config/zsh/update-plugins.sh`
