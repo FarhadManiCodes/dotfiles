@@ -49,4 +49,15 @@ for hook in restart-swayidle fix-wifi.sh; do
   fi
 done
 
+# --- /etc/sysctl.d/99-performance.conf : kernel tunables ---
+# Copied like the rest: sysctl.d reads at boot, before $HOME is guaranteed mounted.
+if ! cmp -s "${DOTFILES}/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf 2>/dev/null; then
+  install -D -m 0644 -o root -g root \
+    "${DOTFILES}/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf
+  sysctl --system >/dev/null
+  echo "  /etc/sysctl.d/99-performance.conf installed and applied"
+else
+  echo "  /etc/sysctl.d/99-performance.conf already up to date"
+fi
+
 echo "✅ Root configs installed"
