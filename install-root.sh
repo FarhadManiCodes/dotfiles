@@ -60,4 +60,20 @@ else
   echo "  /etc/sysctl.d/99-performance.conf already up to date"
 fi
 
+# --- /var/lib/docker : podman's graphroot, on the @docker subvolume ---
+# fstab mounts @docker here root-owned, but podman runs rootless and cannot use a graphroot it
+# does not own. Without this a fresh install silently falls back to ~/.local/share/containers,
+# putting image layers on @home — the thing @docker exists to prevent. The directory name is
+# legacy: Docker was removed 2026-09-02, the subvolume was kept.
+if [ -d /var/lib/docker ]; then
+  target_user="${SUDO_USER:-root}"
+  if [ "$(stat -c '%U' /var/lib/docker)" != "$target_user" ]; then
+    chown "${target_user}:${target_user}" /var/lib/docker
+    chmod 700 /var/lib/docker
+    echo "  /var/lib/docker handed to ${target_user} (podman graphroot)"
+  else
+    echo "  /var/lib/docker already owned by ${target_user}"
+  fi
+fi
+
 echo "✅ Root configs installed"

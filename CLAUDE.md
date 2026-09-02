@@ -363,11 +363,22 @@ provides a `docker` shim that calls podman directly and needs no socket at all.
   It was installed as a dependency of the removed host server, so it is an orphan candidate:
   `pacman -Qtdq` would list it, and `sysclean --all` runs `pacman -Rns --noconfirm` on that list
   (see `TODO.md` 9).
-- The `@docker` subvolume is now **mounted and empty**. Podman keeps its store in
-  `~/.local/share/containers/storage` by convention, and `@home` is not actually snapshotted, so
-  there is nothing to gain by repointing `graphroot` at `@docker` — and an empty subvolume costs
-  metadata only. If home snapshots are ever enabled, repointing is the fix; removing the subvolume
-  is not (that is fstab surgery, see the btrfs section).
+- **The `@docker` subvolume is podman's `graphroot`** (`containers/storage.conf`), so image
+  layers stay off `@home`. That is the job the subvolume was created for, and it survives Docker's
+  removal. `@home` is not snapshotted today, so this is pre-emptive — but it costs nothing and
+  means enabling home snapshots later cannot silently start capturing ~500 MB of layers. The path
+  is still `/var/lib/docker` because that is where fstab mounts `@docker`; renaming a mountpoint
+  risks a boot failure for cosmetics. The name is legacy, the subvolume is not.
+  - `install-root.sh` **chowns it to the invoking user**. fstab mounts it root-owned and rootless
+    podman cannot use a graphroot it does not own; without the chown a fresh install falls back
+    to `~/.local/share/containers/storage` *silently* — no error, just image layers back on
+    `@home`.
+  - **Do not migrate this store by moving files.** Tried on 2026-09-02 and it went badly: podman
+    re-initialises the store the moment `storage.conf` points somewhere new, `podman unshare`
+    itself refuses to run while `db.sql` records a stale static dir (`database configuration
+    mismatch`), and transplanting `secrets/` produces metadata whose ID the file driver cannot
+    resolve (`no such secret`). The working path is: stop the units, clear both locations,
+    re-pull images, **recreate the secret** rather than copying it.
 
 **Why Postgres is a systemd unit and not `--restart unless-stopped`:** under Docker it was neither
 started at boot nor known to systemd. `docker.socket` was enabled while `docker.service` was
@@ -392,6 +403,57 @@ process that can read `containers/pg.container` can equally run `podman secret i
 *repo hygiene*, not a security boundary — the actual protection is the loopback bind plus
 rootless isolation. `POSTGRES_PASSWORD` also only applies at `initdb`, so rotating the secret
 does not change an existing database's password; use `ALTER USER` or re-init.
+
+**Two rootless networking facts from `podman-rootless(7)` that will bite the data pipeline.**
+
+- **pasta copies the main interface's IP, so a container cannot connect to the host's own IP
+  address.** Since podman 5.0 pasta is the default rootless network tool, and it clones the host
+  address — so a container dialling `192.168.0.89` to reach Postgres fails, confusingly and with
+  no useful error. The supported path is container-to-container by name on `data.network`
+  (netavark + aardvark-dns), which is exactly why that network exists. Do not "simplify" a future
+  pipeline by pointing it at the host's LAN address.
+- **Published ports go through `rootlessport`, a userspace proxy that does not preserve client
+  source IPs.** Everything reaching a published port looks like it came from the proxy. Harmless
+  for a loopback-only database with no IP-based rules in `pg_hba.conf`, but it means source-IP
+  logging, `pg_hba` host rules and any fail2ban-style tooling are all blind. The fix, if that ever
+  matters, the switch is `rootless_port_forwarder = "pasta"` in the `[network]` section of
+  `containers.conf` — kernel-level forwarding that preserves the client IP. `pesto` is present
+  (`/usr/sbin/pesto`, passt `2026_07_28`), so this is available *today*.
+
+  **Do not flip that switch before fixing `pg_hba.conf`, or you silently turn off password
+  authentication.** The postgres image ships `pg_hba` with `host all all 127.0.0.1/32 trust`
+  and `::1/128 trust` above the catch-all `host all all all scram-sha-256`, and `pg_hba` is
+  first-match-wins. The image can assume those `trust` lines are safe because nothing outside
+  the container reaches `127.0.0.1` *inside* it. Today that holds: `rootlessport` rewrites the
+  source, so host connections arrive from the container network gateway, fall through to the
+  scram line, and are asked for a password — confirmed in the journal, which logged
+  `Connection matched ... line 128: "host all all all scram-sha-256"`. Preserve source IPs and
+  a host connection to `127.0.0.1:5432` matches the `trust` line **first** and gets in with no
+  password. So the missing source-IP preservation is currently load-bearing, not a wart. Correct
+  order if it is ever needed: replace those two `trust` lines with `scram-sha-256`, *then*
+  change the forwarder. (`podman exec pg psql` works without a password for the same reason —
+  it genuinely originates at `127.0.0.1` inside the container's netns. That is what was used to
+  reset the password on 2026-09-02.)
+
+**`runc` is kept over `crun` deliberately — do not "fix" this.** podman's shipped
+`containers.conf` documents `#runtime = "crun"` as its default, so every audit will flag the
+deviation. The deciding fact is not size:
+
+> `podman-rootless(7)`, *Shortcomings of Rootless Podman*: "`podman container checkpoint` and
+> `podman container restore` (**CRIU requires root**)"
+
+On Arch, `crun` **hard-depends on `criu`** (optional upstream, enabled in Arch's build), and criu
+exists to serialise process state via Protocol Buffers — so it drags in `protobuf` (18.89 MiB),
+`python-protobuf`, `protobuf-c` and `libnet`. That is ~27 MiB of dependency whose only purpose is
+checkpoint/restore, which podman documents as **non-functional in rootless mode** — the only mode
+used here. Not merely unused: unusable.
+
+Numbers, for completeness: `runc` + `libpathrs` = 13.28 MiB across 2 packages (nothing else needs
+either); the crun stack is 28.20 MiB across 6. crun's genuine advantages — ~2× faster cold start,
+lower per-container memory — apply to container-dense workloads, not to one long-lived database.
+`runc 1.5.1` (spec 1.3.0) handles cgroups v2 correctly here (delegation and live accounting both
+verified) and podman reports no warnings. `runc` cannot be removed while it is the only
+`oci-runtime` provider — `pacman -Rsp runc` refuses, since podman requires one.
 
 **`DefaultDependencies=false` in the `[Quadlet]` section is load-bearing here.** Quadlet
 otherwise injects `Wants=`/`After=podman-user-wait-network-online.service` into every generated
