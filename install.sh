@@ -430,6 +430,12 @@ echo "  1. Install zsh plugins: ~/.config/zsh/update-plugins.sh"
 echo "  2. Restart your terminal or run: source ~/.zshrc"
 echo "  3. Install Vim plugins: vim +PlugInstall +qall"
 echo "  4. Install tmux plugins: Prefix + I (inside a tmux session)"
+# pg.service cannot start without this secret, and the only symptom is a failed unit.
+# Only prompt when it is actually missing, so a re-run of install.sh stays quiet.
+if command -v podman >/dev/null 2>&1 && ! podman secret exists pg_password 2>/dev/null; then
+  echo "  5. Create the Postgres password (pg.service will not start without it):"
+  echo "       podman secret create pg_password -      # type it, then Ctrl-D"
+fi
 echo ""
 echo "🔐 System (root) configs are installed separately:"
 echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
