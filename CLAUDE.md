@@ -404,6 +404,47 @@ process that can read `containers/pg.container` can equally run `podman secret i
 rootless isolation. `POSTGRES_PASSWORD` also only applies at `initdb`, so rotating the secret
 does not change an existing database's password; use `ALTER USER` or re-init.
 
+**Two rootless networking facts from `podman-rootless(7)` that will bite the data pipeline.**
+
+- **pasta copies the main interface's IP, so a container cannot connect to the host's own IP
+  address.** Since podman 5.0 pasta is the default rootless network tool, and it clones the host
+  address — so a container dialling `192.168.0.89` to reach Postgres fails, confusingly and with
+  no useful error. The supported path is container-to-container by name on `data.network`
+  (netavark + aardvark-dns), which is exactly why that network exists. Do not "simplify" a future
+  pipeline by pointing it at the host's LAN address.
+- **Published ports go through `rootlessport`, a userspace proxy that does not preserve client
+  source IPs.** Everything reaching a published port looks like it came from the proxy. Harmless
+  for a loopback-only database with no IP-based rules in `pg_hba.conf`, but it means source-IP
+  logging, `pg_hba` host rules and any fail2ban-style tooling are all blind. The fix, if that ever
+  matters, the switch is `rootless_port_forwarder = "pasta"` in the `[network]` section of
+  `containers.conf` — kernel-level forwarding that preserves the client IP. `pesto` is present
+  (`/usr/sbin/pesto`, passt `2026_07_28`), so this is available *today*.
+
+  **Do not flip that switch before fixing `pg_hba.conf`, or you silently turn off password
+  authentication.** The postgres image ships `pg_hba` with `host all all 127.0.0.1/32 trust`
+  and `::1/128 trust` above the catch-all `host all all all scram-sha-256`, and `pg_hba` is
+  first-match-wins. The image can assume those `trust` lines are safe because nothing outside
+  the container reaches `127.0.0.1` *inside* it. Today that holds: `rootlessport` rewrites the
+  source, so host connections arrive from the container network gateway, fall through to the
+  scram line, and are asked for a password — confirmed in the journal, which logged
+  `Connection matched ... line 128: "host all all all scram-sha-256"`. Preserve source IPs and
+  a host connection to `127.0.0.1:5432` matches the `trust` line **first** and gets in with no
+  password. So the missing source-IP preservation is currently load-bearing, not a wart. Correct
+  order if it is ever needed: replace those two `trust` lines with `scram-sha-256`, *then*
+  change the forwarder. (`podman exec pg psql` works without a password for the same reason —
+  it genuinely originates at `127.0.0.1` inside the container's netns. That is what was used to
+  reset the password on 2026-09-02.)
+
+**`runc` is kept over `crun` deliberately — do not "fix" this.** podman's shipped
+`containers.conf` documents `#runtime = "crun"` as its default, so an audit will flag the
+deviation. On Arch, `crun` hard-depends on `criu`, which drags in `protobuf`, `protobuf-c`,
+`python-protobuf` and `libnet`: **28.20 MiB installed** against `runc`'s 8.65 MiB, i.e. roughly
++19.5 MiB net. crun's real advantages — faster cold start, lower per-container memory — apply to
+container-dense workloads; this machine runs one long-lived database that starts once per boot.
+`runc 1.5.1` (spec 1.3.0) handles cgroups v2 correctly here (delegation and live accounting both
+verified), and podman reports no warnings. Same reasoning as `shellcheck-bin` over repo
+`shellcheck`: don't drag a toolchain in for a swap with no measurable benefit.
+
 **`DefaultDependencies=false` in the `[Quadlet]` section is load-bearing here.** Quadlet
 otherwise injects `Wants=`/`After=podman-user-wait-network-online.service` into every generated
 unit, and that helper polls `systemctl is-active network-online.target`. This machine never
