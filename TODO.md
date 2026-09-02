@@ -24,7 +24,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **6** | `postgresql` server → container; `psql` protected (2026-08-10) |
 | **6b** | decided: **keep** the hand-built `mutool` |
 | **7** | decided: **no** `smartd` — wrong tool for a single NVMe |
-| **8** | Docker socket + group; Postgres container on `@postgres` (2026-08-10) |
+| **8** | Docker socket + group (2026-08-10) — **superseded 2026-09-02 by rootless podman** |
 | **9** | `sysclean` now prompts before removing packages (2026-08-10) |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
@@ -240,8 +240,8 @@ and owned by no package. Not defects — just know they exist and get no updates
 ## 6. ~~Remove the `postgresql` server~~ — DONE 2026-08-10, replaced by a container
 
 Removed in favour of a container (version pinning per project, throw-away state). Full
-write-up in `CLAUDE.md` under "Docker — socket-activated, and Postgres runs in a
-container". Verified: server gone, `psql 18.4` works, insert/read-back through the
+write-up in `CLAUDE.md` under "Containers — rootless podman, and Postgres as a Quadlet
+unit". Verified: server gone, `psql 18.4` works, insert/read-back through the
 container round-trips.
 
 **The command originally written here was unsafe.** `pacman -Rs postgresql` would also
@@ -311,10 +311,40 @@ command, containerd pulled in automatically), driver `overlayfs`, root `/var/lib
 on the `@docker` subvolume, and a `postgres:18` container serving on `127.0.0.1:5432` with
 a real insert/read-back through host `psql`.
 
-Full reasoning and the container command live in `CLAUDE.md` under "Docker —
-socket-activated, and Postgres runs in a container". Nothing was added to this repo:
+Full reasoning lived in `CLAUDE.md` under "Docker — socket-activated, and Postgres runs
+in a container"; that section is now "Containers — rootless podman, and Postgres as a
+Quadlet unit". Nothing was added to this repo:
 `lazydocker` and Docker both run on defaults, and a config is only worth tracking once
 customised.
+
+### Superseded 2026-09-02 — migrated to rootless podman
+
+The group membership accepted above turned out to be the wrong trade. It was *demonstrated*
+rather than argued: `docker run -v /:/host alpine` read `/etc/shadow` from a normal shell
+with no password. That meant any code already running as the user — an AUR `build()` during
+`sysup`, a PyPI package behind a `uv tool`, an AI CLI agent — could take root silently.
+
+Docker is gone: packages, daemon, socket, `docker` group (`groupdel`), `/etc/docker`, and
+the contents of `/var/lib/docker`. Postgres now runs as a Quadlet unit under rootless
+podman with every process owned by `farhad`.
+
+The rootless rejection recorded above does not transfer to podman: it was about chowning the
+bind-mount to subuid `100998`, which `UserNS=keep-id:uid=999,gid=999` avoids entirely — the
+data directory is simply owned by `farhad`.
+
+Two things this also fixed, both found while migrating:
+
+- **Socket activation was silently breaking "always on".** `docker.service` was disabled by
+  design, so `--restart unless-stopped` never took effect at boot. Measured: **139 minutes**
+  from boot to daemon start on 2026-09-01, all of it with the database down, ended only by an
+  unrelated `docker ps`. The Quadlet unit is `WantedBy=graphical-session.target` and now comes
+  up with the session — 108 seconds after boot, and that is just the login.
+- **The container definition was documentation, not infrastructure.** It existed only as a
+  fenced code block in `CLAUDE.md`. It is now `containers/pg.container`, tracked and installed
+  by `install.sh`, with `OnFailure=notify-failure@%n.service` like every other service here.
+
+Contrary to the note above, this *is* tracked now — `containers/` holds three files, all
+user-scoped, all installed with no sudo.
 
 ---
 

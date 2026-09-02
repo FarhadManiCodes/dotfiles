@@ -119,7 +119,7 @@ generate "uv"     "uv generate-shell-completion zsh"
 # 3. CONTAINER & CLOUD
 # ============================================================================
 echo -e "\n${YELLOW}Container & Cloud:${NC}"
-generate "docker"   "docker completion zsh"
+generate "podman"   "podman completion zsh"
 generate "kubectl"  "kubectl completion zsh"
 generate "helm"     "helm completion zsh"
 generate "gh"       "gh completion -s zsh"

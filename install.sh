@@ -49,7 +49,7 @@ done
 mkdir -p "${XDG_CONFIG_HOME}/zsh/completions"
 command -v gh      >/dev/null 2>&1 && gh completion -s zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_gh"      2>/dev/null || true
 command -v uv      >/dev/null 2>&1 && uv  generate-shell-completion zsh > "${XDG_CONFIG_HOME}/zsh/completions/_uv" 2>/dev/null || true
-command -v docker  >/dev/null 2>&1 && docker completion zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_docker"  2>/dev/null || true
+command -v podman  >/dev/null 2>&1 && podman completion zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_podman"  2>/dev/null || true
 
 echo "Zsh configured"
 
