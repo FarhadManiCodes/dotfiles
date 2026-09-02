@@ -6,3 +6,10 @@ NetworkName=data
 
 [Install]
 WantedBy=graphical-session.target
+
+# Drops Quadlet's implicit wait on network-online.target, which this machine never
+# reaches (systemd-networkd-wait-online is masked for boot speed). Without this the
+# injected podman-user-wait-network-online.service polls for 90s, fails, and delays
+# start by that much. Belongs in [Quadlet]; [Unit] has the same key, different meaning.
+[Quadlet]
+DefaultDependencies=false
