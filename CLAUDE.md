@@ -345,7 +345,14 @@ provides a `docker` shim that calls podman directly and needs no socket at all.
 **Storage was the one part of the old design worth keeping**, and it was right:
 
 - `@postgres` subvolume at `/var/lib/postgres`, excluded from snapper — a btrfs snapshot of a
-  running database captures a torn state. Backups are `pg_dump`.
+  running database captures a torn state.
+- **Backups are per-database, added when a database earns one — not a default of the
+  container.** Right now nothing runs `pg_dump`: no script, no unit, no timer, and the
+  instance holds nothing worth keeping. An earlier version of this file asserted "backups are
+  `pg_dump`", which was never true; the 2026-09-02 audit caught it. When a database does hold
+  data worth keeping, add a backup unit *for that database* — a `pg_dump <db>` service plus
+  timer carrying `OnFailure=notify-failure@%n.service`, shaped like the units in
+  `systemd/user/`. Do not add a blanket `pg_dumpall` to the container.
 - **`chattr +C` had to be set while the directory was empty.** The flag only applies to files
   created afterwards, so it must precede `initdb`; a database under btrfs CoW fragments badly. It
   also disables the subvolume's `compress=zstd:1` for that data, which is what you want. Verified
@@ -415,7 +422,11 @@ first draft:
   `notify-failure@`.
 
 There is deliberately no `AutoUpdate=` — a surprise postgres major bump needs `pg_upgrade` and
-would fail against an older data directory.
+would fail against an older data directory. But nothing else refreshed these images either, so
+`sysup` gained a `_sysup_podman_images` step: it pulls the images of running containers and
+**restarts the owning Quadlet unit when a digest changed**. The restart is the part that is
+easy to omit and silently pointless without — a pull alone leaves the old layers in use. Tags
+pin the major version, so a pull only brings minor/patch updates.
 
 ## Modifying configs
 

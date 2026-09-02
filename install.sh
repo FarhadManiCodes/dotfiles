@@ -414,6 +414,12 @@ for remote in gdrive Dropbox; do
   systemctl --user enable "rclone@${remote}.service" 2>/dev/null || true
 done
 systemctl --user enable study-library-sync.timer 2>/dev/null || true
+
+# The *user* podman socket, which docker-compose reaches via DOCKER_HOST (see
+# environment.d/defaults.conf). Without this a fresh install has DOCKER_HOST pointing at a
+# socket nothing ever creates, and compose fails with no obvious cause. Never enable the
+# system-wide podman.socket instead — that one is root-owned.
+systemctl --user enable podman.socket 2>/dev/null || true
 echo "✅ Systemd user services installed and enabled"
 
 echo ""
