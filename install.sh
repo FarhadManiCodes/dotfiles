@@ -382,6 +382,13 @@ mkdir -p "${XDG_CONFIG_HOME}/papis"
 ln -sf "${DOTFILES}/papis/config" "${XDG_CONFIG_HOME}/papis/config"
 echo "papis configured"
 
+# ============ ssh client config ===================================
+# ~/.ssh must stay 0700 or ssh refuses to use it.
+echo "🔑 Installing ssh config..."
+mkdir -p "${HOME}/.ssh"
+chmod 700 "${HOME}/.ssh"
+ln -sf "${DOTFILES}/ssh/config" "${HOME}/.ssh/config"
+
 # ============ podman (rootless containers) ========================
 # Quadlet .container/.network files generate systemd user units at daemon-reload.
 # No sudo anywhere: rootless podman is entirely user-scoped, which is the point.
@@ -422,6 +429,10 @@ systemctl --user enable study-library-sync.timer 2>/dev/null || true
 # socket nothing ever creates, and compose fails with no obvious cause. Never enable the
 # system-wide podman.socket instead — that one is root-owned.
 systemctl --user enable podman.socket 2>/dev/null || true
+
+# ssh-agent, so a passphrase-protected key is typed once an hour rather than every push.
+# Socket-activated: enabling the socket is enough, the service starts on first use.
+systemctl --user enable ssh-agent.socket 2>/dev/null || true
 echo "✅ Systemd user services installed and enabled"
 
 echo ""

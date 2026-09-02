@@ -137,6 +137,38 @@ straight to `/dev/sda`); `vifm-media` and `lsblk` both handle it.
 - **Global ignore**: `git/ignore`
 - **User identity**: `~/.config/git/config.local` (not tracked)
 
+### SSH — passphrase-protected key, agent with a lifetime
+
+One ED25519 key (`~/.ssh/id_ed25519`), used only for GitHub. It is **passphrase-protected**
+(`cipher: aes256-ctr`, `kdf: bcrypt`). Adding the passphrase did not change the public key, so
+nothing had to be re-uploaded anywhere.
+
+Be precise about what that buys, because it is easy to overstate:
+
+- **Protects against** malware that simply reads the key file and exfiltrates it for use
+  elsewhere, later. That is the common, low-effort attack.
+- **Does not protect against** an attacker active on this machine while the agent holds the key —
+  they can sign via `$SSH_AUTH_SOCK`. But they cannot copy a *usable* key off the box, which is a
+  real reduction in what a compromise is worth.
+
+`ssh/config` sets `AddKeysToAgent 1h` — a **lifetime, not `yes`**. `yes` keeps the key resident
+until logout; the hour bounds the window in which a compromised process can use the agent. The
+agent is Arch's socket-activated user unit, which does nothing unless `SSH_AUTH_SOCK` points at
+it — its own header says so — hence the entry in `environment.d/defaults.conf`. `install.sh`
+symlinks the config, forces `~/.ssh` to 0700, and enables `ssh-agent.socket`.
+
+**Do not test key encryption with `grep ENCRYPTED`.** That string only appears in *old PEM*
+keys (`Proc-Type: 4,ENCRYPTED`). Modern `-----BEGIN OPENSSH PRIVATE KEY-----` files are base64
+with the cipher recorded *inside* the blob, so the grep reports "unencrypted" for a protected
+key. It produced exactly that false alarm on 2026-09-02. Use one of:
+
+```bash
+ssh-keygen -y -f ~/.ssh/id_ed25519 -P ''    # non-zero exit => protected
+```
+
+`ssh/known_hosts` is deliberately **not** tracked — it churns, and pinning GitHub's host key in
+the repo buys little over trust-on-first-use for a single well-known host.
+
 ### Firefox (userChrome)
 
 - **Config**: `firefox/userChrome.css` → `~/.mozilla/firefox/<profile>/chrome/userChrome.css`
