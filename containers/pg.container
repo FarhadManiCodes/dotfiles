@@ -1,0 +1,39 @@
+# Quadlet unit — generates pg.service. Replaces the `docker run` command that
+# used to live only as a code block in CLAUDE.md.
+#
+# Rootless: UserNS=keep-id:uid=999,gid=999 maps the image's postgres user (999)
+# onto farhad, so /var/lib/postgres is owned by farhad rather than by an
+# unmapped container uid. Verified 2026-09-02.
+[Unit]
+Description=PostgreSQL 18 (rootless podman)
+OnFailure=notify-failure@%n.service
+
+[Container]
+ContainerName=pg
+Image=docker.io/library/postgres:18
+UserNS=keep-id:uid=999,gid=999
+Network=data.network
+
+# Localhost only. containers.conf sets this as the default too; stated here as
+# well so the unit is safe even if that file is ever missing.
+PublishPort=127.0.0.1:5432:5432
+
+Environment=PGDATA=/var/lib/postgresql/data
+Environment=POSTGRES_PASSWORD=dev
+
+# @postgres subvolume: chattr +C (no CoW) set before initdb, excluded from
+# snapper. Backups are pg_dump — a snapshot of a live database is a torn state.
+Volume=/var/lib/postgres:/var/lib/postgresql/data
+
+# No AutoUpdate= on purpose: a surprise postgres major bump needs pg_upgrade
+# and would fail to start against an older data directory.
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+# Generous on purpose. Stopping sends SIGINT (postgres "fast shutdown"); cutting
+# that short risks an unclean shutdown and WAL recovery on next start.
+TimeoutStopSec=120
+
+[Install]
+WantedBy=graphical-session.target

@@ -382,6 +382,17 @@ mkdir -p "${XDG_CONFIG_HOME}/papis"
 ln -sf "${DOTFILES}/papis/config" "${XDG_CONFIG_HOME}/papis/config"
 echo "papis configured"
 
+# ============ podman (rootless containers) ========================
+# Quadlet .container/.network files generate systemd user units at daemon-reload.
+# No sudo anywhere: rootless podman is entirely user-scoped, which is the point.
+echo "📦 Installing podman configs..."
+mkdir -p "${XDG_CONFIG_HOME}/containers/systemd"
+ln -sf "${DOTFILES}/containers/containers.conf" "${XDG_CONFIG_HOME}/containers/containers.conf"
+for file in "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.network; do
+  [ -e "$file" ] || continue
+  ln -sf "$file" "${XDG_CONFIG_HOME}/containers/systemd/"
+done
+
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
 mkdir -p "${HOME}/.config/systemd/user"
