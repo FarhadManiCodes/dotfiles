@@ -436,14 +436,24 @@ does not change an existing database's password; use `ALTER USER` or re-init.
   reset the password on 2026-09-02.)
 
 **`runc` is kept over `crun` deliberately — do not "fix" this.** podman's shipped
-`containers.conf` documents `#runtime = "crun"` as its default, so an audit will flag the
-deviation. On Arch, `crun` hard-depends on `criu`, which drags in `protobuf`, `protobuf-c`,
-`python-protobuf` and `libnet`: **28.20 MiB installed** against `runc`'s 8.65 MiB, i.e. roughly
-+19.5 MiB net. crun's real advantages — faster cold start, lower per-container memory — apply to
-container-dense workloads; this machine runs one long-lived database that starts once per boot.
+`containers.conf` documents `#runtime = "crun"` as its default, so every audit will flag the
+deviation. The deciding fact is not size:
+
+> `podman-rootless(7)`, *Shortcomings of Rootless Podman*: "`podman container checkpoint` and
+> `podman container restore` (**CRIU requires root**)"
+
+On Arch, `crun` **hard-depends on `criu`** (optional upstream, enabled in Arch's build), and criu
+exists to serialise process state via Protocol Buffers — so it drags in `protobuf` (18.89 MiB),
+`python-protobuf`, `protobuf-c` and `libnet`. That is ~27 MiB of dependency whose only purpose is
+checkpoint/restore, which podman documents as **non-functional in rootless mode** — the only mode
+used here. Not merely unused: unusable.
+
+Numbers, for completeness: `runc` + `libpathrs` = 13.28 MiB across 2 packages (nothing else needs
+either); the crun stack is 28.20 MiB across 6. crun's genuine advantages — ~2× faster cold start,
+lower per-container memory — apply to container-dense workloads, not to one long-lived database.
 `runc 1.5.1` (spec 1.3.0) handles cgroups v2 correctly here (delegation and live accounting both
-verified), and podman reports no warnings. Same reasoning as `shellcheck-bin` over repo
-`shellcheck`: don't drag a toolchain in for a swap with no measurable benefit.
+verified) and podman reports no warnings. `runc` cannot be removed while it is the only
+`oci-runtime` provider — `pacman -Rsp runc` refuses, since podman requires one.
 
 **`DefaultDependencies=false` in the `[Quadlet]` section is load-bearing here.** Quadlet
 otherwise injects `Wants=`/`After=podman-user-wait-network-online.service` into every generated
