@@ -178,7 +178,7 @@ loading_status() {
   echo "🛠️  Development:"
   command -v uv >/dev/null 2>&1 && echo "  ✅ uv (Python)" || echo "  ❌ uv"
   command -v poetry >/dev/null 2>&1 && echo "  ✅ poetry" || echo "  ❌ poetry"
-  command -v docker >/dev/null 2>&1 && echo "  ✅ docker" || echo "  ❌ docker"
+  command -v podman >/dev/null 2>&1 && echo "  ✅ podman" || echo "  ❌ podman"
   command -v kubectl >/dev/null 2>&1 && echo "  ✅ kubectl" || echo "  ❌ kubectl"
   command -v gh >/dev/null 2>&1 && echo "  ✅ gh (GitHub CLI)" || echo "  ❌ gh"
   command -v lazygit >/dev/null 2>&1 && echo "  ✅ lazygit" || echo "  ❌ lazygit"

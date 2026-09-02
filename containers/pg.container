@@ -1,0 +1,85 @@
+# Quadlet unit — generates pg.service. Replaces the `docker run` command that
+# used to live only as a code block in CLAUDE.md.
+#
+# Rootless: UserNS=keep-id:uid=999,gid=999 maps the image's postgres user (999)
+# onto farhad, so /var/lib/postgres is owned by farhad rather than by an
+# unmapped container uid. Verified 2026-09-02.
+[Unit]
+Description=PostgreSQL 18 (rootless podman)
+OnFailure=notify-failure@%n.service
+
+[Container]
+ContainerName=pg
+Image=docker.io/library/postgres:18
+UserNS=keep-id:uid=999,gid=999
+Network=data.network
+
+# Localhost only. containers.conf sets this as the default too; stated here as
+# well so the unit is safe even if that file is ever missing.
+PublishPort=127.0.0.1:5432:5432
+
+Environment=PGDATA=/var/lib/postgresql/data
+
+# The password is a podman secret, never a tracked Environment= line: this repo is public,
+# and CLAUDE.md forbids committing credentials. Create it before first start (see the
+# post-install list) — the secret store lives in ~/.local/share/containers/storage.
+# If it is missing the unit fails loudly and notify-failure@ fires, so this is not a
+# silent trap. NB POSTGRES_PASSWORD only applies at initdb; changing the secret later
+# does not change an existing database's password.
+Secret=pg_password,type=env,target=POSTGRES_PASSWORD
+
+# @postgres subvolume: chattr +C (no CoW) set before initdb, excluded from snapper because a
+# snapshot of a live database is a torn state. Nothing runs pg_dump either: backups are added
+# per-database when one holds data worth keeping, not as a default of this container.
+Volume=/var/lib/postgres:/var/lib/postgresql/data
+
+# The image sets StopSignal=SIGINT (postgres "fast shutdown"). Podman's own StopTimeout
+# is the real deadline — NOT [Service] TimeoutStopSec — and it defaults to 10s, after
+# which podman SIGKILLs mid-checkpoint. Kept below the systemd timeout as
+# podman-systemd.unit(5) advises, but raised so a large database can finish its
+# shutdown checkpoint.
+StopTimeout=60
+
+# Without a healthcheck, systemd calls the unit "started" the moment the container
+# process launches — not when Postgres accepts connections. Anything ordered
+# After=pg.service would race it. Notify=healthy makes systemd wait for the check.
+HealthCmd=pg_isready -U postgres -d postgres
+# 30s not 10s: at 10s this is 8,640 pg_isready processes a day for no benefit on a laptop
+# that otherwise gates syncs on idle IO and AC power.
+HealthInterval=30s
+HealthStartPeriod=60s
+HealthTimeout=5s
+HealthRetries=3
+Notify=healthy
+
+# Without this the action is "none": a postgres that is alive but wedged (accepting no
+# connections) would never restart and never fire OnFailure=, i.e. fail silently — the one
+# thing this machine's notification design exists to prevent. podman-systemd.unit(5): the
+# kill action "integrates best with systemd... the container gets killed, and systemd
+# restarts the service", which then also feeds Restart=on-failure and notify-failure@.
+HealthOnFailure=kill
+
+# Postgres already runs with no effective capabilities (CapEff 0000000000000000, verified),
+# so DropCapability=all would be redundant. NoNewPrivileges is the one cheap addition: it
+# blocks setuid/setcap escalation inside the container for free.
+NoNewPrivileges=true
+
+# No AutoUpdate= on purpose: a surprise postgres major bump needs pg_upgrade
+# and would fail to start against an older data directory.
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=300
+# Generous on purpose. Stopping sends SIGINT (postgres "fast shutdown"); cutting
+# that short risks an unclean shutdown and WAL recovery on next start.
+TimeoutStopSec=120
+
+[Install]
+WantedBy=graphical-session.target
+
+# Drops Quadlet's implicit wait on network-online.target, which this machine never
+# reaches (systemd-networkd-wait-online is masked for boot speed). Without this the
+# injected podman-user-wait-network-online.service polls for 90s, fails, and delays
+# start by that much. Belongs in [Quadlet]; [Unit] has the same key, different meaning.
+[Quadlet]
+DefaultDependencies=false

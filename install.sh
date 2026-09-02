@@ -49,7 +49,7 @@ done
 mkdir -p "${XDG_CONFIG_HOME}/zsh/completions"
 command -v gh      >/dev/null 2>&1 && gh completion -s zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_gh"      2>/dev/null || true
 command -v uv      >/dev/null 2>&1 && uv  generate-shell-completion zsh > "${XDG_CONFIG_HOME}/zsh/completions/_uv" 2>/dev/null || true
-command -v docker  >/dev/null 2>&1 && docker completion zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_docker"  2>/dev/null || true
+command -v podman  >/dev/null 2>&1 && podman completion zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_podman"  2>/dev/null || true
 
 echo "Zsh configured"
 
@@ -382,6 +382,17 @@ mkdir -p "${XDG_CONFIG_HOME}/papis"
 ln -sf "${DOTFILES}/papis/config" "${XDG_CONFIG_HOME}/papis/config"
 echo "papis configured"
 
+# ============ podman (rootless containers) ========================
+# Quadlet .container/.network files generate systemd user units at daemon-reload.
+# No sudo anywhere: rootless podman is entirely user-scoped, which is the point.
+echo "📦 Installing podman configs..."
+mkdir -p "${XDG_CONFIG_HOME}/containers/systemd"
+ln -sf "${DOTFILES}/containers/containers.conf" "${XDG_CONFIG_HOME}/containers/containers.conf"
+for file in "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.network; do
+  [ -e "$file" ] || continue
+  ln -sf "$file" "${XDG_CONFIG_HOME}/containers/systemd/"
+done
+
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
 mkdir -p "${HOME}/.config/systemd/user"
@@ -403,6 +414,12 @@ for remote in gdrive Dropbox; do
   systemctl --user enable "rclone@${remote}.service" 2>/dev/null || true
 done
 systemctl --user enable study-library-sync.timer 2>/dev/null || true
+
+# The *user* podman socket, which docker-compose reaches via DOCKER_HOST (see
+# environment.d/defaults.conf). Without this a fresh install has DOCKER_HOST pointing at a
+# socket nothing ever creates, and compose fails with no obvious cause. Never enable the
+# system-wide podman.socket instead — that one is root-owned.
+systemctl --user enable podman.socket 2>/dev/null || true
 echo "✅ Systemd user services installed and enabled"
 
 echo ""
@@ -413,6 +430,12 @@ echo "  1. Install zsh plugins: ~/.config/zsh/update-plugins.sh"
 echo "  2. Restart your terminal or run: source ~/.zshrc"
 echo "  3. Install Vim plugins: vim +PlugInstall +qall"
 echo "  4. Install tmux plugins: Prefix + I (inside a tmux session)"
+# pg.service cannot start without this secret, and the only symptom is a failed unit.
+# Only prompt when it is actually missing, so a re-run of install.sh stays quiet.
+if command -v podman >/dev/null 2>&1 && ! podman secret exists pg_password 2>/dev/null; then
+  echo "  5. Create the Postgres password (pg.service will not start without it):"
+  echo "       podman secret create pg_password -      # type it, then Ctrl-D"
+fi
 echo ""
 echo "🔐 System (root) configs are installed separately:"
 echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
