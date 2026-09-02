@@ -363,11 +363,22 @@ provides a `docker` shim that calls podman directly and needs no socket at all.
   It was installed as a dependency of the removed host server, so it is an orphan candidate:
   `pacman -Qtdq` would list it, and `sysclean --all` runs `pacman -Rns --noconfirm` on that list
   (see `TODO.md` 9).
-- The `@docker` subvolume is now **mounted and empty**. Podman keeps its store in
-  `~/.local/share/containers/storage` by convention, and `@home` is not actually snapshotted, so
-  there is nothing to gain by repointing `graphroot` at `@docker` — and an empty subvolume costs
-  metadata only. If home snapshots are ever enabled, repointing is the fix; removing the subvolume
-  is not (that is fstab surgery, see the btrfs section).
+- **The `@docker` subvolume is podman's `graphroot`** (`containers/storage.conf`), so image
+  layers stay off `@home`. That is the job the subvolume was created for, and it survives Docker's
+  removal. `@home` is not snapshotted today, so this is pre-emptive — but it costs nothing and
+  means enabling home snapshots later cannot silently start capturing ~500 MB of layers. The path
+  is still `/var/lib/docker` because that is where fstab mounts `@docker`; renaming a mountpoint
+  risks a boot failure for cosmetics. The name is legacy, the subvolume is not.
+  - `install-root.sh` **chowns it to the invoking user**. fstab mounts it root-owned and rootless
+    podman cannot use a graphroot it does not own; without the chown a fresh install falls back
+    to `~/.local/share/containers/storage` *silently* — no error, just image layers back on
+    `@home`.
+  - **Do not migrate this store by moving files.** Tried on 2026-09-02 and it went badly: podman
+    re-initialises the store the moment `storage.conf` points somewhere new, `podman unshare`
+    itself refuses to run while `db.sql` records a stale static dir (`database configuration
+    mismatch`), and transplanting `secrets/` produces metadata whose ID the file driver cannot
+    resolve (`no such secret`). The working path is: stop the units, clear both locations,
+    re-pull images, **recreate the secret** rather than copying it.
 
 **Why Postgres is a systemd unit and not `--restart unless-stopped`:** under Docker it was neither
 started at boot nor known to systemd. `docker.socket` was enabled while `docker.service` was

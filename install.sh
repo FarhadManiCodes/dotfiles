@@ -387,7 +387,9 @@ echo "papis configured"
 # No sudo anywhere: rootless podman is entirely user-scoped, which is the point.
 echo "📦 Installing podman configs..."
 mkdir -p "${XDG_CONFIG_HOME}/containers/systemd"
-ln -sf "${DOTFILES}/containers/containers.conf" "${XDG_CONFIG_HOME}/containers/containers.conf"
+for conf in containers.conf storage.conf; do
+  ln -sf "${DOTFILES}/containers/${conf}" "${XDG_CONFIG_HOME}/containers/${conf}"
+done
 for file in "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.network; do
   [ -e "$file" ] || continue
   ln -sf "$file" "${XDG_CONFIG_HOME}/containers/systemd/"
