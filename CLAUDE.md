@@ -423,11 +423,38 @@ rclone config show gdrive | awk -F' = ' '$1=="type"{print $2}'
 `/.snapshots`, `@log` → `/var/log`, `@pkg` → `/var/cache/pacman/pkg`, `@docker` →
 `/var/lib/docker`, `@postgres` → `/var/lib/postgres`.
 
-The point is **exclusion from snapshots**, and it is load-bearing: `snapper` +`snap-pac` are
-installed with `snapper-timeline.timer` and `snapper-cleanup.timer` enabled, and `/.snapshots`
-holds real hourly snapshots of root. Without `@docker` and `@pkg`, image layers and the package
-cache would be captured in every one of them. `/home` has a snapper config but is **not**
-actually snapshotted (`/home/.snapshots` is empty and fstab does not mount it).
+The point is **exclusion from snapshots**, and it is load-bearing. Without `@docker` and `@pkg`,
+image layers and the package cache would be captured in every snapshot.
+
+**The two snapper configs do different jobs, and it is the opposite of what this file used to
+claim** (corrected 2026-09-03):
+
+- **`root`** — `TIMELINE_CREATE="no"`, `NUMBER_LIMIT=10`. `/.snapshots` holds only the pre/post
+  pairs `snap-pac` takes around each pacman transaction. There are **no** hourly snapshots of
+  `/`, and there never were.
+- **`home`** — `TIMELINE_CREATE="yes"`. This is the one that matters: hourly timeline snapshots
+  of `/home`, running since the install, kept in the nested subvolume `@home/.snapshots`. It
+  needs no fstab entry because a nested subvolume is visible inside its parent's mount.
+  **`snapper-timeline.timer` is load-bearing** — it is the only thing snapshotting `~`, which
+  is where everything irreplaceable lives.
+
+  Retention is `HOURLY=5`, `DAILY=7`, and **weekly/monthly/quarterly/yearly all `0`**, so the
+  history is exactly **one week** — 5 hourly plus 7 daily, 12 snapshots. Anything deleted more
+  than seven days ago is gone. `NUMBER_CLEANUP="no"` here, so `NUMBER_LIMIT=50` is inert; only
+  the timeline algorithm prunes this config.
+
+  Snapshots are **not backups**: they sit on the same filesystem as the data, so a failed disk,
+  a corrupted filesystem, or anything running as root takes them along with the originals. They
+  are protection against mistakes, not against loss, and they do nothing for the threat model
+  that actually motivated the SSH and podman work — an attacker with root deletes them in one
+  command. Only an off-machine copy changes that, and there still isn't one.
+
+`snapper-cleanup.timer` enforces the retention limits for both.
+
+**Checking `/home/.snapshots` as a normal user shows an empty directory.** It is `root:users`
+and `farhad` is not in `users`, so `ls` prints nothing and, if stderr is discarded, looks empty
+rather than unreadable. That misread nearly led to `snapper-timeline.timer` being disabled as
+"600 runs, zero snapshots" on 2026-09-03. Use `sudo snapper -c home list`.
 
 Consequences worth knowing before "tidying" anything here:
 
