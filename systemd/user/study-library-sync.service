@@ -1,13 +1,26 @@
 [Unit]
 Description=Sync study library from Google Drive
+# Inert on this machine: systemd-networkd-wait-online is masked for boot speed, so nothing
+# activates network-online.target and this ordering is a no-op. Kept because it is correct
+# on a machine that does reach the target — but it is NOT what makes this unit survive a
+# network-less start. Restart= below is.
 After=network-online.target
 
-# Type=oneshot with no Restart= already lands in `failed` on error (verified),
-# so it needs no StartLimit tuning — only the notification.
 OnFailure=notify-failure@%n.service
+
+# The common failure is transient, not real: on 2026-09-03 the 06:00 timer ran at 07:27
+# after a resume and died on `lookup oauth2.googleapis.com: Temporary failure in name
+# resolution`. Three tries five minutes apart let that heal silently. Anything still failing
+# after ~10 minutes trips the burst, lands in `failed`, and notifies — which is what the
+# previous "no Restart= needed" comment was protecting, just without the false alarms.
+# Same shape as rclone@.service, for the same reason.
+StartLimitIntervalSec=1h
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
+Restart=on-failure
+RestartSec=5min
 IOSchedulingClass=idle
 CPUWeight=10
 # --progress draws a TTY meter; in a service it lands in the journal as
