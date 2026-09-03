@@ -10,16 +10,21 @@ PartOf=graphical-session.target
 # handler -> swaylock) was self-referential: after an s2idle suspend/resume
 # desynced swayidle's idle timers, it kept answering its own lock signal and
 # spun a lock/unlock loop (~every 30s, clocked by fprintd's grace timer).
-# `lock "swaylock -f"` is kept only to honor EXTERNAL loginctl lock-session.
+# `lock` is kept only to honor EXTERNAL loginctl lock-session.
+#
+# All three lock actions go through bash/lock-once, which is a no-op when a
+# swaylock is already up. before-sleep fires on EVERY suspend attempt including
+# aborted ones, so without the guard a failing suspend queues one swaylock per
+# retry -- 2026-09-02 produced ~456 of them overnight.
 # Note: $$ is systemd-escaped $ so swayidle's `sh -c` does the substitution.
 ExecStart=/usr/bin/swayidle -w \
     timeout 290 "brightnessctl -s set 10" \
         resume "brightnessctl -r && niri msg action power-on-monitors" \
-    timeout 300 "swaylock -f" \
+    timeout 300 "%h/.local/bin/lock-once" \
     timeout 305 "niri msg action power-off-monitors" \
     timeout 900 "[ $$(cat /sys/class/power_supply/AC/online) = 0 ] && systemctl suspend" \
-    before-sleep "swaylock -f" \
-    lock "swaylock -f"
+    before-sleep "%h/.local/bin/lock-once" \
+    lock "%h/.local/bin/lock-once"
 Restart=on-failure
 RestartSec=2
 

@@ -213,17 +213,35 @@ the repo buys little over trust-on-first-use for a single well-known host.
 - `swaylock/config` — lock screen. `daemonize` is **required** (swayidle runs with `-w`, which
   blocks until the lock command exits; without it the power-off/suspend timeouts never fire).
   `ignore-empty-password` is off so an empty Enter reaches PAM and activates the fingerprint reader.
+  swayidle locks via `bash/lock-once`, a no-op when a live swaylock already exists, so a repeated
+  `before-sleep` cannot queue locks. It fails safe: nothing short of a confirmed live swaylock
+  of our own stops it locking, because niri has no lock-state query and swaylock never sets
+  logind's `LockedHint`.
 - `pam/swaylock` → `/etc/pam.d/swaylock` (copied by `install-root.sh`, root-owned) — fingerprint +
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
 - `system-sleep/` → `/usr/lib/systemd/system-sleep/` (installed 0755 by `install-root.sh`, root-owned).
-  Both hooks are **load-bearing hardware workarounds**, not conveniences:
+  Three hooks, all load-bearing — the first two are hardware workarounds, the third is not:
   - `restart-swayidle` — swayidle does not survive resume; restarted here.
   - `fix-wifi.sh` — unloads/reloads `ath11k_pci` around suspend. The Qualcomm QCNFA765 does not
     reliably re-associate otherwise, so without this hook WiFi is dead after every resume.
     Was hand-installed and **untracked** until the 2026-08-04 audit; a fresh `install-root.sh`
-    would have silently dropped it. The third file there, `tlp`, belongs to the `tlp` package —
+    would have silently dropped it. The fourth file there, `tlp`, belongs to the `tlp` package —
     don't track that one.
+  - `unblock-fuse` — releases tasks wedged in an unanswered FUSE request. **This is a
+    correctness fix for a failure mode that has already cost a full night**, not a nicety. A task
+    waiting on a FUSE reply is uninterruptible: the freezer cannot freeze it and SIGKILL does not
+    reach it, so the suspend aborts with `EBUSY`. With the lid shut logind then retries roughly
+    every 100 s forever. On 2026-09-02 one stray `du` on an rclone mount produced **916 suspend
+    attempts, 456 hard aborts and 1831 wifi disconnects between 22:12 and 11:06** — every retry
+    also re-ran `fix-wifi.sh` (hence the notification storm) and swayidle's `before-sleep`.
+    `pre` samples twice 2 s apart, so a mount that is merely slow is left alone, and only aborts
+    connections with requests actually outstanding; `post` restarts the `rclone@` units, but only
+    when `pre` acted. Verified on 7.2.2: writing 1 to a connection's `abort` releases a waiter
+    that SIGKILL could not.
+
+  Note the lid only suspends on battery — `HandleLidSwitchExternalPower=lock` means closing it on
+  AC just locks. Reproducing anything in this area requires being unplugged.
 
 ### Light/dark theme — how tools follow `Mod+Alt+T`
 
