@@ -271,6 +271,51 @@ systemctl --user start rclone@gdrive.service
 Success is the **`NOTICE: ... shared Google Drive client_id` line disappearing** from
 `rclone about gdrive:` — there are no errors to "stop".
 
+**The `gdrive` remote is a `combine`, not the raw Drive — and this is not in the repo.**
+`rclone.conf` is untracked (tokens), so a rebuild recreates a *full-Drive* remote and silently
+undoes this. Recreate it by hand:
+
+```ini
+[gdrive-full]        # the real Drive remote — NOT mounted
+type = drive
+...
+
+[gdrive]             # what gets mounted at ~/Cloud/gdrive
+type = combine
+upstreams = FAU=gdrive-full:FAU Documents=gdrive-full:Documents tmp-office=gdrive-full:tmp-office
+```
+
+`combine` rather than mounting a subfolder, because it keeps every existing path valid — the
+niri startup indexer and `bash/book-resources` want `~/Cloud/gdrive/FAU/Library`,
+`study-library-sync` wants `gdrive:FAU/Library`, and `bash/gdocs-open` wants
+`gdrive:tmp-office`. All four still resolve; no script changed. What stops being reachable
+through the filesystem is `Archive`, `Colab Notebooks`, `Google Photos`, `Insurance`, `Market`,
+`Mozila` and `Passport`.
+
+**Be honest about what that buys.** It shrinks the *filesystem* blast radius — an accidental
+`rm -rf`, or generic ransomware walking mounted paths, can no longer reach the folders above.
+It does **not** restrict the credential: `gdrive-full:` is still in the same config file, so
+anything that can read `rclone.conf` can still `rclone delete gdrive-full:Passport`. Blast-radius
+reduction against accidents and dumb malware, not against a targeted attacker.
+
+**Trash cannot be locked away from this machine, and rclone's delete guards do not apply to
+mounts.** `--max-delete`, `--backup-dir`, `--dry-run` and `--interactive` are sync/copy/move
+flags; a `rm` on a FUSE mount is a POSIX unlink and none of them fire. Drive's trash (30 days,
+`use_trash` defaults true) is the only net there — and `rclone cleanup gdrive-full:` empties it
+permanently, using the same token. There is also no OAuth scope that grants read/write to
+existing files while withholding trash management: `drive` covers both, `drive.file` would only
+see files rclone itself created. So provider trash is a guard against *accidents*, never against
+a compromised token. Only an off-machine append-only backup changes that, and there isn't one yet.
+
+**Never run `rclone config show <remote>` — it prints the tokens in full.** That happened on
+2026-09-02 and forced a rotation (revoke at `myaccount.google.com/permissions` *first*, then
+`rclone config reconnect`; reconnect alone leaves the old refresh token valid). To read one
+setting safely:
+
+```bash
+rclone config show gdrive | awk -F' = ' '$1=="type"{print $2}'
+```
+
 `~/.config/rclone/rclone.conf` holds the tokens and is intentionally untracked.
 
 ### btrfs subvolume layout — what it is for

@@ -12,7 +12,13 @@ IOSchedulingClass=idle
 CPUWeight=10
 # --progress draws a TTY meter; in a service it lands in the journal as
 # carriage-return-mangled redraws. --stats-one-line gives one clean line instead.
+# --max-delete: this sync is cloud->local, so a bad state on Drive (or a compromised
+# token) would otherwise mirror a mass deletion straight onto the local library with no
+# ceiling. The library is ~22 files; deleting more than 5 in one run is anomalous, so the
+# unit fails instead and OnFailure=notify-failure@ says so. Raise it deliberately after a
+# real reorganisation rather than removing it.
 ExecStart=/usr/bin/rclone sync gdrive:FAU/Library %h/.local/share/study-library \
+    --max-delete 5 \
     --stats 1m --stats-one-line
 
 [Install]
