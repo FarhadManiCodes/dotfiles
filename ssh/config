@@ -1,0 +1,17 @@
+# ssh client configuration
+#
+# AddKeysToAgent takes a lifetime, not just "yes": the key is loaded into the agent on first
+# use and dropped an hour later. The two halves protect different things —
+#   - the passphrase makes a *copied* key file useless (the common attack: malware reads
+#     ~/.ssh/id_ed25519 and exfiltrates it for use elsewhere, later);
+#   - the lifetime bounds how long a process compromised on THIS machine can use the agent
+#     socket to sign. It can never copy a usable key out.
+# "yes" would keep the key resident until logout, which is a much wider window.
+#
+# Requires SSH_AUTH_SOCK (see environment.d/defaults.conf) and the socket-activated agent:
+#   systemctl --user enable --now ssh-agent.socket
+# install.sh does both.
+
+Host *
+    AddKeysToAgent 1h
+    IdentityFile ~/.ssh/id_ed25519
