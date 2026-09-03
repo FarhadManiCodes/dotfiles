@@ -1,0 +1,67 @@
+#!/bin/sh
+# Apply the current light/dark accent to tmux's status bar.
+#
+# Called at tmux startup (tmux.conf) and again by toggle-foot-theme.sh, so the
+# bar follows Mod+Alt+T like vim and ptpython do -- via the state file, since
+# tmux cannot ask the terminal.
+#
+# Colours are explicit hex, not palette indices, and that is deliberate.
+# tmux-power draws the active window label as `fg=$G0` on `bg=$TC`, so G0 must
+# be the BACKGROUND colour. Setting it to `default` looks right but resolves to
+# the terminal's *foreground* in an fg slot, which put near-white text on a
+# bright accent: 2.41 contrast on dark, 2.52 on light. No palette index could
+# fix that, because the accent was never the problem -- the earlier hunt for the
+# "best worst-case index" landed on colour13 (hot pink) for exactly this reason.
+# With G0 as the real background the same green gives 9.67 and 4.66.
+#
+# G1/G2/G4 stay 'default': they are only ever used as backgrounds, where the
+# keyword is correct.
+
+theme="${1:-}"
+[ -n "$theme" ] || theme=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/foot_theme_state" 2>/dev/null)
+[ -n "$theme" ] || theme=dark
+
+# Not `has-session`: while tmux.conf is sourced during `new-session` the server
+# is up but no session exists yet, so that check would skip the initial apply.
+command -v tmux >/dev/null 2>&1 || exit 0
+tmux info >/dev/null 2>&1 || exit 0
+
+# #a7c080 is everforest's green -- the theme this bar used before it was traded
+# for a palette index. 8.52 contrast under near-black text. Everforest's own
+# dark green (#8da101) only reaches 2.66 under near-white, so light uses a
+# deeper shade of the same hue instead.
+case "$theme" in
+    light) g0='#f5f5f5'; tc='#5f7f1f' ;;   # deep green under near-white text  (4.24)
+    *)     g0='#1c1c1c'; tc='#a7c080' ;;   # everforest green under near-black (8.52)
+esac
+
+# g0/g2/g4 all get the background colour, not 'default'. tmux-power uses each of
+# them in an fg slot somewhere -- g0 for the active label text, g2 for the
+# inactive window's trailing separator, g4 for copy-mode text -- and 'default' in
+# an fg slot means the terminal's FOREGROUND. That painted a dark chevron after
+# the window list and put low-contrast text in copy mode. g1 is never used as a
+# foreground, but it tracks the same colour for consistency.
+tmux set -g @tmux_power_g0    "$g0"
+tmux set -g @tmux_power_g1    "$g0"
+tmux set -g @tmux_power_g2    "$g0"
+tmux set -g @tmux_power_g4    "$g0"
+tmux set -g @tmux_power_theme "$tc"
+tmux run-shell "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/plugins/tmux-power/tmux-power.tmux"
+
+# Restore the clock and date formats. tmux-power honoured
+# @tmux_power_{time,date}_format until upstream 4add525 ("perf: batch option
+# loading for 13x faster startup"), which hardcoded ' %T' and ' %F' and silently
+# turned both options into dead settings -- the bar started showing seconds and
+# ISO dates. Re-apply them here from those same options, so tmux.conf stays the
+# single place they are configured.
+time_fmt=$(tmux show -gv @tmux_power_time_format 2>/dev/null)
+date_fmt=$(tmux show -gv @tmux_power_date_format 2>/dev/null)
+[ -n "$time_fmt" ] || time_fmt='%H:%M'
+[ -n "$date_fmt" ] || date_fmt='%d-%b'
+right=$(tmux show -gv status-right 2>/dev/null)
+case "$right" in
+    *%T*|*%F*)
+        tmux set -g status-right \
+            "$(printf '%s' "$right" | sed "s|%T|${time_fmt}|g; s|%F|${date_fmt}|g")"
+        ;;
+esac

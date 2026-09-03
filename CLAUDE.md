@@ -273,10 +273,20 @@ the repo buys little over trust-on-first-use for a single well-known host.
 1. **Terminal-native** — the tool asks the terminal. `bat` uses `--theme=auto:always` (OSC 11),
    and tmux uses palette indices (`colour13`, `default`) that foot re-resolves per theme. Nothing
    to maintain; works for future tools too.
-2. **The state file** — for tools that cannot self-detect. `ptpython/config.py` reads it, and so
-   does vim: inside tmux, vim's OSC 11 query is answered by *tmux*, not foot, so native detection
-   is unreliable there. `vim/config/basic.vim` picks onedark or PaperColor at `VimEnter`;
-   `<leader>tt` still cycles manually from whatever it picked.
+2. **The state file** — for tools that cannot self-detect, because inside tmux an OSC 11 query is
+   answered by *tmux* rather than foot. `ptpython/config.py` reads it; `vim/config/basic.vim`
+   picks onedark or PaperColor at `VimEnter` (`<leader>tt` still cycles manually from there);
+   `nvim` maps it to onedark/newpaper at startup via `config.themes.from_desktop()`, with
+   `<leader>th` as a session override and `last_theme.txt` only as the fallback when the desktop
+   state is missing; and `bash/tmux-theme` sets the status bar, called from `tmux.conf` after tpm
+   and again by the toggle script.
+
+   **tmux's colours must be real hex, never `default` or a palette index.** tmux-power uses its
+   `g0`/`g2`/`g4` values in *foreground* slots — the active label's text, the inactive window's
+   trailing separator, copy-mode text — and `default` there means the terminal's *foreground*,
+   not its background. That capped label contrast at 2.4 whichever accent was chosen and sent an
+   earlier hunt for the "best worst-case palette index" to colour13, hot pink. With `g0` as the
+   real background the same green scores 9.67 dark / 4.24 light.
 
 Deliberately **not** following: GTK apps (see below — always light), Firefox, and the readers
 (sioyek F8, zathura fixed gruvbox). Note vim's theme is applied on `VimEnter`, which fires *after*

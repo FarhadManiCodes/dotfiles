@@ -10,3 +10,8 @@ else
     killall -SIGUSR1 foot footclient 2>/dev/null
     echo "dark" > "$STATE_FILE"
 fi
+
+# tmux cannot ask the terminal which theme is active (inside tmux, foot's OSC 11
+# reply is answered by tmux itself), so it is driven from the state file like
+# vim and ptpython. No-op when no tmux server is running.
+"$(dirname "$(readlink -f "$0")")/tmux-theme" "$(< "$STATE_FILE")" 2>/dev/null || true
