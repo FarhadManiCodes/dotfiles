@@ -10,8 +10,20 @@
 # Verified on 7.2.2 (2026-09-03): writing 1 to a connection's `abort` completes
 # its pending requests and releases a waiter that SIGKILL could not.
 #
-# Aborting tears the mount down, so `post` restarts the rclone units -- but only
-# when `pre` actually acted. A normal suspend touches nothing.
+# Aborting tears the mount down, so the rclone units are restarted afterwards --
+# but only when `pre` actually acted. A normal suspend touches nothing.
+#
+# The restart cannot happen in `post` itself. Verified 2026-09-03: post hooks run
+# while user.slice is still frozen (user@1000 = frozen-by-parent), so a call into
+# the user manager dies instantly with "Transport endpoint is not connected" --
+# it fails fast rather than blocking, so simply backgrounding it is not enough.
+# Nor can we background and wait: systemd-suspend.service is Type=oneshot with
+# KillMode=control-group, so any child still in that cgroup is SIGTERMed the
+# moment the hook returns. So `post` hands off to a transient unit via
+# systemd-run, which lives outside that cgroup, and that unit waits for the thaw.
+#
+# Every outcome is logged. This exact call failing silently is why the sibling
+# restart-swayidle hook went unnoticed as a no-op.
 
 MARKER=/run/unblock-fuse.aborted
 
@@ -65,17 +77,42 @@ pre)
 post)
     [ -e "$MARKER" ] || exit 0
     rm -f "$MARKER"
+    out=$(systemd-run --no-block --collect --unit=unblock-fuse-remount \
+            --description="Remount rclone after unblock-fuse aborted a connection" \
+            "$0" remount 2>&1) \
+        && logger -t unblock-fuse "queued remount via systemd-run" \
+        || logger -t unblock-fuse "FAILED to queue remount: $out"
+    ;;
+
+remount)
+    # Runs as a transient unit, so it outlives the sleep hook. Wait for the thaw
+    # before touching the user manager; without this the restart fails instantly.
+    i=0
+    while [ "$(systemctl show user.slice -p FreezerState --value 2>/dev/null)" != "running" ]; do
+        i=$((i + 1))
+        if [ "$i" -gt 60 ]; then
+            logger -t unblock-fuse "user.slice still frozen after ${i}s -- rclone NOT remounted"
+            exit 1
+        fi
+        sleep 1
+    done
+    [ "$i" -gt 0 ] && logger -t unblock-fuse "user.slice thawed after ${i}s"
+
     for uid in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
         [ "$uid" -ge 1000 ] 2>/dev/null || continue
         user=$(id -nu "$uid" 2>/dev/null) || continue
-        # --plain: without it systemctl prefixes a failed unit with a bullet,
-        # so $1 would be the bullet and not the unit name -- and `post` runs
-        # exactly when these units are most likely to be failed.
+        # --plain: without it systemctl prefixes a failed unit with a bullet, so
+        # $1 would be the bullet and not the unit name -- and this runs exactly
+        # when those units are most likely to be failed.
         for u in $(systemctl --user --machine="${user}@.host" list-units --all \
                        --plain --no-legend --no-pager 'rclone@*.service' 2>/dev/null \
                    | awk '{print $1}'); do
-            systemctl --user --machine="${user}@.host" restart "$u" 2>/dev/null \
-                && logger -t unblock-fuse "restarted $u for $user"
+            out=$(systemctl --user --machine="${user}@.host" restart "$u" 2>&1)
+            if [ $? -eq 0 ]; then
+                logger -t unblock-fuse "restarted $u for $user"
+            else
+                logger -t unblock-fuse "FAILED to restart $u for $user: $out"
+            fi
         done
     done
     ;;
