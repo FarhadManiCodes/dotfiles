@@ -213,6 +213,10 @@ the repo buys little over trust-on-first-use for a single well-known host.
 - `swaylock/config` — lock screen. `daemonize` is **required** (swayidle runs with `-w`, which
   blocks until the lock command exits; without it the power-off/suspend timeouts never fire).
   `ignore-empty-password` is off so an empty Enter reaches PAM and activates the fingerprint reader.
+  swayidle locks via `bash/lock-once`, a no-op when a live swaylock already exists, so a repeated
+  `before-sleep` cannot queue locks. It fails safe: nothing short of a confirmed live swaylock
+  of our own stops it locking, because niri has no lock-state query and swaylock never sets
+  logind's `LockedHint`.
 - `pam/swaylock` → `/etc/pam.d/swaylock` (copied by `install-root.sh`, root-owned) — fingerprint +
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Lock the screen unless it is already locked.
+#
+# swayidle fires `before-sleep` on EVERY suspend attempt, including the ones
+# that abort. On 2026-09-02 a wedged FUSE task made the freezer fail with the
+# lid shut, so logind retried ~456 times overnight and each retry fired another
+# lock. Making the lock idempotent contains that fallout whatever the cause.
+#
+# Fails SAFE. niri exposes no lock-state query, and swaylock never sets logind's
+# LockedHint (it takes the Wayland ext-session-lock directly rather than going
+# through `loginctl lock-session`), so a live process is the only signal there
+# is. Anything we cannot positively confirm as a live swaylock of our own --
+# a zombie, a race, a process that vanished mid-check -- falls through and locks.
+for pid in $(pgrep -x -u "$(id -u)" swaylock 2>/dev/null); do
+    case "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" in
+        ""|Z) continue ;;   # vanished or defunct: holding nothing
+        *)    exit 0 ;;     # live swaylock: already locked
+    esac
+done
+exec swaylock -f
