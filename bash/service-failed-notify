@@ -27,7 +27,7 @@ case "$unit" in
         ;;
     study-library-sync.service)
         title="Study library sync failed"
-        body="The gdrive:FAU/Library sync did not complete."
+        body="The gdrive-full:FAU/Library sync did not complete."
         ;;
     *)
         title="Service failed: ${unit}"
