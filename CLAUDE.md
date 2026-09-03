@@ -41,6 +41,14 @@ Post-install:
 
 Every tracked config is a symlink pointing into this repo. `install.sh` creates all symlinks. When checking whether dotfiles are in sync, use `ls -la` to confirm symlinks — not file contents.
 
+**`git checkout <branch>` changes your live configuration.** Because every tracked config is a
+symlink *into this repo*, switching to a branch that lacks a file makes that file vanish from the
+running system. This bit on 2026-09-03: work continued on a branch cut from `master`, and
+`~/.ssh/config` became a dangling symlink while `environment.d/defaults.conf` silently reverted —
+ssh fell back to `AddKeysToAgent false` and stopped using the agent. Nothing was lost, but the
+session was misconfigured until the branches were merged. Treat a checkout as a config change:
+after switching branches, expect the live system to match that branch, not the last one.
+
 Not tracked (intentionally):
 - `~/.config/git/config.local` — name + email
 - `~/.config/gh/hosts.yml` — auth tokens
