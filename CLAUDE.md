@@ -21,6 +21,15 @@ separate so the main install stays sudo-free. These are **copied**, not symlinke
 must not point at a user-writable path, and `sysctl.d` is read at boot before `$HOME` is
 guaranteed mounted).
 
+`zram/zram-generator.conf` configures the machine's **only** swap: a compressed
+RAM device, no disk swapfile, no `resume=` and so no hibernation. Everything is left at
+zram-generator's defaults (4G against 58G of RAM), which is ample for a machine that has
+never swapped — `pswpin`/`pswpout` are 0 and PSI memory pressure is ~0. It was hand-written
+and **untracked** until 2026-09-03; a fresh install would have had no swap at all, silently.
+Tuning `vm.page-cluster` for zram was considered and rejected the same day: the mechanism is
+real (readahead sized for disk seek costs needless decompression on zram) but the device is
+empty, so it would be config defending a condition this machine does not have.
+
 `sysctl/99-performance.conf` holds VM tuning (swappiness, cache pressure, dirty ratios) plus
 `net.ipv4.tcp_mtu_probing = 1`. It was hand-written and **untracked** until 2026-09-01 — a fresh
 `install-root.sh` would have dropped it silently, the same trap `fix-wifi.sh` fell into. The MTU

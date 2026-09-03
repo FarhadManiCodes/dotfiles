@@ -63,6 +63,18 @@ else
   echo "  /etc/sysctl.d/99-performance.conf already up to date"
 fi
 
+# --- /etc/systemd/zram-generator.conf : compressed swap in RAM ---
+# Copied, not symlinked: read at boot by systemd's generator, before $HOME is
+# guaranteed. This is the only swap on the machine, and the file is owned by no
+# package -- without it a fresh install silently comes up with no swap.
+if ! cmp -s "${DOTFILES}/zram/zram-generator.conf" /etc/systemd/zram-generator.conf 2>/dev/null; then
+  install -D -m 0644 -o root -g root \
+    "${DOTFILES}/zram/zram-generator.conf" /etc/systemd/zram-generator.conf
+  echo "  /etc/systemd/zram-generator.conf installed (active after reboot)"
+else
+  echo "  /etc/systemd/zram-generator.conf already up to date"
+fi
+
 # --- /var/lib/docker : podman's graphroot, on the @docker subvolume ---
 # fstab mounts @docker here root-owned, but podman runs rootless and cannot use a graphroot it
 # does not own. Without this a fresh install silently falls back to ~/.local/share/containers,
