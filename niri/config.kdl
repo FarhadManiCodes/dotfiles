@@ -90,8 +90,8 @@ spawn-at-startup "sh" "-c" "d=$(cat $HOME/.cache/zsh/lwd 2>/dev/null); [ -d \"$d
 // Moved out of niri so it restarts cleanly. Across s2idle suspend/resume on the
 // 7840U, swayidle's idle timers desynced and spuriously fired locks in a loop;
 // the service locks DIRECTLY (swaylock -f) instead of via loginctl lock-session
-// to kill the self-referential lock loop, and a system-sleep hook
-// (dotfiles/system-sleep/restart-swayidle) restarts it on resume.
+// to kill the self-referential lock loop. That alone fixed it: the companion
+// restart-swayidle sleep hook never actually ran and was removed 2026-09-03.
 // Timeouts: 4:50 dim, 5:00 lock, 15:00 suspend (battery only — avoids suspending
 // unattended compute jobs on AC, the 7840U STAPM/PPT clamp bug).
 // See ~/learning/cpp-linalg/todo_power.md.

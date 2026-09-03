@@ -23,7 +23,7 @@
 # systemd-run, which lives outside that cgroup, and that unit waits for the thaw.
 #
 # Every outcome is logged. This exact call failing silently is why the sibling
-# restart-swayidle hook went unnoticed as a no-op.
+# restart-swayidle hook went unnoticed as a no-op for 1002 resumes (removed 2026-09-03).
 
 MARKER=/run/unblock-fuse.aborted
 

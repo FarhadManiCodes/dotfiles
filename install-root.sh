@@ -35,7 +35,6 @@ fi
 
 # --- /usr/lib/systemd/system-sleep/* : suspend/resume hooks ---
 # Must be executable (0755). System-sleep scripts run as root on suspend/resume.
-#   restart-swayidle — heal swayidle after resume
 #   fix-wifi.sh      — cycle ath11k_pci around suspend; the QCNFA765 does not
 #                      reliably come back without it. Load-bearing: without this
 #                      hook WiFi is dead after every resume until a manual reload.
@@ -43,7 +42,7 @@ fi
 #                      the freezer cannot freeze and SIGKILL cannot reach. Without
 #                      it one stuck process on an rclone mount turns a lid-close
 #                      into an all-night suspend-retry storm (2026-09-02).
-for hook in restart-swayidle fix-wifi.sh unblock-fuse; do
+for hook in fix-wifi.sh unblock-fuse; do
   sleep_hook="/usr/lib/systemd/system-sleep/${hook}"
   if ! cmp -s "${DOTFILES}/system-sleep/${hook}" "$sleep_hook" 2>/dev/null; then
     install -D -m 0755 -o root -g root "${DOTFILES}/system-sleep/${hook}" "$sleep_hook"

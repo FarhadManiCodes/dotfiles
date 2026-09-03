@@ -221,12 +221,11 @@ the repo buys little over trust-on-first-use for a single well-known host.
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
 - `system-sleep/` → `/usr/lib/systemd/system-sleep/` (installed 0755 by `install-root.sh`, root-owned).
-  Three hooks, all load-bearing — the first two are hardware workarounds, the third is not:
-  - `restart-swayidle` — swayidle does not survive resume; restarted here.
+  Two hooks: one hardware workaround, one correctness fix.
   - `fix-wifi.sh` — unloads/reloads `ath11k_pci` around suspend. The Qualcomm QCNFA765 does not
     reliably re-associate otherwise, so without this hook WiFi is dead after every resume.
     Was hand-installed and **untracked** until the 2026-08-04 audit; a fresh `install-root.sh`
-    would have silently dropped it. The fourth file there, `tlp`, belongs to the `tlp` package —
+    would have silently dropped it. The third file there, `tlp`, belongs to the `tlp` package —
     don't track that one.
   - `unblock-fuse` — releases tasks wedged in an unanswered FUSE request. **This is a
     correctness fix for a failure mode that has already cost a full night**, not a nicety. A task
@@ -239,6 +238,21 @@ the repo buys little over trust-on-first-use for a single well-known host.
     connections with requests actually outstanding; `post` restarts the `rclone@` units, but only
     when `pre` acted. Verified on 7.2.2: writing 1 to a connection's `abort` releases a waiter
     that SIGKILL could not.
+
+  **A sleep hook cannot talk to the user manager directly, and fails silently if it tries.**
+  Post hooks run while `user.slice` is still frozen (`user@1000 = frozen-by-parent`), so
+  `systemctl --user --machine=…` dies at once with `Transport endpoint is not connected`.
+  It fails *fast*, so backgrounding alone does not help, and `systemd-suspend.service` is
+  `Type=oneshot` with `KillMode=control-group`, so a child left behind is SIGTERMed when the
+  hook returns. `unblock-fuse` therefore hands off via `systemd-run --no-block`, whose transient
+  unit outlives the cgroup and polls `FreezerState` until the thaw. Never discard stderr here.
+
+  A third hook, `restart-swayidle`, was **removed 2026-09-03**. It had this exact bug and so
+  had never once run: across 1002 resumes and 31 boots of journal history, every swayidle start
+  was a boot, none a restart. Nothing regressed in that time because the lock loop it was meant
+  to guard against was already fixed by `swayidle.service` locking directly rather than through
+  `loginctl lock-session`. Recover it with `git show 45d7536:system-sleep/restart-swayidle` —
+  but repairing it would switch on behaviour absent for a thousand resumes, not restore any.
 
   Note the lid only suspends on battery — `HandleLidSwitchExternalPower=lock` means closing it on
   AC just locks. Reproducing anything in this area requires being unplugged.
