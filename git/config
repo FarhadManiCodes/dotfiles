@@ -14,6 +14,16 @@
 [push]
     autoSetupRemote = true
 
+[commit]
+    # Put the full diff in the message editor as a comment, so the message is
+    # written while looking at the change rather than from memory.
+    verbose = true
+[column]
+    # Print branch/tag listings in columns when the output is a terminal.
+    ui = auto
+[branch]
+    # Most recently committed first, rather than alphabetical.
+    sort = -committerdate
 [rerere]
     # "Reuse Recorded Resolution"
     # If you fix a conflict once, Git remembers it for future rebase steps.
@@ -24,6 +34,9 @@
     # Use the histogram algorithm. It is much smarter than the default
     # and prevents "spaghetti diffs" when functions are moved.
     algorithm = histogram
+    # a/ b/ become i/ (index) w/ (worktree) c/ (commit), so a diff says what it
+    # is comparing rather than leaving it to be inferred.
+    mnemonicPrefix = true
 
     # Move lines that look like code movements to make the diff cleaner
     colorMoved = default
