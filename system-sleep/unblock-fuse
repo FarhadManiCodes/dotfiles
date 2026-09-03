@@ -1,0 +1,83 @@
+#!/bin/sh
+# /usr/lib/systemd/system-sleep/unblock-fuse
+#
+# A task waiting on an unanswered FUSE request is uninterruptible: the freezer
+# cannot freeze it and SIGKILL does not reach it, so the suspend aborts with
+# EBUSY. With the lid shut logind then retries indefinitely -- on 2026-09-02 one
+# wedged `du` on an rclone mount produced 916 suspend attempts, 456 hard aborts
+# and 1831 wifi disconnects between 22:12 and 11:06.
+#
+# Verified on 7.2.2 (2026-09-03): writing 1 to a connection's `abort` completes
+# its pending requests and releases a waiter that SIGKILL could not.
+#
+# Aborting tears the mount down, so `post` restarts the rclone units -- but only
+# when `pre` actually acted. A normal suspend touches nothing.
+
+MARKER=/run/unblock-fuse.aborted
+
+# PIDs sitting uninterruptibly inside a FUSE request.
+wedged_pids() {
+    # State comes from /proc/PID/status, not /proc/PID/stat: the latter is
+    # `pid (comm) state ...` and comm may contain spaces, so a positional
+    # field lands inside the process name instead of on the state.
+    for status in /proc/[0-9]*/status; do
+        pid=${status%/status}; pid=${pid#/proc/}
+        [ "$(awk '/^State:/{print $2; exit}' "$status" 2>/dev/null)" = "D" ] || continue
+        case "$(cat "/proc/$pid/wchan" 2>/dev/null)" in
+            request_wait_answer|*fuse*) printf '%s ' "$pid" ;;
+        esac
+    done
+}
+
+case "$1" in
+pre)
+    rm -f "$MARKER"
+    first=$(wedged_pids)
+    [ -n "$first" ] || exit 0
+
+    # Sample twice: a slow-but-working mount can show D briefly. Only treat a
+    # PID still wedged 2s later as genuinely stuck, so we never kill a healthy
+    # mount that was merely mid-request.
+    sleep 2
+    second=$(wedged_pids)
+    stuck=""
+    for p in $first; do
+        case " $second " in *" $p "*) stuck="$stuck $p" ;; esac
+    done
+    [ -n "$stuck" ] || exit 0
+
+    # Abort only connections with requests actually outstanding.
+    aborted=""
+    for conn in /sys/fs/fuse/connections/*; do
+        [ -f "$conn/waiting" ] || continue
+        w=$(cat "$conn/waiting" 2>/dev/null)
+        [ "${w:-0}" -gt 0 ] 2>/dev/null || continue
+        if echo 1 > "$conn/abort" 2>/dev/null; then
+            aborted="$aborted ${conn##*/}"
+        fi
+    done
+    [ -n "$aborted" ] || exit 0
+
+    : > "$MARKER"
+    logger -t unblock-fuse "wedged in FUSE:$stuck -- aborted connections:$aborted"
+    ;;
+
+post)
+    [ -e "$MARKER" ] || exit 0
+    rm -f "$MARKER"
+    for uid in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
+        [ "$uid" -ge 1000 ] 2>/dev/null || continue
+        user=$(id -nu "$uid" 2>/dev/null) || continue
+        # --plain: without it systemctl prefixes a failed unit with a bullet,
+        # so $1 would be the bullet and not the unit name -- and `post` runs
+        # exactly when these units are most likely to be failed.
+        for u in $(systemctl --user --machine="${user}@.host" list-units --all \
+                       --plain --no-legend --no-pager 'rclone@*.service' 2>/dev/null \
+                   | awk '{print $1}'); do
+            systemctl --user --machine="${user}@.host" restart "$u" 2>/dev/null \
+                && logger -t unblock-fuse "restarted $u for $user"
+        done
+    done
+    ;;
+esac
+exit 0
