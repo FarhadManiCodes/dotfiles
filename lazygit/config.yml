@@ -37,9 +37,9 @@ gui:
     show: true
 git:
   # Paging: Use Delta (as configured in your.gitconfig)
-  pagers:
+  diffRenderers:
     - colorArg: always
-      pager: delta --dark --paging=never
+      command: delta --dark --paging=never
       useConfig: false
   # Merging strategy. There is no git.merging.tool key (checked against
   # lazygit's config.json schema) — lazygit shells out to `git mergetool`, so the
