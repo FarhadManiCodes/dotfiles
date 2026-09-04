@@ -3,6 +3,23 @@ Description=Rclone mount for %I
 After=network-online.target
 Wants=network-online.target
 
+# Do not let a cloud mount hold up the session. systemd orders a target after
+# everything it Wants=, so `WantedBy=graphical-session.target` below silently
+# added `Before=graphical-session.target` here -- and graphical-session.target is
+# what mako, swayidle and the portals wait for. Measured on the 2026-09-04
+# 13:34 boot: wifi took 103s, this unit spent 84s of it failing on
+# `lookup www.googleapis.com: Temporary failure in name resolution`, and the
+# session's own services did not start until it gave up. **swayidle was among
+# them, so there was no idle lock for the first 96 seconds of that session.**
+#
+# DefaultDependencies=no drops that implicit ordering. It also drops the
+# implicit shutdown ordering, which is not optional here -- without it the
+# ExecStop lazy unmount is not guaranteed to run before the manager goes down --
+# so the next two lines put exactly that part back.
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
 # Retries used to be every 10s forever: with RestartSec=10 the default
 # StartLimitIntervalSec=10s window never elapsed, so the burst never tripped and
 # a permanently broken mount (e.g. revoked OAuth) retried ~8,640 times a day
