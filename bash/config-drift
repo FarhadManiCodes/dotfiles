@@ -22,6 +22,7 @@ set -uo pipefail
 verbose=0
 [[ ${1:-} == -v || ${1:-} == --verbose ]] && verbose=1
 issues=0
+df_dir=${DOTFILES:-$HOME/dotfiles}
 
 hdr() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 ok()   { printf '   \033[32mok\033[0m  %s\n' "$1"; }
@@ -53,6 +54,50 @@ else
     ((verbose)) || echo "       (re-run with -v for full diffs)"
   fi
 fi
+
+# ------------------------------------------------- root configs installed ----
+# install-root.sh COPIES these rather than symlinking (a PAM auth file must not
+# point at a user-writable path; sysctl.d and zram-generator.conf are read at
+# boot before $HOME is guaranteed). A copy diverges silently, in either
+# direction: edit the repo and forget to re-run install-root.sh, or edit /etc by
+# hand and never sync it back. Neither errors, and .pacnew does not catch it --
+# these files are unowned by any package, which is exactly why they are here.
+hdr "Root configs match the repo"
+drift=0
+check_root() {   # $1 repo path, $2 installed path
+  local src=$1 dest=$2
+  if [[ ! -e $dest ]]; then
+    warn "${dest} is NOT installed — run: sudo bash install-root.sh"; drift=1
+  elif [[ ! -r $dest ]]; then
+    printf '   \033[34m--\033[0m  %s needs root to read — not compared\n' "$dest"
+  elif ! cmp -s "$src" "$dest"; then
+    if [[ $src -nt $dest ]]; then
+      warn "${dest} is behind ${src#"$df_dir"/} — run: sudo bash install-root.sh"
+    else
+      warn "${dest} was changed live — copy it back to ${src#"$df_dir"/}"
+    fi
+    drift=1
+  fi
+}
+while read -r src; do
+  check_root "$src" "/etc${src#"$df_dir"/etc}"
+done < <(find "$df_dir/etc" -type f ! -name README.md 2>/dev/null)
+check_root "$df_dir/pam/swaylock"               /etc/pam.d/swaylock
+check_root "$df_dir/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf
+check_root "$df_dir/zram/zram-generator.conf"   /etc/systemd/zram-generator.conf
+check_root "$df_dir/system-sleep/unblock-fuse"  /usr/lib/systemd/system-sleep/unblock-fuse
+
+# A sleep hook that has lost +x is installed, up to date, and dead: systemd-sleep
+# runs only executables and says nothing about the rest. That is how
+# restart-swayidle sat inert through 1002 resumes. install-root.sh warns too, but
+# only when someone runs it with sudo; this runs after every sysup.
+for f in "$df_dir"/system-sleep/*; do
+  hook=/usr/lib/systemd/system-sleep/${f##*/}
+  if [[ -e $hook && ! -x $hook ]]; then
+    warn "${hook} is not executable — systemd-sleep will skip it"; drift=1
+  fi
+done
+((drift)) || ok "all tracked root configs match their installed copies"
 
 # ------------------------------------------------------- plugin staleness ----
 hdr "Plugins behind upstream"
@@ -95,7 +140,7 @@ fi
 # ------------------------------------------------------ systemd unit files ----
 hdr "systemd user units verify"
 bad=0
-for u in "$HOME"/dotfiles/systemd/user/*.{service,timer}; do
+for u in "$df_dir"/systemd/user/*.{service,timer}; do
   [[ -e $u ]] || continue
   out=$(systemd-analyze verify "$u" 2>&1 | grep -vE "Unknown key name .*in section 'Quadlet'|^$")
   if [[ -n $out ]]; then
