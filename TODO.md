@@ -11,36 +11,38 @@ Everything else is in git — the last version carrying items 1–16 is
 ## 1. Merge the remaining `.pacnew` files — **OPEN**, 2026-09-04
 
 Found by `config-drift`, which `sysup` now runs after every update. Nine had accumulated
-since May because nothing looked for them. Three are done: **`tlp.conf`** (moved to a
-`/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c`), **`ly/config.ini`**
-(merged 2026-09-04, verified by a reboot; see `etc/README.md` for the one line it still
-carries) and **`locale.gen`** (merged 2026-09-04, and `de_DE.UTF-8` generated alongside
-`en_US.UTF-8` — see `environment.d/defaults.conf` for which categories use it). Six remain.
+since May because nothing looked for them. **Eight are done, all on 2026-09-04** — one remains.
 
-Review with `sudo pacdiff`, or `config-drift -v` for the full diffs.
-
-### Take upstream, re-apply one line — trivial
-
-| File | Your one change | Note |
-|---|---|---|
-| `/etc/conf.d/wireless-regdom` | `WIRELESS_REGDOM="DE"` | Five new country codes added |
-| `/etc/bluetooth/main.conf` | `AutoEnable=false` | Rest is new commented options + a `[ChannelSounding]` section |
-
-### Just take upstream — nothing of yours in them
-
-| File | Note |
+| File | What happened |
 |---|---|
-| `/etc/tpm2-tss/fapi-profiles/P_ECCP384SHA384.json` | Format changed to lowercase (`TPM2_ALG_ECC` → `ecc`). **No TPM/LUKS setup here — unused** |
-| `/etc/tpm2-tss/fapi-profiles/P_RSA3072SHA384.json` | Same |
+| `tlp.conf` | Moved to a `/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c` |
+| `ly/config.ini` | Merged, verified by a reboot. One deviation left, `clock = %H:%M` — see `etc/README.md` |
+| `locale.gen` | Merged, and `de_DE.UTF-8` generated alongside `en_US.UTF-8`. See `environment.d/defaults.conf` for which categories use it |
+| `conf.d/wireless-regdom` | Merged, `WIRELESS_REGDOM="DE"` re-applied, `iw reg get` confirms `country DE` with 6 GHz intact |
+| `bluetooth/main.conf` | Merged, `AutoEnable=false` re-applied, adapter still `Powered: no` after restart |
+| `tpm2-tss` ×2 | Taken wholesale. `pacman -Qkk tpm2-tss` now reports every fapi profile matching the package |
+| `pacman.d/mirrorlist` | `.pacnew` discarded and the list **regenerated** — see below |
 
-### Discard the `.pacnew` — do NOT take it
+**The mirrorlist was the one where discarding the `.pacnew` was only half the answer.** That
+file is the upstream *catalog*: 425 servers with every line commented, so taking it would have
+left pacman with no mirrors. But the live list deserved the suspicion — 96 entries, half of them
+plaintext-http duplicates, and **12 hosts that Arch had since retired from its catalog entirely**
+(including `ftp.uni-bayreuth.de`). Arch delists mirrors that fall out of sync, so those were the
+ones most likely to serve a stale database.
 
-**`/etc/pacman.d/mirrorlist`** — the `.pacnew` has **every server commented out**. Taking it
-leaves pacman with no mirrors at all. Your current file is a ranked German mirror list.
+Regenerated with `use_mirror_status=on` (only mirrors Arch currently reports in sync) piped
+through `rankmirrors -n 10` — `pacman-contrib`, already installed for `pacdiff`, so `reflector`
+was not needed. Result: 10 https mirrors, no plaintext, and `ftp.fau.de` moved from position
+**46 to 1**. All ten verified responding with a valid `lastupdate`, worst 2.5 h behind.
+
 ```bash
-sudo rm /etc/pacman.d/mirrorlist.pacnew
+curl -s "https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=4&use_mirror_status=on" \
+  | sed 's/^#Server/Server/' > /tmp/ml
+rankmirrors -n 10 /tmp/ml | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 ```
-It is 86 days old, so refreshing is reasonable, but with `reflector` rather than the `.pacnew`.
+
+Worth re-running every few months; nothing automates it, and `config-drift` cannot see this
+(mirror staleness is not a `.pacnew`, and the check would need network access).
 
 ### Needs a decision, not a merge
 
