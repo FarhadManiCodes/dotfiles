@@ -34,6 +34,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **12** | **OPEN?** — snapper `/home` retention; needs no reboot, so it is done or it is not |
 | **13** | **OPEN** — track ~12 untracked `/etc` configs; `/etc/nftables.conf` is modified-but-package-owned |
 | **14** | **prepared 2026-09-04** — history cleaned, backup kept; only the push remains |
+| **15** | **OPEN** — confirm `sysup`'s sleep inhibitor actually blocks a suspend |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
 (the stated reason — 66 MiB — was noise), **7** (smartd is built for multi-disk ATA, not
@@ -534,3 +535,34 @@ for d in ~/projects/*/ ~/learning/*/; do
   git -C "$d" remote get-url origin >/dev/null 2>&1 || echo "NO REMOTE: $d"
 done
 ```
+
+## 15. Confirm the `sysup` sleep inhibitor actually blocks a suspend — **OPEN**, 2026-09-04
+
+`sysup` now holds a `sleep:idle` block inhibitor for the length of an update, because swayidle
+measures *input* idleness rather than CPU: on battery an unattended `paru -Syu` locks at 5
+minutes and suspends at 15, and a suspend mid-transaction drops every download in flight.
+
+**What was verified:** an unprivileged inhibitor can be taken (no sudo, despite the equivalent
+upstream script reaching for pkexec), and the trap releases it on normal return, on early
+failure, and on Ctrl-C. Tested against a stubbed `sysup` run: held during, released after,
+nothing leaked.
+
+**What was NOT verified: that it actually stops a suspend.** The only way to test that is to
+trigger one, and if block-mode semantics are not what I believe, the machine sleeps and a remote
+session is lost. It is systemd's documented behaviour for `--mode=block`, but documented and
+demonstrated are not the same thing — a distinction this week made expensive more than once.
+
+Do this at the keyboard, not remotely. Start a `sysup`, and in another terminal:
+```bash
+systemd-inhibit --list | grep sysup    # expect: sleep:idle  ...  block
+systemctl suspend                       # expect it to REFUSE, not suspend
+```
+
+If the second command suspends the machine, the inhibitor is not doing its job and the whole
+addition is theatre — say so, because the fix would then be a different mechanism rather than a
+tweak.
+
+Known and deliberate: only sleep is inhibited, not the lock. The screen still locks after 5
+minutes of an unattended update, which is correct — an update is no reason to leave a machine
+unlocked. Also not covered: `systemctl suspend -i`, which exists to override inhibitors, and
+anything firmware or thermal initiated, which never asks logind.
