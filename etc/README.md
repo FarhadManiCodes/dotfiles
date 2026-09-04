@@ -44,7 +44,7 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
 | `tmpfiles.d/polkit-silence.conf` | Creates `/run/polkit-1/rules.d` so polkit stops warning it is missing. |
 | `snapper/configs/root` | Snapshots of `/` are pacman pre/post pairs only — `TIMELINE_CREATE="no"`, `NUMBER_LIMIT=10`. Its `TIMELINE_LIMIT_*` values are **inert**: with no timeline snapshots taken, nothing exists for them to prune. |
 | `snapper/configs/home` | The one that matters. Hourly timeline snapshots of `/home`, retention `HOURLY=5 DAILY=7 WEEKLY=4 MONTHLY=4` — about four months, raised from one week on 2026-09-04. This is the only thing snapshotting `~`. |
-| `systemd/logind.conf.d/10-lid-and-power.conf` | Power-button and lid behaviour. A **drop-in**, not an edit to `logind.conf`, so systemd keeps owning every default not named here. Carries only the three settings that actually deviate: `HandlePowerKey=suspend`, `HandlePowerKeyLongPress=poweroff`, `HandleLidSwitchExternalPower=lock`. The last is why reproducing suspend behaviour requires being unplugged. |
+| `systemd/logind.conf.d/10-lid-and-power.conf` | Power-button and lid behaviour. A **drop-in**, not an edit to `logind.conf`, so systemd keeps owning every default not named here. Carries only the three settings that actually deviate: `HandlePowerKey=suspend`, `HandlePowerKeyLongPress=poweroff`, `HandleLidSwitchExternalPower=lock`. The last is why reproducing suspend behaviour requires being unplugged. `/etc/systemd/logind.conf` itself is left at the package default — verified on 2026-09-04 that the drop-in alone supplies all three. |
 | `environment` | `QT_QPA_PLATFORM=wayland` — without it Qt apps fall back to XWayland. |
 | `conf.d/snapper` | `SNAPPER_CONFIGS="home root"`. One line, and it is what makes `snapper-timeline.timer` and `snapper-cleanup.timer` act on both configs rather than neither. |
 | `udev/rules.d/51-android.rules` | USB access to Samsung devices (`04e8`). **`MODE="0666"` is world read/write** — the conventional form is `0664` with a group. Harmless on a single-user machine, but it is broader than it needs to be. |
@@ -109,3 +109,17 @@ any process running as this user can walk into. The mismatch between `ALLOW_USER
 
 **Always use `sudo snapper -c home list`.** Never infer from `ls /home/.snapshots`: it prints
 nothing on a permission failure, which is indistinguishable from an empty directory.
+
+## Never `systemctl restart systemd-logind` on a live session
+
+logind owns session and seat tracking, so restarting it under a running Wayland session can
+leave the compositor orphaned. That happened on 2026-09-04 while reverting `logind.conf` to
+the package default: the session became unusable and needed a forced restart. The end state
+was correct and nothing was damaged — but the transition cost a session.
+
+**Reboot instead.** logind config changes are not urgent; they apply at the next boot, and no
+setting here is worth ending a session over.
+
+The general lesson is worth more than the specific one: checking that the *end state* will be
+correct is not the same as asking what the *transition* does to a running system. Both forced
+restarts on 2026-09-04 came from that gap.
