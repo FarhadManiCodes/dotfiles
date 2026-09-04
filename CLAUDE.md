@@ -16,7 +16,8 @@ sudo bash install-root.sh                  # system-level: root-owned files unde
 ```
 
 `install.sh` never uses sudo (user configs only). Root-owned system files live in their own
-directories (`pam/`, `system-sleep/`, `sysctl/`) and are installed by `install-root.sh` — kept
+directories (`pam/`, `system-sleep/`, `sysctl/`, `zram/`, and the `etc/` mirror below) and are
+installed by `install-root.sh` — kept
 separate so the main install stays sudo-free. These are **copied**, not symlinked (an auth file
 must not point at a user-writable path, and `sysctl.d` is read at boot before `$HOME` is
 guaranteed mounted).
@@ -37,10 +38,16 @@ does, and for what is deliberately *not* tracked — `00-keyboard.conf` is gener
 `systemd-localed`, and the snapper configs are root-readable only and still outstanding.
 
 `zram/zram-generator.conf` configures the machine's **only** swap: a compressed
-RAM device, no disk swapfile, no `resume=` and so no hibernation. Everything is left at
-zram-generator's defaults (4G against 58G of RAM), which is ample for a machine that has
-never swapped — `pswpin`/`pswpout` are 0 and PSI memory pressure is ~0. It was hand-written
-and **untracked** until 2026-09-03; a fresh install would have had no swap at all, silently.
+RAM device, no disk swapfile, no `resume=` and so no hibernation. It was hand-written and
+**untracked** until 2026-09-03; a fresh install would have had no swap at all, silently.
+
+`zram-size = ram / 3` (~19.5G), set 2026-09-04. The generator's default is
+`min(ram / 2, 4096)`, so the **4096M cap** rather than the ratio is what produced a 4G device
+on a 58G machine. Raising a ceiling is nearly free — zram allocates lazily and costs only
+metadata until pages land in it — which is why this was changed while `vm.page-cluster` was
+not. Be clear that it is proportionality rather than evidence: this machine has never swapped
+a page (`pswpin`/`pswpout` are 0, PSI memory pressure ~0). **The live device only resizes at
+boot**, so it stays 4G until the next reboot.
 Tuning `vm.page-cluster` for zram was considered and rejected the same day: the mechanism is
 real (readahead sized for disk seek costs needless decompression on zram) but the device is
 empty, so it would be config defending a condition this machine does not have.

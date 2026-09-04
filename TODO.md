@@ -32,7 +32,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **10** | **OPEN** — `sudo bash install-root.sh` (unblock-fuse only; zram already installed) |
 | **11** | **reboot pending** — config installed, live device still 4G until then |
 | **12** | **OPEN?** — snapper `/home` retention; needs no reboot, so it is done or it is not |
-| **13** | **OPEN** — track ~12 untracked `/etc` configs; `/etc/nftables.conf` is modified-but-package-owned |
+| **13** | **mostly done 2026-09-04** — 12 files tracked in `etc/`; only the root-readable snapper configs remain |
 | **14** | **prepared 2026-09-04** — history cleaned, backup kept; only the push remains |
 | **15** | **OPEN** — confirm `sysup`'s sleep inhibitor actually blocks a suspend |
 
@@ -449,7 +449,26 @@ if it climbs, that is churn in `~` pinning superseded data, and `MONTHLY` is the
 **Note this is not tracked in the repo.** `/etc/snapper/configs/home` is owned by no package,
 so a rebuild reverts to snapper's defaults and loses this. See item 13.
 
-## 13. Track the root configs a rebuild would lose — **OPEN**, 2026-09-04
+## 13. Track the root configs a rebuild would lose — **mostly done**, 2026-09-04
+
+**Done:** all 12 readable files are now tracked in `etc/`, a tree mirroring `/etc` path-for-path,
+installed by a loop in `install-root.sh`. See `etc/README.md` for what each does and what was
+deliberately excluded. `/etc/nftables.conf` is included despite being package-owned, so a
+`.pacnew` cannot quietly replace the firewall.
+
+**Still open:** `/etc/snapper/configs/{root,home}` are root-readable only and could not be copied
+from an unprivileged session. They hold the retention policy — including the hourly `/home`
+snapshots that are the only thing protecting `~`. To finish:
+```bash
+sudo cp /etc/snapper/configs/root ~/dotfiles/etc/snapper/configs/root
+sudo cp /etc/snapper/configs/home ~/dotfiles/etc/snapper/configs/home
+sudo chown farhad:farhad ~/dotfiles/etc/snapper/configs/*
+```
+Check them for anything machine-specific before committing — this repo is public.
+
+---
+
+### Original finding
 
 A sweep of `/etc` for files owned by no package (`pacman -Ql` diffed against `find /etc`)
 found **183 unowned files, ~12 of them hand-written and untracked**. Each would silently
