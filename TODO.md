@@ -11,8 +11,10 @@ Everything else is in git — the last version carrying items 1–16 is
 ## 1. Merge the remaining `.pacnew` files — **OPEN**, 2026-09-04
 
 Found by `config-drift`, which `sysup` now runs after every update. Nine had accumulated
-since May because nothing looked for them; **`tlp.conf` is done** (moved to a
-`/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c`). Eight remain.
+since May because nothing looked for them. Two are done: **`tlp.conf`** (moved to a
+`/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c`) and **`ly/config.ini`**
+(merged 2026-09-04, verified by a reboot; see `etc/README.md` for the one line it still
+carries). Seven remain.
 
 Review with `sudo pacdiff`, or `config-drift -v` for the full diffs.
 
@@ -47,12 +49,6 @@ It is 86 days old, so refreshing is reasonable, but with `reflector` rather than
 This is a deliberate migration, not a config merge. Either adopt it knowingly or discard the
 `.pacnew`. Note `mkinitcpio.conf` is deliberately **not tracked** in this repo — it describes
 this machine (`MODULES=(btrfs)`, `BINARIES=(/usr/bin/btrfs)`), see `etc/README.md`.
-
-**`/etc/ly/config.ini`** — the interesting one. You set `min_refresh_delta = 5`, which
-upstream **removed** (replaced by `animation_frame_delay`), so it is **dead config sitting in
-your file**. Upstream also changed the default `clock` to `null` — yours is `%H:%M` and worth
-keeping — and added `show_tty`, `show_password_key`, custom binds. Merge: take the new file,
-re-apply `clock = %H:%M`, drop `min_refresh_delta`.
 
 ---
 

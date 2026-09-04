@@ -16,16 +16,24 @@ sysup() {
   # An unprivileged sleep:idle block inhibitor is enough here -- verified, no
   # sudo needed, despite the equivalent upstream script reaching for pkexec. The
   # trap releases it however this returns, including Ctrl-C and an early failure.
+  # Silencing the job chatter takes BOTH of the lines below, which is not
+  # obvious: an interactive zsh announces a background job twice, and each
+  # message has a different off switch.
+  #   "[3] 3273"                        at launch -- printed only when MONITOR
+  #                                     is on, so no_monitor suppresses it
+  #   "[3] + terminated systemd-inhibit" when the trap fires -- printed for jobs
+  #                                     in the table, so disown suppresses it
+  # no_monitor alone leaves the second (local_options restores MONITOR on
+  # return, and the job is still in the table); disown alone leaves the first.
+  # Neither is cosmetic-only: both bracket every sysup with what reads like an
+  # error and is not one. disown removes the table entry, not the process -- the
+  # pid stays valid, so the trap still reaps it.
   local _inhibit_pid=""
   if command -v systemd-inhibit >/dev/null 2>&1; then
+    setopt local_options no_monitor
     systemd-inhibit --what=sleep:idle --who=sysup \
       --why="System update in progress" --mode=block sleep infinity &
     _inhibit_pid=$!
-    # disown so zsh stops tracking it as a job. Without this an interactive shell
-    # prints "[3] + terminated systemd-inhibit ..." when the trap fires, which
-    # closes every sysup on what reads like an error and is not one. disown only
-    # removes it from the job table -- the pid stays valid, so the trap below
-    # still reaps it.
     disown 2>/dev/null
     trap "kill $_inhibit_pid 2>/dev/null" EXIT INT TERM
   fi
