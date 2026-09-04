@@ -1,0 +1,115 @@
+#!/bin/bash
+# Report config that upstream has moved out from under.
+#
+# The failure this exists for is silent by construction: a package or plugin
+# ships a new version, your settings keep the old shape, and nothing errors --
+# it just quietly does less. Two instances in one week prompted it. tmux-power
+# stopped honouring @tmux_power_time_format, so the clock started showing
+# seconds; and nine .pacnew files had been accumulating since May, the oldest
+# four months old, because nothing ever looked for them.
+#
+# Read-only. Needs no root. Prints a report; changes nothing.
+#
+# Deliberately NOT here: "is my option still read by the plugin?", answered by
+# grepping the plugin for the option name. It does not work. tmux-power reads
+# every @tmux_power_* through one batched regex and never names an option in its
+# source, so that check reports every option as dead. Worse, the regression it
+# was meant to catch would have passed: the option was still read into a
+# variable, and only the code that used it was replaced by a hardcoded value.
+# Assert on rendered behaviour instead -- see the tmux section below.
+
+set -uo pipefail
+verbose=0
+[[ ${1:-} == -v || ${1:-} == --verbose ]] && verbose=1
+issues=0
+
+hdr() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
+ok()   { printf '   \033[32mok\033[0m  %s\n' "$1"; }
+warn() { printf '   \033[33m!!\033[0m  %s\n' "$1"; issues=$((issues+1)); }
+
+# ---------------------------------------------------------------- .pacnew ----
+hdr "Pending .pacnew"
+if ! command -v pacdiff >/dev/null 2>&1; then
+  warn "pacdiff not installed (pacman-contrib)"
+else
+  mapfile -t pending < <(pacdiff --output 2>/dev/null)
+  if ((${#pending[@]} == 0)); then
+    ok "none pending"
+  else
+    warn "${#pending[@]} file(s) need merging — review with: sudo pacdiff"
+    for f in "${pending[@]}"; do
+      base=${f%.pacnew}
+      if [[ -r $f && -r $base ]]; then
+        n=$(diff "$base" "$f" 2>/dev/null | grep -c '^[<>]')
+        age=$(( ( $(date +%s) - $(stat -c %Y "$f") ) / 86400 ))
+        printf '       %-46s %4s changed lines, %s days old\n' "${f#/etc/}" "$n" "$age"
+        if ((verbose)); then
+          diff -u "$base" "$f" 2>/dev/null | sed -n '3,$p' | sed 's/^/         /'
+        fi
+      else
+        printf '       %-46s (unreadable)\n' "${f#/etc/}"
+      fi
+    done
+    ((verbose)) || echo "       (re-run with -v for full diffs)"
+  fi
+fi
+
+# ------------------------------------------------------- plugin staleness ----
+hdr "Plugins behind upstream"
+stale=0
+for d in ~/.config/tmux/plugins/*/ ~/.config/zsh/plugins/*/ ~/.vim/plugged/*/; do
+  [[ -d $d/.git ]] || continue
+  name=$(basename "$d")
+  branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
+  behind=$(git -C "$d" rev-list --count "HEAD..origin/$branch" 2>/dev/null) || continue
+  if [[ ${behind:-0} -gt 0 ]]; then
+    warn "$name is $behind commits behind origin/$branch"
+    stale=1
+  fi
+done
+((stale)) || ok "all plugins current (as of the last fetch — sysup refreshes them)"
+
+# ------------------------------------------------ tmux rendered behaviour ----
+# Assert on what the bar actually renders, not on which options are set. This is
+# the check that would have caught the clock regression: the option stayed set
+# and stayed read, while the value stopped being used.
+hdr "tmux status bar renders as configured"
+if ! tmux info >/dev/null 2>&1; then
+  ok "no tmux server running — nothing to check"
+else
+  right=$(tmux display-message -p '#{E:status-right}' 2>/dev/null)
+  if [[ $right =~ [0-9]{2}:[0-9]{2}:[0-9]{2} ]]; then
+    warn "clock is rendering seconds — @tmux_power_time_format is being ignored"
+  elif [[ $right =~ [0-9]{2}:[0-9]{2} ]]; then
+    ok "clock renders as HH:MM"
+  else
+    warn "could not find a clock in status-right: ${right:0:60}"
+  fi
+  if [[ $right =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+    warn "date is rendering ISO — @tmux_power_date_format is being ignored"
+  else
+    ok "date is not rendering ISO"
+  fi
+fi
+
+# ------------------------------------------------------ systemd unit files ----
+hdr "systemd user units verify"
+bad=0
+for u in "$HOME"/dotfiles/systemd/user/*.{service,timer}; do
+  [[ -e $u ]] || continue
+  out=$(systemd-analyze verify "$u" 2>&1 | grep -vE "Unknown key name .*in section 'Quadlet'|^$")
+  if [[ -n $out ]]; then
+    warn "$(basename "$u"): ${out%%$'\n'*}"
+    bad=1
+  fi
+done
+((bad)) || ok "all unit files verify clean"
+
+# ------------------------------------------------------------------ summary --
+printf '\n'
+if ((issues == 0)); then
+  printf '\033[32mNo drift found.\033[0m\n'
+else
+  printf '\033[33m%d item(s) need attention.\033[0m\n' "$issues"
+fi
+exit 0

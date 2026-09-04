@@ -170,10 +170,32 @@ that produced `etc/`.
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep)
-  - `sysup.zsh` — full system update (paru → uv → Claude Code → plugins → images → fwupd → `.pacnew` report)
+  - `sysup.zsh` — full system update (paru → uv → Claude Code → plugins → images → fwupd →
+    `config-drift`)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
+
+### `config-drift` — catching config upstream has moved out from under
+
+`bash/config-drift` reports settings that have quietly stopped meaning what they used to. Run
+by `sysup` after every update, or by hand; read-only, needs no root, `-v` for full diffs.
+
+It exists because this failure is silent by construction — nothing errors, the config just does
+less. Two instances in one week prompted it: `tmux-power` stopped honouring
+`@tmux_power_time_format` so the clock began showing seconds, and nine `.pacnew` files had been
+accumulating since May because nothing looked for them.
+
+Four checks: pending `.pacnew` (with changed-line counts and ages), plugins behind upstream
+across all three ecosystems, `systemd-analyze verify` on the tracked user units, and — the one
+that matters most — **assertions on what tmux actually renders**.
+
+That last one is the general lesson. The obvious check, "does the plugin still read my option",
+is grep-able and **wrong**: `tmux-power` reads every `@tmux_power_*` through one batched regex
+and never names an option in its source, so it reports every option as dead. Worse, it would
+have missed the real regression, because the option *was* still read into a variable — only the
+code using that variable had been replaced by a hardcoded value. Assert on observable behaviour,
+not on configuration.
 
 ### USB media — vifm `:media`, no automount daemon
 
