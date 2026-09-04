@@ -89,6 +89,14 @@ would break that machine, document the decision instead of tracking the file.
   ```
 - Generated or machine-local state: `ls-R`, `updmap.cfg`, `ly/save.txt`,
   `printcap`, `mkinitcpio.d/linux.preset`.
+- **`/etc/ly/config.ini`** — merged to 1.4.1 on 2026-09-04 and now deviates from the shipped
+  default by **exactly one line**, `clock = %H:%M` (upstream ships `clock = null`, i.e. no
+  clock at all). Not tracked on purpose: pacman never overwrites a modified backup file, it
+  writes a `.pacnew`, which `config-drift` already reports — so tracking buys no protection
+  and would put 13.5 KB in the repo to go stale on every ly release. What a rebuild loses is
+  that one cosmetic line, recorded here instead. The same merge dropped `min_refresh_delta`,
+  which upstream **removed** in favour of `animation_frame_delay` and which had been sitting
+  in the file doing nothing.
 
 ## `SYNC_ACL` — why `/home/.snapshots` reads as empty
 
