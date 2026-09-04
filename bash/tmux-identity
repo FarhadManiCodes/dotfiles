@@ -1,0 +1,49 @@
+#!/bin/bash
+# Set tmux-power's leftmost segment to show only what is NOT already obvious.
+#
+# The stock left_a is ' #{USER}@#h', which on the usual machine renders
+# "farhad@arch-thinkpad" -- two facts that were never in question, occupying a
+# permanent slot on the bar. What earns that slot is the exception: a different
+# user, or a session that is not local.
+#
+#   local, usual user  ->  segment removed entirely
+#   over ssh           ->  hostname
+#   another user       ->  username
+#   both               ->  user@host
+#
+# Removal is clean, not a gap: verified that tmux-power emits no block at all for
+# an empty left_a -- the session name simply becomes the leftmost segment and the
+# chevron follows it -- rather than an empty coloured stub with a stray icon.
+#
+# Computed once at config load, and it has to be. tmux formats cannot express
+# this, for two reasons that are not documented anywhere obvious and were both
+# measured: #{SSH_CONNECTION} always expands empty, because tmux resolves only its
+# own format variables and not arbitrary server environment; and #{==:X,} reads an
+# empty right operand as always-equal, so the natural "is it empty" test is true
+# whatever the variable holds. Doing it here is also cheaper than the #() shell
+# alternative, which would fork on every status redraw for a value that cannot
+# change while the server runs.
+#
+# Consequence worth knowing: SSH_CONNECTION is read from the environment that
+# started the *server*. Start tmux locally, attach later over ssh, and the segment
+# stays hidden -- correct, arguably, since that server is still the local one.
+
+set -u
+
+home_user=${TMUX_IDENTITY_USER:-farhad}
+icon=$''          # nf-fa-user, the same glyph tmux-power ships
+me=${USER:-$(id -un)}
+
+user=""; host=""
+[ "$me" != "$home_user" ] && user=$me
+[ -n "${SSH_CONNECTION:-}" ] && host='#h'      # left as a format; tmux resolves it
+
+if [ -n "$user" ] && [ -n "$host" ]; then
+    seg="$icon $user@$host"
+elif [ -n "$user$host" ]; then
+    seg="$icon $user$host"
+else
+    seg=""
+fi
+
+tmux set -g @tmux_power_left_a "$seg"
