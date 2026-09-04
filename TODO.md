@@ -34,7 +34,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **12** | **OPEN?** — snapper `/home` retention; needs no reboot, so it is done or it is not |
 | **13** | **mostly done 2026-09-04** — 12 files tracked in `etc/`; only the root-readable snapper configs remain |
 | **14** | **prepared 2026-09-04** — history cleaned, backup kept; only the push remains |
-| **15** | **OPEN** — confirm `sysup`'s sleep inhibitor actually blocks a suspend |
+| **15** | **DONE 2026-09-04** — verified: `systemctl suspend` refuses while the inhibitor is held |
 | **16** | **OPEN** — 15 modified package-owned configs, incl. `/etc/fstab`, still untracked |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
@@ -574,7 +574,24 @@ for d in ~/projects/*/ ~/learning/*/; do
 done
 ```
 
-## 15. Confirm the `sysup` sleep inhibitor actually blocks a suspend — **OPEN**, 2026-09-04
+## 15. ~~Confirm the `sysup` sleep inhibitor actually blocks a suspend~~ — **DONE 2026-09-04**
+
+**Verified.** With a block inhibitor held, `systemctl suspend` refused:
+
+```
+Operation inhibited by "probe" (PID 12426 "systemd-inhibit", user farhad), reason is "probe".
+Please retry operation after closing inhibitors and logging out other users.
+```
+
+So the mechanism `sysup` depends on works on this kernel, and the earlier note that this was
+documented-but-not-demonstrated no longer applies. Separately confirmed during a real update
+that the inhibitor is taken with the right name and mode
+(`sysup ... sleep:idle ... block`) and released when the run ends.
+
+Original text follows.
+
+---
+
 
 `sysup` now holds a `sleep:idle` block inhibitor for the length of an update, because swayidle
 measures *input* idleness rather than CPU: on battery an unattended `paru -Syu` locks at 5
