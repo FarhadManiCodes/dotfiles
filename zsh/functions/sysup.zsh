@@ -116,6 +116,36 @@ _sysup_plugins() {
   else
     echo "   vim: vim-plug not installed — skipping"
   fi
+
+  # nvim was missing from this loop until 2026-09-04, so its 37 plugins had been frozen since
+  # 25 July -- lazy.nvim itself pinned nine months back -- with nothing to say so. Same silent
+  # shape as the tmux clones that sat at 2023-2024.
+  #
+  # Unlike the three above, lazy.nvim is LOCKFILE-based: `Lazy! sync` rewrites
+  # nvim/lazy-lock.json, and that file lives in the nvim *submodule*, a separate repo. So this
+  # step alone can leave another git tree dirty. Saying so is the whole point -- an unexplained
+  # modified submodule found days later is worse than a line of output now.
+  if command -v nvim >/dev/null 2>&1; then
+    local lock="${DOTFILES:-$HOME/dotfiles}/nvim/lazy-lock.json"
+    # sha256, NOT mtime: lazy rewrites the lockfile "wb" unconditionally on every
+    # sync (manage/lock.lua), so an mtime test would announce a change after every
+    # single sysup and train you to ignore the message.
+    local before="" after=""
+    [[ -f $lock ]] && before=$(sha256sum "$lock" | cut -d' ' -f1)
+    echo "   nvim plugins..."
+    nvim --headless "+Lazy! sync" +qa >/dev/null 2>&1 || echo "   ⚠ nvim plugins: Lazy sync failed"
+    if [[ -f $lock ]]; then
+      after=$(sha256sum "$lock" | cut -d' ' -f1)
+      if [[ $before != $after ]]; then
+        echo "   ⚠ nvim/lazy-lock.json changed — review and commit it in the submodule:"
+        echo "        git -C ${lock:h} diff lazy-lock.json"
+        echo "     rollback if an update broke something:"
+        echo "        git -C ${lock:h} checkout lazy-lock.json && nvim --headless '+Lazy! restore' +qa"
+      fi
+    fi
+  else
+    echo "   nvim: not installed — skipping"
+  fi
 }
 
 # Quadlet units deliberately carry no AutoUpdate= — an unattended postgres major bump needs

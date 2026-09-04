@@ -69,7 +69,29 @@ check_root() {   # $1 repo path, $2 installed path
   if [[ ! -e $dest ]]; then
     warn "${dest} is NOT installed — run: sudo bash install-root.sh"; drift=1
   elif [[ ! -r $dest ]]; then
-    printf '   \033[34m--\033[0m  %s needs root to read — not compared\n' "$dest"
+    # Root-only file (the two snapper configs are 0640 root:root). Try sudo, but
+    # only with -n, which never prompts and fails instantly when no timestamp is
+    # cached -- this script must stay runnable without root and must never hang
+    # waiting for a password. In practice it often succeeds inside sysup, which
+    # runs `sudo fwupdmgr refresh` immediately before this.
+    #
+    # The two sudo calls are deliberate, not redundant: `cmp` alone cannot
+    # distinguish "files differ" from "sudo refused", both of which exit
+    # non-zero. Establishing readability first means a difference is only ever
+    # reported when the file was genuinely read. Claiming a verdict for a file
+    # that was never opened is precisely the failure this script exists to catch.
+    if sudo -n test -r "$dest" 2>/dev/null; then
+      if ! sudo -n cmp -s "$src" "$dest"; then
+        if [[ $src -nt $dest ]]; then
+          warn "${dest} is behind ${src#"$df_dir"/} (read as root) — run: sudo bash install-root.sh"
+        else
+          warn "${dest} was changed live (read as root) — copy it back to ${src#"$df_dir"/}"
+        fi
+        drift=1
+      fi
+    else
+      printf '   \033[34m--\033[0m  %s needs root to read — not compared\n' "$dest"
+    fi
   elif ! cmp -s "$src" "$dest"; then
     if [[ $src -nt $dest ]]; then
       warn "${dest} is behind ${src#"$df_dir"/} — run: sudo bash install-root.sh"
@@ -113,6 +135,32 @@ for d in ~/.config/tmux/plugins/*/ ~/.config/zsh/plugins/*/ ~/.vim/plugged/*/; d
   fi
 done
 ((stale)) || ok "all plugins current (as of the last fetch — sysup refreshes them)"
+
+# nvim is deliberately NOT in the loop above, and "behind origin" is the wrong
+# question for it. lazy.nvim pins every plugin to nvim/lazy-lock.json, so being
+# behind upstream is what pinning *means* -- that check would flag all 37 forever,
+# the same mistake as grepping tmux-power for option names. The signal that
+# actually carries information is how long the lockfile has sat still: nvim was
+# missing from sysup until 2026-09-04, which left it untouched from 25 July with
+# nothing to say so.
+#
+# That signal is reliable rather than incidental: lazy's manage/lock.lua opens the
+# lockfile "wb" unconditionally on every sync, with no content comparison, so the
+# mtime always moves when a sync runs. An old lockfile therefore means nvim was
+# not synced -- it cannot mean "synced, but nothing upstream changed".
+lock="$df_dir/nvim/lazy-lock.json"
+if [[ -f $lock ]]; then
+  age=$(( ( $(date +%s) - $(stat -c %Y "$lock") ) / 86400 ))
+  n=$(grep -c '{ "branch"\|": {' "$lock" 2>/dev/null)
+  if ((age > 60)); then
+    warn "nvim: lazy-lock.json untouched for ${age} days (${n} plugins pinned)"
+    echo  "       refresh with: nvim --headless '+Lazy! sync' +qa   (sysup does this)"
+  else
+    ok "nvim: ${n} plugins pinned, lockfile ${age} days old"
+  fi
+else
+  ok "nvim: no lazy-lock.json — not using lazy.nvim"
+fi
 
 # ------------------------------------------------ tmux rendered behaviour ----
 # Assert on what the bar actually renders, not on which options are set. This is
