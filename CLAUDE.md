@@ -115,6 +115,22 @@ Used for markdown, config files, quick edits. Not for development.
 
 Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect immediately.
 
+### IPython
+
+`IPYTHONDIR` is `~/.config/ipython` (set in `zsh/.zshenv`), so the profile lives there rather
+than in `~/.ipython`. Three tracked files, all hand-written:
+
+- `ipython_config.py` — autoreload, `nvim` as the editor, no exit confirmation, verbose tracebacks
+- `startup/00-imports.py` — preloads `numpy`, `polars`, `pathlib.Path`
+- `startup/01-theme.py` — reads `foot_theme_state` and picks `LightBG`/`pastie` or
+  `Linux`/`one-dark`, making it the fourth consumer of the `Mod+Alt+T` toggle after vim, nvim
+  and ptpython
+
+`history.sqlite` is the only other file in the profile and is deliberately untracked — it is
+state. All three were **untracked until 2026-09-04**, found by sweeping `~/.config` for
+entries that are not symlinks into this repo, the user-side counterpart of the `/etc` sweep
+that produced `etc/`.
+
 ### Zsh
 
 - **Entry**: `~/.zshrc` + `~/.zshenv`
@@ -314,7 +330,8 @@ the repo buys little over trust-on-first-use for a single well-known host.
    and tmux uses palette indices (`colour13`, `default`) that foot re-resolves per theme. Nothing
    to maintain; works for future tools too.
 2. **The state file** — for tools that cannot self-detect, because inside tmux an OSC 11 query is
-   answered by *tmux* rather than foot. `ptpython/config.py` reads it; `vim/config/basic.vim`
+   answered by *tmux* rather than foot. `ptpython/config.py` and
+   `ipython/profile_default/startup/01-theme.py` read it directly; `vim/config/basic.vim`
    picks onedark or PaperColor at `VimEnter` (`<leader>tt` still cycles manually from there);
    `nvim` maps it to onedark/newpaper at startup via `config.themes.from_desktop()`, with
    `<leader>th` as a session override and `last_theme.txt` only as the fallback when the desktop
