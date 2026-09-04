@@ -1,7 +1,21 @@
 [Unit]
 Description=Rclone mount for %I
-After=network-online.target
-Wants=network-online.target
+
+# There is deliberately NO network-online.target ordering here, and adding it
+# back would be a no-op rather than an improvement. That target does not exist
+# in the user manager at all -- `systemctl --user show network-online.target`
+# reports LoadState=not-found -- and a user unit cannot order itself against a
+# system unit. So the `After=`/`Wants=` pair this file used to carry did nothing
+# on any machine, not merely on this one where systemd-networkd-wait-online is
+# masked. Nothing warns about it either: systemd-analyze verify reports a
+# missing Requires= but a missing Wants= is legal and silent by design, so no
+# check can catch this -- the only remedy is not writing the line.
+#
+# What actually survives a network-less start is Restart= plus the StartLimit*
+# window below. Measured on the 2026-09-04 13:34 boot, where wifi took 103s:
+# the first attempt failed on DNS, and the retry had the mount serving at
+# 13:36:30.8 -- 4.6s after the network became usable at 13:36:26, and it could
+# not have been earlier no matter what any ordering claimed.
 
 # Do not let a cloud mount hold up the session. systemd orders a target after
 # everything it Wants=, so `WantedBy=graphical-session.target` below silently

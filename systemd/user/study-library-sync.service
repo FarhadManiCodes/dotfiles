@@ -1,10 +1,10 @@
 [Unit]
 Description=Sync study library from Google Drive
-# Inert on this machine: systemd-networkd-wait-online is masked for boot speed, so nothing
-# activates network-online.target and this ordering is a no-op. Kept because it is correct
-# on a machine that does reach the target — but it is NOT what makes this unit survive a
-# network-less start. Restart= below is.
-After=network-online.target
+# No network-online.target ordering, deliberately. An earlier comment here kept the line as
+# "correct on a machine that does reach the target"; that was wrong. This is a *user* unit,
+# and the user manager has no network-online.target at all (LoadState=not-found) -- so the
+# ordering was inert on every machine, not just this one. See rclone@.service for the full
+# reasoning. Restart= below is what makes this survive a network-less start.
 
 OnFailure=notify-failure@%n.service
 

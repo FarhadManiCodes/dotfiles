@@ -429,6 +429,28 @@ which raises a mako notification *and* appends to
 
 Check remotely with `systemctl --user --failed`.
 
+**Never order a user unit against `network-online.target`.** It does not exist in the user
+manager — `systemctl --user show network-online.target -p LoadState` reports `not-found` — and
+a user unit cannot order itself against a system unit, so `After=`/`Wants=network-online.target`
+is inert on *every* machine, not just this one where `systemd-networkd-wait-online` is masked.
+Both `rclone@.service` and `study-library-sync.service` carried it until 2026-09-04, the latter
+with a comment defending it as "correct on a machine that does reach the target"; it never was.
+Nothing catches this: `systemd-analyze verify` reports a missing `Requires=` but a missing
+`Wants=` is legal and silent by design, so the only remedy is not writing the line.
+
+The mechanism that actually works for a unit that starts before the network is `Restart=` plus
+a `StartLimitIntervalSec`/`StartLimitBurst` window wide enough for the backoff to fit inside.
+Measured on the 2026-09-04 13:34 boot, where wifi took 103 s: `rclone@gdrive` failed its first
+attempt on DNS and the retry had the mount serving **4.6 s after the network became usable** —
+which is as early as any ordering could have achieved, since there was no DNS before that.
+Shortening the doomed first attempt (a smaller `--contimeout`) was considered and rejected on
+the same evidence: it fails sooner without mounting sooner, and buys a spurious-failure risk on
+a genuinely slow network.
+
+Building the missing dependency instead — a user-level waiter that polls until the system is
+online — is the trap, not the fix. That is exactly what `podman-user-wait-network-online.service`
+did, and why `pg.container` needs `DefaultDependencies=false` (see the containers section).
+
 ### rclone — Google Drive uses a personal OAuth client
 
 **Done 2026-08-09.** `gdrive` has its own `client_id`/`client_secret` (GCP project
