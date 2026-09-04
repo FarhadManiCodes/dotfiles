@@ -77,6 +77,19 @@ mkdir -p "${HOME}/.config/ptpython"
 ln -sf "${DOTFILES}/ptpython/config.py" "${HOME}/.config/ptpython/config.py"
 echo "✅ ptpython configured"
 
+# ============ ipython ==============================
+# IPYTHONDIR is set to ~/.config/ipython in zsh/.zshenv, so the profile lives
+# here rather than in ~/.ipython. history.sqlite is deliberately not tracked --
+# it is state, and it is the only other thing in the profile.
+echo "🐍 Setting up ipython..."
+mkdir -p "${HOME}/.config/ipython/profile_default/startup"
+ln -sf "${DOTFILES}/ipython/profile_default/ipython_config.py" \
+       "${HOME}/.config/ipython/profile_default/ipython_config.py"
+for f in "${DOTFILES}"/ipython/profile_default/startup/*.py; do
+  ln -sf "$f" "${HOME}/.config/ipython/profile_default/startup/$(basename "$f")"
+done
+echo "✅ ipython configured"
+
 # ============ niri ==============================
 echo "Setting up Niri..."
 mkdir -p "${XDG_CONFIG_HOME}/niri"
