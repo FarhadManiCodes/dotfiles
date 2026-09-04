@@ -44,6 +44,9 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
 | `tmpfiles.d/polkit-silence.conf` | Creates `/run/polkit-1/rules.d` so polkit stops warning it is missing. |
 | `snapper/configs/root` | Snapshots of `/` are pacman pre/post pairs only — `TIMELINE_CREATE="no"`, `NUMBER_LIMIT=10`. Its `TIMELINE_LIMIT_*` values are **inert**: with no timeline snapshots taken, nothing exists for them to prune. |
 | `snapper/configs/home` | The one that matters. Hourly timeline snapshots of `/home`, retention `HOURLY=5 DAILY=7 WEEKLY=4 MONTHLY=4` — about four months, raised from one week on 2026-09-04. This is the only thing snapshotting `~`. |
+| `environment` | `QT_QPA_PLATFORM=wayland` — without it Qt apps fall back to XWayland. |
+| `conf.d/snapper` | `SNAPPER_CONFIGS="home root"`. One line, and it is what makes `snapper-timeline.timer` and `snapper-cleanup.timer` act on both configs rather than neither. |
+| `mkinitcpio.conf` | `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)` — the latter puts the btrfs tool in the initramfs, which is what lets a snapshot be rolled back from the emergency shell when root will not mount. Plus the hook order. |
 | `udev/rules.d/51-android.rules` | USB access to Samsung devices (`04e8`). **`MODE="0666"` is world read/write** — the conventional form is `0664` with a group. Harmless on a single-user machine, but it is broader than it needs to be. |
 
 ## Not everything in `/etc` belongs here
