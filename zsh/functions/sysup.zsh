@@ -21,6 +21,12 @@ sysup() {
     systemd-inhibit --what=sleep:idle --who=sysup \
       --why="System update in progress" --mode=block sleep infinity &
     _inhibit_pid=$!
+    # disown so zsh stops tracking it as a job. Without this an interactive shell
+    # prints "[3] + terminated systemd-inhibit ..." when the trap fires, which
+    # closes every sysup on what reads like an error and is not one. disown only
+    # removes it from the job table -- the pid stays valid, so the trap below
+    # still reaps it.
+    disown 2>/dev/null
     trap "kill $_inhibit_pid 2>/dev/null" EXIT INT TERM
   fi
 
