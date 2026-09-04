@@ -42,6 +42,8 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
 | `modprobe.d/kvm.conf` | `blacklist kvm_amd` — virtualisation off. |
 | `modprobe.d/disable-sp5100-watchdog.conf` | `blacklist sp5100_tco` — the AMD watchdog, which fires spuriously on this platform. |
 | `tmpfiles.d/polkit-silence.conf` | Creates `/run/polkit-1/rules.d` so polkit stops warning it is missing. |
+| `snapper/configs/root` | Snapshots of `/` are pacman pre/post pairs only — `TIMELINE_CREATE="no"`, `NUMBER_LIMIT=10`. Its `TIMELINE_LIMIT_*` values are **inert**: with no timeline snapshots taken, nothing exists for them to prune. |
+| `snapper/configs/home` | The one that matters. Hourly timeline snapshots of `/home`, retention `HOURLY=5 DAILY=7 WEEKLY=4 MONTHLY=4` — about four months, raised from one week on 2026-09-04. This is the only thing snapshotting `~`. |
 | `udev/rules.d/51-android.rules` | USB access to Samsung devices (`04e8`). **`MODE="0666"` is world read/write** — the conventional form is `0664` with a group. Harmless on a single-user machine, but it is broader than it needs to be. |
 
 ## Deliberately not tracked
@@ -52,9 +54,17 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
   ```bash
   localectl set-x11-keymap us pc105 "" terminate:ctrl_alt_bksp
   ```
-- **`/etc/snapper/configs/{root,home}`** — root-readable only, so they could not be
-  copied from an unprivileged session. Still untracked; see `TODO.md` item 13.
-  They hold the retention policy, including the hourly `/home` snapshots that are
-  the only thing protecting `~`.
 - Generated or machine-local state: `ls-R`, `updmap.cfg`, `ly/save.txt`,
   `printcap`, `mkinitcpio.d/linux.preset`.
+
+## `SYNC_ACL` — why `/home/.snapshots` reads as empty
+
+`snapper/configs/home` sets `ALLOW_USERS="farhad"` but `SYNC_ACL="no"`, so those users are
+never applied as ACLs on the `.snapshots` directory. The permission is **declared and not
+granted**: the directory stays `root:users`, `farhad` is not in `users`, and `ls` prints
+nothing rather than refusing.
+
+That is not cosmetic. On 2026-09-03 it produced an apparently empty directory, which read as
+"600 timeline runs, zero snapshots" and nearly led to `snapper-timeline.timer` being disabled
+— the only thing snapshotting `~`. Use `sudo snapper -c home list`, or set `SYNC_ACL="yes"` to
+make the declared permission real.
