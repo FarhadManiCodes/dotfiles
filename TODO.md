@@ -50,14 +50,38 @@ unbootable. `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)` are **ours** and w
 
 ---
 
-## 2. `nsswitch.conf` and `pacman.conf` — never diffed
+## 2. `nsswitch.conf` and `pacman.conf` — **CLOSED**, 2026-09-04
 
-Both are modified package-owned files (`pacman -Qkk`) that could not be compared, because
-neither package is in the cache. Both looked like stock Arch. To settle it:
+Both were flagged modified by `pacman -Qkk` and neither could be compared, because neither
+package was in the cache. `pacman -Sw filesystem pacman` fetched them without installing, and
+the diffs settled it:
+
+- **`pacman.conf` was byte-identical** to the package. `-Qkk` had been flagging it on
+  modification time alone. Nothing to do.
+- **`nsswitch.conf` was genuinely modified**, and undocumented: `systemd` removed from
+  `passwd`/`group`/`shadow`/`gshadow`, and `subid` added to `group`. Edited 2025-12-05 during
+  setup with no note anywhere, and nobody remembered why.
+
+Both halves of that edit were wrong. Removing `systemd` disables an installed module
+(`/usr/lib/libnss_systemd.so.2`) whose job is resolving `DynamicUser=yes` service users — free
+today because this machine has none, but a *silent* failure later: if a systemd release moves
+any service to `DynamicUser`, you get bare numeric UIDs in logs and `ls` with nothing to
+explain it. And `subid` names `libnss_subid.so`, which **exists nowhere on the system**, in a
+line where it would not belong even if it did — shadow reads `subid` as its own database, not
+as a service of `group`. glibc `dlopen`s it, fails, and moves on in silence.
+
+Rootless podman was never involved: it reads `/etc/subuid` directly, not through NSS.
+
+Restored by extracting from the package rather than hand-editing, which also restores the
+package's mtime so `-Qkk` goes fully clean:
+
 ```bash
-sudo pacman -Sw filesystem pacman     # fetch without installing
+sudo bsdtar -xpf /var/cache/pacman/pkg/filesystem-*.pkg.tar.zst -C / etc/nsswitch.conf
 ```
-then diff the live file against the copy in `/var/cache/pacman/pkg/`.
+
+Verified: identical to the package, absent from `pacman -Qkk filesystem`, `getent` resolves
+users and groups, `nobody` is 65534, and `podman ps` still shows `pg` healthy. The `hosts:`
+line — the one that could have broken DNS — was already at the default and never changed.
 
 ---
 
@@ -66,8 +90,15 @@ then diff the live file against the copy in `/var/cache/pacman/pkg/`.
 - **NVMe health timer.** The sane alternative to `smartd`, which was rejected in August as
   built for multi-disk ATA rather than one NVMe. Still does not exist. A user timer running
   `smartctl -H` weekly would close the one hardware fault nothing here would warn about.
-- **`/root/logind.conf.bak`** and **`/etc/pam.d/swaylock.bak`** — both inert, both safe to
-  remove, neither urgent.
+- **Stray backups**, all inert and safe to remove, none urgent: `/root/logind.conf.bak`,
+  `/etc/pam.d/swaylock.bak`, `/etc/nsswitch.conf.bak`, `/etc/pacman.d/mirrorlist.bak`,
+  `/etc/ly/config.ini.bak`, and `/boot/initramfs-linux-prev.img` (46 MB, kept through the
+  initramfs migration and no longer needed now that it has booted).
+- **`PRESETS=('default')` in `/etc/mkinitcpio.d/linux.preset`** — no fallback initramfs is
+  built. Disabled deliberately at some point, and it would not have helped during the systemd
+  migration (a fallback uses the same `HOOKS`, only without `autodetect`). Worth one conscious
+  re-decision now that it is known all 12 GRUB entries share a single image; see
+  `etc/README.md`.
 - **Off-machine backup.** Still nothing. `/home` is snapshotted hourly with ~4 months of
   retention, but those snapshots share a filesystem with the data: they protect against
   mistakes, not against a dead disk or anything running as root. This remains the only
