@@ -1,9 +1,19 @@
 # ~/.zshenv - Environment variables (always loaded)
 
-# Locale
-export LC_ALL=en_US.UTF-8
+# Locale. LANG only, on purpose -- it is the fallback every category inherits.
+#
+# LC_ALL=en_US.UTF-8 used to be here and was removed 2026-09-04. It sits at the top of the
+# precedence chain, so it silently overrode every per-category setting: `LC_TIME=de_DE.UTF-8
+# date` did nothing, in this file, in environment.d, or inline on a command. It is meant as a
+# temporary override for deterministic script output, not a permanent setting. Removing it
+# changed no behaviour on its own -- with LANG set and no LC_* set, every category still
+# resolves to en_US.UTF-8 -- it only stopped blocking the German categories now in
+# environment.d/defaults.conf.
+#
+# LANGUAGE=en_US.UTF-8 went with it. LANGUAGE is a GNU gettext variable taking a
+# colon-separated list of *language codes* (en_US:en), never a locale with a charset, so
+# ".UTF-8" could not match and gettext fell through to LC_MESSAGES anyway.
 export LANG=en_US.UTF-8
-export LANGUAGE=en_US.UTF-8
 
 # XDG Base Directory
 export XDG_CONFIG_HOME="$HOME/.config"

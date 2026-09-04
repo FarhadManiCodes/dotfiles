@@ -11,10 +11,11 @@ Everything else is in git — the last version carrying items 1–16 is
 ## 1. Merge the remaining `.pacnew` files — **OPEN**, 2026-09-04
 
 Found by `config-drift`, which `sysup` now runs after every update. Nine had accumulated
-since May because nothing looked for them. Two are done: **`tlp.conf`** (moved to a
-`/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c`) and **`ly/config.ini`**
+since May because nothing looked for them. Three are done: **`tlp.conf`** (moved to a
+`/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c`), **`ly/config.ini`**
 (merged 2026-09-04, verified by a reboot; see `etc/README.md` for the one line it still
-carries). Seven remain.
+carries) and **`locale.gen`** (merged 2026-09-04, and `de_DE.UTF-8` generated alongside
+`en_US.UTF-8` — see `environment.d/defaults.conf` for which categories use it). Six remain.
 
 Review with `sudo pacdiff`, or `config-drift -v` for the full diffs.
 
@@ -22,7 +23,6 @@ Review with `sudo pacdiff`, or `config-drift -v` for the full diffs.
 
 | File | Your one change | Note |
 |---|---|---|
-| `/etc/locale.gen` | `en_US.UTF-8 UTF-8` uncommented | Two new locales upstream. Run `sudo locale-gen` after |
 | `/etc/conf.d/wireless-regdom` | `WIRELESS_REGDOM="DE"` | Five new country codes added |
 | `/etc/bluetooth/main.conf` | `AutoEnable=false` | Rest is new commented options + a `[ChannelSounding]` section |
 
