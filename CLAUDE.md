@@ -170,7 +170,7 @@ that produced `etc/`.
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep)
-  - `sysup.zsh` — full system update (paru → uv → Claude Code → plugins → images → fwupd)
+  - `sysup.zsh` — full system update (paru → uv → Claude Code → plugins → images → fwupd → `.pacnew` report)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search

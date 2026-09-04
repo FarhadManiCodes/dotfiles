@@ -49,7 +49,32 @@ sysup() {
   echo "==> Firmware metadata (fwupd)"
   _sysup_fwupd_refresh_if_stale
 
+  echo "==> Pending .pacnew files"
+  _sysup_pacnew
+
   echo "==> sysup done"
+}
+
+# A package upgrade that finds a config you have modified writes its new version alongside as
+# a .pacnew and says nothing further. Nothing else here looks for them, so they accumulate
+# silently: on 2026-09-04 there were nine, the oldest from 2026-05-16 -- nearly four months of
+# running old config while upstream had moved on. Every one belonged to a file this repo had
+# just spent an afternoon triaging (tlp.conf, locale.gen, mkinitcpio.conf, ly/config.ini,
+# bluetooth/main.conf), which is precisely how that kind of drift stays invisible.
+#
+# Reports only. Merging a .pacnew is a judgement call about which side of each hunk to keep,
+# and `pacdiff` is the tool for it -- doing that unattended inside an update would be a good
+# way to lose a deliberate setting. --output prints without touching anything and needs no root.
+_sysup_pacnew() {
+  command -v pacdiff >/dev/null 2>&1 || { echo "   pacdiff not installed (pacman-contrib) — skipping"; return 0 }
+  local -a pending
+  pending=(${(f)"$(pacdiff --output 2>/dev/null)"})
+  if (( ${#pending} == 0 )); then
+    echo "   none pending"
+  else
+    echo "   ${#pending} file(s) need merging — review with: sudo pacdiff"
+    printf '     %s\n' "${pending[@]}"
+  fi
 }
 
 # Three plugin ecosystems, each with its own updater and none of them automatic, so they simply
