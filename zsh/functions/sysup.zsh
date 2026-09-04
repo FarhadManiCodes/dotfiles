@@ -7,6 +7,23 @@
 # packages already covered by paru -Syu above.
 
 sysup() {
+  # Hold off suspend for the duration. swayidle measures INPUT idleness, not CPU,
+  # so an unattended update looks idle: on battery it locks at 5min and suspends
+  # at 15 (timeout 900 in swayidle.service). A paru -Syu that builds anything
+  # from the AUR passes that easily, and suspending mid-transaction drops every
+  # download in flight.
+  #
+  # An unprivileged sleep:idle block inhibitor is enough here -- verified, no
+  # sudo needed, despite the equivalent upstream script reaching for pkexec. The
+  # trap releases it however this returns, including Ctrl-C and an early failure.
+  local _inhibit_pid=""
+  if command -v systemd-inhibit >/dev/null 2>&1; then
+    systemd-inhibit --what=sleep:idle --who=sysup \
+      --why="System update in progress" --mode=block sleep infinity &
+    _inhibit_pid=$!
+    trap "kill $_inhibit_pid 2>/dev/null" EXIT INT TERM
+  fi
+
   echo "==> System & AUR (paru -Syu)"
   paru -Syu || { echo "!! paru failed — stopping sysup"; return 1; }
 
