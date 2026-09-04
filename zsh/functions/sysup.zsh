@@ -49,7 +49,7 @@ sysup() {
   echo "==> Firmware metadata (fwupd)"
   _sysup_fwupd_refresh_if_stale
 
-  echo "==> Pending .pacnew files"
+  echo "==> Config drift"
   _sysup_pacnew
 
   echo "==> sysup done"
@@ -65,15 +65,14 @@ sysup() {
 # Reports only. Merging a .pacnew is a judgement call about which side of each hunk to keep,
 # and `pacdiff` is the tool for it -- doing that unattended inside an update would be a good
 # way to lose a deliberate setting. --output prints without touching anything and needs no root.
+# Runs after the update, so it reports the state the update just produced: a
+# package that shipped a .pacnew, or a plugin whose new version stopped honouring
+# an option. bash/config-drift holds the checks and the reasoning for each.
 _sysup_pacnew() {
-  command -v pacdiff >/dev/null 2>&1 || { echo "   pacdiff not installed (pacman-contrib) — skipping"; return 0 }
-  local -a pending
-  pending=(${(f)"$(pacdiff --output 2>/dev/null)"})
-  if (( ${#pending} == 0 )); then
-    echo "   none pending"
+  if [[ -x "$HOME/.local/bin/config-drift" ]]; then
+    "$HOME/.local/bin/config-drift"
   else
-    echo "   ${#pending} file(s) need merging — review with: sudo pacdiff"
-    printf '     %s\n' "${pending[@]}"
+    echo "   config-drift not found — skipping"
   fi
 }
 
