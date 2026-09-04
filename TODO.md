@@ -29,9 +29,9 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **7** | decided: **no** `smartd` — wrong tool for a single NVMe |
 | **8** | Docker socket + group (2026-08-10) — **superseded 2026-09-02 by rootless podman** |
 | **9** | `sysclean` now prompts before removing packages (2026-08-10) |
-| **10** | **OPEN** — `sudo bash install-root.sh` (unblock-fuse update) |
-| **11** | **OPEN** — resize zram to 19.5G (reboot, or swapoff + restart unit) |
-| **12** | **OPEN** — snapper `/home` retention: weekly=4, monthly=4 |
+| **10** | **OPEN** — `sudo bash install-root.sh` (unblock-fuse only; zram already installed) |
+| **11** | **reboot pending** — config installed, live device still 4G until then |
+| **12** | **OPEN?** — snapper `/home` retention; needs no reboot, so it is done or it is not |
 | **13** | **OPEN** — track ~12 untracked `/etc` configs; `/etc/nftables.conf` is modified-but-package-owned |
 | **14** | **OPEN** — `projects/cpp-study`: 147 commits, no remote, one disk |
 
@@ -392,13 +392,15 @@ bogus control to prove the check could fail).
 
 `sudo bash ~/dotfiles/install-root.sh`
 
-One command, two pending changes:
+One pending change:
 
-- **`system-sleep/unblock-fuse`** — the installed copy is older than the repo. It gained a
-  log line on every outcome, so an absent journal entry now means "the hook did not run"
-  rather than being ambiguous with "ran and found nothing". Purely additive.
-- **`zram/zram-generator.conf`** — already installed and identical, so this is a no-op for
-  the file. See item 11 for the part that is not.
+- **`system-sleep/unblock-fuse`** — the installed copy is older than the repo (5080 bytes
+  against 5832). It gained a log line on every outcome, so an absent journal entry now means
+  "the hook did not run" rather than being ambiguous with "ran and found nothing". Purely
+  additive.
+
+`zram/zram-generator.conf` is **already installed** and byte-identical, so this run is a no-op
+for it. An earlier version of this item said otherwise.
 
 Expect a new warning section at the end of the run. It reports any hook in
 `/usr/lib/systemd/system-sleep/` that is not executable, because `cmp` compares content and
@@ -413,8 +415,9 @@ journalctl -t unblock-fuse -n 3          # after the next suspend: expect one li
 
 ## 11. Resize the zram device — **OPEN**, 2026-09-04
 
-The config now says `zram-size = ram / 3`, but **the live device is still 4G** — zram-generator
-reads it at boot. Nothing is wrong; the new size just is not active yet.
+**The config is installed** — `/etc/systemd/zram-generator.conf` reads `zram-size = ram / 3`
+and matches the repo. Only the live device is stale, still 4G, because zram-generator reads the
+file at boot. Nothing is wrong and nothing further needs installing.
 
 Either reboot, or apply it in place:
 ```bash
@@ -427,8 +430,11 @@ never swapped a page).
 
 ## 12. Extend snapper retention on `/home` — **OPEN**, 2026-09-04
 
-Currently `HOURLY=5`, `DAILY=7`, everything else `0` — exactly **one week** of history. Agreed
-to extend to four months:
+**Takes effect immediately, no reboot** — snapper reads its config on each timeline run. So
+this is either already applied or not; there is no pending state. Verify before assuming.
+
+Was `HOURLY=5`, `DAILY=7`, everything else `0` — exactly **one week** of history. Agreed to
+extend to four months:
 
 ```bash
 sudo snapper -c home set-config TIMELINE_LIMIT_WEEKLY=4 TIMELINE_LIMIT_MONTHLY=4
