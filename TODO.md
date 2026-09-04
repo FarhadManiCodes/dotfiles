@@ -3,9 +3,12 @@
 Left over from the 2026-07/08 config audit. Each item needed a browser, a decision, or
 root — something no script in this repo could do.
 
-**All items are closed as of 2026-08-10.** The entries are kept rather than deleted,
-because several of them record *why* the obvious action was wrong; the reasoning is the
-part worth not rediscovering. New items go at the bottom.
+Items 1-9 are closed as of 2026-08-10. The entries are kept rather than deleted, because
+several of them record *why* the obvious action was wrong; the reasoning is the part worth
+not rediscovering. New items go at the bottom.
+
+**Open: items 10-13**, added 2026-09-04 — all root actions left over from the suspend/audit
+work of 2026-09-02..04, queued while working remotely.
 
 For issues investigated and **accepted** (nothing to do), see `revisit.md`.
 For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
@@ -26,6 +29,10 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **7** | decided: **no** `smartd` — wrong tool for a single NVMe |
 | **8** | Docker socket + group (2026-08-10) — **superseded 2026-09-02 by rootless podman** |
 | **9** | `sysclean` now prompts before removing packages (2026-08-10) |
+| **10** | **OPEN** — `sudo bash install-root.sh` (unblock-fuse update) |
+| **11** | **OPEN** — resize zram to 19.5G (reboot, or swapoff + restart unit) |
+| **12** | **OPEN** — snapper `/home` retention: weekly=4, monthly=4 |
+| **13** | **OPEN** — track ~12 untracked `/etc` configs; `/etc/nftables.conf` is modified-but-package-owned |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
 (the stated reason — 66 MiB — was noise), **7** (smartd is built for multi-disk ATA, not
@@ -377,3 +384,100 @@ now lives in a comment at the call site.
 Verified: `zsh -n` parses, the function still defines, no `--noconfirm` remains, and
 `2months` is a valid systemd time span (`systemd-analyze timespan`, with a deliberately
 bogus control to prove the check could fail).
+
+---
+
+## 10. Apply the pending root installs — **OPEN**, 2026-09-04
+
+`sudo bash ~/dotfiles/install-root.sh`
+
+One command, two pending changes:
+
+- **`system-sleep/unblock-fuse`** — the installed copy is older than the repo. It gained a
+  log line on every outcome, so an absent journal entry now means "the hook did not run"
+  rather than being ambiguous with "ran and found nothing". Purely additive.
+- **`zram/zram-generator.conf`** — already installed and identical, so this is a no-op for
+  the file. See item 11 for the part that is not.
+
+Expect a new warning section at the end of the run. It reports any hook in
+`/usr/lib/systemd/system-sleep/` that is not executable, because `cmp` compares content and
+never permissions — a hook can be present, correct, and silently skipped by systemd. It
+**warns rather than repairing**, since making a hook non-executable is a legitimate way to
+disable one. It should print nothing today.
+
+**Verify:**
+```bash
+journalctl -t unblock-fuse -n 3          # after the next suspend: expect one line per suspend
+```
+
+## 11. Resize the zram device — **OPEN**, 2026-09-04
+
+The config now says `zram-size = ram / 3`, but **the live device is still 4G** — zram-generator
+reads it at boot. Nothing is wrong; the new size just is not active yet.
+
+Either reboot, or apply it in place:
+```bash
+sudo swapoff /dev/zram0 && sudo systemctl restart systemd-zram-setup@zram0.service
+zramctl                                   # expect DISKSIZE 19.5G
+```
+
+Safe to do at any time: the device is empty (`pswpin`/`pswpout` are both 0 — this machine has
+never swapped a page).
+
+## 12. Extend snapper retention on `/home` — **OPEN**, 2026-09-04
+
+Currently `HOURLY=5`, `DAILY=7`, everything else `0` — exactly **one week** of history. Agreed
+to extend to four months:
+
+```bash
+sudo snapper -c home set-config TIMELINE_LIMIT_WEEKLY=4 TIMELINE_LIMIT_MONTHLY=4
+sudo grep TIMELINE_LIMIT /etc/snapper/configs/home     # verify
+```
+
+Cheap: btrfs snapshots are copy-on-write, so an old snapshot costs only the blocks that have
+changed since. `/home` is at 3% of a 953G disk. Watch `df -h /home` over the following weeks —
+if it climbs, that is churn in `~` pinning superseded data, and `MONTHLY` is the first to trim.
+
+**Note this is not tracked in the repo.** `/etc/snapper/configs/home` is owned by no package,
+so a rebuild reverts to snapper's defaults and loses this. See item 13.
+
+## 13. Track the root configs a rebuild would lose — **OPEN**, 2026-09-04
+
+A sweep of `/etc` for files owned by no package (`pacman -Ql` diffed against `find /etc`)
+found **183 unowned files, ~12 of them hand-written and untracked**. Each would silently
+vanish on a fresh install, the same trap `fix-wifi.sh`, `99-performance.conf` and
+`zram-generator.conf` each fell into:
+
+| File | Why it matters |
+|---|---|
+| `/etc/iwd/main.conf` | `EnableNetworkConfiguration=true` — WiFi would not configure networking |
+| `/etc/systemd/system/nftables.service.d/override.conf` | `RemainAfterExit=yes` — the firewall fix |
+| `/etc/systemd/system/iwd.service.d/{nowait,override}.conf` | 2s hardware-wake buffer, `Restart=on-failure` |
+| `/etc/systemd/journald.conf.d/size.conf` | `SystemMaxUse=200M` |
+| `/etc/modprobe.d/kvm.conf` | `blacklist kvm_amd` |
+| `/etc/modprobe.d/disable-sp5100-watchdog.conf` | `blacklist sp5100_tco` |
+| `/etc/snapper/configs/{root,home}` | retention, incl. item 12 |
+| `/etc/systemd/network/20-wired.network`, `udev/rules.d/51-android.rules`, `X11/xorg.conf.d/00-keyboard.conf`, `tmpfiles.d/polkit-silence.conf`, `systemd/system/ly@.service.d/override.conf` | |
+
+**The sweep has a blind spot, and it is the worst item here.** It finds *unowned* files; it
+cannot see **modified package-owned** ones:
+
+```
+/etc/nftables.conf  is owned by nftables 1:1.1.7-3
+  -> Modification time / Size / SHA256 mismatch
+```
+
+The entire firewall ruleset lives in a file the package owns. A `.pacnew` on some future
+`nftables` upgrade is how it gets lost without anyone noticing. `pacman -Qkk` finds this class:
+
+```bash
+pacman -Qkk 2>&1 | grep "backup file"     # every modified package config
+```
+
+No root needed to decide *what* to track — only to read a few of the files and to run
+`install-root.sh` afterwards.
+
+**Also safe to delete** (leftovers, nothing references them):
+```bash
+sudo rm /etc/passwd.OLD /etc/nftables.conf.orig /etc/cups/printers.conf.O
+```
