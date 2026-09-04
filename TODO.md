@@ -8,32 +8,31 @@ Everything else is in git — the last version carrying items 1–16 is
 
 ---
 
-## 1. Merge the remaining `.pacnew` files — **OPEN**, 2026-09-04
+## 1. Merge the remaining `.pacnew` files — **CLOSED**, 2026-09-04
 
-Found by `config-drift`, which `sysup` now runs after every update. Nine had accumulated
-since May because nothing looked for them. **Eight are done, all on 2026-09-04** — one remains.
+All nine merged in one evening; `config-drift` reports none pending. They had accumulated
+since May because nothing looked for them, which is the whole reason that tool exists.
 
 | File | What happened |
 |---|---|
 | `tlp.conf` | Moved to a `/etc/tlp.d/10-local.conf` drop-in, verified live by `tlp-stat -c` |
 | `ly/config.ini` | Merged, verified by a reboot. One deviation left, `clock = %H:%M` — see `etc/README.md` |
-| `locale.gen` | Merged, and `de_DE.UTF-8` generated alongside `en_US.UTF-8`. See `environment.d/defaults.conf` for which categories use it |
-| `conf.d/wireless-regdom` | Merged, `WIRELESS_REGDOM="DE"` re-applied, `iw reg get` confirms `country DE` with 6 GHz intact |
+| `locale.gen` | Merged, and `de_DE.UTF-8` generated alongside `en_US.UTF-8`. See `environment.d/defaults.conf` |
+| `conf.d/wireless-regdom` | Merged, `WIRELESS_REGDOM="DE"` re-applied, `iw reg get` confirms `country DE` with 6 GHz |
 | `bluetooth/main.conf` | Merged, `AutoEnable=false` re-applied, adapter still `Powered: no` after restart |
 | `tpm2-tss` ×2 | Taken wholesale. `pacman -Qkk tpm2-tss` now reports every fapi profile matching the package |
-| `pacman.d/mirrorlist` | `.pacnew` discarded and the list **regenerated** — see below |
+| `pacman.d/mirrorlist` | `.pacnew` discarded, list **regenerated** — 10 https mirrors, `ftp.fau.de` from position 46 to 1 |
+| `mkinitcpio.conf` | **HOOKS migrated udev → systemd**, verified by reboot — see `etc/README.md` |
 
-**The mirrorlist was the one where discarding the `.pacnew` was only half the answer.** That
-file is the upstream *catalog*: 425 servers with every line commented, so taking it would have
-left pacman with no mirrors. But the live list deserved the suspicion — 96 entries, half of them
-plaintext-http duplicates, and **12 hosts that Arch had since retired from its catalog entirely**
-(including `ftp.uni-bayreuth.de`). Arch delists mirrors that fall out of sync, so those were the
-ones most likely to serve a stale database.
+Two were more than a merge:
 
-Regenerated with `use_mirror_status=on` (only mirrors Arch currently reports in sync) piped
-through `rankmirrors -n 10` — `pacman-contrib`, already installed for `pacdiff`, so `reflector`
-was not needed. Result: 10 https mirrors, no plaintext, and `ftp.fau.de` moved from position
-**46 to 1**. All ten verified responding with a valid `lastupdate`, worst 2.5 h behind.
+**The mirrorlist.** Discarding its `.pacnew` was right — that file is the upstream *catalog*,
+425 servers with every line commented, so taking it would have left pacman with no mirrors. But
+the live list deserved suspicion: 96 entries, half plaintext-http duplicates, and **12 hosts Arch
+had since retired**, `ftp.uni-bayreuth.de` among them. Arch delists mirrors that fall out of
+sync, so those were the likeliest to serve a stale database, silently. Regenerated with
+`use_mirror_status=on` through `rankmirrors -n 10` (`pacman-contrib`, already installed for
+`pacdiff` — `reflector` was not needed):
 
 ```bash
 curl -s "https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=4&use_mirror_status=on" \
@@ -41,16 +40,13 @@ curl -s "https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=
 rankmirrors -n 10 /tmp/ml | sudo tee /etc/pacman.d/mirrorlist >/dev/null
 ```
 
-Worth re-running every few months; nothing automates it, and `config-drift` cannot see this
-(mirror staleness is not a `.pacnew`, and the check would need network access).
+Worth re-running every few months. Nothing automates it and `config-drift` cannot see it —
+mirror staleness is not a `.pacnew`, and the check would need network access.
 
-### Needs a decision, not a merge
-
-**`/etc/mkinitcpio.conf`** — Arch changed the default `HOOKS` from udev-based to
-**systemd-based** (`base systemd … sd-vconsole`). Yours is the udev form and works.
-This is a deliberate migration, not a config merge. Either adopt it knowingly or discard the
-`.pacnew`. Note `mkinitcpio.conf` is deliberately **not tracked** in this repo — it describes
-this machine (`MODULES=(btrfs)`, `BINARIES=(/usr/bin/btrfs)`), see `etc/README.md`.
+**mkinitcpio.** A migration, not a merge, and the only one that could have left the machine
+unbootable. `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)` are **ours** and were kept — the
+`.pacnew` blanks both because it is the stock file, not because upstream dropped them. Only the
+`HOOKS` line was taken. The reasoning and the boot-path facts are in `etc/README.md`.
 
 ---
 
