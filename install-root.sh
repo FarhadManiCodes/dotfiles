@@ -88,4 +88,24 @@ if [ -d /var/lib/docker ]; then
   fi
 fi
 
+# --- verify: installed but inert? ---
+# `cmp` compares content, never permissions, so a copied executable that has lost
+# its +x reports "already up to date" forever while systemd-sleep silently skips
+# it -- systemd only runs executables. That is the same shape as the
+# restart-swayidle hook, which sat installed and dead through 1002 resumes.
+#
+# This warns rather than repairs on purpose: a hook is sometimes made
+# non-executable deliberately, to disable it without deleting it (that is how
+# fix-wifi.sh was held out of the way while it was being tested). Silently
+# re-enabling would overrule a decision the operator made on purpose. Say so and
+# let them choose.
+for f in /usr/lib/systemd/system-sleep/*; do
+  [ -e "$f" ] || continue
+  case "${f##*/}" in tlp) continue ;; esac   # package-owned, not ours
+  if [ ! -x "$f" ]; then
+    echo "  ⚠ $f is NOT executable — systemd-sleep will skip it."
+    echo "    Deliberate? leave it. Otherwise: sudo chmod +x $f"
+  fi
+done
+
 echo "✅ Root configs installed"
