@@ -183,6 +183,22 @@ else
   else
     ok "date is not rendering ISO"
   fi
+
+  # bash/tmux-identity blanks tmux-power's left_a when there is nothing
+  # exceptional to say, and tmux-power then omits the block entirely. Assert the
+  # rendered result rather than the option: an upstream change to how an empty
+  # left_a is handled would put "farhad@arch-thinkpad" back on the bar with
+  # nothing failing. Only meaningful when this shell is itself local and the
+  # usual user -- the server's own environment is what decides, and it can differ
+  # from ours, so anything else is skipped rather than guessed at.
+  left=$(tmux display-message -p '#{E:status-left}' 2>/dev/null)
+  if [[ -z ${SSH_CONNECTION:-} && ${USER:-} == "${TMUX_IDENTITY_USER:-farhad}" ]]; then
+    if [[ $left == *"$(hostname)"* ]]; then
+      warn "status-left shows the hostname on a local session — tmux-identity is not taking effect"
+    else
+      ok "identity segment hidden when local (bash/tmux-identity)"
+    fi
+  fi
 fi
 
 # ------------------------------------------------------ systemd unit files ----
