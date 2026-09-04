@@ -186,9 +186,16 @@ less. Two instances in one week prompted it: `tmux-power` stopped honouring
 `@tmux_power_time_format` so the clock began showing seconds, and nine `.pacnew` files had been
 accumulating since May because nothing looked for them.
 
-Four checks: pending `.pacnew` (with changed-line counts and ages), plugins behind upstream
-across all three ecosystems, `systemd-analyze verify` on the tracked user units, and — the one
-that matters most — **assertions on what tmux actually renders**.
+Five checks: pending `.pacnew` (with changed-line counts and ages), **tracked root configs
+against their installed copies**, plugins behind upstream across all three ecosystems,
+`systemd-analyze verify` on the tracked user units, and — the one that matters most —
+**assertions on what tmux actually renders**.
+
+The root-config check exists because `install-root.sh` *copies*: those files can drift from the
+repo in either direction and nothing else would notice, and `.pacnew` cannot see it since they
+are owned by no package. It reports which side is newer, so the remedy is unambiguous. Files it
+cannot read without root (the two snapper configs) print as **not compared** and deliberately do
+not count as issues — a warning that fires on every run is a warning you stop reading.
 
 That last one is the general lesson. The obvious check, "does the plugin still read my option",
 is grep-able and **wrong**: `tmux-power` reads every `@tmux_power_*` through one batched regex
