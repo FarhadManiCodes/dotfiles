@@ -35,6 +35,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **13** | **mostly done 2026-09-04** — 12 files tracked in `etc/`; only the root-readable snapper configs remain |
 | **14** | **prepared 2026-09-04** — history cleaned, backup kept; only the push remains |
 | **15** | **OPEN** — confirm `sysup`'s sleep inhibitor actually blocks a suspend |
+| **16** | **OPEN** — 15 modified package-owned configs, incl. `/etc/fstab`, still untracked |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
 (the stated reason — 66 MiB — was noise), **7** (smartd is built for multi-disk ATA, not
@@ -603,3 +604,65 @@ Known and deliberate: only sleep is inhibited, not the lock. The screen still lo
 minutes of an unattended update, which is correct — an update is no reason to leave a machine
 unlocked. Also not covered: `systemctl suspend -i`, which exists to override inhibitors, and
 anything firmware or thermal initiated, which never asks logind.
+
+## 16. Modified package-owned configs — **OPEN**, 2026-09-04
+
+`pacman -Qkk` found **31 package-owned files that differ from what the package shipped**. This
+is the class the `etc/` sweep structurally could not see: that one diffed `find /etc` against
+`pacman -Ql` and so tested *ownership*, while these have an owner and differ in *content*.
+`/etc/nftables.conf` was the example that prompted the check; it turned out to have fourteen
+companions.
+
+**Already tracked:** `/etc/nftables.conf`, `/etc/pam.d/swaylock`.
+
+**Never track** — system-managed, and two of them hold password hashes: `passwd`, `shadow`,
+`group`, `gshadow`, `subuid`, `subgid`, `shells`.
+
+**Generated or low value:** `pacman.d/mirrorlist`, the two `fwupd/remotes.d/*.conf` (enabled
+state), `texmf/web2c/fmtutil.cnf`.
+
+**The 15 that are hand-edited and load-bearing:**
+
+| File | Note |
+|---|---|
+| `/etc/fstab` | **The btrfs subvolume layout.** 8 active lines. CLAUDE.md documents it at length; the file itself is in no repo. A wrong fstab is an unbootable machine. |
+| `/etc/default/grub` | Kernel cmdline |
+| `/etc/mkinitcpio.conf` | Initramfs; `/etc/mkinitcpio.conf.d/` exists |
+| `/etc/systemd/logind.conf` | 7 active lines — `HandleLidSwitch`, `HandleLidSwitchExternalPower`, the settings behind the whole 2026-09-02 suspend incident |
+| `/etc/pacman.conf` | Repos and options |
+| `/etc/environment` | 1 active line |
+| `/etc/conf.d/snapper` | 1 active line |
+| `/etc/nsswitch.conf` | 12 active lines |
+| `/etc/tlp.conf` | 22K, mostly upstream defaults |
+| `/etc/ly/config.ini`, `/etc/pam.d/ly` | Display manager |
+| `/etc/bluetooth/main.conf` | 13K, mostly defaults |
+| `/etc/locale.gen` | 10K, mostly comments |
+| `/etc/conf.d/wireless-regdom` | |
+| `/etc/pam.d/login` | |
+
+### Why this is not just "add them to `etc/`"
+
+The twelve files already in `etc/` are **100% hand-written**, so copying them wholesale is
+right. These are **package defaults with a few lines changed**, and tracking them wholesale
+freezes upstream: a package ships improved defaults, `install-root.sh` overwrites them with a
+stale copy, and nothing says so. `tlp.conf` is 22K of which perhaps three lines are yours.
+
+Three strategies, and the right one differs per file:
+
+1. **Drop-ins**, where supported — track a small file and let upstream own the rest.
+   `/etc/tlp.d/` and `/etc/mkinitcpio.conf.d/` already exist; `logind.conf.d/` is supported by
+   systemd and simply absent. Best option: your change is explicit and upstream keeps evolving.
+2. **Track wholesale** — correct for `/etc/fstab` and `/etc/default/grub`, which have no
+   drop-in mechanism and where the whole file is effectively yours anyway.
+3. **Record the diff, track nothing** — for files where the customisation is one line and
+   upstream churn is high.
+
+`/etc/fstab` is the one to do first regardless of strategy. It is the single most
+consequential file on the machine, it is entirely hand-written in practice, and its contents
+are currently reconstructible only from prose in CLAUDE.md.
+
+### Rerunning the check
+
+```bash
+pacman -Qkk 2>&1 | grep "backup file" | sed 's/ (\(Modification time\|Size\|SHA256 checksum\) mismatch)$//' | sort -u
+```
