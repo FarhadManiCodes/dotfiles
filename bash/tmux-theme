@@ -12,7 +12,7 @@
 # bright accent: 2.41 contrast on dark, 2.52 on light. No palette index could
 # fix that, because the accent was never the problem -- the earlier hunt for the
 # "best worst-case index" landed on colour13 (hot pink) for exactly this reason.
-# With G0 as the real background the same green gives 9.67 and 4.66.
+# With G0 as the real background the same hue gives 8.52 and 4.24 (see below).
 #
 # G1/G2/G4 stay 'default': they are only ever used as backgrounds, where the
 # keyword is correct.
