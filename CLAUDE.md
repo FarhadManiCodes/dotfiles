@@ -238,23 +238,32 @@ the repo buys little over trust-on-first-use for a single well-known host.
   password unlock. Order: `pam_unix` (typed password unlocks instantly) → `pam_fprintd` (empty Enter
   then swipe) → `pam_deny`. swaylock can't auto-switch modes; both methods are always available.
 - `system-sleep/` → `/usr/lib/systemd/system-sleep/` (installed 0755 by `install-root.sh`, root-owned).
-  Two hooks: one hardware workaround, one correctness fix.
-  - `fix-wifi.sh` — unloads/reloads `ath11k_pci` around suspend. The Qualcomm QCNFA765 does not
-    reliably re-associate otherwise, so without this hook WiFi is dead after every resume.
-    Was hand-installed and **untracked** until the 2026-08-04 audit; a fresh `install-root.sh`
-    would have silently dropped it. The third file there, `tlp`, belongs to the `tlp` package —
-    don't track that one.
+  One hook. The other file there, `tlp`, belongs to the `tlp` package — don't track that one.
+
   - `unblock-fuse` — releases tasks wedged in an unanswered FUSE request. **This is a
     correctness fix for a failure mode that has already cost a full night**, not a nicety. A task
     waiting on a FUSE reply is uninterruptible: the freezer cannot freeze it and SIGKILL does not
     reach it, so the suspend aborts with `EBUSY`. With the lid shut logind then retries roughly
     every 100 s forever. On 2026-09-02 one stray `du` on an rclone mount produced **916 suspend
     attempts, 456 hard aborts and 1831 wifi disconnects between 22:12 and 11:06** — every retry
-    also re-ran `fix-wifi.sh` (hence the notification storm) and swayidle's `before-sleep`.
+    also re-ran the since-removed `fix-wifi.sh` (hence the notification storm) and swayidle's
+    `before-sleep`.
     `pre` samples twice 2 s apart, so a mount that is merely slow is left alone, and only aborts
     connections with requests actually outstanding; `post` restarts the `rclone@` units, but only
     when `pre` acted. Verified on 7.2.2: writing 1 to a connection's `abort` releases a waiter
     that SIGKILL could not.
+
+  `fix-wifi.sh` used to unload and reload `ath11k_pci` around suspend, because the Qualcomm
+  QCNFA765 would not reliably re-associate on resume. It was **removed 2026-09-04**: the kernel
+  fixed it. Measured on 7.2.2 with the hook disabled — nine resumes, including one of **8.7
+  hours** overnight — WiFi came back every time, and *faster*: **1 s versus 3 s**, because the
+  link survives instead of being torn down and re-associated from cold. The interface name never
+  incremented, confirming the module was never reloaded.
+  Keeping it was not neutral. It ran on *failed* suspend attempts too, so on 2026-09-02 it
+  cycled the module **912 times** and produced 1831 disconnects — it was the amplifier that
+  turned one wedged `du` into an all-night notification storm. Recover it with
+  `git show 73716b9:system-sleep/fix-wifi.sh` if a resume ever comes back without WiFi, but
+  measure before restoring: the fix is `modprobe -r ath11k_pci && modprobe ath11k_pci`.
 
   **A sleep hook cannot talk to the user manager directly, and fails silently if it tries.**
   Post hooks run while `user.slice` is still frozen (`user@1000 = frozen-by-parent`), so
