@@ -66,5 +66,14 @@ nothing rather than refusing.
 
 That is not cosmetic. On 2026-09-03 it produced an apparently empty directory, which read as
 "600 timeline runs, zero snapshots" and nearly led to `snapper-timeline.timer` being disabled
-— the only thing snapshotting `~`. Use `sudo snapper -c home list`, or set `SYNC_ACL="yes"` to
-make the declared permission real.
+— the only thing snapshotting `~`.
+
+**`SYNC_ACL` stays `"no"`, decided 2026-09-04.** Setting it to `"yes"` would make
+`snapper -c home list` work without sudo and remove the trap at its source, but a snapshot
+directory holds complete historical copies of `/home`, including files whose permissions have
+been tightened since. Requiring sudo keeps reading them a deliberate act rather than something
+any process running as this user can walk into. The mismatch between `ALLOW_USERS` and
+`SYNC_ACL` is therefore intentional and should not be "fixed".
+
+**Always use `sudo snapper -c home list`.** Never infer from `ls /home/.snapshots`: it prints
+nothing on a permission failure, which is indistinguishable from an empty directory.
