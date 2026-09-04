@@ -326,7 +326,7 @@ the repo buys little over trust-on-first-use for a single well-known host.
    trailing separator, copy-mode text — and `default` there means the terminal's *foreground*,
    not its background. That capped label contrast at 2.4 whichever accent was chosen and sent an
    earlier hunt for the "best worst-case palette index" to colour13, hot pink. With `g0` as the
-   real background the same green scores 9.67 dark / 4.24 light.
+   real background the same green scores 8.52 dark / 4.24 light.
 
 Deliberately **not** following: GTK apps (see below — always light), Firefox, and the readers
 (sioyek F8, zathura fixed gruvbox). Note vim's theme is applied on `VimEnter`, which fires *after*
