@@ -64,6 +64,44 @@ decided 2026-09-04.** All three describe *this machine* rather than this configu
 - `mkinitcpio.conf` sets `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)`, both tied to the
   filesystem design rather than to any preference.
 
+**`mkinitcpio.conf` HOOKS migrated udev → systemd on 2026-09-04**, taking the `.pacnew`'s
+`HOOKS` line and nothing else. `MODULES` and `BINARIES` were **kept**: the `.pacnew` blanks
+both because it is the stock file, not because upstream dropped them, and pulling those lines
+is the easy mistake in that vimdiff.
+
+```
+HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block filesystems fsck)
+```
+
+Verified by reboot, and at the binary level — `init` in the image is now a symlink to
+`usr/lib/systemd/systemd`, where the old one was a `#!/usr/bin/ash` busybox script. Boot time
+is unchanged within noise (23.5s vs 23.7-24.2s), but the phase is now *measurable*: the udev
+init never reported its timing, so `systemd-analyze` folded it into "kernel" (~4.5s); it now
+reads `846ms (kernel) + 3.218s (initrd)`.
+
+The honest case for the migration is alignment and options, not speed. For an unencrypted
+single-device btrfs the two flavours do the same work. What it buys is Arch's tested default,
+early boot in the journal, and the prerequisite for `sd-encrypt` — which matters because this
+machine *has* a TPM (`/dev/tpm0`), so `systemd-cryptenroll` TPM/FIDO2 unlock is now reachable
+if the disk is ever encrypted.
+
+**Two boot-path facts worth knowing before touching this again.** `PRESETS=('default')` means
+no fallback image is built, and **all 12 GRUB entries point at the same
+`/initramfs-linux.img`** — the 2 normal ones and the 10 `grub-btrfs` snapshot ones. Snapshots
+cannot help: `/boot` is its own partition outside btrfs, so no snapshot contains a kernel or
+initramfs. A broken image takes every entry with it, which is why the migration was done with
+`cp /boot/initramfs-linux.img /boot/initramfs-linux-prev.img` first and recovery via the GRUB
+`e` key. Note also that the pacman hook `90-mkinitcpio-install.hook` rebuilds on
+`PostTransaction`, so leaving an edited `mkinitcpio.conf` unbuilt means the next kernel update
+builds it unattended.
+
+One cosmetic consequence: `systemd-vconsole-setup` now runs early enough to hit
+`fbcon: Deferring console take-over`, and logs `'/dev/tty1' has no font support, skipping`
+(0 occurrences in the three previous boots, 2 in the first systemd one). `FONT=default8x16` is
+therefore not applied — but that name *is* the kernel's built-in 8x16 font, so nothing looks
+different. The line stays in `/etc/vconsole.conf` deliberately: it costs nothing and starts
+working again if fbcon take-over timing ever changes.
+
 The reasoning behind each — why the subvolumes are split the way they are, why btrfs is in the
 initramfs — belongs in CLAUDE.md, and is there. The files themselves are a record of one
 machine's hardware, and copying them onto different hardware ranges from useless to
