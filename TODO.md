@@ -33,6 +33,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **11** | **OPEN** — resize zram to 19.5G (reboot, or swapoff + restart unit) |
 | **12** | **OPEN** — snapper `/home` retention: weekly=4, monthly=4 |
 | **13** | **OPEN** — track ~12 untracked `/etc` configs; `/etc/nftables.conf` is modified-but-package-owned |
+| **14** | **OPEN** — `projects/cpp-study`: 147 commits, no remote, one disk |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
 (the stated reason — 66 MiB — was noise), **7** (smartd is built for multi-disk ATA, not
@@ -480,4 +481,28 @@ No root needed to decide *what* to track — only to read a few of the files and
 **Also safe to delete** (leftovers, nothing references them):
 ```bash
 sudo rm /etc/passwd.OLD /etc/nftables.conf.orig /etc/cups/printers.conf.O
+```
+
+## 14. `projects/cpp-study` has no git remote — **OPEN**, 2026-09-04
+
+147 commits that exist on exactly one disk. Same shape as item 1b (`SpackStream`, closed
+2026-08-09), and it has simply never been written down.
+
+Snapshots do not cover this. `/home` is snapshotted hourly, but those snapshots live on the
+same btrfs filesystem as the data — they protect against deleting a file, not against losing
+the disk. There is still no off-machine copy of anything except what Dropbox, Google Drive and
+GitHub happen to hold, and this repository is in none of them.
+
+No root needed:
+```bash
+gh repo create cpp-study --private --source ~/projects/cpp-study --remote origin --push
+```
+
+Check the other project directories for the same gap while you are there — the audit only ever
+looked at the two it happened to notice:
+```bash
+for d in ~/projects/*/ ~/learning/*/; do
+  [ -d "$d/.git" ] || continue
+  git -C "$d" remote get-url origin >/dev/null 2>&1 || echo "NO REMOTE: $d"
+done
 ```
