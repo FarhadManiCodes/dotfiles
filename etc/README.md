@@ -89,6 +89,14 @@ would break that machine, document the decision instead of tracking the file.
   ```
 - Generated or machine-local state: `ls-R`, `updmap.cfg`, `ly/save.txt`,
   `printcap`, `mkinitcpio.d/linux.preset`.
+- **`/etc/pacman.d/mirrorlist`** — generated, location-specific, and goes stale by design, so
+  tracking it would be actively wrong: a committed list is a snapshot of which German mirrors
+  were fast on one afternoon. Regenerated 2026-09-04 from Arch's own generator with
+  `use_mirror_status=on`, ranked by `rankmirrors -n 10` (`pacman-contrib`, already installed for
+  `pacdiff` — `reflector` is deliberately not installed for this). The command is in `TODO.md`.
+  The previous list was 86 days old and carried **12 hosts Arch had already retired**, which is
+  the failure this file class invites — nothing errors, a delisted mirror just quietly serves an
+  older database.
 - **`/etc/ly/config.ini`** — merged to 1.4.1 on 2026-09-04 and now deviates from the shipped
   default by **exactly one line**, `clock = %H:%M` (upstream ships `clock = null`, i.e. no
   clock at all). Not tracked on purpose: pacman never overwrites a modified backup file, it
