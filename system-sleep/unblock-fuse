@@ -45,7 +45,15 @@ case "$1" in
 pre)
     rm -f "$MARKER"
     first=$(wedged_pids)
-    [ -n "$first" ] || exit 0
+    # Log every outcome, including the boring one. Without a line here, "nothing
+    # in the journal" means both "ran, found nothing, correctly did nothing" and
+    # "never ran at all" -- and those are not the same. That ambiguity is exactly
+    # what let the restart-swayidle hook sit dead through 1002 resumes. One line
+    # per suspend is a cheap price for silence meaning something.
+    if [ -z "$first" ]; then
+        logger -t unblock-fuse "pre: no wedged FUSE tasks, nothing to do"
+        exit 0
+    fi
 
     # Sample twice: a slow-but-working mount can show D briefly. Only treat a
     # PID still wedged 2s later as genuinely stuck, so we never kill a healthy
@@ -56,7 +64,10 @@ pre)
     for p in $first; do
         case " $second " in *" $p "*) stuck="$stuck $p" ;; esac
     done
-    [ -n "$stuck" ] || exit 0
+    if [ -z "$stuck" ]; then
+        logger -t unblock-fuse "pre: task(s)$first were mid-request but cleared within 2s, left alone"
+        exit 0
+    fi
 
     # Abort only connections with requests actually outstanding.
     aborted=""
@@ -68,7 +79,10 @@ pre)
             aborted="$aborted ${conn##*/}"
         fi
     done
-    [ -n "$aborted" ] || exit 0
+    if [ -z "$aborted" ]; then
+        logger -t unblock-fuse "pre: task(s)$stuck wedged but no connection had requests outstanding -- nothing aborted"
+        exit 0
+    fi
 
     : > "$MARKER"
     logger -t unblock-fuse "wedged in FUSE:$stuck -- aborted connections:$aborted"
