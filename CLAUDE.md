@@ -530,10 +530,11 @@ claim** (corrected 2026-09-03):
   **`snapper-timeline.timer` is load-bearing** — it is the only thing snapshotting `~`, which
   is where everything irreplaceable lives.
 
-  Retention is `HOURLY=5`, `DAILY=7`, and **weekly/monthly/quarterly/yearly all `0`**, so the
-  history is exactly **one week** — 5 hourly plus 7 daily, 12 snapshots. Anything deleted more
-  than seven days ago is gone. `NUMBER_CLEANUP="no"` here, so `NUMBER_LIMIT=50` is inert; only
-  the timeline algorithm prunes this config.
+  Retention is `HOURLY=5`, `DAILY=7`, `WEEKLY=4`, `MONTHLY=4`, quarterly and yearly `0` — 20
+  snapshots, about **four months**. It was one week (weekly and monthly both `0`) until
+  2026-09-04; a week is short enough that a mistake noticed on returning from a trip is already
+  unrecoverable. `NUMBER_CLEANUP="no"` here, so `NUMBER_LIMIT=50` is inert; only the timeline
+  algorithm prunes this config.
 
   Snapshots are **not backups**: they sit on the same filesystem as the data, so a failed disk,
   a corrupted filesystem, or anything running as root takes them along with the originals. They
