@@ -33,7 +33,7 @@ For what was changed and why, across all repos, see `AUDIT-2026-08.md`.
 | **11** | **reboot pending** — config installed, live device still 4G until then |
 | **12** | **OPEN?** — snapper `/home` retention; needs no reboot, so it is done or it is not |
 | **13** | **OPEN** — track ~12 untracked `/etc` configs; `/etc/nftables.conf` is modified-but-package-owned |
-| **14** | **OPEN** — `projects/cpp-study`: 147 commits, no remote, one disk |
+| **14** | **prepared 2026-09-04** — history cleaned, backup kept; only the push remains |
 
 **Four items closed by rejecting the audit's own recommendation** after checking it: **6**
 (the stated reason — 66 MiB — was noise), **7** (smartd is built for multi-disk ATA, not
@@ -499,10 +499,32 @@ same btrfs filesystem as the data — they protect against deleting a file, not 
 the disk. There is still no off-machine copy of anything except what Dropbox, Google Drive and
 GitHub happen to hold, and this repository is in none of them.
 
-No root needed:
+**Prepared 2026-09-04 — only the push is left:**
 ```bash
-gh repo create cpp-study --private --source ~/projects/cpp-study --remote origin --push
+cd ~/projects/cpp-study
+gh repo create cpp-study --private --source . --remote origin --push
 ```
+
+Two things were done first, because both are cheap now and expensive after a first push.
+
+**Book figures removed from history.** 213 files, 14M, page-numbered image dumps from five
+C++ books — fine as local study material, not mine to redistribute to someone else's servers.
+`.gitignore` alone would not have helped: it stops future additions, while a push uploads the
+whole history. `git filter-repo --path-glob 'books/*/figures/*' --invert-paths` stripped them
+from all 148 commits. Result: 211 figure blobs → 0, `.git` 24M → 3.8M, all 148 commits
+preserved, and the 213 files still on disk to study from.
+
+**Every commit hash changed**, which is inherent to a rewrite and harmless only because there
+is no remote yet and nobody has cloned it. This was the one free moment; afterwards it means
+force-pushing over published history. `filter-repo` also drops the `origin` remote by design,
+to stop an accidental push of a rewritten history.
+
+**Backup, keep until the push is verified:**
+```
+~/cpp-study-backup-20260904.git      # 23M, all 148 ORIGINAL commits, figures included
+# restore: rm -rf ~/projects/cpp-study && git clone ~/cpp-study-backup-20260904.git ~/projects/cpp-study
+```
+Delete it once the push has succeeded and a few files look right on GitHub.
 
 Check the other project directories for the same gap while you are there — the audit only ever
 looked at the two it happened to notice:
