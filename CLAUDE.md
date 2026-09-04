@@ -64,12 +64,13 @@ Post-install:
   `source` with `[[ -f ]]`, so a missing plugin degrades the shell silently. Keep the two
   in sync.
 - Vim plugins: `vim +PlugInstall +qall`
+- Nvim plugins: `nvim --headless "+Lazy! sync" +qa`
 - Tmux plugins: `Prefix + I` inside a session
 - Git identity: fill in `~/.config/git/config.local`
 - Postgres password: `podman secret create pg_password -` (see the containers section).
   `pg.service` will not start without it
 
-Thereafter `sysup` keeps all three plugin sets current. Nothing else does: until 2026-09-03
+Thereafter `sysup` keeps all four plugin sets current. Nothing else does: until 2026-09-03
 the tmux clones sat at 2023-2024 against upstreams pushed in 2026, and it went unnoticed
 because a stale or absent plugin never errors — it just quietly does less.
 
@@ -121,7 +122,32 @@ done
 
 Submodule at `nvim/` → [FarhadManiCodes/nvim-config](https://github.com/FarhadManiCodes/nvim-config).
 Symlinked: `~/.config/nvim` → `dotfiles/nvim`.
-To update: `cd nvim && git pull`, then commit the submodule pointer in dotfiles.
+
+**There are two separate things to update here, and confusing them is how the plugins went
+stale.** The *config* is the submodule: `cd nvim && git pull`, then commit the submodule
+pointer in dotfiles. The *plugins* are lazy.nvim's, 37 of them under
+`~/.local/share/nvim/lazy/`, and pulling the submodule does not touch them —
+`sysup` now runs `nvim --headless "+Lazy! sync" +qa`. It did not until **2026-09-04**, so they
+sat frozen from 25 July with lazy.nvim itself pinned nine months back, and nothing said so:
+the same silent shape as the tmux clones stuck at 2023-2024.
+
+lazy is **lockfile-based**, which makes it unlike the other three ecosystems in two ways worth
+knowing:
+
+- A sync rewrites `nvim/lazy-lock.json`, which lives in the **submodule**, so an update leaves
+  a second git repo dirty. `sysup` compares the file's sha256 across the sync and tells you
+  when it actually changed — sha256 and not mtime, because lazy opens that file `"wb"`
+  unconditionally on every sync, so an mtime test would announce a change every single run.
+- That lockfile is also the rollback. If an update breaks the editor:
+  ```bash
+  git -C ~/dotfiles/nvim checkout lazy-lock.json
+  nvim --headless "+Lazy! restore" +qa
+  ```
+
+`config-drift` deliberately does **not** ask whether these plugins are behind upstream, the way
+it does for the other three: lazy pins them, so being behind is what pinning *means* and the
+check would flag all 37 forever. It reports the **age of the lockfile** instead — the only
+offline signal that distinguishes "not synced" from "synced, nothing changed".
 
 ### Vim (lightweight editing)
 
