@@ -14,6 +14,16 @@ eth_iface() {
     networkctl list --no-legend 2>/dev/null | awk '$3 == "ether" {print $2}' | head -1
 }
 
+# Every notify-send below passes `--` before the summary. The SSID is broadcast
+# by whatever access point is nearby, so it is hostile input, and notify-send
+# parses options anywhere in its argv: an AP named `--hint=string:image-path:...`
+# would otherwise be read as flags rather than text. Verified both ways --
+# without `--` a leading-dash summary produces "No summary specified"; with it,
+# the same string arrives as literal text.
+#
+# Today the glyph happens to come first, so the SSID never leads the argument
+# and the hole is not reachable. That is an accident of the format string, not a
+# property of the code -- reorder it and the hole opens. `--` makes it structural.
 wifi_monitor() {
     local in_station=false in_device=false
     dbus-monitor --system \
@@ -31,16 +41,16 @@ wifi_monitor() {
             if [[ "$next_line" == *'"connected"'* ]]; then
                 iface=$(wifi_iface)
                 ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
-                notify-send -a "" -u normal "${WIFI}  Connected — ${ssid:-WiFi}"
+                notify-send -a "" -u normal -- "${WIFI}  Connected — ${ssid:-WiFi}"
             elif [[ "$next_line" == *'"disconnected"'* ]]; then
-                notify-send -a "" -u critical "${WARN}  WiFi disconnected"
+                notify-send -a "" -u critical -- "${WARN}  WiFi disconnected"
             fi
             in_station=false
         fi
 
         if $in_device && [[ "$line" == *'"Powered"'* ]]; then
             read -r next_line
-            [[ "$next_line" == *"false"* ]] && notify-send -a "" -u critical "${WARN}  WiFi turned off"
+            [[ "$next_line" == *"false"* ]] && notify-send -a "" -u critical -- "${WARN}  WiFi turned off"
             in_device=false
         fi
     done
@@ -54,10 +64,10 @@ eth_monitor() {
         [[ "$line" == *"$iface"* ]] || continue
         if [[ "$line" == *LOWER_UP* ]] && [ "$prev_eth" != up ]; then
             prev_eth=up
-            notify-send -a "" -u normal "${ETH}  Ethernet connected"
+            notify-send -a "" -u normal -- "${ETH}  Ethernet connected"
         elif [[ "$line" == *NO-CARRIER* ]] && [ "$prev_eth" != down ]; then
             prev_eth=down
-            notify-send -a "" -u critical "${ETH}  Ethernet disconnected"
+            notify-send -a "" -u critical -- "${ETH}  Ethernet disconnected"
         fi
     done
 }
