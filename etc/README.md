@@ -46,7 +46,6 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
 | `snapper/configs/home` | The one that matters. Hourly timeline snapshots of `/home`, retention `HOURLY=5 DAILY=7 WEEKLY=4 MONTHLY=4` — about four months, raised from one week on 2026-09-04. This is the only thing snapshotting `~`. |
 | `environment` | `QT_QPA_PLATFORM=wayland` — without it Qt apps fall back to XWayland. |
 | `conf.d/snapper` | `SNAPPER_CONFIGS="home root"`. One line, and it is what makes `snapper-timeline.timer` and `snapper-cleanup.timer` act on both configs rather than neither. |
-| `mkinitcpio.conf` | `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)` — the latter puts the btrfs tool in the initramfs, which is what lets a snapshot be rolled back from the emergency shell when root will not mount. Plus the hook order. |
 | `udev/rules.d/51-android.rules` | USB access to Samsung devices (`04e8`). **`MODE="0666"` is world read/write** — the conventional form is `0664` with a group. Harmless on a single-user machine, but it is broader than it needs to be. |
 
 ## Not everything in `/etc` belongs here
@@ -54,7 +53,21 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
 Tracking is for files that are **hand-written and safe to copy onto any machine**. A file can
 be both customised and a bad thing to track:
 
-**`/etc/fstab` — deliberately not tracked, decided 2026-09-04.** Every line mounts by UUID, and
+**`/etc/fstab`, `/etc/default/grub` and `/etc/mkinitcpio.conf` — deliberately not tracked,
+decided 2026-09-04.** All three describe *this machine* rather than this configuration:
+
+- `fstab` mounts by UUID, and those UUIDs belong to this NVMe.
+- `grub` carries `amdgpu.dcdebugmask=0x10` (an AMD GPU workaround) and `rootfstype=btrfs`,
+  the latter a boot failure on a machine that is not btrfs.
+- `mkinitcpio.conf` sets `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)`, both tied to the
+  filesystem design rather than to any preference.
+
+The reasoning behind each — why the subvolumes are split the way they are, why btrfs is in the
+initramfs — belongs in CLAUDE.md, and is there. The files themselves are a record of one
+machine's hardware, and copying them onto different hardware ranges from useless to
+unbootable.
+
+**The original fstab-specific note follows.** Every line mounts by UUID, and
 those UUIDs belong to this specific NVMe. Copying this file onto a rebuilt machine would point
 every mount at a filesystem that does not exist there: it would not boot, and `install-root.sh`
 would have done it silently. The layout it encodes — which subvolumes exist, where each mounts,
