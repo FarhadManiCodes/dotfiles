@@ -509,6 +509,17 @@ No root needed to decide *what* to track — only to read a few of the files and
 sudo rm /etc/passwd.OLD /etc/nftables.conf.orig /etc/cups/printers.conf.O
 ```
 
+Optional, and a judgement call rather than cruft: `/etc/pam.d/swaylock.bak` is the
+pre-dotfiles original, saved by `install-root.sh` the first time it installed the PAM stack.
+It is **inert** — PAM resolves by exact service name, so a `.bak` is never read, unlike one
+left in `system-sleep/` or `sddm.conf.d/` where every file in the directory is executed. Keep
+it as a record of what Arch shipped, or:
+```bash
+sudo rm /etc/pam.d/swaylock.bak
+```
+`install-root.sh` rewrites the same filename rather than accumulating copies, so there will
+never be more than one.
+
 ## 14. `projects/cpp-study` has no git remote — **OPEN**, 2026-09-04
 
 147 commits that exist on exactly one disk. Same shape as item 1b (`SpackStream`, closed
@@ -544,7 +555,14 @@ to stop an accidental push of a rewritten history.
 ~/cpp-study-backup-20260904.git      # 23M, all 148 ORIGINAL commits, figures included
 # restore: rm -rf ~/projects/cpp-study && git clone ~/cpp-study-backup-20260904.git ~/projects/cpp-study
 ```
-Delete it once the push has succeeded and a few files look right on GitHub.
+
+**Then, as the last step of this item — no root needed:**
+```bash
+rm -rf ~/cpp-study-backup-20260904.git
+```
+Only after the push has succeeded *and* a few files look right on GitHub. It is the sole
+remaining copy of the original history, figures included, so deleting it early forecloses the
+option to go back. There is no hurry: 23M against 925G free.
 
 Check the other project directories for the same gap while you are there — the audit only ever
 looked at the two it happened to notice:
