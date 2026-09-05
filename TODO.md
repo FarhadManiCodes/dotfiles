@@ -90,10 +90,16 @@ line — the one that could have broken DNS — was already at the default and n
 - **NVMe health timer.** The sane alternative to `smartd`, which was rejected in August as
   built for multi-disk ATA rather than one NVMe. Still does not exist. A user timer running
   `smartctl -H` weekly would close the one hardware fault nothing here would warn about.
-- **Stray backups**, all inert and safe to remove, none urgent: `/root/logind.conf.bak`,
-  `/etc/pam.d/swaylock.bak`, `/etc/nsswitch.conf.bak`, `/etc/pacman.d/mirrorlist.bak`,
-  `/etc/ly/config.ini.bak`, and `/boot/initramfs-linux-prev.img` (46 MB, kept through the
-  initramfs migration and no longer needed now that it has booted).
+- **Stray backups.** `/root/logind.conf.bak`, `/etc/pam.d/swaylock.bak` and
+  `/boot/initramfs-linux-prev.img` were removed 2026-09-04. Still present, all inert:
+  `/etc/nsswitch.conf.bak`, `/etc/pacman.d/mirrorlist.bak`, `/etc/ly/config.ini.bak`.
+- **Verify the tmux identity segment in the two cases that cannot be tested from here**
+  (added 2026-09-05). `bash/tmux-identity` hides `user@host` when local as the usual user,
+  which is confirmed live. The other branches were only tested by faking the environment on
+  throwaway sockets: over **ssh** it should show the bare hostname, and as **another user** the
+  bare username. Worth a look the next time either happens for real — note `SSH_CONNECTION` is
+  read from the environment that started the *server*, so attaching over ssh to a
+  locally-started tmux will correctly show nothing.
 - **`PRESETS=('default')` in `/etc/mkinitcpio.d/linux.preset`** — no fallback initramfs is
   built. Disabled deliberately at some point, and it would not have helped during the systemd
   migration (a fallback uses the same `HOOKS`, only without `autodetect`). Worth one conscious
