@@ -13,8 +13,8 @@ leaves its number empty rather than shifting the rest. Closed on 2026-09-08 and 
 every removal is explained inline in that file). Closed on 2026-09-09: §9 (`jupytext` not
 installed — the finding compared against a superseded uv-tool plan; per-venv is the accepted
 setup and the absence is expected, see `revisit.md`) and §11 (the fsmonitor daemons — its
-premise was measured wrong and then fixed by scoping `core.fsmonitor` to `~/dotfiles` and
-`~/projects`; evidence in `git show 14cc481`, outcome in `docs/architecture.md`). The state of the last tidy was verified
+premise was measured wrong, and `core.fsmonitor` is now off everywhere rather than global;
+evidence in `git show 14cc481`, outcome in `docs/architecture.md`). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 

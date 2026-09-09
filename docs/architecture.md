@@ -307,28 +307,34 @@ straight to `/dev/sda`); `vifm-media` and `lsblk` both handle it.
   else; it cannot detect an already-broken remote. For that, fetch and compare
   `git -C nvim log origin/main..main`.
 
-**`core.fsmonitor` is scoped, not global** (2026-09-09). It is `false` in `[core]`, switched
-back on by two `includeIf "gitdir:…"` blocks covering `~/dotfiles/` and `~/projects/`. The
-daemon it starts watches a worktree so `git status` can ask it what changed instead of
-scanning, which pays on very large checkouts. It was global until this change, and measured
-here it bought nothing: 20-run averages of `git status`, warm cache, were 5 ms with it and 5 ms
-without on both `dotfiles` (235 tracked files) and the largest repo present (1770).
+**`core.fsmonitor` is off everywhere** (2026-09-09). Git's own default is off; the line in
+`git/config` states the decision so a stray default or a copied "make git faster" tip cannot
+quietly restore it. It cannot be uninstalled —
+`/usr/lib/git-core/git-fsmonitor--daemon` is a symlink to the `git` binary itself — so the
+config line is the entire off switch.
 
-What it cost was 61 daemons holding 318 MB — one per repository ever touched, of which **59
-were plugin clones** (37 nvim lazy, 14 vim plugged, 5 tmux, 3 zsh) that nothing ever edits.
-Git has no idle timeout: `git-fsmonitor--daemon(1)` documents only an explicit `stop` and the
-worktree going away, so a single sweep across a plugin tree — `bash/config-drift`'s
-plugin-staleness loop is exactly that — left one daemon per plugin until reboot.
+The feature starts a background daemon per worktree so `git status` can ask it what changed
+instead of scanning. `git-config(1)` scopes the benefit to "a working directory with many
+files", and that premise does not hold on this machine: 20-run averages of `git status`, warm
+cache, were 5 ms with it and 5 ms without on both `dotfiles` (235 tracked files) and the
+largest repo present (1770).
 
-After scoping: 2 daemons, 11 MB, and `bash/config-drift` spawns **zero** where it used to
-spawn 22. A gitdir pattern ending in `/` covers everything below it including submodules,
-verified for `dotfiles/nvim`, whose gitdir is `dotfiles/.git/modules/nvim`. The included file
-is `git/fsmonitor-on`, symlinked by `install.sh` like the other two git files.
+It was global from 2026-05-07 and cost 61 daemons holding 318 MB — one per repository ever
+touched, of which **59 were plugin clones** (37 nvim lazy, 14 vim plugged, 5 tmux, 3 zsh) that
+nothing ever edits. Git has no idle timeout: `git-fsmonitor--daemon(1)` documents only an
+explicit `stop` and the worktree going away, so a single sweep across a plugin tree —
+`bash/config-drift`'s plugin-staleness loop is exactly that — left one daemon per plugin until
+reboot. After the change: **0 daemons**, and `config-drift` spawns none where it spawned 22.
 
-Opt-in rather than opt-out on purpose: a repo cloned anywhere else gets no daemon. The
-measurements are in `git show 14cc481`; what they do **not** cover is the boot-cold case, which
-is what the git prewarm at `niri/config.kdl:81-83` addresses — that prewarm names "fsmonitor
-daemon spawn" as half its purpose and is worth re-checking against a boot now.
+It was briefly scoped to `~/dotfiles` and `~/projects` on the same day before being turned off
+outright, on the grounds that a feature whose stated premise does not hold should not be kept
+for the two repos either. Measurements: `git show 14cc481`.
+
+Two things this does **not** settle. The benchmarks are warm-cache `git status` only. And the
+git prewarm at `niri/config.kdl` named the daemon spawn as half its purpose — the other half,
+page cache, remains, and the starship timeout it was written for was actually fixed by
+`Nice`/`CPUWeight` on the rclone mount units, so the prewarm was already belt-and-braces.
+Re-check it against a cold boot before trimming it.
 
 ### SSH — passphrase-protected key, agent with a lifetime
 
