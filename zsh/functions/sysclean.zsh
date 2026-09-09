@@ -135,5 +135,90 @@ sysclean() {
     fi
   fi
 
+  # 10. NVMe health -- the only step here that frees nothing
+  echo "==> 10. NVMe health"
+  _sysclean_nvme_health
+
   echo "==> sysclean done"
+}
+
+# Disk health, deliberately hosted by the cleanup function.
+#
+# It needs root: smartctl cannot open an NVMe controller as a normal user
+# (verified -- "Smartctl open device: /dev/nvme0 failed: Permission denied"), so
+# the plain user timer that TODO §1 first proposed could never have worked.
+# sysclean already holds a sudo credential from step 2, and sysup does not
+# reliably -- its only sudo is the fwupd refresh, which runs at most quarterly.
+# smartd was rejected in August for the same reason it still is: it is built for
+# polling several ATA disks, not one NVMe, and would be a daemon where a command
+# will do.
+#
+# Not gated to an interval, unlike the fwupd and mirrorlist checks. Those cost a
+# network fetch or a root write, so skipping most runs is worth machinery; this
+# costs milliseconds under a credential already granted, and a disk can go from
+# healthy to failing well inside a quarter.
+#
+# `-H` alone is not enough, which is the one place this departs from TODO §1.
+# It reports the drive's own pass/fail flag, and that flag is derived from
+# critical_warning -- by the time it trips, the drive is already in trouble. The
+# fields that move first come from the same log for free: wear, spare capacity
+# against the vendor's own threshold, and media errors.
+_sysclean_nvme_health() {
+  command -v smartctl >/dev/null 2>&1 || { echo "   smartmontools not installed — skipping"; return 0 }
+  command -v jq       >/dev/null 2>&1 || { echo "   jq not installed — skipping"; return 0 }
+
+  # Controller devices, not namespaces: /dev/nvme0, not /dev/nvme0n1. (N) so an
+  # absent device skips rather than passing the glob through literally.
+  local -a devs=(/dev/nvme[0-9](N))
+  (( ${#devs} )) || { echo "   no NVMe controller found — skipping"; return 0 }
+
+  local dev json k v
+  for dev in $devs; do
+    if ! json=$(sudo smartctl -j -H -A "$dev" 2>/dev/null) || [[ -z $json ]]; then
+      echo "   ⚠ $dev: smartctl produced no output — health NOT checked"
+      continue
+    fi
+
+    local -A h=()
+    while IFS='=' read -r k v; do h[$k]=$v; done < <(print -r -- "$json" | jq -r '
+      .nvme_smart_health_information_log as $l | {
+        passed:    .smart_status.passed,
+        crit:      $l.critical_warning,
+        spare:     $l.available_spare,
+        spare_min: $l.available_spare_threshold,
+        used:      $l.percentage_used,
+        media:     $l.media_errors,
+        temp:      $l.temperature,
+        hours:     $l.power_on_hours
+      } | to_entries[] | "\(.key)=\(.value)"')
+
+    # Never let a missing or non-numeric field read as good news: an empty
+    # answer here means the check did not run, not that the disk is fine.
+    local f bad=0
+    for f in crit spare spare_min used media temp hours; do
+      [[ ${h[$f]} == <-> ]] || bad=1
+    done
+    [[ ${h[passed]} == (true|false) ]] || bad=1
+    if (( bad )); then
+      echo "   ⚠ $dev: smartctl output missing expected fields — health NOT checked"
+      continue
+    fi
+
+    local -a problems=()
+    [[ ${h[passed]} == true ]] || problems+=("SMART overall health self-assessment FAILED")
+    (( h[crit] ))                  && problems+=("critical warning flags set (0x${h[crit]})")
+    (( h[spare] < h[spare_min] ))  && problems+=("spare capacity ${h[spare]}% is below the drive's own ${h[spare_min]}% threshold")
+    (( h[used] >= 80 ))            && problems+=("${h[used]}% of rated write endurance used")
+    (( h[media] ))                 && problems+=("${h[media]} media/data-integrity error(s)")
+
+    if (( ${#problems} )); then
+      echo "   ⚠ $dev needs attention:"
+      printf '        %s\n' "${problems[@]}"
+      echo "        full report: sudo smartctl -x $dev"
+      echo "        a warning is only actionable with somewhere to restore from — see TODO §10 D"
+    else
+      echo "   $dev healthy — ${h[used]}% endurance used, ${h[spare]}% spare, ${h[temp]}°C, ${h[hours]} h powered on"
+    fi
+  done
+  return 0
 }
