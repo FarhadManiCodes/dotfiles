@@ -5,18 +5,24 @@
     editor = nvim
     pager = delta
 
-    # fsmonitor is OFF here and switched on per-tree at the bottom of this file.
+    # Off everywhere, deliberately. Git's own default is off; this line states
+    # the decision so a stray global default or a copied "make git faster" tip
+    # does not quietly turn it back on.
     #
-    # It starts a background daemon that watches a worktree so `git status` can
-    # ask it what changed instead of scanning. That pays on huge checkouts. It
-    # was global until 2026-09-09, and on this machine it bought nothing: 20-run
-    # averages of `git status` were 5 ms with it and 5 ms without, on both
-    # dotfiles (235 files) and the largest repo here (1770). What it did buy was
-    # 61 daemons holding 318 MB -- one per repository ever touched, and 59 of
-    # those were plugin clones (nvim lazy, vim plugged, tmux, zsh) that nothing
-    # ever edits. Git has no idle timeout for them, so a single sweep across a
-    # plugin tree (bash/config-drift does exactly that) leaves one daemon per
-    # plugin until reboot. Full measurements: `git show 14cc481`.
+    # It starts a background daemon per worktree so `git status` can ask it what
+    # changed instead of scanning. git-config(1) scopes the benefit to "a
+    # working directory with many files", and that is the premise that does not
+    # hold here: 20-run averages of `git status`, warm cache, were 5 ms with it
+    # and 5 ms without on both dotfiles (235 tracked files) and the largest repo
+    # on this machine (1770). It was global until 2026-09-09 and cost 61 daemons
+    # holding 318 MB -- one per repository ever touched, 59 of them plugin
+    # clones nothing edits. Git has no idle timeout, so one sweep across a
+    # plugin tree (bash/config-drift does exactly that) left a daemon per plugin
+    # until reboot. Measurements: `git show 14cc481`.
+    #
+    # It cannot be uninstalled -- /usr/lib/git-core/git-fsmonitor--daemon is a
+    # symlink to the git binary itself -- so this config line is the whole
+    # off switch.
     fsmonitor = false
 
     excludesfile = ~/.config/git/ignore
@@ -160,14 +166,3 @@
 
 [fetch]
     prune = true
-
-# Trees where fsmonitor IS wanted, overriding [core] above (later wins). Opt-in
-# rather than opt-out: a repo cloned anywhere else gets no daemon, which is the
-# safe default given the measurements above. A gitdir pattern ending in "/"
-# matches everything below it, submodules included -- verified for
-# dotfiles/nvim, whose gitdir is dotfiles/.git/modules/nvim.
-[includeIf "gitdir:~/dotfiles/"]
-    path = ~/.config/git/fsmonitor-on
-
-[includeIf "gitdir:~/projects/"]
-    path = ~/.config/git/fsmonitor-on

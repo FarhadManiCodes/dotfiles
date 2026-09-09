@@ -390,6 +390,9 @@ done
 # tracked file is not necessarily installed. In particular, never treat docs,
 # generated state, root copies or Spotify's local app.toml as expected links.
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+# -c core.fsmonitor=false: a read-only audit must not start a background daemon as
+# a side effect. Redundant while fsmonitor is off globally (git/config), and kept
+# so this holds whatever that file says later.
 if tracked=$(git -c core.fsmonitor=false -C "$df_dir" ls-files 2>/dev/null); then
   while IFS= read -r rel; do
     [[ -z $rel ]] && continue

@@ -1,4 +1,0 @@
-# Included by git/config for ~/dotfiles and ~/projects only. See the fsmonitor
-# comment there for why it is scoped rather than global.
-[core]
-	fsmonitor = true

@@ -249,8 +249,10 @@ self-contained and does not need the Omarchy checkout.
 | 27 | An editor + agent tmux layout — the user rates this important | `TODO.md` 10 F |
 | 30 | Their skill layering (a routing `SKILL.md` plus sibling topic guides) as the shape for `config-audit` | `agent-skills.md` |
 
-Also outstanding but unrelated to Omarchy: 62 accumulated `git fsmonitor--daemon` processes
-holding 326 MB, noticed while measuring the oomd cgroup and recorded in `TODO.md`.
+Also found here but unrelated to Omarchy: 62 accumulated `git fsmonitor--daemon` processes
+holding 326 MB, noticed while measuring the oomd cgroup. Resolved 2026-09-09 by turning
+`core.fsmonitor` off — the count was one daemon per repository, not a leak, and 59 of them
+watched plugin clones. See `docs/architecture.md`; `TODO.md` §11 is closed and removed.
 
 ---
 
