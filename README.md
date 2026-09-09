@@ -80,7 +80,9 @@ dotfiles/
 ├── install-root.sh         # Copies system-level configs to /etc
 ├── .gitignore
 ├── .claudeignore
-├── CLAUDE.md               # Claude/agent instructions and repo overview
+├── AGENTS.md               # Agent guardrails (CLAUDE.md imports this)
+├── CLAUDE.md               # Thin Claude entry point → AGENTS.md
+├── docs/                   # architecture.md, system-notes.md — detailed reference
 │
 ├── nvim/                   # Neovim config (git submodule → FarhadManiCodes/nvim-config)
 ├── vim/                    # Vim config (lightweight editing)
@@ -150,8 +152,8 @@ dotfiles/
 
 ## What is not tracked
 
-Everything here has to be recreated by hand on a rebuild. `CLAUDE.md` carries the same list
-with fuller reasoning; keep the two in step.
+Everything here has to be recreated by hand on a rebuild. `docs/system-notes.md` carries the
+same list with fuller reasoning; keep the two in step.
 
 | Path | Reason |
 |---|---|
