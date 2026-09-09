@@ -12,26 +12,15 @@ leaves its number empty rather than shifting the rest. Closed on 2026-09-08 and 
 `etc/README.md`), §7 (the doc-duplication sweep) and §8 (the `duckdb/.duckdbrc` rewrite, whose
 every removal is explained inline in that file). Closed on 2026-09-09: §9 (`jupytext` not
 installed — the finding compared against a superseded uv-tool plan; per-venv is the accepted
-setup and the absence is expected, see `revisit.md`) and §11 (the fsmonitor daemons — its
+setup and the absence is expected, see `revisit.md`), §11 (the fsmonitor daemons — its
 premise was measured wrong, and `core.fsmonitor` is now off everywhere rather than global;
-evidence in `git show 14cc481`, outcome in `docs/architecture.md`). The state of the last tidy was verified
+evidence in `git show 14cc481`, outcome in `docs/architecture.md`) and §1 (the NVMe health
+check — now step 10 of `sysclean`, which is where a sudo credential already exists; the
+`smartd` rejection and the reason `-H` alone is not enough moved to `docs/architecture.md`). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
 ---
-
-## 1. No NVMe health check
-
-`smartmontools 7.5-1` is installed and `smartctl` works, but nothing runs it. `smartd` was
-rejected in August as built for multi-disk ATA rather than one NVMe, and that still holds — the
-lighter answer is a user timer running `smartctl -H /dev/nvme0` weekly.
-
-This is the one hardware fault nothing here would warn about. Everything else that can fail
-silently now has a watcher (`config-drift`, `notify-failure@`, `sysup`'s health step); a dying
-disk does not.
-
-Note it interacts with §10 D: a health warning is only actionable if there is somewhere to
-restore from.
 
 ## 2. `mkinitcpio` builds no fallback initramfs — and the premise here was wrong
 
@@ -185,8 +174,10 @@ survives being lifted out of the distribution context. The parts that transfer:
   timers, and **pause must not be a unit condition** — a `ConditionPathExists`-gated unit never
   runs while paused, so it can never notice the pause expiring.
 
-Interacts with §5 and §1: disk encryption and an off-machine backup are two halves of one threat
-model, and a disk-health warning is only actionable if there is somewhere to restore from.
+Interacts with §5: disk encryption and an off-machine backup are two halves of one threat
+model. Also with the NVMe health check now in `sysclean` (`docs/architecture.md`) — a
+disk-health warning is only actionable if there is somewhere to restore from, which is why its
+warning path points here.
 
 ### F. An editor + agent tmux layout — **wanted; own session** (added 2026-09-08)
 

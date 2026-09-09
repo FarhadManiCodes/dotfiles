@@ -151,12 +151,44 @@ that produced `etc/`.
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
-  - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep)
+  - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep),
+    plus the NVMe health check in step 10
   - `sysup.zsh` — full system update (mirrorlist age → paru → uv → Claude Code →
     plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
+
+### NVMe health — the one hardware fault nothing else would report
+
+`_sysclean_nvme_health` runs as step 10 of `sysclean` (2026-09-09). Everything else here that
+can fail silently has a watcher — `config-drift`, `notify-failure@`, `sysup`'s health step — a
+dying disk did not.
+
+**Why `sysclean` and not `sysup` or a timer.** `smartctl` cannot open an NVMe controller as a
+normal user (`Smartctl open device: /dev/nvme0 failed: Permission denied`), so the plain user
+timer originally proposed for this could never have worked. `sysclean` already holds a sudo
+credential from step 2; `sysup` does not reliably, its only sudo being the at-most-quarterly
+fwupd refresh. **`smartd` stays rejected** for the reason it was rejected in August: it is
+built for polling several ATA disks, and this is one NVMe — a daemon where a command will do.
+
+**Why not `smartctl -H` alone.** That reports the drive's own pass/fail flag, which is derived
+from `critical_warning` and trips late. The fields that move first are in the same log for
+free, so the check also warns on spare capacity below the drive's *own* threshold, wear at 80%
+of rated write endurance, and any media/data-integrity errors. A healthy run prints one line:
+endurance used, spare, temperature, hours powered on.
+
+**Not gated to an interval**, unlike the fwupd and mirrorlist checks. Those cost a network
+fetch or a root write, so skipping most runs earns its machinery; this costs milliseconds under
+a credential already granted, and a disk can go from healthy to failing well inside a quarter.
+
+A missing or non-numeric field is reported as **"health NOT checked"**, never as good news —
+the failure mode to avoid is an empty answer reading as a clean bill. Verified against the real
+drive's output plus fabricated worn, failing, malformed and empty fixtures; all five branches
+behave. It needs `jq`, and skips with a message if either tool is absent.
+
+Interacts with the off-machine backup gap (`TODO.md` §10 D): a health warning is only
+actionable if there is somewhere to restore from, so the warning path says so.
 
 ### Mirrorlist age — the one check that runs before the update
 
