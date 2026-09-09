@@ -587,3 +587,33 @@ with dates (benchmark figures, journal counts, package sizes) were not re-run, a
 cannot be without root or without the original journal window. `nvim/` was excluded and is a
 separate pass. The bloat that was found was concentrated in one closed document
 (`agent-skills.md`, 965 → 216) rather than spread across the references.
+
+### Second pass, 2026-09-09 — the files the first pass had not read
+
+The first pass ran the three probes over every file but only *read* a handful. This covers the
+rest, and again found nothing to fix.
+
+**`TODO.md` is accurate** — every open item that can be checked cheaply still is open:
+`jupytext` absent (neither a `uv tool` nor on `PATH`), 61 `git fsmonitor--daemon` processes at
+324 MB against a recorded 61 at 319 MB, mirrorlist 5 days old against an "every few months"
+trigger. No item had quietly completed.
+
+**`skills/` (860 lines) is mechanically clean.** `bash/check-skills` asserts frontmatter shape,
+`references/*.md` existence and `bash/*` tool existence and executability — but **not external
+commands**, so those were checked separately: `grim`, `slurp`, `psql`, `podman`, `papis`,
+`refinery`, `uv`, `snapper`, `btrfs`, `niri`, `rclone`, `magick` all resolve.
+
+Two apparent failures were the probe's fault, and are worth recording as instances of the
+second rule: `pask` reported missing because `command -v` was run from **bash** and `pask` is a
+**zsh function**; `papis-ask` reported missing because it is not a binary at all — it appears
+only as a trigger word in a skill description, and the command is `papis ask`.
+
+**App README claims verify.** `bash/sioyek` is 3 lines, the real 46 MiB binary is at
+`~/.local/share/sioyek/sioyek`, `~/.local/bin/mutool` is byte-identical to the sioyek build
+artifact, and `vifm/vifmrc:149` does use it. Podman runs `runc` with `criu` absent, graphroot
+`/var/lib/docker`, `pg.service` active, `DefaultDependencies=false` inside `[Quadlet]` and not
+`[Unit]`. `niri validate` passes against the tracked `config.kdl`.
+
+**One thing reading turned up that the probes could not:** the `runc` decision is enforced only
+by `crun`'s absence — `containers.conf` pins no runtime. That is a config fragility rather than
+a documentation error, so it went to `TODO.md` item 14 rather than being fixed here.
