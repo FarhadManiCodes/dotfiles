@@ -62,7 +62,8 @@ fi
 
 # --- etc/ : the tree mirroring /etc, installed path-for-path ---
 # Everything under etc/ lands at the same path below /etc. These are files owned
-# by no package (except nftables.conf, see etc/README.md) and hand-written, which
+# by no package (except nftables.conf and pacman.conf, see etc/README.md) and
+# hand-written, which
 # makes each one a rebuild hazard: a fresh install silently comes up without it.
 # That trap has now caught fix-wifi.sh, 99-performance.conf, the zsh plugin list
 # and zram-generator.conf, so the fix here is a loop rather than another block.
@@ -70,7 +71,12 @@ fi
 # 0644 root:root throughout -- none of these is an executable, and the one
 # directory that runs what it finds (system-sleep) is handled separately above.
 if [ -d "${DOTFILES}/etc" ]; then
-  find "${DOTFILES}/etc" -type f ! -name README.md | while read -r src; do
+  # README.md documents the tree; unowned.txt and modified.txt are baselines for
+  # config-drift's /etc sweeps. All three are repo metadata and install nowhere --
+  # without excluding them this copies them into /etc, where the unowned sweep
+  # then correctly reports them as new unowned files. (Happened 2026-09-06.)
+  find "${DOTFILES}/etc" -type f \
+    ! -name README.md ! -name unowned.txt ! -name modified.txt | while read -r src; do
     dest="/etc${src#${DOTFILES}/etc}"
     if ! cmp -s "$src" "$dest" 2>/dev/null; then
       install -D -m 0644 -o root -g root "$src" "$dest"
