@@ -1,0 +1,44 @@
+#!/bin/sh
+# Decode a QR/barcode from a screen region into the clipboard.
+#
+# Bound to Alt+Q in niri and run as `qrscan` from a shell. One script, because
+# it used to be two copies -- a niri keybinding and a zsh alias -- which had
+# already drifted apart: only one of them echoed the decoded text.
+#
+# Guarded rather than a bare `grim | zbarimg | wl-copy && notify-send`. That
+# form fails two ways at once: wl-copy is last, so `&&` tests ITS status and
+# never zbarimg's, and wl-copy on empty stdin CLEARS the clipboard rather than
+# doing nothing. Between them, a cancelled drag or a region with no code
+# silently ate the clipboard and still reported success. Capture, check, copy.
+#
+# Being a script rather than an alias is also what buys the silent cancel:
+# `exit` inside an alias is substituted into the interactive shell and closes
+# the terminal.
+
+warn() {
+    # notify-send may itself be absent; stderr is useless from a keybinding but
+    # is the only channel left, and it is the right one when run by hand.
+    notify-send -u critical "QR Scan" "$1" 2>/dev/null ||
+        printf 'QR Scan: %s\n' "$1" >&2
+}
+
+for cmd in slurp grim zbarimg wl-copy; do
+    command -v "$cmd" >/dev/null 2>&1 && continue
+    warn "$cmd is not installed."
+    exit 1
+done
+
+geom=$(slurp) || exit 0   # ESC / no selection -- a deliberate cancel, stay quiet
+
+# $(...) strips the trailing newline zbarimg --raw appends, so the clipboard
+# gets the payload and nothing else. zbarimg exits 4 when it decodes nothing;
+# an empty result covers that and a failed grim alike.
+out=$(grim -g "$geom" - | zbarimg -q --raw -)
+if [ -z "$out" ]; then
+    warn "No QR code found"
+    exit 1
+fi
+
+printf '%s' "$out" | wl-copy
+printf '%s\n' "$out"      # seen when run from a shell; discarded when niri spawns it
+notify-send "QR Scanned" "$out"

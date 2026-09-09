@@ -162,3 +162,5 @@ alias syncbooks='systemctl --user start study-library-sync.service && journalctl
 command -v yt-dlp >/dev/null 2>&1 && \
   alias yta='yt-dlp -f "bestaudio/best" -x -P ~/Downloads/Audio --no-write-subs --no-embed-subs'
 
+
+
