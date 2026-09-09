@@ -131,8 +131,8 @@ because a stale or absent plugin never errors — it just quietly does less.
 
 **Run a config audit** (periodic, or after installing anything new):
 1. `bash bash/config-drift` — the mechanical half. `.pacnew`, the last pacman transaction,
-   root-config drift, the two `/etc` baselines, symlink integrity, plugin staleness, tmux
-   rendered behaviour, unit verification. ~2 s, read-only, needs no root.
+   root-config drift, the two `/etc` baselines, symlink integrity, plugin staleness,
+   unit verification. ~2 s, read-only, needs no root.
 2. Sweep `~/.config` for entries that are not symlinks into this repo:
    ```bash
    cd ~/.config && for e in */; do n="${e%/}"
@@ -151,6 +151,44 @@ because a stale or absent plugin never errors — it just quietly does less.
    filtering leaves the removed text in the commit *messages*. Tag the original before deleting
    it, and note **tags are not pushed by default**. Done once, 2026-09-09:
    `safety/omarchy-comparison-full` holds the original 92 commits; method in `git show f04c5e9`.
+
+**Re-rank the pacman mirrorlist** (every few months; `sysup` warns past 90 days):
+
+Arch delists a mirror that falls out of sync, and the delisted mirror keeps serving a stale
+database without erroring. Nothing detects that — `sysup`'s check only reports the file's age.
+
+```bash
+curl -fsS "https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=4&use_mirror_status=on" \
+  | sed 's/^#Server/Server/' > /tmp/ml
+rankmirrors -n 10 /tmp/ml > /tmp/ml.ranked
+grep -c '^Server' /tmp/ml.ranked                 # expect 10 — stop here if it is 0
+sudo cp /etc/pacman.d/mirrorlist /etc/pacman.d/mirrorlist.bak
+sudo install -m644 /tmp/ml.ranked /etc/pacman.d/mirrorlist
+```
+
+**If it goes wrong**, put the previous list back and re-run `sysup`:
+
+```bash
+sudo mv /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
+```
+
+Four things that procedure is shaped around, each verified 2026-09-09:
+
+- **Do not pipe into `sudo tee`.** `rankmirrors … | sudo tee /etc/pacman.d/mirrorlist`
+  truncates the target when the shell *builds* the pipeline, before `curl` or `rankmirrors`
+  has produced a byte. A failed fetch therefore leaves an empty mirrorlist and pacman with
+  nowhere to go. Demonstrated on a scratch file: a failing producer left it at 0 bytes.
+- **The `.bak` is the recovery, so make it first.** There is no other reliable copy here: of
+  the 763 files in `/var/cache/pacman/pkg` none is a `pacman-mirrorlist` package, so there is
+  nothing to extract offline and an unbacked overwrite cannot be undone.
+- **A `.bak` beside the live file is inert.** `/etc/pacman.conf` `Include`s the literal path
+  `/etc/pacman.d/mirrorlist`, not a glob, so the spare file is never read as extra mirrors.
+- **A package upgrade will not clobber your list.** `/etc/pacman.d/mirrorlist` is a `Backup`
+  entry of `pacman-mirrorlist` and currently reads `[modified]`, so an upgrade leaves a
+  `.pacnew` beside it, which `config-drift` reports like any other.
+
+`country=DE` is the one part to revisit if this machine moves; `rankmirrors` comes from
+`pacman-contrib`, and `reflector` is deliberately not installed.
 
 **Sync live changes back to dotfiles**: just `cp` the changed file — the symlink means the
 dotfiles file IS the live file, so this is only needed if symlinks were bypassed.

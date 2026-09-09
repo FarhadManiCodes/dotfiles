@@ -238,7 +238,8 @@ would break that machine, document the decision instead of tracking the file.
   tracking it would be actively wrong: a committed list is a snapshot of which German mirrors
   were fast on one afternoon. Regenerated 2026-09-04 from Arch's own generator with
   `use_mirror_status=on`, ranked by `rankmirrors -n 10` (`pacman-contrib`, already installed for
-  `pacdiff` — `reflector` is deliberately not installed for this). The command is in `TODO.md`.
+  `pacdiff` — `reflector` is deliberately not installed for this). The procedure, its recovery
+  path and the `sudo tee` trap are in `docs/system-notes.md`; `sysup` warns past 90 days.
   The previous list was 86 days old and carried **12 hosts Arch had already retired**, which is
   the failure this file class invites — nothing errors, a delisted mirror just quietly serves an
   older database.
