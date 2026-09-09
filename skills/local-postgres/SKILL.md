@@ -55,7 +55,9 @@ PGPASSWORD=... psql -h 127.0.0.1 -U postgres -d postgres -tAc \
   "select datname from pg_database where not datistemplate"
 ```
 
-Documentation elsewhere in this repo refers to a `dev_db`; check before relying on it.
+As of 2026-09-09 that returns exactly one row, `postgres`, and `postgres` is the only login
+role. The `dev_db` the nvim docs used to name never existed — they were corrected rather
+than the database created, so nothing in the repo points at it any more.
 
 ## Starting, stopping, and status
 
