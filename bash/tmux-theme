@@ -14,8 +14,10 @@
 # "best worst-case index" landed on colour13 (hot pink) for exactly this reason.
 # With G0 as the real background the same hue gives 8.52 and 4.24 (see below).
 #
-# G1/G2/G4 stay 'default': they are only ever used as backgrounds, where the
-# keyword is correct.
+# G1/G2/G4 get the same real hex for the same reason -- see the comment above the
+# `tmux set` block below. G2 and G4 also land in fg slots (the inactive window's
+# trailing separator, and copy-mode text), so 'default' is wrong there too; G1 is
+# never used as a foreground but tracks the colour for consistency.
 
 theme="${1:-}"
 [ -n "$theme" ] || theme=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/foot_theme_state" 2>/dev/null)
