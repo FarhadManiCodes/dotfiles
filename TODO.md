@@ -230,41 +230,84 @@ Open questions for that session: which agent(s) and whether the choice is an arg
 whether it replaces or sits beside `Prefix W`; whether the `tdlm` per-subdirectory and `tsl`
 swarm shapes are wanted at all, or just the single layout.
 
-## 11. 61 `git fsmonitor--daemon` processes, 319 MB (found 2026-09-05)
+## 11. 61 `git fsmonitor--daemon` processes, 318 MB — premise corrected 2026-09-09
 
-Not an Omarchy finding — noticed while inspecting the cgroup tree for the oomd research
-(`docs/omarchy-comparison.md` finding 20). Rechecked 2026-09-08: **61 daemons, 319 MB**,
-essentially unchanged from the original 62 / 326 MB.
+Rechecked on a 37-minute-old boot: **61 daemons, 318 MB**, matching the 62 / 326 MB and
+61 / 319 MB of the two earlier counts. The number is stable across reboots, but everything
+this item assumed about *why* was wrong.
 
-They live in `app-niri-foot-*.scope`, which is most of what makes that scope the largest cgroup
-under `app.slice` — and, per finding 20, the cgroup an oomd kill would take whole.
-
-One daemon per repository is the design; 61 suggests they are accumulating rather than being
-reused or reaped.
-
-Note `pgrep -c fsmonitor` reports **0** — the daemons' `comm` is `git`, not `fsmonitor`, so the
-obvious check misses them entirely. Count them with:
+**They are not duplicates, and nothing is leaking.** Every daemon binds a distinct
+repository. The August probe (`cwd`, command line) could not tell them apart because a
+detached daemon inherits the cwd of whatever started it; the probe that does work reads the
+IPC socket each one listens on:
 
 ```bash
-pgrep -af 'fsmonitor' | wc -l
-ps -eo comm=,rss= | awk '$1=="git"{n++; m+=$2} END{print n, m/1024 "MB"}'
+ss -xlp | grep -o '/home[^ ]*fsmonitor--daemon.ipc'   # one line per daemon, names the repo
 ```
 
-Related history: `core.fsmonitor` and the cold-spawn storm are documented in the
-`project_startup_git_timeout_fix` note and `git/config`. That fix was about *startup latency*,
-not daemon lifetime, so this is a different question.
+`uniq -c` over those 61 paths returns 1 for every single one. So "61 suggests they are
+accumulating rather than being reused" is refuted: one daemon per repository is exactly what
+is happening.
 
-Open: count distinct repos against daemons, check `git fsmonitor--daemon status` per repo,
-decide whether an idle-timeout or a periodic reap is wanted.
+**What they are watching** is the finding. 37 are `~/.local/share/nvim/lazy/*`, 14 are
+`~/.vim/plugged/*`, 5 are `~/.config/tmux/plugins/*` (including two `lib/tmux-test`
+submodules), 3 are `~/.config/zsh/plugins/*`. **That is 59 of 61 watching plugin clones
+nobody edits.** The remaining two are `~/dotfiles` and its `nvim` submodule.
 
-**First probe, 2026-09-08 (git 2.55.0) — inconclusive, and recorded so it is not repeated.**
-Every daemon has the identical command line (`fsmonitor--daemon run --detach --ipc-threads=8`),
-and 61 of the 63 have `cwd = /home/farhad` with 2 in `dotfiles`. **That does not identify which
-repository each serves** — a detached daemon inherits the cwd of whatever started it, so this
-says nothing about how many repos are actually involved. Do not read it as "61 daemons for one
-repo". The next probe has to bind daemon to worktree by another route: their open file
-descriptors (`ls -l /proc/<pid>/fd`), or `git fsmonitor--daemon status` run from each candidate
-repo.
+Three mechanisms confirmed in a scratch repo, so the behaviour is understood rather than
+inferred:
+
+- **Reuse works.** The first git command in an `fsmonitor=true` repo spawns exactly one
+  daemon; two further commands in the same repo spawn none.
+- **Nothing reaps them.** `git-fsmonitor--daemon(1)` documents only an explicit `stop` and
+  the worktree going away. There is no idle timeout, so one sweep across a plugin tree
+  leaves one daemon per plugin for the rest of the uptime.
+- **`core.fsmonitor` decides it**, and it is global (`git/config:7`). A repo covered by an
+  `includeIf` block setting it false spawns no daemon and reports `not watching`.
+
+**Where the storm comes from**, by start time: two at boot +0 s and +2 s — the niri prewarm
+at `niri/config.kdl:81-83`, which names "fsmonitor daemon spawn" as its purpose — then 57
+inside one 14-second window when plugin trees were walked. Twenty-two of those are exactly
+the tmux/zsh/vim set that `bash/config-drift`'s plugin-staleness loop visits, and it ran
+twice that afternoon; the other ~36 are the nvim lazy set.
+
+**The cost is real but small**: 5.2 MB per daemon, 318 MB, 0.5% of 60 GB. inotify is
+nowhere near its limits — 74 instances of 1024, and `max_user_watches` is 524288, not the
+8192 the man page warns about.
+
+**The benefit is not measurable on this machine.** `git status`, 20-run averages, warm cache:
+
+| repo | tracked files | with fsmonitor | without |
+|---|---|---|---|
+| `dotfiles` | 235 | 5 ms | 5 ms |
+| `projects/omarchy` | 1770 | 5 ms | 5 ms |
+| `projects/paper-refinery` | 46 | 2 ms | 1 ms |
+| `projects/cpp-study` | 132 (+958 untracked) | 5 ms | 5 ms |
+
+`cpp-study` first measured 57 ms/run **with** fsmonitor, which looked like an 11× penalty;
+it was the daemon's one-off cold start amortised into that first batch of 20, and warm it is
+5 ms either way. Recorded because the wrong reading was one re-run away from being written
+down as fact. fsmonitor pays on worktrees far larger than anything here.
+
+What this does **not** measure: warm page cache only, `git status` only. The boot-cold case
+is precisely what the prewarm exists for and cannot be tested without a reboot.
+
+**Needs a decision — three options:**
+
+- **A. Drop `core.fsmonitor = true` from `git/config`.** No daemons anywhere, 318 MB back,
+  and by the table above nothing measurable is lost. It also makes half of the niri
+  prewarm's stated purpose moot, so re-check the starship boot warning before trimming that.
+- **B. Keep it, exclude the plugin trees** with four `includeIf "gitdir:…"` blocks for the
+  nvim, vim, tmux and zsh plugin roots. Keeps the two daemons that watch repos I actually
+  edit, drops the other 59. Mechanism verified; the conservative choice.
+- **C. Reap periodically from `sysclean`.** Rejected: `stop` works, but the next
+  `config-drift` run walks the plugin trees and spawns them all again.
+
+**A is the recommendation** — on this evidence the feature is paying for nothing — with B if
+keeping fsmonitor for `dotfiles` is worth four config blocks.
+
+Benchmarking spawned three daemons of its own (`cpp-study`, `omarchy`, `paper-refinery`);
+all three were stopped again.
 
 ## 12. Two stale claims in the nvim submodule's database docs (found 2026-09-06)
 
