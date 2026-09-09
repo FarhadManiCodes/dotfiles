@@ -28,7 +28,6 @@ the probe could have found something.
   `snapper-timeline.timer` disabled as "600 runs, zero snapshots".
 - A zsh glob silently omits dotfiles, so `head duckdb/*` matched nothing and read as "no
   content" rather than "no match".
-- `pgrep -c fsmonitor` returns 0 because the daemons' `comm` is `git`.
 
 **A probe that answers confidently may be answering a different question.** Name the question
 the probe actually answers before trusting it.
