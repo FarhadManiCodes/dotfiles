@@ -283,7 +283,7 @@ repo.
 Found while writing the `local-postgres` skill. **Both are in the `nvim/` submodule, which is on
 its own branch and is a separate workstream — recorded here rather than fixed.**
 
-- **`dev_db` does not exist.** `nvim/CLAUDE.md:346` gives
+- **`dev_db` does not exist.** `nvim/docs/architecture.md:359` gives
   `postgresql://%s:%s@localhost:5432/dev_db` as the dadbod connection template. The live server
   has only the `postgres` database:
   ```bash
