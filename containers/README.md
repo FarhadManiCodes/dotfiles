@@ -1,7 +1,7 @@
 # `containers/` — rootless podman, and Postgres as a Quadlet unit
 
 Reference for the container setup: why each decision was made, and what it was measured
-against. The rules you must not break are in `CLAUDE.md`; this file is the reasoning behind
+against. The rules you must not break are in `AGENTS.md`; this file is the reasoning behind
 them, kept out of the always-loaded document because it is needed only when one of those
 decisions is reopened.
 

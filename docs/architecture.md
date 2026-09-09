@@ -508,10 +508,9 @@ disables its own default client-ID** and drops it in a release (announced 2026-0
 2026, following 90 days of notice") — the risk was a routine `sysup` pulling that release and
 stopping `rclone@gdrive` on next start.
 
-Nothing was ever actually broken. An earlier version of this section claimed the shared quota
-was producing `Error 403: Quota exceeded` in the logs; **it was not** — zero 403s and zero
-rate-limit errors in the entire journal for both units, the only errors ever recorded being one
-DNS event at boot on 2026-07-24.
+**Nothing was ever actually broken** — zero 403s and zero rate-limit errors in the entire
+journal for both units, the only error ever recorded being one DNS event at boot on 2026-07-24.
+The migration is pre-emptive; do not re-justify it on a quota problem that never happened.
 
 **`Dropbox` still uses rclone's shared client, deliberately** — the retirement covers Drive and
 Photos only, and it shows no rate limiting. If a Drive or Photos remote is ever added, four
@@ -597,8 +596,7 @@ rclone config show gdrive | awk -F' = ' '$1=="type"{print $2}'
 The point is **exclusion from snapshots**, and it is load-bearing. Without `@docker` and `@pkg`,
 image layers and the package cache would be captured in every snapshot.
 
-**The two snapper configs do different jobs, and it is the opposite of what this file used to
-claim** (corrected 2026-09-03):
+**The two snapper configs do different jobs**, and not the way round most setups assume:
 
 - **`root`** — `TIMELINE_CREATE="no"`, `NUMBER_LIMIT=10`. `/.snapshots` holds only the pre/post
   pairs `snap-pac` takes around each pacman transaction. There are **no** hourly snapshots of

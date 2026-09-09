@@ -13,7 +13,7 @@ Omarchy as the reference implementation and "harmonise" toward it.
 > **On the shape of this file.** It was 1780 lines. Each finding carried its original argument,
 > then the correction that overturned half of it, then the disposition — and once a claim is
 > withdrawn, the correction to it has nothing left to correct. Both halves were dropped together
-> on 2026-09-08. Item numbers are unchanged because `TODO.md` and `agent-skills.md` cite them;
+> on 2026-09-08. Item numbers are unchanged because `TODO.md` cites them;
 > the full argument for any of them is in git history at the old path: `git log -p -- omarchy-comparison.md`.
 
 ---
@@ -128,7 +128,7 @@ binding changes nothing here, and every form strong enough to change the ranking
 `sans-serif`/`serif`/`monospace` and CJK resolve to the emoji font.
 
 To check emoji rendering, print the characters and look — including the `U+FE0F` form where the
-codepoint is default-text. The general lesson is in `CLAUDE.md` under "Verifying claims".
+codepoint is default-text. The general lesson is in `docs/system-notes.md` under "Verifying claims".
 
 ---
 
@@ -137,7 +137,7 @@ codepoint is default-text. The general lesson is in `CLAUDE.md` under "Verifying
 So a later comparison does not regress toward Omarchy.
 
 **`unblock-fuse` is correct where their `unmount-fuse` is not.** Same failure, three defects,
-each already documented in `CLAUDE.md` as a tested finding: their `post` hook backgrounds a
+each already documented in `docs/architecture.md` as a tested finding: their `post` hook backgrounds a
 subshell, which `systemd-suspend.service` (`Type=oneshot`, `KillMode=control-group`) SIGTERMs
 mid-`sleep`, so the gvfs restart their comment promises almost certainly never happens; their
 `pre` hook lazy-unmounts with `fusermount3 -uz`, which detaches the mountpoint but does **not**
@@ -256,7 +256,7 @@ holding 326 MB, noticed while measuring the oomd cgroup and recorded in `TODO.md
 
 ## Traps this comparison produced
 
-Both are instances of `CLAUDE.md`'s "a probe that answers confidently may be answering a
+Both are instances of `docs/system-notes.md`'s "a probe that answers confidently may be answering a
 different question", which is where the general rule lives.
 
 - **`fc-match` withdrew a whole finding** (25). It answers a charset query and nothing else.

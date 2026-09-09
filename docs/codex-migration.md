@@ -17,10 +17,21 @@ only for the different KDL and Neovim rules. Other applications use root guidanc
 and their existing documentation. Read the relevant detailed section before edits:
 the short instruction files do not replace the operational constraints it contains.
 
-Detailed sections were extracted without dropping their original content. The
-Claude copies remain intact during coexistence, so this deliberately introduces
-temporary duplication. Update corresponding guidance together until a later,
-explicitly scoped cleanup makes Claude files thin entry points. Historical command
+Detailed sections were extracted without dropping their original content, which
+deliberately introduced temporary duplication pending a scoped cleanup.
+
+**That cleanup was done on 2026-09-09 for the root and `niri/` files.** It was safe
+because the duplication turned out to be total: normalising whitespace and comparing
+sorted unique lines, `CLAUDE.md` (995 lines) held exactly 2 lines absent from
+`docs/architecture.md` + `docs/system-notes.md`, and `niri/CLAUDE.md` (159) exactly 2
+absent from `niri/AGENTS.md` + `niri/README.md` — each file's own title and subtitle.
+Both are now thin entry points whose body is an `@AGENTS.md` import, so the guardrails
+have one copy and cannot drift. `AGENTS.md` was tightened from 90 to 67 lines in the
+same pass, since it became the file loaded into every session.
+
+`nvim/CLAUDE.md` (645 lines, likewise a total duplicate of `nvim/AGENTS.md` +
+`nvim/README.md` + `nvim/docs/architecture.md`) is **still outstanding** — it lives in a
+separate repository. Until it is done, keep its guidance synchronized. Historical command
 examples are documentation, not authorization to run them.
 
 The root file explicitly routes work to nested instructions. Codex's startup

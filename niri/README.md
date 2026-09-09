@@ -1,7 +1,7 @@
 # Niri configuration reference
 
-Extracted from `niri/CLAUDE.md` on 2026-09-06; the original remains intact
-during migration. Keep corresponding guidance in sync. Paths in backticks are
+Extracted from `niri/CLAUDE.md` on 2026-09-06, which became a thin `AGENTS.md`
+import on 2026-09-09; this file is now the only copy of what it holds. Paths in backticks are
 relative to `niri/` unless stated otherwise. Historical examples and measurements
 are retained; verify current state before acting.
 
