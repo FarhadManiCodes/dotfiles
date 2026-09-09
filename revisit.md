@@ -150,6 +150,11 @@ truncates notebooks when the binary is missing. `uv pip install jupytext` in the
 venv, then `:restart`. `:checkhealth jupytext` reports which binary it found, or warns that
 notebooks will open as JSON.
 
+**Confirmed 2026-09-09.** The user verified notebooks open as markdown in a venv that has
+jupytext, and `TODO.md` §9 — which had raised the absence as an open question against the
+superseded uv-tool plan — was closed against this entry rather than actioned. The health
+warning is permanent by design; it should not be re-raised as a finding at the next audit.
+
 ---
 
 ## No system `blas` provider — ACCEPTED (2026-08-14)
@@ -594,7 +599,8 @@ The first pass ran the three probes over every file but only *read* a handful. T
 rest, and again found nothing to fix.
 
 **`TODO.md` is accurate** — every open item that can be checked cheaply still is open:
-`jupytext` absent (neither a `uv tool` nor on `PATH`), 61 `git fsmonitor--daemon` processes at
+`jupytext` absent (neither a `uv tool` nor on `PATH` — but see below: §9 was closed later the
+same day, because absence is the accepted state, not an open task), 61 `git fsmonitor--daemon` processes at
 324 MB against a recorded 61 at 319 MB, mirrorlist 5 days old against an "every few months"
 trigger. No item had quietly completed.
 

@@ -10,8 +10,10 @@ file carrying items 1–16 is `git show 92bcf79:TODO.md`.
 leaves its number empty rather than shifting the rest. Closed on 2026-09-08 and removed here:
 §4 (the Omarchy first pass — the `-Qii` vs `-Qkk` measurement it held now lives in
 `etc/README.md`), §7 (the doc-duplication sweep) and §8 (the `duckdb/.duckdbrc` rewrite, whose
-every removal is explained inline in that file). The state of the last tidy was verified rather
-than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
+every removal is explained inline in that file). Closed on 2026-09-09: §9 (`jupytext` not
+installed — the finding compared against a superseded uv-tool plan; per-venv is the accepted
+setup and the absence is expected, see `revisit.md`). The state of the last tidy was verified
+rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
 ---
@@ -96,20 +98,6 @@ The other two branches were only tested by faking the environment on throwaway s
 Worth a look the next time either happens for real. Note `SSH_CONNECTION` is read from the
 environment that started the *server*, so attaching over ssh to a locally-started tmux will
 correctly show nothing — that is not a failure.
-
-## 9. `jupytext` is not installed anywhere
-
-Found by `sysup`'s `:checkhealth` step. Not on `PATH` and not a `uv tool` — the six installed
-are `basedpyright`, `mathunicode`, `paper-refinery`, `papis`, `ptpython` and `yt-dlp`.
-`jupytext.nvim`'s own healthcheck reports it, and states the consequence: **`.ipynb` files open
-as raw JSON.**
-
-That contradicts the recorded setup, where jupytext is meant to be a `uv tool` with `ipykernel`
-per-venv. Either reinstall it (`uv tool install jupytext`) or record that notebooks are opened
-another way now.
-
-Related hazard already documented in `nvim/AGENTS.md`: `jupytext.nvim` must never be `lazy=false`
-without a resolve-first guard, or a missing CLI truncates notebooks to 0 bytes.
 
 ## 10. Parked from the Omarchy comparison — each needs its own session
 

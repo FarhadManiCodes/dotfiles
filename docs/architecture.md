@@ -89,9 +89,11 @@ reports success and the editor quietly does less, the same shape as the stale pl
 
 **Errors are always listed; warnings only when the set changes.** Most warnings here are
 permanent and not actionable — `blink.cmp` explaining that some sources are enabled
-dynamically, `jupytext.nvim` calling a `vim.validate` form deprecated for Nvim 1.0 — and
-printing them every run is how a warning becomes wallpaper. The count still shows, so a new one
-is visible without the noise. Same reasoning as the `lazy-lock.json` sha256 comparison, and the
+dynamically, `jupytext.nvim` reporting no `jupytext` CLI because it is deliberately installed
+per-venv (`revisit.md`) — and printing them every run is how a warning becomes wallpaper. The
+count still shows, so a new one is visible without the noise. But permanent is not the same as
+benign: `jupytext.nvim`'s deprecated `vim.validate{<table>}` sat in that same set until
+2026-09-09, when it turned out to be both fixable here and a hard failure at Nvim 1.0. Same reasoning as the `lazy-lock.json` sha256 comparison, and the
 same trap `config-drift` avoids. The full report is kept at
 `~/.local/state/sysup/nvim-health.txt`, the warning set at `nvim-health-warnings` beside it.
 
