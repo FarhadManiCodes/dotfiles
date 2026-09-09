@@ -161,7 +161,8 @@ decided 2026-09-04.** All three describe *this machine* rather than this configu
 
 - `fstab` mounts by UUID, and those UUIDs belong to this NVMe.
 - `grub` carries `amdgpu.dcdebugmask=0x10` (an AMD GPU workaround) and `rootfstype=btrfs`,
-  the latter a boot failure on a machine that is not btrfs.
+  the latter a boot failure on a machine that is not btrfs. Since 2026-09-09 it also carries
+  `GRUB_TOP_LEVEL="/boot/vmlinuz-linux"`, a path into this machine's own `/boot`.
 - `mkinitcpio.conf` sets `MODULES=(btrfs)` and `BINARIES=(/usr/bin/btrfs)`, both tied to the
   filesystem design rather than to any preference.
 
@@ -185,18 +186,42 @@ btrfs the two flavours do the same work. What it buys is Arch's tested default, 
 the journal, and the prerequisite for `sd-encrypt`, which keeps `systemd-cryptenroll` TPM/FIDO2
 enrolment available as an option.
 
-**Two boot-path facts worth knowing before touching this again.** `PRESETS=('default')` means
-no fallback image is built (that is `mkinitcpio`'s own shipped default, not a local edit --
-verified 2026-09-09 against `/usr/share/mkinitcpio/hook.preset`), and **every GRUB entry points
-at the same `/initramfs-linux.img`** -- the handful in `grub.cfg` plus the `grub-btrfs` snapshot
-ones, which live in `grub-btrfs.cfg` and are loaded by `configfile` at `grub.cfg:183`. The total
-drifts with snapshot churn; it was 12 when first measured and 16 on 2026-09-09. Snapshots
-cannot help: `/boot` is its own partition outside btrfs, so no snapshot contains a kernel or
-initramfs. A broken image takes every entry with it, which is why the migration was done with
+**Boot-path facts worth knowing before touching this again.** Since 2026-09-09 **two kernels are
+installed** -- `linux` and `linux-lts 6.18.50` -- and `PRESETS=('default')` still means **no
+fallback image is built for either**. That is `mkinitcpio`'s own shipped default rather than a
+local edit (verified against `/usr/share/mkinitcpio/hook.preset`), and it was left alone
+deliberately: a fallback image covers a driver `autodetect` trimmed out, a second kernel covers a
+bad kernel or module version, and on this machine the second failure is the likelier one.
+Reasoning in `TODO.md`'s closed list. `/boot` sits at 144 MB of 1.1 GB, up from 81 MB.
+
+`/boot` is its own vfat partition outside btrfs, so **no snapshot contains a kernel or an
+initramfs** and a snapshot rollback cannot repair a broken boot image. Before the LTS install
+every GRUB entry loaded the same `/initramfs-linux.img` -- the handful in `grub.cfg` plus the
+`grub-btrfs` snapshot ones, which live in `grub-btrfs.cfg` and are loaded by `configfile` at
+`grub.cfg:183`; that total drifts with snapshot churn and was 12 when first measured, 16 on
+2026-09-09. `grub-btrfs.cfg` was regenerated after the install and now offers **both** kernels for
+every snapshot -- 36 references each to `vmlinuz-linux` and `vmlinuz-linux-lts`, counted
+2026-09-09 -- so LTS is reachable from the snapshot submenu as well as from **Advanced options**,
+and a broken `initramfs-linux.img` no longer takes every entry in the menu with it. That single
+point of failure is why the `HOOKS` migration was done with
 `cp /boot/initramfs-linux.img /boot/initramfs-linux-prev.img` first and recovery via the GRUB
-`e` key. Note also that the pacman hook `90-mkinitcpio-install.hook` rebuilds on
-`PostTransaction`, so leaving an edited `mkinitcpio.conf` unbuilt means the next kernel update
-builds it unattended.
+`e` key.
+
+**`10_linux` sorts filenames, not versions.** Installing `linux-lts` silently moved LTS into the
+top-level `GRUB_DEFAULT=0` entry: the reverse version sort at `10_linux:205` runs over the
+`/boot/vmlinuz-*` **filenames**, and `vmlinuz-linux-lts` sorts ahead of `vmlinuz-linux`. Nothing
+warns about it and the only symptom is `uname -r` after a reboot. `/etc/default/grub` now carries
+`GRUB_TOP_LEVEL="/boot/vmlinuz-linux"`, which `10_linux:208` uses to force that kernel back to the
+front, and `GRUB_TIMEOUT` went 2 -> 5 so the Advanced options submenu is actually reachable in the
+seconds the menu is up. **No pacman hook regenerates `grub.cfg`** -- `/etc/pacman.d/hooks/` is
+empty and `/usr/share/libalpm/hooks/` ships none, by Arch's design -- so a newly installed kernel
+reaches the menu only after `grub-mkconfig -o /boot/grub/grub.cfg` is run by hand.
+
+Note also that the pacman hook `90-mkinitcpio-install.hook` rebuilds on `PostTransaction`, so
+leaving an edited `mkinitcpio.conf` unbuilt means the next kernel update builds it unattended. An
+edited `linux.preset` would survive those updates:
+`/usr/share/libalpm/scripts/mkinitcpio` moves a modified preset aside to `.pacsave` on kernel
+removal and moves it back on install, deleting only one that is byte-identical to the template.
 
 A cosmetic consequence recorded after the systemd-hook migration was that
 `systemd-vconsole-setup` ran early enough to hit `fbcon: Deferring console take-over`
