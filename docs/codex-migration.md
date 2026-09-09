@@ -29,10 +29,12 @@ Both are now thin entry points whose body is an `@AGENTS.md` import, so the guar
 have one copy and cannot drift. `AGENTS.md` was tightened from 90 to 67 lines in the
 same pass, since it became the file loaded into every session.
 
-`nvim/CLAUDE.md` (645 lines, likewise a total duplicate of `nvim/AGENTS.md` +
-`nvim/README.md` + `nvim/docs/architecture.md`) is **still outstanding** — it lives in a
-separate repository. Until it is done, keep its guidance synchronized. Historical command
-examples are documentation, not authorization to run them.
+**`nvim/CLAUDE.md` was done on 2026-09-09**, in the submodule's own repository. It measured
+645 lines with exactly 2 unique — its title and subtitle — against `nvim/AGENTS.md` +
+`nvim/README.md` + `nvim/docs/architecture.md`, the same total duplication as the root and
+`niri/` files, so it too became an `@AGENTS.md` import. All three instruction files are now
+thin entry points and the temporary duplication this migration introduced is fully retired.
+Historical command examples are documentation, not authorization to run them.
 
 The root file explicitly routes work to nested instructions. Codex's startup
 discovery follows the root-to-working-directory chain; do not assume a session
