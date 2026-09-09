@@ -448,6 +448,28 @@ systemctl --user enable podman.socket 2>/dev/null || true
 systemctl --user enable ssh-agent.socket 2>/dev/null || true
 echo "✅ Systemd user services installed and enabled"
 
+# ---------------------------------------------------------------- agent skills ----
+# User-scoped rather than project-scoped on purpose. These are machine procedures --
+# wanted when the laptop misbehaved, or while working in some other repository, from
+# whatever directory you happen to be in. Project scope would silently fail to load
+# anywhere outside ~/dotfiles, with nothing to say it had not loaded.
+#
+# The symlink is what makes a branch switch visible: on a branch without the skill this
+# dangles, and config-drift reports it. Project scope would leave no trace at all.
+#
+# Linked into BOTH trees during the Codex coexistence period. docs/codex-migration.md
+# names ~/.agents/skills as the Codex-side discovery path and says to keep the Claude
+# links while both are in use; installing only one half is how a skill ends up working
+# in one agent and silently missing in the other.
+for agent_dir in "${HOME}/.claude/skills" "${HOME}/.agents/skills"; do
+  mkdir -p "$agent_dir"
+  for skill in "${DOTFILES}"/skills/*/; do
+    [ -d "$skill" ] || continue
+    ln -sfn "${skill%/}" "${agent_dir}/$(basename "$skill")"
+  done
+done
+echo "✅ Agent skills linked into ~/.claude/skills and ~/.agents/skills"
+
 echo ""
 echo "🎉 Dotfiles installation complete!"
 echo ""
