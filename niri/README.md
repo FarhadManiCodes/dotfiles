@@ -134,6 +134,13 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
   cache file and no startup pre-warm any more: a full scan of the mirror is 9ms, so the
   `~/.cache/book-resources.txt` machinery those needed was deleted on 2026-09-04 rather than
   fixed. It had truncated itself to 0 bytes that morning by running before the mount existed.
+- There is **no git pre-warm** at startup any more, deleted 2026-09-09. It existed so starship's
+  first prompt did not race the boot storm, and it warmed the fsmonitor daemon as much as the
+  page cache. `core.fsmonitor` is off everywhere now, and the first boot after that change
+  produced no starship warning at all — while `~/.cache/starship/` held one from that same
+  morning, with fsmonitor still on. The pre-warm only ever *raced* the contention rather than
+  removing it, which is what made the warning intermittent. If it returns, the log to check is
+  `~/.cache/starship/` (written only when starship warns), and this is a `git revert` away.
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`
 
 ## Configuration Documentation

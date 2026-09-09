@@ -386,11 +386,15 @@ It was briefly scoped to `~/dotfiles` and `~/projects` on the same day before be
 outright, on the grounds that a feature whose stated premise does not hold should not be kept
 for the two repos either. Measurements: `git show 14cc481`.
 
-Two things this does **not** settle. The benchmarks are warm-cache `git status` only. And the
-git prewarm at `niri/config.kdl` named the daemon spawn as half its purpose — the other half,
-page cache, remains, and the starship timeout it was written for was actually fixed by
-`Nice`/`CPUWeight` on the rclone mount units, so the prewarm was already belt-and-braces.
-Re-check it against a cold boot before trimming it.
+The benchmarks are warm-cache `git status` only. The boot-cold case was settled separately, and
+it went further than expected: `~/.cache/starship/` held a log from 08:23 on 2026-09-09 reading
+`Executing command "/usr/sbin/git" timed out`, with `core.fsmonitor` still global — so the
+July `Nice`/`CPUWeight` fix on the rclone mounts had *not* eliminated that warning, as was
+believed. The first boot after fsmonitor was disabled produced no starship log at all, and the
+git pre-warm in `niri/config.kdl` was deleted the same evening: it only ever raced the boot
+storm rather than removing anything, which is what made the warning intermittent. One boot is
+one sample; if the warning returns, `~/.cache/starship/` is the evidence and the pre-warm is a
+`git revert` away.
 
 ### SSH — passphrase-protected key, agent with a lifetime
 
