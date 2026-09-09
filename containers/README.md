@@ -189,6 +189,16 @@ correctly here (delegation and live accounting both verified) and podman reports
 `runc` cannot be removed while it is the only `oci-runtime` provider — `pacman -Rsp runc`
 refuses, since podman requires one.
 
+**Pinned since 2026-09-09**, in `containers.conf` under `[engine]`. Until then the decision
+above was enforced by nothing but crun's absence: crun declares `Provides: oci-runtime` and
+podman declares `Depends On: oci-runtime`, so either satisfies podman, and podman's shipped
+config documents `#runtime = "crun"` as its default. Anything installing crun would have moved
+the running database to a different runtime with no error and no warning. The pin is read —
+verified by pointing `CONTAINERS_CONF` at a copy naming a bogus runtime, which podman rejects
+outright. The trade is deliberate: if runc ever goes missing podman now refuses rather than
+silently substituting. No `config-drift` check accompanies it, because the pin turns a silent
+substitution into a loud failure that announces itself.
+
 ## `pg.container` — the settings that are less obvious than they look
 
 **`DefaultDependencies=false` in the `[Quadlet]` section is load-bearing.** Quadlet otherwise
