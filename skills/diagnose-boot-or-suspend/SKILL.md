@@ -24,8 +24,8 @@ before its silence means anything:
 systemctl list-unit-files 'systemd-suspend*'      # does the name resolve at all?
 ```
 
-The general form of this rule, with five more instances, is in `CLAUDE.md` under "Verifying
-claims". It is the single most common way a diagnosis here goes wrong.
+The general form of this rule, with five more instances, is in `docs/system-notes.md` under
+"Verifying claims". It is the single most common way a diagnosis here goes wrong.
 
 **2. Reproducing anything requires being unplugged.** `HandleLidSwitchExternalPower=lock`, so
 closing the lid on AC only locks — it does not suspend. A "cannot reproduce" on mains is not a

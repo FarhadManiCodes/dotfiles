@@ -204,7 +204,7 @@ them pull and run whatever upstream pushed since the last run.
 | `~/.config/tmux/plugins` | 3 | 2.6M | no — `tpm update_plugins all` |
 
 57 repositories, **40 distinct GitHub owners**, ~140 MB executed at shell, editor and tmux
-startup. This is the same risk class CLAUDE.md enumerates to justify the move off Docker —
+startup. This is the same risk class `containers/README.md` enumerates to justify the move off Docker —
 "an AUR `build()` during `sysup`, a PyPI package behind a `uv tool`, an AI CLI agent" — with
 the plugin pull left off that list.
 
@@ -539,6 +539,6 @@ Where they differ on the frames:
 
 `systemctl is-enabled ly.service` returned `not-found`, which read as "Ly is not what logs this
 machine in". Wrong: `ly` ships `ly@.service`, a **template**, and the running instance is
-`ly@tty2.service`. The same shape as the typo'd `journalctl -u` already in `CLAUDE.md` — a
+`ly@tty2.service`. The same shape as the typo'd `journalctl -u` already in `docs/system-notes.md` — a
 missing unit and a wrongly-named one are byte-identical in the output. Check
 `systemctl list-unit-files 'name*'` before concluding a unit does not exist.

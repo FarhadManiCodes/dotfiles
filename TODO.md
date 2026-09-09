@@ -2,7 +2,7 @@
 
 Only open items live here. Closed ones are removed rather than struck through: the
 reasoning worth keeping is in `revisit.md` (investigated and deliberately accepted) and
-`CLAUDE.md` (how the system works now). Everything else is in git — the July–August audit
+`docs/architecture.md` + `docs/system-notes.md` (how the system works now). Everything else is in git — the July–August audit
 is `git show c940d78:AUDIT-2026-08.md` (deleted 2026-09-08), and the last version of this
 file carrying items 1–16 is `git show 92bcf79:TODO.md`.
 
@@ -48,7 +48,7 @@ only 7 menuentry/submenu lines and 2 references to the image. **That was the wro
 a separate 12.7 KB file the grep never read. Counted properly: **5 entries in `grub.cfg` and 11 in
 `grub-btrfs.cfg`**, with 30 references to `initramfs-linux.img` in the latter alone. The original
 claim was right in substance — every entry points at the same image — and only the total drifts as
-snapshots come and go. Exactly the corollary in `CLAUDE.md`: a number from a probe you wrote is
+snapshots come and go. Exactly the corollary in `docs/system-notes.md`: a number from a probe you wrote is
 not evidence against a number from a probe you cannot see.
 
 So the real question is not "why was this changed" but **"do we want upstream's default?"** A
@@ -108,7 +108,7 @@ That contradicts the recorded setup, where jupytext is meant to be a `uv tool` w
 per-venv. Either reinstall it (`uv tool install jupytext`) or record that notebooks are opened
 another way now.
 
-Related hazard already documented in `CLAUDE.md`: `jupytext.nvim` must never be `lazy=false`
+Related hazard already documented in `nvim/AGENTS.md`: `jupytext.nvim` must never be `lazy=false`
 without a resolve-first guard, or a missing CLI truncates notebooks to 0 bytes.
 
 ## 10. Parked from the Omarchy comparison — each needs its own session
@@ -122,7 +122,7 @@ comes from the third pass and was parked here on 2026-09-08 because it has the s
 ### C. A test runner
 
 `tests/test_config_drift.py` covers the checker (14 methods, standard-library `unittest`), but
-`CLAUDE.md` is full of invariants that still rest on memory. **Copying Omarchy's bash harness
+`docs/architecture.md` and `docs/system-notes.md` are full of invariants that still rest on memory. **Copying Omarchy's bash harness
 was withdrawn** — it would duplicate infrastructure this repo already has. What remains worth
 taking is three of its design decisions:
 
@@ -167,7 +167,7 @@ come later if it earns its place.
 
 **Deferred by the user 2026-09-07.** Revisit later; no implementation now.
 
-The gap `CLAUDE.md` names three times. Snapshots share a filesystem with the data, so they
+The gap `docs/architecture.md` names three times. Snapshots share a filesystem with the data, so they
 protect against mistakes and not against a dead disk or anything running as root.
 `~/projects/omarchy/plans/backup.md` is a revision-2, adversarially-reviewed design that
 survives being lifted out of the distribution context. The parts that transfer:
@@ -178,7 +178,7 @@ survives being lifted out of the distribution context. The parts that transfer:
 - **`--one-file-system` is load-bearing on this machine.** `~/Cloud/gdrive` and
   `~/Cloud/Dropbox` are FUSE mounts under `$HOME`; without it a backup walks into them and
   pulls the whole Drive down through FUSE. What one stray `du` on an rclone mount already cost
-  is recorded in the sleep-hook section of `CLAUDE.md`.
+  is recorded in the sleep-hook section of `docs/architecture.md`.
 - **State the threat model before the feature**, the way the rclone `combine` note already
   does: this defends against disk death, theft and deletion found late. It does **not** defend
   against malware running as this user, because the machine holds credentials that can delete
@@ -303,25 +303,3 @@ its own branch and is a separate workstream — recorded here rather than fixed.
 
 Neither is dangerous; both mean the documented example cannot work as written. The advice in
 that section that *is* right and should stay is "never hardcode credentials".
-
-## 13. `CLAUDE.md` has grown back past the size that justified splitting it
-
-The container split cut it **969 → 849** on 2026-09-05. `agent-skills.md` records both the
-result and the rule that produced it: split by **kind**, not topic — guardrails whose value is
-being seen without being asked for stay, reasoning and evidence go behind a pointer.
-
-It is **995 lines today**: 146 above the post-split figure, and 26 above the 969 that motivated
-splitting in the first place. This audit put most of it back — the two probe rules, the audit
-workflow, the AOCL corrections, the `/etc` paragraphs, the rebuild note.
-
-Every line is loaded into every session whatever the task. The question is not whether the
-content is correct — it is — but whether each block is a **guardrail** or **reasoning**.
-`agent-skills.md` already applied that test once and declined two candidates with measurements:
-`Package notes` has the highest guardrail density in the file (it is a do-not-touch list, and
-moving it behind a pointer is how `aocl-gcc` gets deleted as unused), and `rclone` has no
-directory to live in. The material added since has never been measured that way.
-
-Worth one pass with the same test before it drifts further. Note the constraint that makes this
-non-trivial: `docs/architecture.md` is deliberately a **subset** of `CLAUDE.md`, so anything
-moved has to keep that relationship intact or the two diverge — which has already happened once,
-with the Firefox pref list.

@@ -80,8 +80,8 @@ A `D` state with `wchan` of `request_wait_answer` (or anything containing `fuse`
 
 **Read the state from `/proc/PID/status`, never `/proc/PID/stat`.** The latter is
 `pid (comm) state …` and `comm` may contain spaces, so a positional field lands inside the
-process name instead of on the state. That is an instance of the second rule in `CLAUDE.md`
-under "Verifying claims", and it is already encoded in `unblock-fuse`'s own source.
+process name instead of on the state. That is an instance of the second rule in
+`docs/system-notes.md` under "Verifying claims", and it is already encoded in `unblock-fuse`'s own source.
 
 ## The retry loop
 

@@ -210,7 +210,7 @@ or empty; the missing-file error recorded in November 2025 does not establish a
 current build failure. The file's timestamp does not establish its author or origin.
 
 The reasoning behind each — why the subvolumes are split the way they are, why btrfs is in the
-initramfs — belongs in CLAUDE.md, and is there. The files themselves are a record of one
+initramfs — belongs in `docs/architecture.md`, and is there. The files themselves are a record of one
 machine's hardware, and copying them onto different hardware ranges from useless to
 unbootable.
 
@@ -218,7 +218,7 @@ unbootable.
 those UUIDs belong to this specific NVMe. Copying this file onto a rebuilt machine would point
 every mount at a filesystem that does not exist there: it would not boot, and `install-root.sh`
 would have done it silently. The layout it encodes — which subvolumes exist, where each mounts,
-and why `@docker`/`@pkg`/`@postgres` are separate — is already in CLAUDE.md, which is the part
+and why `@docker`/`@pkg`/`@postgres` are separate — is already in `docs/architecture.md`, the part
 worth keeping. The file itself is a record of one disk, not a config.
 
 The same test applies to anything hardware-specific: if installing it on different hardware
