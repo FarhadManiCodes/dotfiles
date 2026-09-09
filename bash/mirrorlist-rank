@@ -1,0 +1,204 @@
+#!/bin/bash
+# Rank Arch mirrors by measured speed from THIS machine, and optionally install
+# the fastest few.
+#
+#   mirrorlist-rank                 # show the fastest 20; changes nothing
+#   mirrorlist-rank --install       # install them, keeping a .bak
+#   mirrorlist-rank -n 5 -c AT      # five fastest Austrian mirrors
+#   mirrorlist-rank --passes 3      # median of three passes instead of one
+#   mirrorlist-rank --min-completion 1  # only mirrors with a perfect check record
+#
+# Ranking is a measurement, not a lookup. rankmirrors downloads from each
+# candidate and orders by observed speed from here, so the answer is specific to
+# this machine, this connection and this moment. `use_mirror_status=on` asks
+# Arch to drop mirrors it already knows are out of sync, so only healthy
+# candidates are timed.
+#
+# This exists instead of the pipeline it replaces because that pipeline has a
+# trap in it: `rankmirrors ... | sudo tee /etc/pacman.d/mirrorlist` truncates the
+# target when the shell BUILDS the pipeline, before curl or rankmirrors has
+# produced a byte. A failed fetch then leaves an empty mirrorlist and pacman with
+# nowhere to go -- verified on a scratch file, where a failing producer left it
+# at 0 bytes. Everything here stages to a temp file, refuses to install a list
+# that came back short, and keeps a rollback copy.
+
+set -uo pipefail
+
+target=/etc/pacman.d/mirrorlist
+country=DE
+count=20
+passes=1
+min_completion=0.98
+do_install=0
+method=
+
+die() { printf 'mirrorlist-rank: %s\n' "$1" >&2; exit 1; }
+
+while (($#)); do
+  case $1 in
+    -n|--count)   [[ ${2:-} =~ ^[0-9]+$ ]] || die "-n needs a number"; count=$2; shift 2 ;;
+    --passes)     [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || die "--passes needs a positive number"; passes=$2; shift 2 ;;
+    --min-completion) [[ ${2:-} =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] || die "--min-completion needs 0..1"; min_completion=$2; shift 2 ;;
+    -c|--country) [[ ${2:-} =~ ^[A-Za-z]{2}$ ]] || die "-c needs a 2-letter country code"; country=${2^^}; shift 2 ;;
+    --install)    do_install=1; shift ;;
+    -h|--help)    sed -n '2,9p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    *)            die "unknown argument: $1" ;;
+  esac
+done
+
+command -v rankmirrors >/dev/null || die "rankmirrors not found (pacman-contrib)"
+command -v jq          >/dev/null || die "jq not found"
+
+tmp=$(mktemp -d) || die "could not create a temp directory"
+trap 'rm -rf "$tmp"' EXIT
+
+# Candidates come from the status API rather than the mirrorlist generator, so
+# the filter is ours to state. The generator's use_mirror_status=on turns out to
+# mean "active, and not more than 24 h behind" -- for DE it returns exactly the
+# 54 this query returns with no completion filter -- and it offers no way to
+# exclude a mirror that keeps failing checks.
+#
+# completion_pct is the fraction of Arch's 96 checks per rolling 24 h that a
+# mirror answered, so >= 0.98 means it missed at most two. Filtering here rather
+# than warning later is the point: a mirror that would trip sysup's validity
+# check should never have been ranked into the list in the first place. For DE
+# today: 54 unfiltered, 51 at 0.95, 49 at 0.98, 44 at a perfect 100.
+#
+# https only, and IPv4 required. Both measured on 2026-09-09 against the 152
+# active DE mirrors:
+#
+#   https 58, http-only 53, rsync 41. Packages and databases are signed, so
+#   plain http is not a tampering risk for content -- but https hides WHICH
+#   packages this machine downloads from anyone on the path, and keeps meddling
+#   middleboxes and captive portals out of the transfer. 58 candidates is far
+#   more than the ten needed, so the privacy is free.
+#
+#   Of those 58: 50 dual-stack, 8 IPv4-only, and ZERO IPv6-only. This machine
+#   has no global IPv6 address and an IPv6 fetch fails outright, so an
+#   IPv6-only mirror would be unreachable -- and requiring .ipv4 costs nothing,
+#   because no DE https mirror is IPv6-only. It also stays correct if IPv6
+#   arrives later, since every dual-stack mirror still matches.
+#
+# Deliberately NOT filtered on Arch's own score or duration_avg. Those are timed
+# from Arch's infrastructure, not from here, and speed from this machine is the
+# one thing this script exists to measure.
+curl -fsS --max-time 20 'https://archlinux.org/mirrors/status/json/' -o "$tmp/status" ||
+  die "could not reach archlinux.org for the mirror status — nothing was changed"
+
+jq -r --arg cc "$country" --argjson minc "$min_completion" '
+  .urls[]
+  | select(.active and .protocol == "https" and .ipv4
+           and .country_code == $cc
+           and (.completion_pct // 0) >= $minc
+           and (.delay // 0) <= 86400)
+  | "Server = \(.url | sub("/$"; ""))/$repo/os/$arch"' "$tmp/status" > "$tmp/all" ||
+  die "could not read the mirror status JSON — nothing was changed"
+
+candidates=$(grep -c '^Server' "$tmp/all")
+((candidates)) || die "no ${country} mirror is https, IPv4, active and >= $(awk -v m="$min_completion" 'BEGIN{printf "%d", m*100}')% complete — check the country code"
+
+# ONE timing pass by default, and the reason is a measurement, not laziness.
+#
+# Averaging was tried and does not work here. Two median-of-3 runs back to back
+# shared 6 of their top 10 -- the same overlap as two single-pass runs. The
+# arithmetic says why: ten repeated fetches from one mirror spread over 54 ms
+# (median 0.167), while adjacent ranks differ by about 3 ms. Averaging cuts noise
+# by sqrt(n), so separating neighbours would take on the order of 300 passes.
+# Membership at the boundary is not determinable at any sane sample size.
+#
+# The response is to stop trying to resolve it and take a longer list instead:
+# 20 entries rather than 10, so the cut-off falls somewhere that does not matter.
+# pacman uses the first working server and falls down the list only on failure,
+# so the extra ten cost nothing while the top of the list is healthy -- and the
+# whole top forty here sits within a factor of two of each other anyway.
+#
+# --passes N is kept for anyone who wants it and takes the MEDIAN, not the mean,
+# since one stalled fetch moves a mean far more than the middle value. Its real
+# benefit is narrow: it stops a single fluke from evicting a good mirror. At one
+# pass that eviction is possible, and with 20 slots it is also inconsequential.
+#
+# The measurement could be made sharp by timing extra.db (8.9 MB) instead of
+# core.db (129 KB), where throughput would dominate latency jitter. Rejected: one
+# pass over 51 mirrors would pull ~450 MB off other people's mirrors to reorder
+# a set that is within 25 ms of itself.
+printf 'timing %d healthy %s mirrors, %d pass(es), for the fastest %d...\n' \
+  "$candidates" "$country" "$passes" "$count" >&2
+: > "$tmp/times"
+for ((pass = 1; pass <= passes; pass++)); do
+  ((passes > 1)) && printf '  pass %d/%d\n' "$pass" "$passes" >&2
+  rankmirrors -r core -w -t -n 0 "$tmp/all" 2>/dev/null |
+    sed -n 's/^\(https\?:[^ ]*\) : \([0-9.]*\)$/\1 \2/p' >> "$tmp/times" ||
+    die "rankmirrors failed — nothing was changed"
+done
+[[ -s $tmp/times ]] || die "no mirror responded in any pass — nothing was changed"
+
+# Group by url, times ascending, and keep only mirrors that answered in EVERY
+# pass: one that drops out intermittently is not one to put in a fallback chain.
+sort -k1,1 -k2,2g "$tmp/times" | awk -v passes="$passes" '
+  function emit() {
+    if (url != "" && n == passes)
+      printf "%.6f %s %.3f %.3f\n", t[int((n + 1) / 2)], url, t[1], t[n]
+  }
+  $1 != url { emit(); url = $1; n = 0; delete t }
+  { t[++n] = $2 }
+  END { emit() }
+' | sort -g > "$tmp/median"
+
+ranked=$(wc -l < "$tmp/median")
+((ranked)) || die "no mirror answered in all $passes passes — nothing was changed"
+((ranked >= count)) || printf 'note: asked for %d, only %d answered every pass\n' "$count" "$ranked" >&2
+
+head -n "$count" "$tmp/median" > "$tmp/top"
+installed=$(wc -l < "$tmp/top")
+if ((passes > 1)); then method="median of $passes timed passes"; else method="one timed pass"; fi
+{
+  printf '## Ranked by mirrorlist-rank on %s — %s, top %d by %s\n##\n' \
+    "$(date +%F)" "$country" "$installed" "$method"
+  awk '{print "Server = " $2}' "$tmp/top"
+} > "$tmp/final"
+cat "$tmp/final"
+
+# Show the spread, so the noise is visible rather than implied: a mirror whose
+# fastest and slowest pass straddle its neighbours was ordered by chance.
+if ((passes > 1)); then
+  printf '\nmedian / fastest / slowest per pass (seconds):\n' >&2
+  awk '{printf "  %.3f  %.3f-%.3f  %s\n", $1, $3, $4, $2}' "$tmp/top" >&2
+fi
+
+# Say whether this would actually change anything. Without it the output is just
+# ten URLs and the reader still has to eyeball them against the live file to
+# answer the only question that matters -- is my list still the right one?
+# Everything here goes to stderr so stdout stays a clean mirrorlist.
+#
+# Compared on the base url with the $repo/os/$arch suffix stripped, because that
+# is the part identifying the mirror; both files come from Arch's generator, but
+# normalising costs nothing and survives a hand-edited entry.
+bases() {
+  # shellcheck disable=SC2016  # $repo is a literal pacman placeholder, not a shell variable
+  sed -n 's/^[[:space:]]*Server[[:space:]]*=[[:space:]]*//p' "$1" | sed 's/\$repo.*//' | sort -u
+}
+if [[ -r $target ]]; then
+  mapfile -t added   < <(comm -23 <(bases "$tmp/final") <(bases "$target"))
+  mapfile -t dropped < <(comm -13 <(bases "$tmp/final") <(bases "$target"))
+  kept=$(comm -12 <(bases "$tmp/final") <(bases "$target") | wc -l)
+  printf '\n%d of %d already in your current list.\n' "$kept" "$installed" >&2
+  if ((${#added[@]} == 0 && ${#dropped[@]} == 0)); then
+    printf 'Same set of mirrors — a re-rank would only reorder them.\n' >&2
+  else
+    ((${#added[@]}))   && printf '  + would add:  %s\n' "${added[@]}"   >&2
+    ((${#dropped[@]})) && printf '  - would drop: %s\n' "${dropped[@]}" >&2
+  fi
+else
+  printf '\n%s unreadable — not compared with your current list.\n' "$target" >&2
+fi
+
+if ((do_install == 0)); then
+  printf '\n%d mirror(s) ranked, fastest first. Nothing was changed.\n' "$installed" >&2
+  printf 'Install them with: %s --install\n' "${0##*/}" >&2
+  exit 0
+fi
+
+sudo cp "$target" "$target.bak" || die "could not back up $target — nothing was changed"
+sudo install -m644 "$tmp/final" "$target" || die "could not write $target (the .bak still holds the old list)"
+printf '\ninstalled %d mirror(s) into %s\nprevious list kept at %s.bak — restore with:\n  sudo mv %s.bak %s\n' \
+  "$installed" "$target" "$target" "$target" "$target" >&2

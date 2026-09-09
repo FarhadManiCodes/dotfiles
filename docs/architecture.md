@@ -190,21 +190,45 @@ behave. It needs `jq`, and skips with a message if either tool is absent.
 Interacts with the off-machine backup gap (`TODO.md` §10 D): a health warning is only
 actionable if there is somewhere to restore from, so the warning path says so.
 
-### Mirrorlist age — the one check that runs before the update
+### Mirrorlist — the one check that runs before the update
 
-`_sysup_mirrorlist_stale` (2026-09-09) warns when `/etc/pacman.d/mirrorlist` has gone more
-than 90 days without being rewritten — the same window the fwupd metadata step uses, and the
-same "goes stale on a season, not on an update" shape. It deliberately runs **before**
-`paru -Syu` rather than joining `config-drift` at the end: by then the update has already
-fetched from whatever mirrors the file holds, so the warning could not change anything.
+`_sysup_mirrorlist_check` (2026-09-09) runs **before** `paru -Syu` rather than joining
+`config-drift` at the end: by then the update has already fetched from whatever mirrors the
+file holds, so a warning could not change anything.
 
-It reports and never acts, unlike the fwupd step. Re-ranking needs the network, picks a
-country and writes `/etc` as root, and the obvious one-liner for it destroys a working
-mirrorlist on a failed fetch — the procedure and that trap are in `docs/system-notes.md`.
+It asks two questions, because either alone misleads:
 
-Age is not correctness. A recent mtime says only that the file was rewritten, by
-`rankmirrors` or by merging `pacman-mirrorlist`'s `.pacnew`; whether the mirrors in it are
-still in sync is a network question neither this step nor `config-drift` asks.
+- **Age** is a `stat`. Nothing re-ranks the list automatically, and speed drifts as mirrors and
+  routes change. Warns past 90 days, the window the fwupd metadata step also uses.
+- **Validity** needs the network. Arch delists a mirror that falls out of sync, and a delisted
+  mirror keeps serving a stale database without erroring — so a file written yesterday can hold
+  a mirror that broke this morning. Each `Server` line is matched against
+  `archlinux.org/mirrors/status/json/` and reported if it is no longer listed, marked inactive,
+  incomplete (below 95% of Arch's 96 daily checks), or more than a day behind upstream. The
+  95% floor was picked from the published population — of 1229 active mirrors, 980 sit at
+  exactly 100%, 57 between 95 and 99, and 178 below 90 — after a stricter `< 100%` rule
+  immediately flagged a mirror that had missed a single check. A warning nobody can act on is
+  how a check becomes wallpaper.
+
+The validity half is best-effort by design: an 8-second timeout, and being offline reports
+**"NOT checked"** rather than failing `sysup` or passing quietly. An empty answer must never
+read as good news — the same rule the `/etc` probes follow.
+
+**Rehearsing the warning.** The half that matters fires twice a year, so
+`_sysup_mirrorlist_check` takes two optional arguments purely so it can be exercised on
+demand: `$1` is the age in days that counts as stale, `$2` a mirrorlist to inspect instead of
+the live one. `_sysup_mirrorlist_check 1` runs the whole warning against the real file;
+passing a copy as `$2` reports without offering to re-rank, since `mirrorlist-rank` writes
+`/etc/pacman.d/mirrorlist` and offering it would act on something other than what was
+measured. `sysup` passes neither argument. This replaces the alternative of editing the
+threshold and remembering to change it back.
+
+**It offers the fix rather than printing it.** Both findings have one answer, re-ranking, and
+before `paru` is the moment it is worth doing. It is never automatic: ranking times every healthy
+candidate (~50 mirrors, about 15 s), so the check asks and Enter declines. With
+no terminal it prints the command instead, so a scripted `sysup` cannot block on a prompt
+nobody will answer. The work itself is `bash/mirrorlist-rank`, which is also the only thing
+that should ever write that file — the procedure and its recovery are in `docs/system-notes.md`.
 
 ### `config-drift` — catching config upstream has moved out from under
 
