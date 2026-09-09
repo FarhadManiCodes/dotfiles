@@ -594,12 +594,6 @@ separate pass. The bloat that was found was concentrated in one closed document
 The first pass ran the three probes over every file but only *read* a handful. This covers the
 rest, and again found nothing to fix.
 
-**`TODO.md` is accurate** — every open item that can be checked cheaply still is open:
-`jupytext` absent (neither a `uv tool` nor on `PATH` — but see below: §9 was closed later the
-same day, because absence is the accepted state, not an open task), 61 `git fsmonitor--daemon` processes at
-324 MB against a recorded 61 at 319 MB, mirrorlist 5 days old against an "every few months"
-trigger. No item had quietly completed.
-
 **`skills/` (860 lines) is mechanically clean.** `bash/check-skills` asserts frontmatter shape,
 `references/*.md` existence and `bash/*` tool existence and executability — but **not external
 commands**, so those were checked separately: `grim`, `slurp`, `psql`, `podman`, `papis`,
@@ -616,6 +610,3 @@ artifact, and `vifm/vifmrc:149` does use it. Podman runs `runc` with `criu` abse
 `/var/lib/docker`, `pg.service` active, `DefaultDependencies=false` inside `[Quadlet]` and not
 `[Unit]`. `niri validate` passes against the tracked `config.kdl`.
 
-**One thing reading turned up that the probes could not:** the `runc` decision is enforced only
-by `crun`'s absence — `containers.conf` pins no runtime. That is a config fragility rather than
-a documentation error, so it went to `TODO.md` item 14 rather than being fixed here.
