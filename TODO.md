@@ -14,9 +14,14 @@ every removal is explained inline in that file). Closed on 2026-09-09: §9 (`jup
 installed — the finding compared against a superseded uv-tool plan; per-venv is the accepted
 setup and the absence is expected, see `revisit.md`), §11 (the fsmonitor daemons — its
 premise was measured wrong, and `core.fsmonitor` is now off everywhere rather than global;
-evidence in `git show 14cc481`, outcome in `docs/architecture.md`) and §1 (the NVMe health
+evidence in `git show 14cc481`, outcome in `docs/architecture.md`), §1 (the NVMe health
 check — now step 10 of `sysclean`, which is where a sudo credential already exists; the
-`smartd` rejection and the reason `-H` alone is not enough moved to `docs/architecture.md`). The state of the last tidy was verified
+`smartd` rejection and the reason `-H` alone is not enough moved to `docs/architecture.md`),
+§3 (the mirrorlist — `sysup` now checks age *and* validity before `paru` and offers to re-rank,
+`bash/mirrorlist-rank` does it safely, and the list was re-ranked 20-deep on 2026-09-09, so
+nothing is waiting on me) and §14 (the `runc` pin — `containers/containers.conf` now names the
+runtime under `[engine]`; deliberately with no `config-drift` check, since the pin converts a
+silent substitution into a loud failure. Reasoning in `containers/README.md`). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
@@ -52,26 +57,6 @@ installed here, so there is no second entry to fall back to either.
 
 Enabling it is two lines in the preset plus a `mkinitcpio -P`. Against it: it costs ~50 MB more
 in a 1.1 GB `/boot` currently at 8%, and Arch turned it off by default for a reason.
-
-## 3. Re-rank the pacman mirrorlist every few months
-
-Regenerated 2026-09-04 with `use_mirror_status=on` through `rankmirrors -n 10`; 10 https servers
-active. Arch delists mirrors that fall out of sync, and a delisted mirror serves a stale database
-silently — the previous list had accumulated 96 entries with **12 hosts Arch had already
-retired**.
-
-**`sysup` has warned since 2026-09-09** when the file has gone 90 days without being rewritten,
-in a step that runs *before* `paru -Syu` so the warning still has time to matter. So this surfaces
-on its own from early December rather than resting on my memory.
-
-The earlier note here — "`config-drift` cannot see it, detecting it needs network access" — was
-right about the question that matters and wrong about the reminder: whether a listed mirror is
-still in sync needs the network, but "you have not re-ranked in three months" is a `stat`. What
-`config-drift` could not do is run *early enough*; it reports after the update.
-
-Still mine to do, because it fetches over the network, picks a country and writes `/etc` as root.
-The procedure, the recovery path if a re-rank goes wrong, and the `sudo tee` trap that would empty
-a working mirrorlist are in `docs/system-notes.md` under "Re-rank the pacman mirrorlist".
 
 ## 5. Disk encryption — deferred until a rebuild
 
@@ -267,24 +252,3 @@ against the live config on the way across, and all three are genuinely still ope
 - **Firefox Multi-Account Containers** — consider it for site isolation (banking, email,
   social). Not currently installed: the default-release profile carries uBlock Origin and
   Proton VPN plus two extensions identified only by GUID, and none is Multi-Account Containers.
-
-## 14. The `runc` decision is enforced only by `crun` being absent (found 2026-09-09)
-
-`containers/README.md` argues the choice properly — `crun` hard-depends on `criu` on Arch, ~27
-MiB whose only purpose is checkpoint/restore, which podman documents as non-functional
-rootless. The documentation is not wrong. What is missing is anything that *holds* the
-decision.
-
-`containers/containers.conf` is 15 lines and sets only `default_host_ips`. It pins no runtime.
-Measured 2026-09-09: `podman info` reports `runc`, `crun` is not installed, and podman's own
-shipped config documents `#runtime = "crun"` as the default. So the decision holds today purely
-because `crun` is absent from the system — not because anything chose it.
-
-If `crun` ever arrives as some other package's dependency, podman switches to it silently.
-Nothing errors, nothing warns, and `config-drift` has no check for it: the same
-does-less-quietly shape that motivated that tool in the first place.
-
-**The fix is one line** — `runtime = "runc"` in `containers/containers.conf`, with the
-reasoning inline so a future audit does not read it as an arbitrary deviation from podman's
-default. It is left here rather than done because it is a config change, and it was found
-during a documentation audit that deliberately did not make any.
