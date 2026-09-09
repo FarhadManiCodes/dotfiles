@@ -187,7 +187,7 @@ the failure mode to avoid is an empty answer reading as a clean bill. Verified a
 drive's output plus fabricated worn, failing, malformed and empty fixtures; all five branches
 behave. It needs `jq`, and skips with a message if either tool is absent.
 
-Interacts with the off-machine backup gap (`TODO.md` §10 D): a health warning is only
+Interacts with the off-machine backup gap (`TODO.md`, "Off-machine backup"): a health warning is only
 actionable if there is somewhere to restore from, so the warning path says so.
 
 ### Mirrorlist — the one check that runs before the update

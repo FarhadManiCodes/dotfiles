@@ -6,11 +6,34 @@ reasoning worth keeping is in `revisit.md` (investigated and deliberately accept
 is `git show c940d78:AUDIT-2026-08.md` (deleted 2026-09-08), and the last version of this
 file carrying items 1–16 is `git show 92bcf79:TODO.md`.
 
-**Item numbers are stable and gaps are deliberate.** Other files cite them, so a closed item
-leaves its number empty rather than shifting the rest. Closed on 2026-09-08 and removed here:
+**Renumbered 2026-09-09, and the old rule is reversed.** Numbers used to be frozen with gaps
+where items closed, so that other files could cite them. After nine closures the list read
+2, 5, 6, 10 C/D/F, 12, 13 — the gaps and the lettered subsections cost more than the stability
+bought. Items are now numbered **sequentially with no letters, and renumbered whenever one
+closes**, which works only because nothing outside this file cites a number any more: the four
+files that did (`docs/omarchy-comparison.md`, `docs/architecture.md`, `agent-skills.md`,
+`firefox/firefox-notes.md`) now cite items by title. For git history and older audits:
+
+| was | now |
+|---|---|
+| §2 | **1** — `mkinitcpio` fallback initramfs |
+| §5 | **2** — disk encryption |
+| §6 | **3** — tmux identity segment |
+| §10 C | **4** — a test runner |
+| §10 D | **5** — off-machine backup |
+| §10 F | **6** — editor + agent tmux layout |
+| §12 | closed 2026-09-09 — see below |
+| §13 | **7** — the three Firefox items |
+
+Items 4–6 all come from `docs/omarchy-comparison.md` and were parked for the same reason: each
+is a design job rather than a config edit, and would be poorly served by being squeezed into the
+end of another session. Of that file's five proposals A, B and E are done — `config-drift` gained
+the pacman-log and symlink checks, and `sysup` gained a lock.
+
+Closed and removed, listed under **the old numbering** they carried at the time. 2026-09-08:
 §4 (the Omarchy first pass — the `-Qii` vs `-Qkk` measurement it held now lives in
 `etc/README.md`), §7 (the doc-duplication sweep) and §8 (the `duckdb/.duckdbrc` rewrite, whose
-every removal is explained inline in that file). Closed on 2026-09-09: §9 (`jupytext` not
+every removal is explained inline in that file). 2026-09-09: §9 (`jupytext` not
 installed — the finding compared against a superseded uv-tool plan; per-venv is the accepted
 setup and the absence is expected, see `revisit.md`), §11 (the fsmonitor daemons — its
 premise was measured wrong, and `core.fsmonitor` is now off everywhere rather than global;
@@ -19,15 +42,21 @@ check — now step 10 of `sysclean`, which is where a sudo credential already ex
 `smartd` rejection and the reason `-H` alone is not enough moved to `docs/architecture.md`),
 §3 (the mirrorlist — `sysup` now checks age *and* validity before `paru` and offers to re-rank,
 `bash/mirrorlist-rank` does it safely, and the list was re-ranked 20-deep on 2026-09-09, so
-nothing is waiting on me) and §14 (the `runc` pin — `containers/containers.conf` now names the
+nothing is waiting on me), §14 (the `runc` pin — `containers/containers.conf` now names the
 runtime under `[engine]`; deliberately with no `config-drift` check, since the pin converts a
-silent substitution into a loud failure. Reasoning in `containers/README.md`). The state of the last tidy was verified
+silent substitution into a loud failure. Reasoning in `containers/README.md`) and §12 (the two
+stale claims in the nvim submodule's database docs — fixed in the submodule rather than left
+recorded, since both were documentation. `dev_db` never existed and neither did the `dev` the
+same comment block also invented; the live server holds one database, `postgres`, with
+`postgres` as its only login role, and `DB_USER`/`DB_PASSWORD` are set by nothing on this
+machine. `nvim/docs/architecture.md` now documents the `$DATABASE_URL`-from-podman-secret path
+that actually works). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
 ---
 
-## 2. `mkinitcpio` builds no fallback initramfs — and the premise here was wrong
+## 1. `mkinitcpio` builds no fallback initramfs — and the premise here was wrong
 
 `/etc/mkinitcpio.d/linux.preset` has `PRESETS=('default')`, so `/boot` holds one image and
 there is no `initramfs-linux-fallback.img`.
@@ -58,7 +87,7 @@ installed here, so there is no second entry to fall back to either.
 Enabling it is two lines in the preset plus a `mkinitcpio -P`. Against it: it costs ~50 MB more
 in a 1.1 GB `/boot` currently at 8%, and Arch turned it off by default for a reason.
 
-## 5. Disk encryption — deferred until a rebuild
+## 2. Disk encryption — deferred until a rebuild
 
 **Deferred 2026-09-07.** Keep the current installation; no in-place migration is planned.
 
@@ -66,10 +95,10 @@ Retrofitting means a reinstall or a carefully planned, backup-verified `btrfs se
 cycle, so it belongs to the next rebuild. One prerequisite is already in place: `mkinitcpio`
 uses the systemd initrd, so `sd-encrypt` and `systemd-cryptenroll` are available.
 
-Reconsider at the next reinstall. This and §10 D are two halves of one threat model, and the
+Reconsider at the next reinstall. This and item 5 are two halves of one threat model, and the
 backup is the one to build first.
 
-## 6. Verify the tmux identity segment in the two cases that cannot be tested from here
+## 3. Verify the tmux identity segment in the two cases that cannot be tested from here
 
 `bash/tmux-identity` hides `user@host` when local as the usual user, which is confirmed live.
 The other two branches were only tested by faking the environment on throwaway sockets: over
@@ -79,15 +108,7 @@ Worth a look the next time either happens for real. Note `SSH_CONNECTION` is rea
 environment that started the *server*, so attaching over ssh to a locally-started tmux will
 correctly show nothing — that is not a failure.
 
-## 10. Parked from the Omarchy comparison — each needs its own session
-
-`docs/omarchy-comparison.md` proposed five things worth adopting. **A, B and E are done**
-(`config-drift` gained the pacman-log and symlink checks, `sysup` gained a lock). The three
-below were deliberately not started: each is larger than a config change and would be poorly
-served by being squeezed into the end of another session. **F is not one of the five** — it
-comes from the third pass and was parked here on 2026-09-08 because it has the same shape.
-
-### C. A test runner
+## 4. A test runner
 
 `tests/test_config_drift.py` covers the checker (14 methods, standard-library `unittest`), but
 `docs/architecture.md` and `docs/system-notes.md` are full of invariants that still rest on memory. **Copying Omarchy's bash harness
@@ -131,7 +152,7 @@ mistake in a new costume.
 Omarchy has **no CI** — 284 test files run by hand. A reasonable model to copy; a workflow can
 come later if it earns its place.
 
-### D. Off-machine backup
+## 5. Off-machine backup
 
 **Deferred by the user 2026-09-07.** Revisit later; no implementation now.
 
@@ -159,17 +180,18 @@ survives being lifted out of the distribution context. The parts that transfer:
   timers, and **pause must not be a unit condition** — a `ConditionPathExists`-gated unit never
   runs while paused, so it can never notice the pause expiring.
 
-Interacts with §5: disk encryption and an off-machine backup are two halves of one threat
+Interacts with item 2: disk encryption and an off-machine backup are two halves of one threat
 model. Also with the NVMe health check now in `sysclean` (`docs/architecture.md`) — a
 disk-health warning is only actionable if there is somewhere to restore from, which is why its
 warning path points here.
 
-### F. An editor + agent tmux layout — **wanted; own session** (added 2026-09-08)
+## 6. An editor + agent tmux layout — **wanted; own session** (added 2026-09-08)
 
-From `docs/omarchy-comparison.md` §27, not from A–E. **The user rates this important.** We have
-exactly one layout, `tmux/layouts/cpp_layout.sh` on `Prefix W`; an editor+agent layout is the
-obvious second, and it is a design job rather than a config edit — which panes, what starts in
-them, and how it is invoked all need deciding before anything is written.
+From `docs/omarchy-comparison.md` §27, not from its A–E proposals. **The user rates this
+important.** We have exactly one layout, `tmux/layouts/cpp_layout.sh` on `Prefix W`; an
+editor+agent layout is the obvious second, and it is a design job rather than a config edit —
+which panes, what starts in them, and how it is invoked all need deciding before anything is
+written.
 
 Their four functions are reproduced here **so this does not depend on the checkout**
 (`~/projects/omarchy/default/bash/fns/tmux`, read at `36e56f4f`). Theirs is bash and ours would
@@ -212,33 +234,7 @@ Open questions for that session: which agent(s) and whether the choice is an arg
 whether it replaces or sits beside `Prefix W`; whether the `tdlm` per-subdirectory and `tsl`
 swarm shapes are wanted at all, or just the single layout.
 
-## 12. Two stale claims in the nvim submodule's database docs (found 2026-09-06)
-
-Found while writing the `local-postgres` skill. **Both are in the `nvim/` submodule, which is on
-its own branch and is a separate workstream — recorded here rather than fixed.**
-
-- **`dev_db` does not exist.** `nvim/docs/architecture.md:359` gives
-  `postgresql://%s:%s@localhost:5432/dev_db` as the dadbod connection template. The live server
-  has only the `postgres` database:
-  ```bash
-  PGPASSWORD=... psql -h 127.0.0.1 -U postgres -d postgres -tAc \
-    "select datname from pg_database where not datistemplate"
-  ```
-- **`DB_USER` and `DB_PASSWORD` are unset**, so the `.nvim.lua` pattern in that same section —
-  `os.getenv("DB_USER")`, `os.getenv("DB_PASSWORD")` — resolves to nils and the connection
-  cannot be built. The working credential path is the podman secret, which that section does
-  not mention. Substitute it directly -- never print it, and never assign it to a bare shell
-  variable that a later `set -x` or error dump would echo:
-  ```bash
-  PGPASSWORD="$(podman secret inspect --showsecret --format '{{.SecretData}}' pg_password)" \
-    psql -h 127.0.0.1 -U postgres -d postgres
-  ```
-  `skills/local-postgres/SKILL.md` is the authoritative form and carries the same rule.
-
-Neither is dangerous; both mean the documented example cannot work as written. The advice in
-that section that *is* right and should stay is "never hardcode credentials".
-
-## 13. Three open Firefox items, moved out of `firefox/firefox-notes.md` (2026-09-09)
+## 7. Three open Firefox items, moved out of `firefox/firefox-notes.md` (2026-09-09)
 
 They had been sitting under a `## Pending To-Do` heading in an app reference, where the audit
 workflow never looks — `TODO.md` is where open items are supposed to live. Each was checked
@@ -247,8 +243,21 @@ against the live config on the way across, and all three are genuinely still ope
 - **Tridactyl blacklist for sensitive sites.** The mechanism is already in use —
   `tridactyl/tridactylrc:45-46` blacklists `drive.google.com` and `docs.google.com` — so this
   is adding entries, not wiring anything up. Banking and password-manager domains were the
-  intent. Needs the actual domains from me.
+  intent. Needs the actual domains from me. Note `blacklistadd` is weaker than it sounds:
+  Tridactyl 1.25.0's own help says it "simply creates a DocStart autocmd that runs `mode
+  ignore`", the content script still runs, and ignore mode keeps `<C-o>`, `<S-Insert>`,
+  `<S-Escape>`, `<AC-Escape>` and ``<AC-`>`` bound. For a thorough disable Tridactyl points at
+  `seturl <url> superignore true` instead, so which of the two these domains want is part of
+  the decision.
 - **Tridactyl deep-config session** — bindings, search-engine review, quality-of-life tweaks.
 - **Firefox Multi-Account Containers** — consider it for site isolation (banking, email,
-  social). Not currently installed: the default-release profile carries uBlock Origin and
-  Proton VPN plus two extensions identified only by GUID, and none is Multi-Account Containers.
+  social). Not installed, confirmed 2026-09-09. The profile's add-ons are uBlock Origin 1.74.0,
+  Proton VPN 1.3.6 and DownThemAll! 4.15.1, plus a **theme** rather than an extension
+  (Catppuccin Latte · Mauve) — that is the second of the "two GUIDs" this item used to be unable
+  to name, and Tridactyl is absent from the profile only because it is installed globally by the
+  `firefox-tridactyl` package. Two things bear on the decision: `containers.json` already holds
+  the four default identities (Personal / Work / Banking / Shopping) and `privacy.userContext.enabled`
+  is simply not set, so native containers cost one pref and the extension's real addition is
+  per-site assignment; and `prefs.js:278` has
+  `privacy.userContext.extension = "tridactyl.vim@cmcaine.co.uk"`, so Tridactyl already claims
+  that API — whether the two contend for it is unverified.

@@ -13,7 +13,8 @@ Omarchy as the reference implementation and "harmonise" toward it.
 > **On the shape of this file.** It was 1780 lines. Each finding carried its original argument,
 > then the correction that overturned half of it, then the disposition — and once a claim is
 > withdrawn, the correction to it has nothing left to correct. Both halves were dropped together
-> on 2026-09-08. Item numbers are unchanged because `TODO.md` cites them;
+> on 2026-09-08. The numbered items here are unchanged; `TODO.md` was renumbered on 2026-09-09
+> and now cites this file rather than the reverse.
 > the full argument for any of them is in git history at the old path: `git log -p -- omarchy-comparison.md`.
 
 ---
@@ -84,8 +85,8 @@ migration. One prerequisite is already done: `mkinitcpio` uses the systemd initr
 `sd-encrypt` is reachable and `systemd-cryptenroll` can enrol a TPM or FIDO2 key rather than
 requiring a passphrase at every boot.
 
-It interacts with the still-absent off-machine backup (`TODO.md` §10 D), and the backup is the
-one to build first.
+It interacts with the still-absent off-machine backup (`TODO.md`, "Off-machine backup"), and
+the backup is the one to build first.
 
 ### 20. `systemd-oomd` — declined for a reason specific to this machine
 
@@ -244,15 +245,15 @@ self-contained and does not need the Omarchy checkout.
 
 | # | Item | Where |
 |---|---|---|
-| C | Fold `check-skills` and the invariant table into one runner | `TODO.md` 10 C |
-| D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md` 10 D |
-| 27 | An editor + agent tmux layout — the user rates this important | `TODO.md` 10 F |
+| C | Fold `check-skills` and the invariant table into one runner | `TODO.md`, "A test runner" |
+| D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md`, "Off-machine backup" |
+| 27 | An editor + agent tmux layout — the user rates this important | `TODO.md`, "An editor + agent tmux layout" |
 | 30 | Their skill layering (a routing `SKILL.md` plus sibling topic guides) as the shape for `config-audit` | `agent-skills.md` |
 
 Also found here but unrelated to Omarchy: 62 accumulated `git fsmonitor--daemon` processes
 holding 326 MB, noticed while measuring the oomd cgroup. Resolved 2026-09-09 by turning
 `core.fsmonitor` off — the count was one daemon per repository, not a leak, and 59 of them
-watched plugin clones. See `docs/architecture.md`; `TODO.md` §11 is closed and removed.
+watched plugin clones. See `docs/architecture.md`; the `TODO.md` item is closed and removed.
 
 ---
 
