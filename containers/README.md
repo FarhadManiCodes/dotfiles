@@ -199,6 +199,35 @@ outright. The trade is deliberate: if runc ever goes missing podman now refuses 
 silently substituting. No `config-drift` check accompanies it, because the pin turns a silent
 substitution into a loud failure that announces itself.
 
+## No `registries.conf`, deliberately
+
+There is none in `/etc/containers/`, none in `~/.config/containers/`, and none tracked here.
+That is the shipped state, not a gap: `containers-common` installs its copy at
+`/usr/share/containers/registries.conf` and deliberately puts nothing in `/etc`. Recorded
+because an audit that finds a missing file tends to want to add one, and here that would be a
+downgrade.
+
+What the absence buys is that podman never *searches* for an image. A short name resolves only
+through the curated alias table at `/usr/share/containers/registries.conf.d/00-shortnames.conf`
+— 132 entries, each mapping one name to exactly one fully-qualified image (`alpine` →
+`docker.io/library/alpine`). Anything not in that table fails loudly rather than being guessed
+at:
+
+```
+$ podman pull definitely-not-a-real-image-xyz
+Error: short-name "definitely-not-a-real-image-xyz" did not resolve to an alias
+and no containers-registries.conf(5) was found
+```
+
+`postgres` is not one of the 132, which is why `pg.container` names
+`docker.io/library/postgres:18` in full — the right habit regardless.
+
+**The tempting addition is the one to avoid.** `unqualified-search-registries = ["docker.io"]`
+would make short names convenient by reintroducing exactly the guessing this avoids: any typo
+or lookalike name would resolve somewhere rather than erroring. The safe alternative, an empty
+search list, is what already happens. So the correct amount of configuration here is none, and
+images stay fully qualified in Quadlets.
+
 ## `pg.container` — the settings that are less obvious than they look
 
 **`DefaultDependencies=false` in the `[Quadlet]` section is load-bearing.** Quadlet otherwise
