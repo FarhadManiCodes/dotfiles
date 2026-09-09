@@ -21,13 +21,8 @@ If a site looks broken (missing content, broken layout):
 
 ## Pending To-Do
 
-- **Tridactyl blacklist** — add sensitive sites to `tridactylrc`:
-  ```
-  blacklistadd https://your-bank.com
-  blacklistadd https://your-password-manager.com
-  ```
-- **Tridactyl deep config session** — `tridactylrc` bindings, search engines review, quality of life tweaks (scheduled for a future session)
-- **Firefox Multi-Account Containers** — consider installing for site isolation (banking, email, social in separate containers)
+Open items live in `TODO.md` (item 13), not here — that is where the audit
+workflow looks. Three were moved there on 2026-09-09.
 
 ---
 

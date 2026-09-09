@@ -303,3 +303,18 @@ its own branch and is a separate workstream — recorded here rather than fixed.
 
 Neither is dangerous; both mean the documented example cannot work as written. The advice in
 that section that *is* right and should stay is "never hardcode credentials".
+
+## 13. Three open Firefox items, moved out of `firefox/firefox-notes.md` (2026-09-09)
+
+They had been sitting under a `## Pending To-Do` heading in an app reference, where the audit
+workflow never looks — `TODO.md` is where open items are supposed to live. Each was checked
+against the live config on the way across, and all three are genuinely still open:
+
+- **Tridactyl blacklist for sensitive sites.** The mechanism is already in use —
+  `tridactyl/tridactylrc:45-46` blacklists `drive.google.com` and `docs.google.com` — so this
+  is adding entries, not wiring anything up. Banking and password-manager domains were the
+  intent. Needs the actual domains from me.
+- **Tridactyl deep-config session** — bindings, search-engine review, quality-of-life tweaks.
+- **Firefox Multi-Account Containers** — consider it for site isolation (banking, email,
+  social). Not currently installed: the default-release profile carries uBlock Origin and
+  Proton VPN plus two extensions identified only by GUID, and none is Multi-Account Containers.
