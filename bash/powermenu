@@ -36,6 +36,15 @@ confirm() {
 # The foot server is a niri-spawned scope, torn down when niri quits / the session
 # ends — nothing to stop here. Only rclone mounts need an explicit graceful stop.
 pre_shutdown() {
+    # shellcheck disable=SC2046  # word splitting is REQUIRED here, not an oversight
+    #
+    # SC2046 asks you to quote this to prevent word splitting; quoting it breaks
+    # the function. Each running rclone@ instance must arrive as its own
+    # argument, and "$(...)" would pass them as one string that matches no unit.
+    # With zero running instances systemctl prints "Too few arguments" -- which
+    # is why stderr is discarded, and it is harmless: the call sites use
+    # `{ pre_shutdown; systemctl poweroff; }` with a semicolon rather than &&,
+    # so a non-zero return here cannot block the shutdown.
     systemctl --user stop $(systemctl --user list-units 'rclone@*' --state=running --no-legend | awk '{print $1}') 2>/dev/null
 }
 

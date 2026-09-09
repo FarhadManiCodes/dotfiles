@@ -22,7 +22,9 @@ Environment=PGDATA=/var/lib/postgresql/data
 
 # The password is a podman secret, never a tracked Environment= line: this repo is public,
 # and CLAUDE.md forbids committing credentials. Create it before first start (see the
-# post-install list) — the secret store lives in ~/.local/share/containers/storage.
+# post-install list) — the secret store lives under podman's graphroot, which storage.conf
+# points at /var/lib/docker, so the secret is in /var/lib/docker/secrets (NOT under
+# ~/.local/share/containers, which does not exist here). Corrected 2026-09-05.
 # If it is missing the unit fails loudly and notify-failure@ fires, so this is not a
 # silent trap. NB POSTGRES_PASSWORD only applies at initdb; changing the secret later
 # does not change an existing database's password.

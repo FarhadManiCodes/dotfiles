@@ -4,8 +4,11 @@
 # A task waiting on an unanswered FUSE request is uninterruptible: the freezer
 # cannot freeze it and SIGKILL does not reach it, so the suspend aborts with
 # EBUSY. With the lid shut logind then retries indefinitely -- on 2026-09-02 one
-# wedged `du` on an rclone mount produced 916 suspend attempts, 456 hard aborts
-# and 1831 wifi disconnects between 22:12 and 11:06.
+# wedged `du` on an rclone mount produced 460 suspend attempts, of which 456
+# aborted and only 4 succeeded, plus 1831 wifi disconnects.
+# (Corrected 2026-09-06: this read "916 suspend attempts, 456 hard aborts" until
+# the boot was counted directly. 916 was `Starting System Suspend` + `Failed to
+# freeze unit` summed, and both are logged once per attempt.)
 #
 # Verified on 7.2.2 (2026-09-03): writing 1 to a connection's `abort` completes
 # its pending requests and releases a waiter that SIGKILL could not.
