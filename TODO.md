@@ -318,3 +318,24 @@ against the live config on the way across, and all three are genuinely still ope
 - **Firefox Multi-Account Containers** — consider it for site isolation (banking, email,
   social). Not currently installed: the default-release profile carries uBlock Origin and
   Proton VPN plus two extensions identified only by GUID, and none is Multi-Account Containers.
+
+## 14. The `runc` decision is enforced only by `crun` being absent (found 2026-09-09)
+
+`containers/README.md` argues the choice properly — `crun` hard-depends on `criu` on Arch, ~27
+MiB whose only purpose is checkpoint/restore, which podman documents as non-functional
+rootless. The documentation is not wrong. What is missing is anything that *holds* the
+decision.
+
+`containers/containers.conf` is 15 lines and sets only `default_host_ips`. It pins no runtime.
+Measured 2026-09-09: `podman info` reports `runc`, `crun` is not installed, and podman's own
+shipped config documents `#runtime = "crun"` as the default. So the decision holds today purely
+because `crun` is absent from the system — not because anything chose it.
+
+If `crun` ever arrives as some other package's dependency, podman switches to it silently.
+Nothing errors, nothing warns, and `config-drift` has no check for it: the same
+does-less-quietly shape that motivated that tool in the first place.
+
+**The fix is one line** — `runtime = "runc"` in `containers/containers.conf`, with the
+reasoning inline so a future audit does not read it as an arbitrary deviation from podman's
+default. It is left here rather than done because it is a config change, and it was found
+during a documentation audit that deliberately did not make any.
