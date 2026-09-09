@@ -16,16 +16,35 @@
 # source, so that check reports every option as dead. Worse, the regression it
 # was meant to catch would have passed: the option was still read into a
 # variable, and only the code that used it was replaced by a hardcoded value.
-# Assert on rendered behaviour instead -- see the tmux section below.
+# Assert on rendered behaviour instead. The tmux status-bar check that did so
+# was removed 2026-09-08 by decision -- the bar is visible at a glance and the
+# check was judged wrong. Do not reinstate it as the grep.
 
 set -uo pipefail
 verbose=0
-[[ ${1:-} == -v || ${1:-} == --verbose ]] && verbose=1
+pacman_since=''
+while (($#)); do
+  case $1 in
+    -v|--verbose) verbose=1; shift ;;
+    --pacman-since)
+      if (($# < 2)) || [[ ! $2 =~ ^[0-9]+:[0-9]+:[0-9]+$ && $2 != unavailable ]]; then
+        echo "config-drift: --pacman-since requires a device:inode:bytes boundary" >&2
+        exit 2
+      fi
+      pacman_since=$2; shift 2 ;;
+    *) echo "config-drift: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
 issues=0
+skipped=0
+now=$(date +%s)
+export LC_ALL=C
+shopt -s nullglob
 df_dir=${DOTFILES:-$HOME/dotfiles}
 
 hdr() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
 ok()   { printf '   \033[32mok\033[0m  %s\n' "$1"; }
+skip() { printf '   \033[34m--\033[0m  %s\n' "$1"; skipped=$((skipped+1)); }
 warn() { printf '   \033[33m!!\033[0m  %s\n' "$1"; issues=$((issues+1)); }
 
 # ---------------------------------------------------------------- .pacnew ----
@@ -33,16 +52,18 @@ hdr "Pending .pacnew"
 if ! command -v pacdiff >/dev/null 2>&1; then
   warn "pacdiff not installed (pacman-contrib)"
 else
-  mapfile -t pending < <(pacdiff --output 2>/dev/null)
-  if ((${#pending[@]} == 0)); then
+  if ! pending_output=$(pacdiff --output 2>/dev/null); then
+    warn "pacdiff failed — pending files were not checked"
+  elif [[ -z $pending_output ]]; then
     ok "none pending"
   else
+    mapfile -t pending <<<"$pending_output"
     warn "${#pending[@]} file(s) need merging — review with: sudo pacdiff"
     for f in "${pending[@]}"; do
       base=${f%.pacnew}
       if [[ -r $f && -r $base ]]; then
         n=$(diff "$base" "$f" 2>/dev/null | grep -c '^[<>]')
-        age=$(( ( $(date +%s) - $(stat -c %Y "$f") ) / 86400 ))
+        age=$(( ( now - $(stat -c %Y "$f") ) / 86400 ))
         printf '       %-46s %4s changed lines, %s days old\n' "${f#/etc/}" "$n" "$age"
         if ((verbose)); then
           diff -u "$base" "$f" 2>/dev/null | sed -n '3,$p' | sed 's/^/         /'
@@ -55,6 +76,86 @@ else
   fi
 fi
 
+# ------------------------------------------------- last pacman transaction ----
+# mkinitcpio runs from a PostTransaction hook. When it fails it prints the error
+# into the middle of pacman's output and does NOT fail the transaction, so the
+# only sign is a line you scrolled past -- and you find out at the next boot.
+# That has already happened here once: 2025-11-20, `==> ERROR: file not found:
+# '/etc/vconsole.conf'` during the original archinstall, followed by "the image
+# may not be complete".
+#
+# /var/log/pacman.log is 0644 root:root, so this needs no root -- and unlike an
+# update transcript it is persistent and covers transactions run outside sysup.
+# Standalone: inspect the last transaction. sysup supplies a device:inode:bytes
+# boundary captured before paru, so every new transaction is checked separately.
+if [[ -n ${pacman_since:-} ]]; then
+  hdr "Pacman transactions since update started"
+else
+  hdr "Last pacman transaction"
+fi
+plog=/var/log/pacman.log
+pacman_since=${pacman_since:-}
+check_pacman_transaction() {
+  local block=$1 when tbad=0 line message
+  when=${block%%]*}; when=${when#\[}
+  while IFS= read -r line; do
+    if [[ $line == *'[ALPM-SCRIPTLET]'* &&
+          ( $line == *'==> ERROR'* || $line == *'errors were encountered'* ) ]]; then
+      message=${line#*\[ALPM-SCRIPTLET\] }
+      warn "scriptlet error in transaction ${when}: ${message:0:80}"; tbad=1
+    fi
+  done <<<"$block"
+  if [[ $block != *'[ALPM] transaction completed'* ]]; then
+    warn "pacman transaction has no completion record (${when})"; tbad=1
+  fi
+  if [[ ( $block == *'Updating linux initcpios'* || $block == *'==> Building'* ) &&
+        $block != *'Initcpio image generation successful'* ]]; then
+    warn "initramfs was rebuilt but never reported success (${when}) — check before rebooting"; tbad=1
+  fi
+  ((tbad)) || ok "clean (${when})"
+}
+if [[ -n $pacman_since ]]; then
+  if [[ $pacman_since == unavailable ]]; then
+    warn "pacman log boundary unavailable — update transactions not checked"
+  elif ! current=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) ||\
+       [[ ${current%:*} != "${pacman_since%:*}" ]] ||\
+       (( ${current##*:} < ${pacman_since##*:} )); then
+    warn "pacman log replaced, truncated or unavailable — update coverage incomplete"
+  elif ! block=$(tail -c "+$(( ${pacman_since##*:} + 1 ))" "$plog" 2>/dev/null); then
+    warn "$plog is not readable — update transactions not checked"
+  else
+    transaction=''
+    for_check=0
+    while IFS= read -r line; do
+      if [[ $line == *'[ALPM] transaction started'* ]]; then
+        [[ -z $transaction ]] || check_pacman_transaction "$transaction"
+        transaction=''
+        for_check=1
+      fi
+      ((for_check)) && transaction+="$line"$'\n'
+    done <<<"$block"
+    if [[ -n $transaction ]]; then
+      check_pacman_transaction "$transaction"
+    else
+      ok "no new ALPM transaction recorded since update started"
+    fi
+    if ! after=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) ||\
+       [[ ${after%:*} != "${current%:*}" ]] || (( ${after##*:} < ${current##*:} )); then
+      warn "pacman log changed during read — update coverage incomplete"
+    fi
+  fi
+elif ! block=$(awk '
+  /\[ALPM\] transaction started/ {block=""; found=1}
+  found {block=block $0 ORS}
+  END {printf "%s", block}
+' "$plog" 2>/dev/null); then
+  warn "$plog is not readable"
+elif [[ -z $block ]]; then
+  ok "no transaction recorded yet"
+else
+  check_pacman_transaction "$block"
+fi
+
 # ------------------------------------------------- root configs installed ----
 # install-root.sh COPIES these rather than symlinking (a PAM auth file must not
 # point at a user-writable path; sysctl.d and zram-generator.conf are read at
@@ -65,45 +166,44 @@ fi
 hdr "Root configs match the repo"
 drift=0
 check_root() {   # $1 repo path, $2 installed path
-  local src=$1 dest=$2
-  if [[ ! -e $dest ]]; then
-    warn "${dest} is NOT installed — run: sudo bash install-root.sh"; drift=1
-  elif [[ ! -r $dest ]]; then
-    # Root-only file (the two snapper configs are 0640 root:root). Try sudo, but
-    # only with -n, which never prompts and fails instantly when no timestamp is
-    # cached -- this script must stay runnable without root and must never hang
-    # waiting for a password. In practice it often succeeds inside sysup, which
-    # runs `sudo fwupdmgr refresh` immediately before this.
-    #
-    # The two sudo calls are deliberate, not redundant: `cmp` alone cannot
-    # distinguish "files differ" from "sudo refused", both of which exit
-    # non-zero. Establishing readability first means a difference is only ever
-    # reported when the file was genuinely read. Claiming a verdict for a file
-    # that was never opened is precisely the failure this script exists to catch.
-    if sudo -n test -r "$dest" 2>/dev/null; then
-      if ! sudo -n cmp -s "$src" "$dest"; then
-        if [[ $src -nt $dest ]]; then
-          warn "${dest} is behind ${src#"$df_dir"/} (read as root) — run: sudo bash install-root.sh"
-        else
-          warn "${dest} was changed live (read as root) — copy it back to ${src#"$df_dir"/}"
-        fi
-        drift=1
-      fi
-    else
-      printf '   \033[34m--\033[0m  %s needs root to read — not compared\n' "$dest"
-    fi
-  elif ! cmp -s "$src" "$dest"; then
-    if [[ $src -nt $dest ]]; then
-      warn "${dest} is behind ${src#"$df_dir"/} — run: sudo bash install-root.sh"
-    else
-      warn "${dest} was changed live — copy it back to ${src#"$df_dir"/}"
-    fi
-    drift=1
+  local src=$1 dest=$2 result
+  local -a reader=()
+  if [[ ! -r $src ]]; then
+    warn "${src#"$df_dir"/} is unreadable or missing — not compared"; drift=1
+    return
   fi
+  if [[ ! -r $dest ]]; then
+    # Use cached sudo credentials only. Without access, existence itself may
+    # be unknowable (e.g. a file beneath a root-only directory).
+    if sudo -n test -r "$dest" 2>/dev/null; then
+      reader=(sudo -n)
+    elif [[ -x ${dest%/*} && ! -e $dest ]]; then
+      warn "$dest is NOT installed — review install-root.sh"; drift=1
+      return
+    else
+      skip "$dest needs access to read — not compared"
+      return
+    fi
+  fi
+  "${reader[@]}" cmp -s -- "$src" "$dest"
+  result=$?
+  case $result in
+    0) ;;
+    1) warn "$dest differs from ${src#"$df_dir"/} — review both before syncing"; drift=1 ;;
+    *) warn "$dest comparison failed — not compared"; drift=1 ;;
+  esac
 }
-while read -r src; do
-  check_root "$src" "/etc${src#"$df_dir"/etc}"
-done < <(find "$df_dir/etc" -type f ! -name README.md 2>/dev/null)
+# README.md documents the tree; unowned.txt and modified.txt are baselines for
+# the sweep above. All three are repo metadata that installs nowhere -- without
+# excluding them this check demands /etc/unowned.txt and never goes green.
+if root_files=$(find "$df_dir/etc" -type f \
+    ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null); then
+  while IFS= read -r src; do
+    [[ -n $src ]] && check_root "$src" "/etc${src#"$df_dir"/etc}"
+  done <<<"$root_files"
+else
+  warn "cannot enumerate tracked etc/ configs"; drift=1
+fi
 check_root "$df_dir/pam/swaylock"               /etc/pam.d/swaylock
 check_root "$df_dir/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf
 check_root "$df_dir/zram/zram-generator.conf"   /etc/systemd/zram-generator.conf
@@ -119,22 +219,279 @@ for f in "$df_dir"/system-sleep/*; do
     warn "${hook} is not executable — systemd-sleep will skip it"; drift=1
   fi
 done
-((drift)) || ok "all tracked root configs match their installed copies"
+((drift)) || ok "all compared root configs match (access exclusions listed above)"
+
+# ------------------------------------------------ Spotify's local config ----
+# install.sh seeds this copy once: the template's client_id is empty and the
+# live value is local. Compare parsed settings, ignoring ONLY that top-level
+# key. Never print values or parser errors (which can include file contents).
+hdr "Spotify config matches the template"
+if spotify_report=$(python3 - "$df_dir/spotify-player/app.toml" \
+    "${XDG_CONFIG_HOME:-$HOME/.config}/spotify-player/app.toml" 2>/dev/null <<'PY'
+import json
+import pprint
+import sys
+
+try:
+    import tomllib
+except ImportError:
+    print("not compared: Python 3.11+ with tomllib is required")
+    sys.exit(2)
+
+configs = []
+for label, path in zip(("template", "live config"), sys.argv[1:]):
+    try:
+        with open(path, "rb") as source:
+            config = tomllib.load(source)
+    except (OSError, ValueError):
+        print(f"not compared: {label} is missing, unreadable, or invalid TOML")
+        sys.exit(2)
+    config.pop("client_id", None)
+    configs.append(config)
+
+template, live = configs
+for key in sorted(template.keys() | live.keys()):
+    # A changed nested value is reported under its top-level table name.
+    name = json.dumps(key, ensure_ascii=True)
+    if key not in live:
+        print(f"missing from live config: {name}")
+    elif key not in template:
+        print(f"only in live config: {name}")
+    # Standard-library representations preserve types, including true vs 1.
+    # Sorting nested dictionaries makes TOML key order irrelevant.
+    elif pprint.pformat(template[key], sort_dicts=True) != pprint.pformat(live[key], sort_dicts=True):
+        print(f"different setting: {name}")
+PY
+); then
+  if [[ -n $spotify_report ]]; then
+    warn "spotify-player/app.toml differs — review settings; preserve the local client_id"
+    printf '%s\n' "$spotify_report" | sed 's/^/       /'
+  else
+    ok "all settings match (top-level client_id excluded)"
+  fi
+else
+  warn "spotify-player/app.toml: ${spotify_report:-not compared: Python check failed}"
+fi
+
+# ------------------------------------------------ /etc against its baselines ----
+# Two sweeps that used to be prose in etc/README.md, which is why `pacman -Qkk`
+# was only ever run against `nftables` for four months. Prose does not run.
+#
+# Both diff against a tracked baseline rather than reporting a count. The counts
+# move on their own -- the unowned set was 183 on 2026-09-04 and 172 two days
+# later -- so a count is noise and only "a path nobody has decided about" is a
+# finding.
+#
+# The ca-certificates trees are excluded, not listed: update-ca-trust rewrites
+# all 131 of them wholesale, and a baseline that churns on every ca-certificates
+# update is a warning you stop reading.
+hdr "/etc against its baselines"
+etc_base=0
+check_baseline() {   # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
+  local label=$1 base=$2 observed=$3 complete=$4 baseline changes line
+  local -a added=() removed=()
+  if ! baseline=$(awk '/^\// {print}' "$base" 2>/dev/null | sort -u); then
+    warn "${base#"$df_dir"/} is unreadable — baseline not compared"
+    etc_base=1; return
+  fi
+  # Sort each side once; one comm computes both additions and removals.
+  observed=$(printf '%s\n' "$observed" | awk 'NF' | sort -u)
+  changes=$(comm -3 <(printf '%s\n' "$observed" | awk 'NF') <(printf '%s\n' "$baseline" | awk 'NF'))
+  while IFS= read -r line; do
+    [[ -z $line ]] && continue
+    if [[ $line == $'\t'* ]]; then
+      removed+=("${line#$'\t'}")
+    else
+      added+=("$line")
+    fi
+  done <<<"$changes"
+  if ((${#added[@]})); then
+    warn "$label: ${#added[@]} path(s) not in ${base#"$df_dir"/} — decide and add them"
+    printf '       + %s\n' "${added[@]}"
+    etc_base=1
+  fi
+  if ((complete && ${#removed[@]})); then
+    printf '   \033[34m--\033[0m  %s: %s baseline path(s) no longer present\n' \
+      "$label" "${#removed[@]}"
+    ((verbose)) && printf '       - %s\n' "${removed[@]}"
+  fi
+}
+
+# Keep producer exit statuses: process substitutions would hide pacman failures.
+# find may return a partial view of /etc as a normal user; additions are still
+# useful, but absence from that view is not evidence that a file was removed.
+etc_complete=1
+etc_files=$(find /etc -type f 2>/dev/null) || etc_complete=0
+if package_files=$(pacman -Qlq 2>/dev/null) && [[ -n $package_files ]]; then
+  unowned=$(comm -23 <(printf '%s\n' "$etc_files" | sort -u) \
+      <(printf '%s\n' "$package_files" | sort -u) | \
+      awk '!/^\/etc\/ca-certificates\/(extracted|trust-source)\// && NF')
+  if (( ! etc_complete )); then
+    skip "unowned: /etc scan incomplete — checking additions only"; etc_base=1
+  fi
+  check_baseline "unowned" "$df_dir/etc/unowned.txt" "$unowned" "$etc_complete"
+else
+  warn "pacman file inventory failed or was empty — unowned files not compared"; etc_base=1
+fi
+
+# -Qii compares backup-file content, not -Qkk's metadata. Unreadable files
+# remain outside its coverage; do not infer removals from their absence.
+if package_info=$(pacman -Qii 2>/dev/null) && [[ -n $package_info ]]; then
+  modified=$(awk '/ \[modified\]$/ {sub(/^[^\/]*/, ""); sub(/ \[modified\]$/, ""); print}' \
+      <<<"$package_info")
+  check_baseline "modified" "$df_dir/etc/modified.txt" "$modified" 0
+else
+  warn "pacman backup inventory failed or was empty — modified files not compared"; etc_base=1
+fi
+
+((etc_base)) || ok "no new paths in the visible /etc inventories (unreadable files excluded)"
+
+# ------------------------------------------------------ symlink integrity ----
+# User configs installed as links should retain their intended repo targets.
+# Root copies, generated files and optional installs have separate rules. Two
+# common failures:
+#
+#   - A branch switch removes a file the other branch has, leaving a dangling
+#     link. That happened on 2026-09-03: ~/.ssh/config dangled and ssh quietly
+#     fell back to AddKeysToAgent false.
+#   - A program rewrites its config by writing a temp file and renaming it over
+#     the original, which REPLACES the symlink with a regular file. The config
+#     then silently stops being the repo's.
+hdr "Symlink integrity"
+sbad=0
+declare -A dangling_seen=()
+roots=()
+for root in "${XDG_CONFIG_HOME:-$HOME/.config}" ~/.local/bin ~/.local/share/applications ~/.ssh ~/.claude/skills ~/.agents/skills; do
+  [[ -d $root ]] && roots+=("$root")
+done
+# One traversal. The old decorative link count required a second traversal
+# and a readlink subprocess for every link, without adding a correctness check.
+if ((${#roots[@]})); then
+  if dangling=$(find "${roots[@]}" -maxdepth 4 -xtype l 2>/dev/null); then
+    while IFS= read -r link; do
+      [[ -z $link ]] && continue
+      warn "dangling symlink: ${link/#$HOME/\~}"; sbad=1
+      dangling_seen["$link"]=1
+    done <<<"$dangling"
+  else
+    warn "symlink scan incomplete — cannot confirm integrity"; sbad=1
+  fi
+else
+  skip "no installed config directories to scan"; sbad=1
+fi
+for link in ~/.zshrc ~/.zshenv ~/.vimrc ~/.duckdbrc; do
+  if [[ -L $link && ! -e $link ]]; then
+    warn "dangling symlink: ${link/#$HOME/\~}"; sbad=1
+    dangling_seen["$link"]=1
+  fi
+done
+
+# Explicit installation mappings, kept in sync with install.sh. An arbitrary
+# tracked file is not necessarily installed. In particular, never treat docs,
+# generated state, root copies or Spotify's local app.toml as expected links.
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+if tracked=$(git -c core.fsmonitor=false -C "$df_dir" ls-files 2>/dev/null); then
+  while IFS= read -r rel; do
+    [[ -z $rel ]] && continue
+    expected=$df_dir/$rel
+    case $rel in
+      zsh/.zshrc|zsh/.zshenv) livef=$HOME/${rel##*/} ;;
+      duckdb/.duckdbrc) livef=$HOME/.duckdbrc ;;
+      ssh/config) livef=$HOME/.ssh/config ;;
+      nvim) livef=$config_home/nvim ;;
+      vim/vimrc) livef=$config_home/vim; expected=$df_dir/vim ;;
+      bash/*) livef=$HOME/.local/bin/${rel#bash/} ;;
+      applications/*.desktop) livef=$HOME/.local/share/applications/${rel##*/} ;;
+      ptpython/config.py|ipython/profile_default/ipython_config.py|ipython/profile_default/startup/*.py|systemd/user/*.service|systemd/user/*.timer)
+        livef=$HOME/.config/$rel ;;
+      pcmanfm-qt/settings.conf|pcmanfm-qt/bookmarks.xml)
+        livef=$config_home/pcmanfm-qt/default/${rel##*/} ;;
+      foliate/themes/*.json)
+        livef=$config_home/com.github.johnfactotum.Foliate/themes/${rel##*/} ;;
+      containers/*.container|containers/*.network)
+        livef=$config_home/containers/systemd/${rel##*/} ;;
+      xdg/user-dirs.dirs) livef=$config_home/user-dirs.dirs ;;
+      skills/*/SKILL.md)
+        # Linked into both agent trees during Codex coexistence (see
+        # docs/codex-migration.md). Only the Claude side is asserted here --
+        # checking one target per repo file is what this loop is shaped for,
+        # and the ~/.agents/skills root above still catches a dangling link
+        # there. Installing only one half is the failure this pair guards.
+        expected=${expected%/SKILL.md}
+        livef=$HOME/.claude/skills/${expected##*/} ;;
+      firefox/userChrome.css)
+        # Optional: same profile selection as install.sh; do not require Firefox
+        # to have been launched. Ambiguous profiles cannot establish one target.
+        profiles=$HOME/.mozilla/firefox/profiles.ini
+        [[ -e $profiles ]] || continue
+        if ! profile=$(awk -F= '/^\[Install/{in_install=1} in_install && /^Default=/{print $2; in_install=0}' "$profiles" 2>/dev/null); then
+          warn "cannot read Firefox profile mapping — link not checked"; sbad=1
+          continue
+        fi
+        [[ -n $profile ]] || continue
+        if [[ $profile == *$'\n'* ]]; then
+          warn "multiple Firefox default profiles — link mapping needs review"; sbad=1
+          continue
+        fi
+        livef=$HOME/.mozilla/firefox/$profile/chrome/userChrome.css ;;
+      zsh/aliases|zsh/helpers.zsh|zsh/generate-completions.sh|zsh/update-plugins.sh|\
+      zsh/functions/*.zsh|tmux/tmux.conf|tmux/layouts/*.sh|niri/config.kdl|\
+      environment.d/defaults.conf|environment.d/wayland.conf|paru/paru.conf|swaylock/config|\
+      glow/glow.yml|mpv/mpv.conf|yt-dlp/config|cmus/rc|direnv/direnvrc|uv/uv.toml|gh/config.yml|\
+      neocmakelsp/config.toml|mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
+      vifm/colors/zenburn-rich.vifm|tridactyl/tridactylrc|fuzzel/fuzzel.ini|bat/config|\
+      btop/btop.conf|starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
+      zathura/zathurarc|sioyek/prefs_user.config|sioyek/keys_user.config|vimb/config|\
+      clangd/config.yaml|spotify-player/theme.toml|handlr/handlr.toml|ccache/ccache.conf|wob/wob.ini|\
+      latexmk/latexmkrc|mimeapps.list|papis/config|containers/containers.conf|\
+      containers/storage.conf)
+        livef=$config_home/$rel ;;
+      *) continue ;;
+    esac
+    if [[ ! -e $expected ]]; then
+      warn "expected repo source unavailable: $rel"; sbad=1
+    elif [[ -L $livef ]]; then
+      if [[ ! -e $livef ]]; then
+        [[ -n ${dangling_seen[$livef]:-} ]] || warn "dangling symlink: ${livef/#$HOME/\~}"
+        sbad=1
+      elif [[ ! $livef -ef $expected ]]; then
+        warn "wrong symlink target: ${livef/#$HOME/\~} (expected $rel)"; sbad=1
+      fi
+    elif [[ -e $livef ]]; then
+      warn "detached (not a symlink): ${livef/#$HOME/\~}"; sbad=1
+    else
+      warn "missing expected symlink: ${livef/#$HOME/\~}"; sbad=1
+    fi
+  done <<<"$tracked"
+else
+  warn "cannot list tracked files — expected links not checked"; sbad=1
+fi
+
+((sbad)) || ok "expected config links match; no dangling links found in scanned paths"
 
 # ------------------------------------------------------- plugin staleness ----
 hdr "Plugins behind upstream"
 stale=0
-for d in ~/.config/tmux/plugins/*/ ~/.config/zsh/plugins/*/ ~/.vim/plugged/*/; do
-  [[ -d $d/.git ]] || continue
-  name=$(basename "$d")
-  branch=$(git -C "$d" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
-  behind=$(git -C "$d" rev-list --count "HEAD..origin/$branch" 2>/dev/null) || continue
-  if [[ ${behind:-0} -gt 0 ]]; then
-    warn "$name is $behind commits behind origin/$branch"
-    stale=1
+plugin_count=0
+for d in "${XDG_CONFIG_HOME:-$HOME/.config}"/tmux/plugins/*/ "${XDG_CONFIG_HOME:-$HOME/.config}"/zsh/plugins/*/ ~/.vim/plugged/*/; do
+  [[ -e $d/.git ]] || continue
+  name=${d%/}; name=${name##*/}
+  # Use the configured upstream, including non-origin remotes and differently
+  # named branches. No fetch here: sysup owns network updates.
+  if behind=$(git -C "$d" rev-list --count 'HEAD..@{upstream}' 2>/dev/null); then
+    plugin_count=$((plugin_count+1))
+    if ((behind > 0)); then
+      warn "$name is $behind commits behind its upstream"; stale=1
+    fi
+  else
+    skip "$name: upstream unavailable — not compared"; stale=1
   fi
 done
-((stale)) || ok "all plugins current (as of the last fetch — sysup refreshes them)"
+if ((plugin_count == 0)); then
+  skip "no plugin repositories could be compared"
+elif ((stale == 0)); then
+  ok "$plugin_count plugins current (as of the last fetch — sysup refreshes them)"
+fi
 
 # nvim is deliberately NOT in the loop above, and "behind origin" is the wrong
 # question for it. lazy.nvim pins every plugin to nvim/lazy-lock.json, so being
@@ -144,13 +501,12 @@ done
 # missing from sysup until 2026-09-04, which left it untouched from 25 July with
 # nothing to say so.
 #
-# That signal is reliable rather than incidental: lazy's manage/lock.lua opens the
-# lockfile "wb" unconditionally on every sync, with no content comparison, so the
-# mtime always moves when a sync runs. An old lockfile therefore means nvim was
-# not synced -- it cannot mean "synced, but nothing upstream changed".
+# Lazy rewrites the lockfile on sync, so age is a useful offline reminder. It
+# is not proof of a successful sync: checkout, restore, or touch can also change
+# mtime. Do not turn a recent timestamp into a claim that plugins are current.
 lock="$df_dir/nvim/lazy-lock.json"
 if [[ -f $lock ]]; then
-  age=$(( ( $(date +%s) - $(stat -c %Y "$lock") ) / 86400 ))
+  age=$(( ( now - $(stat -c %Y "$lock") ) / 86400 ))
   n=$(grep -c '{ "branch"\|": {' "$lock" 2>/dev/null)
   if ((age > 60)); then
     warn "nvim: lazy-lock.json untouched for ${age} days (${n} plugins pinned)"
@@ -159,66 +515,37 @@ if [[ -f $lock ]]; then
     ok "nvim: ${n} plugins pinned, lockfile ${age} days old"
   fi
 else
-  ok "nvim: no lazy-lock.json — not using lazy.nvim"
-fi
-
-# ------------------------------------------------ tmux rendered behaviour ----
-# Assert on what the bar actually renders, not on which options are set. This is
-# the check that would have caught the clock regression: the option stayed set
-# and stayed read, while the value stopped being used.
-hdr "tmux status bar renders as configured"
-if ! tmux info >/dev/null 2>&1; then
-  ok "no tmux server running — nothing to check"
-else
-  right=$(tmux display-message -p '#{E:status-right}' 2>/dev/null)
-  if [[ $right =~ [0-9]{2}:[0-9]{2}:[0-9]{2} ]]; then
-    warn "clock is rendering seconds — @tmux_power_time_format is being ignored"
-  elif [[ $right =~ [0-9]{2}:[0-9]{2} ]]; then
-    ok "clock renders as HH:MM"
-  else
-    warn "could not find a clock in status-right: ${right:0:60}"
-  fi
-  if [[ $right =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
-    warn "date is rendering ISO — @tmux_power_date_format is being ignored"
-  else
-    ok "date is not rendering ISO"
-  fi
-
-  # bash/tmux-identity blanks tmux-power's left_a when there is nothing
-  # exceptional to say, and tmux-power then omits the block entirely. Assert the
-  # rendered result rather than the option: an upstream change to how an empty
-  # left_a is handled would put "farhad@arch-thinkpad" back on the bar with
-  # nothing failing. Only meaningful when this shell is itself local and the
-  # usual user -- the server's own environment is what decides, and it can differ
-  # from ours, so anything else is skipped rather than guessed at.
-  left=$(tmux display-message -p '#{E:status-left}' 2>/dev/null)
-  if [[ -z ${SSH_CONNECTION:-} && ${USER:-} == "${TMUX_IDENTITY_USER:-farhad}" ]]; then
-    if [[ $left == *"$(hostname)"* ]]; then
-      warn "status-left shows the hostname on a local session — tmux-identity is not taking effect"
-    else
-      ok "identity segment hidden when local (bash/tmux-identity)"
-    fi
-  fi
+  warn "nvim: lazy-lock.json missing — pinned plugins not checked"
 fi
 
 # ------------------------------------------------------ systemd unit files ----
 hdr "systemd user units verify"
-bad=0
-for u in "$df_dir"/systemd/user/*.{service,timer}; do
-  [[ -e $u ]] || continue
-  out=$(systemd-analyze verify "$u" 2>&1 | grep -vE "Unknown key name .*in section 'Quadlet'|^$")
-  if [[ -n $out ]]; then
-    warn "$(basename "$u"): ${out%%$'\n'*}"
-    bad=1
+units=("$df_dir"/systemd/user/*.{service,timer})
+if ((${#units[@]} == 0)); then
+  skip "no user unit files to verify"
+else
+  # Verify together in user-manager scope: resolves sibling units correctly and
+  # avoids initializing the verifier separately for each file. Preserve its status.
+  unit_status=0
+  out=$(systemd-analyze --user verify "${units[@]}" 2>&1) || unit_status=$?
+  if ((unit_status != 0)) || [[ -n $out ]]; then
+    warn "user unit verification needs attention (exit $unit_status)"
+    if ((verbose)); then
+      printf '%s\n' "$out"
+    else
+      printf '       %s\n' "${out%%$'\n'*}"
+      echo "       (re-run with -v for the full report)"
+    fi
+  else
+    ok "${#units[@]} user unit files verify clean"
   fi
-done
-((bad)) || ok "all unit files verify clean"
+fi
 
 # ------------------------------------------------------------------ summary --
 printf '\n'
-if ((issues == 0)); then
+if ((issues == 0 && skipped == 0)); then
   printf '\033[32mNo drift found.\033[0m\n'
 else
-  printf '\033[33m%d item(s) need attention.\033[0m\n' "$issues"
+  printf '\033[33m%d item(s) need attention; %d check(s) incomplete/skipped.\033[0m\n' "$issues" "$skipped"
 fi
 exit 0
