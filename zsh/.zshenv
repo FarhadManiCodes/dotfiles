@@ -31,6 +31,22 @@ export VISUAL="vim"
 # Dotfiles
 export DOTFILES="$HOME/dotfiles"
 
+# Central Python virtualenvs.
+#
+# Here rather than in zsh/functions/virtualenv.zsh, which is where it used to
+# live, because that file is sourced from .zshrc and so only runs in
+# INTERACTIVE shells. The variable was therefore unset for scripts, for
+# non-interactive `zsh -c`, and for any agent or tool invocation -- while
+# CLAUDE.md's environment table listed it beside DOTFILES and XDG_* as though
+# it were always present. It could still look set in those contexts by being
+# inherited from the interactive shell that launched them, which is what made
+# the gap easy to miss.
+#
+# Only the export moved. Creating the directory stays in virtualenv.zsh: this
+# file runs on every single zsh invocation, and doing filesystem work there to
+# support an interactive-only tool would be the wrong trade.
+export CENTRAL_VENVS="$HOME/.central_venvs"
+
 # PATH — typeset -U ensures no duplicates even when sourced multiple times
 typeset -U path
 path=(

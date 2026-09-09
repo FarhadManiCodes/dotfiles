@@ -3,10 +3,15 @@
 # Location: ~/.config/zsh/functions/virtualenv.zsh
 # =============================================================================
 
-export CENTRAL_VENVS="$HOME/.central_venvs"
+# CENTRAL_VENVS is exported from zsh/.zshenv, NOT here -- this file is sourced
+# from .zshrc, so anything defined here exists only in interactive shells. See
+# the comment there for why that mattered.
 export DEFAULT_PYTHON="3.13"
 
-[[ ! -d "$CENTRAL_VENVS" ]] && mkdir -p "$CENTRAL_VENVS"
+# Creating the directory does stay here: .zshenv runs on every zsh invocation
+# and should not touch the filesystem for an interactive-only tool. Guarded on
+# the variable being non-empty so a `zsh -f` (no rcs) cannot mkdir "".
+[[ -n "$CENTRAL_VENVS" && ! -d "$CENTRAL_VENVS" ]] && mkdir -p "$CENTRAL_VENVS"
 
 # Check if uv is installed
 if ! command -v uv >/dev/null 2>&1; then
