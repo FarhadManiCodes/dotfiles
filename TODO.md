@@ -58,9 +58,13 @@ covers a bad kernel or module version. On a laptop that never changes disks the 
 is the likelier one, so `linux-lts 6.18.50` is installed, `PRESETS=('default')` stays at
 upstream's default, and `/boot` went 81 MB → 144 MB of 1.1 GB. The trap is in `etc/README.md`:
 `10_linux` reverse-sorts *filenames*, so LTS silently took the `GRUB_DEFAULT=0` slot until
-`GRUB_TOP_LEVEL` pinned it back. **Still to verify: LTS has never actually been booted** — every
-boot since the install is `7.2.4-arch1-2`, and an untested recovery kernel is not yet a recovery
-kernel). The state of the last tidy was verified
+`GRUB_TOP_LEVEL` pinned it back. **Booted and verified 2026-09-09**: `6.18.50-2-lts` came up with
+zero failed units in either manager, `amdgpu` initialised on DCN 3.1.4, wifi associated, PipeWire
+serving the speaker sink, and no coredumps. Its kernel-warning classes match a 7.2.4 boot — the
+`ath11k` regulatory-info failure is on both, so it is not an LTS regression. Boot timing is not
+comparable, since `GRUB_TIMEOUT=5` and picking the submenu by hand inflate the loader phase, but
+kernel and initrd at 963 ms / 3.176 s are within noise of the 846 ms / 3.218 s in
+`etc/README.md`). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
