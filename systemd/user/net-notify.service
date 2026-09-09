@@ -1,6 +1,7 @@
 [Unit]
 Description=Network connection notifications
 After=graphical-session.target
+OnFailure=notify-failure@%n.service
 
 [Service]
 ExecStart=%h/.local/bin/net-notify

@@ -1,6 +1,7 @@
 [Unit]
 Description=Microphone active notifications
 After=graphical-session.target pipewire-pulse.service
+OnFailure=notify-failure@%n.service
 
 [Service]
 ExecStart=%h/.local/bin/mic-notify
