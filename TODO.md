@@ -303,3 +303,25 @@ its own branch and is a separate workstream — recorded here rather than fixed.
 
 Neither is dangerous; both mean the documented example cannot work as written. The advice in
 that section that *is* right and should stay is "never hardcode credentials".
+
+## 13. `CLAUDE.md` has grown back past the size that justified splitting it
+
+The container split cut it **969 → 849** on 2026-09-05. `agent-skills.md` records both the
+result and the rule that produced it: split by **kind**, not topic — guardrails whose value is
+being seen without being asked for stay, reasoning and evidence go behind a pointer.
+
+It is **995 lines today**: 146 above the post-split figure, and 26 above the 969 that motivated
+splitting in the first place. This audit put most of it back — the two probe rules, the audit
+workflow, the AOCL corrections, the `/etc` paragraphs, the rebuild note.
+
+Every line is loaded into every session whatever the task. The question is not whether the
+content is correct — it is — but whether each block is a **guardrail** or **reasoning**.
+`agent-skills.md` already applied that test once and declined two candidates with measurements:
+`Package notes` has the highest guardrail density in the file (it is a do-not-touch list, and
+moving it behind a pointer is how `aocl-gcc` gets deleted as unused), and `rclone` has no
+directory to live in. The material added since has never been measured that way.
+
+Worth one pass with the same test before it drifts further. Note the constraint that makes this
+non-trivial: `docs/architecture.md` is deliberately a **subset** of `CLAUDE.md`, so anything
+moved has to keep that relationship intact or the two diverge — which has already happened once,
+with the Firefox pref list.
