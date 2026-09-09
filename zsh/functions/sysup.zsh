@@ -1,7 +1,8 @@
 # sysup - full system + tooling update
 #
-# Order: pacman/AUR (paru) -> uv tools -> Claude Code -> editor/shell plugins ->
-# nvim :checkhealth -> container images -> fwupd metadata (if stale) -> config-drift.
+# Order: mirrorlist age -> pacman/AUR (paru) -> uv tools -> Claude Code ->
+# editor/shell plugins -> nvim :checkhealth -> container images -> fwupd metadata
+# (if stale) -> config-drift.
 #
 # No npm step: there are no user npm globals, and system node/npm are pacman
 # packages already covered by paru -Syu above.
@@ -69,6 +70,9 @@ sysup() {
   else
     trap "exec {_lockfd}>&-" EXIT INT TERM
   fi
+
+  echo "==> Mirrorlist age"
+  _sysup_mirrorlist_stale
 
   echo "==> System & AUR (paru -Syu)"
   # Keep a byte boundary, not a timestamp: several ALPM transactions can share
@@ -223,6 +227,57 @@ _sysup_podman_images() {
     echo "   restarting $unit"
     systemctl --user restart "$unit"
   done
+}
+
+# The one check that runs BEFORE the update, because that is the only moment it
+# can change anything. Everything else here reports at the end, config-drift
+# included -- by which point paru has already fetched from whatever mirrors were
+# in the file. Arch delists a mirror that falls out of sync, and the delisted
+# mirror keeps serving a stale database without erroring: this list had grown to
+# 96 entries, 12 of them hosts Arch had already retired, before the 2026-09-04
+# re-rank.
+#
+# Reports only, unlike the fwupd step below. Re-ranking fetches over the network,
+# picks a country, and writes /etc as root. Not something to do unattended in the
+# middle of an update -- and the obvious one-liner for it is a trap: `rankmirrors
+# ... | sudo tee /etc/pacman.d/mirrorlist` truncates the target when the pipeline
+# is BUILT, before curl or rankmirrors has produced a byte, so a failed fetch
+# leaves an empty mirrorlist and pacman with nowhere to go (verified on a
+# scratch file: a failing producer left it at 0 bytes). Hence the printed form
+# stages to /tmp, checks the count, and keeps a .bak. Nothing else reads
+# /etc/pacman.d/ by glob -- pacman.conf Includes the literal path -- so the .bak
+# sitting beside it is inert.
+#
+# Age, not correctness. A recent mtime only says the file was rewritten, by
+# rankmirrors or by merging pacman-mirrorlist's .pacnew; it is no evidence that
+# any mirror in it is still in sync -- that question needs the network. 90 days
+# matches the fwupd window below, the other thing here that goes stale on a
+# season rather than on an update.
+_sysup_mirrorlist_stale() {
+  local ml=/etc/pacman.d/mirrorlist
+  if [[ ! -r $ml ]]; then
+    echo "   $ml unreadable — age not checked"
+    return 0
+  fi
+
+  local servers age
+  servers=$(grep -c '^[[:space:]]*Server[[:space:]]*=' "$ml")
+  age=$(( ( $(date +%s) - $(stat -Lc %Y "$ml") ) / 86400 ))
+
+  if (( servers == 0 )); then
+    echo "   ⚠ no active Server line — pacman has no mirror to use"
+  elif (( age > 90 )); then
+    echo "   ⚠ last written ${age} days ago (${servers} servers) — re-rank before updating:"
+    echo "        curl -fsS 'https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=4&use_mirror_status=on' \\"
+    echo "          | sed 's/^#Server/Server/' > /tmp/ml"
+    echo "        rankmirrors -n 10 /tmp/ml > /tmp/ml.ranked && grep -c '^Server' /tmp/ml.ranked"
+    echo "        sudo cp $ml $ml.bak && sudo install -m644 /tmp/ml.ranked $ml"
+    echo "     put the old list back if the new one is wrong:"
+    echo "        sudo mv $ml.bak $ml"
+  else
+    echo "   ${servers} servers, last written ${age} days ago"
+  fi
+  return 0
 }
 
 # fwupd's lvfs metadata is timestamped by its own cache file; refresh only if

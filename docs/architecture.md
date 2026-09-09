@@ -152,11 +152,27 @@ that produced `etc/`.
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep)
-  - `sysup.zsh` — full system update (paru → uv → Claude Code → plugins → nvim
-    `:checkhealth` → images → fwupd → `config-drift`)
+  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → Claude Code →
+    plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
+
+### Mirrorlist age — the one check that runs before the update
+
+`_sysup_mirrorlist_stale` (2026-09-09) warns when `/etc/pacman.d/mirrorlist` has gone more
+than 90 days without being rewritten — the same window the fwupd metadata step uses, and the
+same "goes stale on a season, not on an update" shape. It deliberately runs **before**
+`paru -Syu` rather than joining `config-drift` at the end: by then the update has already
+fetched from whatever mirrors the file holds, so the warning could not change anything.
+
+It reports and never acts, unlike the fwupd step. Re-ranking needs the network, picks a
+country and writes `/etc` as root, and the obvious one-liner for it destroys a working
+mirrorlist on a failed fetch — the procedure and that trap are in `docs/system-notes.md`.
+
+Age is not correctness. A recent mtime says only that the file was rewritten, by
+`rankmirrors` or by merging `pacman-mirrorlist`'s `.pacnew`; whether the mirrors in it are
+still in sync is a network question neither this step nor `config-drift` asks.
 
 ### `config-drift` — catching config upstream has moved out from under
 

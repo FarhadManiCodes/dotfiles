@@ -65,18 +65,22 @@ in a 1.1 GB `/boot` currently at 8%, and Arch turned it off by default for a rea
 ## 3. Re-rank the pacman mirrorlist every few months
 
 Regenerated 2026-09-04 with `use_mirror_status=on` through `rankmirrors -n 10`; 10 https servers
-active. Nothing automates this and `config-drift` cannot see it — mirror staleness is not a
-`.pacnew`, and detecting it needs network access.
-
-Arch delists mirrors that fall out of sync, and a delisted mirror serves a stale database
-silently. The previous list had accumulated 96 entries with **12 hosts Arch had already
+active. Arch delists mirrors that fall out of sync, and a delisted mirror serves a stale database
+silently — the previous list had accumulated 96 entries with **12 hosts Arch had already
 retired**.
 
-```bash
-curl -s "https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=4&use_mirror_status=on" \
-  | sed 's/^#Server/Server/' > /tmp/ml
-rankmirrors -n 10 /tmp/ml | sudo tee /etc/pacman.d/mirrorlist >/dev/null
-```
+**`sysup` has warned since 2026-09-09** when the file has gone 90 days without being rewritten,
+in a step that runs *before* `paru -Syu` so the warning still has time to matter. So this surfaces
+on its own from early December rather than resting on my memory.
+
+The earlier note here — "`config-drift` cannot see it, detecting it needs network access" — was
+right about the question that matters and wrong about the reminder: whether a listed mirror is
+still in sync needs the network, but "you have not re-ranked in three months" is a `stat`. What
+`config-drift` could not do is run *early enough*; it reports after the update.
+
+Still mine to do, because it fetches over the network, picks a country and writes `/etc` as root.
+The procedure, the recovery path if a re-rank goes wrong, and the `sudo tee` trap that would empty
+a working mirrorlist are in `docs/system-notes.md` under "Re-rank the pacman mirrorlist".
 
 ## 5. Disk encryption — deferred until a rebuild
 
