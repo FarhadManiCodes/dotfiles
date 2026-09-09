@@ -14,6 +14,19 @@
 [push]
     autoSetupRemote = true
 
+    # Refuse to push a superproject whose submodule pointer names a commit that
+    # is not on the submodule's own remote. Git does not check this by default,
+    # so `dotfiles` can pin `nvim` at a commit only this machine has -- the
+    # pointer then resolves nowhere for anyone else, a fresh clone included, and
+    # nothing says so at push time. Committing in one repo and not the other is
+    # the standing trap here; this makes it fail loudly instead.
+    # `check` aborts rather than pushing for you: push the submodule first, or
+    # `git push --recurse-submodules=on-demand` for a single push.
+    # It only inspects submodules whose pointer CHANGES in the pushed commits,
+    # so it guards the pointer bump and nothing else -- it will not notice a
+    # remote already broken by an earlier out-of-order push.
+    recurseSubmodules = check
+
 [commit]
     # Put the full diff in the message editor as a comment, so the message is
     # written while looking at the change rather than from memory.

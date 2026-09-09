@@ -278,6 +278,18 @@ straight to `/dev/sda`); `vifm-media` and `lsblk` both handle it.
 - **Config**: `git/config` — delta pager, histogram diff, nvimdiff mergetool, aliases
 - **Global ignore**: `git/ignore`
 - **User identity**: `~/.config/git/config.local` (not tracked)
+- **`push.recurseSubmodules = check`** (added 2026-09-09) — aborts a push whose submodule
+  pointer names a commit absent from the submodule's own remote. Git does not check this by
+  default, and the failure is silent: the superproject pushes fine and the pointer resolves
+  nowhere for anyone else. It had already happened here — `9eb7e47` reached the dotfiles remote
+  pinning `nvim` at `b23059e`, which was not on the nvim remote.
+  **Know its blind spot — it is narrower than it sounds.** `check` only inspects submodules
+  whose pointer *changes* in the commits being pushed. A push whose commits leave the gitlink
+  untouched is not checked at all, even when the pointer on the remote is already broken —
+  measured 2026-09-09: with `nvim` at an unpushed `b23059e`, `git push --dry-run` of a commit
+  that did not touch the gitlink exited 0. So this guards the pointer-bump push and nothing
+  else; it cannot detect an already-broken remote. For that, fetch and compare
+  `git -C nvim log origin/main..main`.
 
 ### SSH — passphrase-protected key, agent with a lifetime
 
