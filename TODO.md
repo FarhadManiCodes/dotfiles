@@ -12,7 +12,9 @@ leaves its number empty rather than shifting the rest. Closed on 2026-09-08 and 
 `etc/README.md`), §7 (the doc-duplication sweep) and §8 (the `duckdb/.duckdbrc` rewrite, whose
 every removal is explained inline in that file). Closed on 2026-09-09: §9 (`jupytext` not
 installed — the finding compared against a superseded uv-tool plan; per-venv is the accepted
-setup and the absence is expected, see `revisit.md`). The state of the last tidy was verified
+setup and the absence is expected, see `revisit.md`) and §11 (the fsmonitor daemons — its
+premise was measured wrong and then fixed by scoping `core.fsmonitor` to `~/dotfiles` and
+`~/projects`; evidence in `git show 14cc481`, outcome in `docs/architecture.md`). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
@@ -233,42 +235,6 @@ Two corrections to make when writing ours, both verified 2026-09-08:
 Open questions for that session: which agent(s) and whether the choice is an argument or fixed;
 whether it replaces or sits beside `Prefix W`; whether the `tdlm` per-subdirectory and `tsl`
 swarm shapes are wanted at all, or just the single layout.
-
-## 11. 61 `git fsmonitor--daemon` processes, 319 MB (found 2026-09-05)
-
-Not an Omarchy finding — noticed while inspecting the cgroup tree for the oomd research
-(`docs/omarchy-comparison.md` finding 20). Rechecked 2026-09-08: **61 daemons, 319 MB**,
-essentially unchanged from the original 62 / 326 MB.
-
-They live in `app-niri-foot-*.scope`, which is most of what makes that scope the largest cgroup
-under `app.slice` — and, per finding 20, the cgroup an oomd kill would take whole.
-
-One daemon per repository is the design; 61 suggests they are accumulating rather than being
-reused or reaped.
-
-Note `pgrep -c fsmonitor` reports **0** — the daemons' `comm` is `git`, not `fsmonitor`, so the
-obvious check misses them entirely. Count them with:
-
-```bash
-pgrep -af 'fsmonitor' | wc -l
-ps -eo comm=,rss= | awk '$1=="git"{n++; m+=$2} END{print n, m/1024 "MB"}'
-```
-
-Related history: `core.fsmonitor` and the cold-spawn storm are documented in the
-`project_startup_git_timeout_fix` note and `git/config`. That fix was about *startup latency*,
-not daemon lifetime, so this is a different question.
-
-Open: count distinct repos against daemons, check `git fsmonitor--daemon status` per repo,
-decide whether an idle-timeout or a periodic reap is wanted.
-
-**First probe, 2026-09-08 (git 2.55.0) — inconclusive, and recorded so it is not repeated.**
-Every daemon has the identical command line (`fsmonitor--daemon run --detach --ipc-threads=8`),
-and 61 of the 63 have `cwd = /home/farhad` with 2 in `dotfiles`. **That does not identify which
-repository each serves** — a detached daemon inherits the cwd of whatever started it, so this
-says nothing about how many repos are actually involved. Do not read it as "61 daemons for one
-repo". The next probe has to bind daemon to worktree by another route: their open file
-descriptors (`ls -l /proc/<pid>/fd`), or `git fsmonitor--daemon status` run from each candidate
-repo.
 
 ## 12. Two stale claims in the nvim submodule's database docs (found 2026-09-06)
 

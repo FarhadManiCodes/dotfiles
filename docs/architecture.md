@@ -307,6 +307,29 @@ straight to `/dev/sda`); `vifm-media` and `lsblk` both handle it.
   else; it cannot detect an already-broken remote. For that, fetch and compare
   `git -C nvim log origin/main..main`.
 
+**`core.fsmonitor` is scoped, not global** (2026-09-09). It is `false` in `[core]`, switched
+back on by two `includeIf "gitdir:…"` blocks covering `~/dotfiles/` and `~/projects/`. The
+daemon it starts watches a worktree so `git status` can ask it what changed instead of
+scanning, which pays on very large checkouts. It was global until this change, and measured
+here it bought nothing: 20-run averages of `git status`, warm cache, were 5 ms with it and 5 ms
+without on both `dotfiles` (235 tracked files) and the largest repo present (1770).
+
+What it cost was 61 daemons holding 318 MB — one per repository ever touched, of which **59
+were plugin clones** (37 nvim lazy, 14 vim plugged, 5 tmux, 3 zsh) that nothing ever edits.
+Git has no idle timeout: `git-fsmonitor--daemon(1)` documents only an explicit `stop` and the
+worktree going away, so a single sweep across a plugin tree — `bash/config-drift`'s
+plugin-staleness loop is exactly that — left one daemon per plugin until reboot.
+
+After scoping: 2 daemons, 11 MB, and `bash/config-drift` spawns **zero** where it used to
+spawn 22. A gitdir pattern ending in `/` covers everything below it including submodules,
+verified for `dotfiles/nvim`, whose gitdir is `dotfiles/.git/modules/nvim`. The included file
+is `git/fsmonitor-on`, symlinked by `install.sh` like the other two git files.
+
+Opt-in rather than opt-out on purpose: a repo cloned anywhere else gets no daemon. The
+measurements are in `git show 14cc481`; what they do **not** cover is the boot-cold case, which
+is what the git prewarm at `niri/config.kdl:81-83` addresses — that prewarm names "fsmonitor
+daemon spawn" as half its purpose and is worth re-checking against a boot now.
+
 ### SSH — passphrase-protected key, agent with a lifetime
 
 One ED25519 key (`~/.ssh/id_ed25519`), used only for GitHub. It is **passphrase-protected**

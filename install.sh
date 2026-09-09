@@ -227,6 +227,7 @@ echo "Setting up Git..."
 mkdir -p "${XDG_CONFIG_HOME}/git"
 ln -sf "${DOTFILES}/git/config" "${XDG_CONFIG_HOME}/git/config"
 ln -sf "${DOTFILES}/git/ignore" "${XDG_CONFIG_HOME}/git/ignore"
+ln -sf "${DOTFILES}/git/fsmonitor-on" "${XDG_CONFIG_HOME}/git/fsmonitor-on"
 if [[ ! -f "${XDG_CONFIG_HOME}/git/config.local" ]]; then
     cat > "${XDG_CONFIG_HOME}/git/config.local" << 'GITLOCAL'
 [user]
