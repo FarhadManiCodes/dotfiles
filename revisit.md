@@ -542,3 +542,48 @@ machine in". Wrong: `ly` ships `ly@.service`, a **template**, and the running in
 `ly@tty2.service`. The same shape as the typo'd `journalctl -u` already in `docs/system-notes.md` — a
 missing unit and a wrongly-named one are byte-identical in the output. Check
 `systemctl list-unit-files 'name*'` before concluding a unit does not exist.
+
+---
+
+## Repo-wide documentation sweep — ACCEPTED (the reference docs are not bloated)
+
+Run 2026-09-09 across all 28 markdown files outside `nvim/` (5,508 lines), after the
+always-loaded agent files were collapsed. Recorded because the result is a **negative** one,
+and without it the same three probes get re-run and re-derive the same nothing.
+
+**Cross-file duplication — clean.** Comparing substantive prose lines (>45 chars, non-list)
+between every pair of files, the total overlap is **5 lines** (`docs/architecture.md` ↔
+`docs/system-notes.md`, both extraction headers) plus 3 between `TODO.md` and
+`skills/local-postgres/SKILL.md`, which is the `psql` example item 12 discusses.
+
+```bash
+# substantive-line overlap between every pair of docs
+python3 -c "$(cat <<'PY'
+import glob,itertools,re
+f=[x for x in glob.glob('**/*.md',recursive=True) if not x.startswith('nvim/')]
+n=lambda p:{re.sub(r'\s+',' ',l).strip() for l in open(p) if len(l)>45 and not l.lstrip().startswith(('|','#','-','*','`'))}
+S={x:n(x) for x in f}
+[print(len(S[a]&S[b]),a,b) for a,b in itertools.combinations(f,2) if len(S[a]&S[b])>=3]
+PY
+)"
+```
+
+**Path citations — clean.** Every repo-relative path in backticks, resolved against the repo
+root *and* the citing file's own directory. The 78 that do not resolve are all legitimate:
+Omarchy-repo paths (`install/`, `default/`, `themed/`), system paths (`mkinitcpio.conf`,
+`logind.conf`), deliberately-deleted files (`fix-wifi.sh`, `zsh/archive/`), untracked-by-design
+files (`rclone.conf`, `git/config.local`), and runtime artifacts (`chunks.json`,
+`.venv/bin/python`). **The probe is not blind** — the same check found nine genuinely broken
+`CLAUDE.md` pointers the day before, which were fixed.
+
+**Claims — verified by sample.** `go` absent, `rust`/`qpdf`/`shellcheck-bin` present, no
+`blas` provider and no `/usr/lib/libblas.so`, `zram0` exactly 20,955,443,200 bytes, 7 fstab
+subvolumes, 37 lazy plugins, btop pinned to `tokyo-night`, `postgresql-libs` explicitly
+installed, no `userContent.css`. All hold. One stale number found and fixed:
+`agent-skills.md` said `bash/` has 35 scripts; it has 38.
+
+**What this does not cover.** The claim check is a *sample*, not exhaustive — measurements
+with dates (benchmark figures, journal counts, package sizes) were not re-run, and several
+cannot be without root or without the original journal window. `nvim/` was excluded and is a
+separate pass. The bloat that was found was concentrated in one closed document
+(`agent-skills.md`, 965 → 216) rather than spread across the references.
