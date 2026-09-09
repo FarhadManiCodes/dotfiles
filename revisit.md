@@ -506,10 +506,6 @@ Where they differ on the frames:
   `show-on-all-workspaces` and `follow-workspace-switch` are all **rejected**. Control:
   the unmodified config validates, and `block-out-from "screen-capture"` is **accepted** — so
   the probe would have found a pin key had one existed.
-- **The cosmetic half does work** and is recorded in `TODO.md` if it is ever wanted:
-  `default-column-width`, `default-window-height` and `default-floating-position` validate
-  together. They would fix "the window is wherever niri put it", which is not a complaint that
-  has been made.
 - **Declined; nothing changed.** Revisit if niri gains a pin/sticky window rule, or if PiP
   starts landing somewhere annoying.
 
