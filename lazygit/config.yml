@@ -91,14 +91,19 @@ customCommands:
           - name: 'repro'
             description: 'Reproduce DVC pipeline'
             value: 'dvc repro'
-    command: '{{.Form.DvcCommand}}'
+    # dvc is not installed. Guarded the way the dvc-* git aliases already are, so
+    # this says so instead of failing with a bare "command not found".
+    command: 'sh -c "command -v dvc >/dev/null 2>&1 || { echo \"dvc is not installed\"; exit 1; }; {{.Form.DvcCommand}}"'
   # 2. Notebook Cleaning (Manual Trigger)
-  # Note: Your.gitconfig "nbstripout" filter handles this automatically now,
-  # but this is useful if you want to explicitly clean files on disk.
+  # jupyter is not installed globally -- it is per-venv here (see the
+  # project_jupyter_per_venv note), so this only works with a venv active that
+  # has it. Guarded rather than removed for that reason. The nbstripout git
+  # filter mentioned below is likewise not installed; `git clean-notebooks`
+  # guards itself the same way.
   - key: 'N'
     context: 'global'
     description: 'Clean notebook outputs (nbconvert)'
-    command: 'find . -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \;'
+    command: 'sh -c "command -v jupyter >/dev/null 2>&1 || { echo \"jupyter is not on PATH -- activate a venv that has it\"; exit 1; }; find . -name \"*.ipynb\" -exec jupyter nbconvert --clear-output --inplace {} \;"'
     loadingText: 'Cleaning notebooks...'
     confirm: true
   # 3. Experiment Branching
@@ -106,19 +111,30 @@ customCommands:
   - key: 'X'
     context: 'global'
     description: 'Create experiment branch'
+    # `key` is REQUIRED on a prompt -- it is the name {{.Form.X}} refers to
+    # (lazygit's Custom_Command_Keybindings.md:104 marks it required). Without it
+    # the interpolation was empty and every branch came out as
+    # experiment/<date>- with nothing after the dash. Fixed 2026-09-06.
     prompts:
       - type: 'input'
+        key: 'ExperimentName'
         title: 'Experiment Name (auto-prefixed with date)'
         initialValue: 'exp-'
     command: 'git checkout -b experiment/$(date +%Y%m%d)-{{.Form.ExperimentName}}'
     loadingText: 'Creating experiment branch...'
-  # 4. Interactive Commit (Legacy Support)
-  # WARNING: Ensure $DOTFILES/zsh/productivity/git-enhancements.sh exists on your new Arch system
-  # or this will fail.
+  # 4. Interactive Commit
+  # The path was $DOTFILES/zsh/productivity/git-enhancements.sh, which has never
+  # existed here -- source failed, && short-circuited, and pressing C did nothing
+  # at all. The config's own WARNING comment predicted exactly this and was left
+  # in place instead of being checked. Fixed 2026-09-06; gci is defined at
+  # zsh/functions/git-enhancements.zsh:8.
+  #
+  # `zsh -c` sources .zshenv even non-interactively, which is where DOTFILES is
+  # exported, so the variable resolves without lazygit passing anything in.
   - key: 'C'
     context: 'files'
     description: 'Interactive commit with DS/MLOps types'
-    command: 'zsh -c "source $DOTFILES/zsh/productivity/git-enhancements.sh && gci"'
+    command: 'zsh -c "source $DOTFILES/zsh/functions/git-enhancements.zsh && gci"'
     loadingText: 'Opening interactive commit...'
     output: terminal
 keybinding:

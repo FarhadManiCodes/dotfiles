@@ -48,6 +48,7 @@ If a site looks broken (missing content, broken layout):
 | `network.prefetch-next` | false | Privacy |
 | `network.http.speculative-parallel-limit` | 0 | Privacy |
 | `dom.screenwakelock.enabled` | false | Prevent Firefox from requesting suspend inhibition via xdg-portal — swayidle timers are the sole authority for suspend |
+| `network.manage-offline-status` | false | Stop Firefox polling WiFi state via deprecated WEXT ioctls (kernel warns "uses wireless extensions"). Its Socket Thread made these calls; iwd + the status bar handle network state instead |
 
 *May affect video calls — see above
 

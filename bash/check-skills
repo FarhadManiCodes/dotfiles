@@ -1,0 +1,131 @@
+#!/bin/bash
+# Assert what every SKILL.md in skills/ must satisfy.
+#
+# These checks exist because prose cannot be trusted to stay consistent with
+# itself. A skill is 100% text -- it has no code to contradict -- so the
+# tmux-theme failure mode (a header stating the opposite of its own behaviour)
+# cannot even be *detected* there. What can be checked mechanically is that the
+# skill points at things which exist, and that its frontmatter is the shape
+# Claude Code will actually load.
+#
+# Written after the same checks had been retyped inline five times in one
+# session, slightly differently each time. The fifth run caught a real defect
+# (a description reading "Use before..." rather than "Use when...") that four
+# hand-reviews had missed -- which is the argument for it being code.
+#
+# Read-only. No dependencies beyond coreutils. Exit 0 = all pass.
+
+set -uo pipefail
+df_dir=${DOTFILES:-$HOME/dotfiles}
+skills_dir="$df_dir/skills"
+fail=0
+checked=0
+
+red()  { printf '   \033[31mFAIL\033[0m  %s\n' "$1"; fail=$((fail+1)); }
+green(){ printf '   \033[32mok\033[0m    %s\n' "$1"; }
+
+[[ -d $skills_dir ]] || { echo "no skills/ directory at $skills_dir"; exit 0; }
+
+for dir in "$skills_dir"/*/; do
+  [[ -d $dir ]] || continue
+  name=$(basename "${dir%/}")
+  md="$dir/SKILL.md"
+  printf '\n\033[1m== %s ==\033[0m\n' "$name"
+
+  if [[ ! -f $md ]]; then red "no SKILL.md"; continue; fi
+
+  # --- frontmatter must be the first thing in the file ---------------------
+  if [[ $(head -1 "$md") != "---" ]]; then
+    red "file does not open with a --- frontmatter fence"; continue
+  fi
+  fm_end=$(awk 'NR>1 && /^---$/{print NR; exit}' "$md")
+  if [[ -z $fm_end ]]; then red "frontmatter fence is never closed"; continue; fi
+  fm=$(sed -n "2,$((fm_end-1))p" "$md")
+
+  # --- name ----------------------------------------------------------------
+  fm_name=$(sed -n 's/^name:[[:space:]]*//p' <<<"$fm" | head -1)
+  checked=$((checked+1))
+  if [[ $fm_name != "$name" ]]; then
+    red "name: '$fm_name' does not match directory '$name'"
+  elif ! [[ $fm_name =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    red "name '$fm_name' is not kebab-case"
+  elif (( ${#fm_name} > 64 )); then
+    # Spec limit: name is at most 64 characters.
+    red "name is ${#fm_name} chars, over the 64-character limit"
+  elif [[ $fm_name == *claude* || $fm_name == *anthropic* ]]; then
+    # Reserved by the Agent Skills spec.
+    red "name '$fm_name' may not contain 'claude' or 'anthropic'"
+  else
+    green "name"
+  fi
+
+  # --- description ---------------------------------------------------------
+  # Folded block: every line after `description: >` that is indented.
+  desc=$(awk '/^description:[[:space:]]*>/{f=1;next} f&&/^[[:space:]]+/{print} f&&!/^[[:space:]]/{exit}' \
+           <<<"$fm" | sed 's/^[[:space:]]*//' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+  checked=$((checked+1))
+  if [[ -z $desc ]]; then
+    red "no folded 'description: >' block found"
+  elif (( ${#desc} > 1024 )); then
+    red "description is ${#desc} chars, over the 1024 limit"
+  elif [[ $desc == *"<"* || $desc == *">"* ]]; then
+    # Angle brackets are rejected by the spec.
+    red "description contains an angle bracket"
+  elif [[ $desc != *"Use when"* ]]; then
+    # The description is a routing rule, not a summary: it has to say WHEN.
+    red "description never says 'Use when' — it must state the trigger, not just the topic"
+  else
+    green "description (${#desc} chars)"
+  fi
+
+  # --- body length ---------------------------------------------------------
+  # Anthropic's authoring guidance: keep the SKILL.md body under 500 lines, and
+  # split into references/ beyond that. This is a soft ceiling, so it is
+  # reported rather than failed -- but it should never be hit silently.
+  body_lines=$(( $(wc -l < "$md") - fm_end ))
+  checked=$((checked+1))
+  if (( body_lines > 500 )); then
+    red "body is ${body_lines} lines, over the 500-line guidance — split into references/"
+  else
+    green "body ${body_lines} lines"
+  fi
+
+  # --- every referenced file must exist ------------------------------------
+  # Catches the whole rename-and-delete class: a skill routing to a sibling
+  # that has been moved away is silently useless.
+  refs=$(grep -oE 'references/[A-Za-z0-9._-]+\.md' "$md" | sort -u)
+  if [[ -n $refs ]]; then
+    missing=0
+    while read -r r; do
+      [[ -z $r ]] && continue
+      checked=$((checked+1))
+      [[ -f "$dir/$r" ]] || { red "routes to $r, which does not exist"; missing=1; }
+    done <<<"$refs"
+    ((missing)) || green "$(grep -c . <<<"$refs") reference file(s) exist"
+  fi
+
+  # --- every bash/ tool it names must exist and be runnable ----------------
+  tools=$(grep -oE 'bash/[a-z0-9-]+' "$md" | sed 's|bash/||' | sort -u)
+  if [[ -n $tools ]]; then
+    bad=0
+    while read -r t; do
+      [[ -z $t ]] && continue
+      checked=$((checked+1))
+      if [[ ! -f "$df_dir/bash/$t" ]]; then
+        red "names bash/$t, which does not exist"; bad=1
+      elif [[ ! -x "$df_dir/bash/$t" ]]; then
+        # An unexecutable helper is present, current, and dead.
+        red "bash/$t is not executable"; bad=1
+      fi
+    done <<<"$tools"
+    ((bad)) || green "$(grep -c . <<<"$tools") bash/ tool(s) present and executable"
+  fi
+done
+
+printf '\n'
+if ((fail == 0)); then
+  printf '\033[32m%d assertions passed.\033[0m\n' "$checked"
+else
+  printf '\033[31m%d of %d assertions failed.\033[0m\n' "$fail" "$checked"
+fi
+exit $(( fail > 0 ))

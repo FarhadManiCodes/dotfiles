@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+#
+# Screen-region OCR via Gemini. Keep it stdlib-only: this is one HTTP POST with
+# a base64 image, and the SDK it used to need cost 109 MB and 265 ms of startup
+# for streaming and auth machinery none of this uses. History in revisit.md.
+
+import base64
+import json
+import os
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+MODEL = "gemini-2.5-flash"
+TEMPERATURE = 0.0
+ENDPOINT = ("https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{MODEL}:generateContent")
+TIMEOUT = 120
+SYNC_HINT = "string:x-canonical-private-synchronous:ocr"
+
+
+def notify(title, body, urgency=None, timeout=None):
+    """Best-effort desktop notification.
+
+    Never raises. This runs from a niri keybinding with no terminal attached,
+    so if notify-send is missing or fails, a check_call here would replace the
+    error being reported with a traceback nobody can see. stderr is the
+    fallback -- useless from a keybinding, but visible when run by hand.
+    """
+    cmd = ["notify-send", "-h", SYNC_HINT]
+    if urgency:
+        cmd += ["-u", urgency]
+    if timeout:
+        cmd += ["-t", str(timeout)]
+    try:
+        subprocess.run(cmd + [title, body], check=False)
+    except OSError:
+        print(f"{title}: {body}", file=sys.stderr)
+
+
+def fail(message):
+    notify("OCR Failed", message, urgency="critical")
+    sys.exit(1)
+
+
+def api_key():
+    """Searched in order, so the key need not be paper-refinery's.
+
+    Deliberately NOT copied into a second file: these keys exist only on this
+    disk and are covered by no backup (see CLAUDE.md), so a duplicate is one
+    more thing to rotate and one more thing to go stale.
+    """
+    key = os.environ.get("GOOGLE_API_KEY")
+    if key:
+        return key
+    searched = []
+    for env_file in (Path.home() / ".config/capture-ocr/google.env",
+                     Path.home() / ".config/paper-refinery/secrets/google.env"):
+        searched.append(env_file)
+        if not env_file.exists():
+            continue
+        for line in env_file.read_text().splitlines():
+            if line.startswith("GOOGLE_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    fail("GOOGLE_API_KEY not set and not in " +
+         " or ".join(str(f).replace(str(Path.home()), "~") for f in searched))
+
+
+def capture():
+    """Select a region and grab it. Returns PNG bytes, or exits.
+
+    slurp and grim are kept in separate try blocks on purpose: a non-zero slurp
+    is the user pressing ESC and must stay silent, while a non-zero grim is a
+    real failure and must say so. Collapsing them into one handler makes a
+    broken capture indistinguishable from a deliberate cancel.
+    """
+    try:
+        geom = subprocess.check_output(["slurp"], text=True).strip()
+    except subprocess.CalledProcessError:
+        sys.exit(0)  # ESC / no selection -- deliberate cancel
+    except OSError:
+        fail("slurp is not installed.")
+
+    try:
+        return subprocess.check_output(["grim", "-g", geom, "-"])
+    except subprocess.CalledProcessError as e:
+        fail(f"grim could not capture region '{geom}' (exit {e.returncode}).")
+    except OSError:
+        fail("grim is not installed.")
+
+
+PROMPT = """You are an expert academic transcription and translation engine. Your task is to process the provided image snippet from an academic paper.
+
+Follow these strict rules:
+1. **Zero Chatter:** Output ONLY the final processed text. Do not wrap the entire output in markdown code blocks. Do not include any conversational filler, greetings, or explanations.
+2. **Language & Translation:** If the text is in English, transcribe it exactly as written. If the text is in German, translate it accurately and fluently into academic English in the same pass.
+3. **Mathematics (LaTeX):** Extract all mathematical symbols, matrices, and formulas into strict LaTeX. 
+   - Use `$` for inline equations (e.g., $E=mc^2$).
+   - Use `$$` for standalone block equations. 
+   - Do not add arbitrary newlines immediately inside the `$$` delimiters.
+4. **Structure:** Preserve the original paragraph breaks, bullet points, and general formatting structure seen in the image."""
+
+
+def transcribe(img_bytes, key):
+    """One POST. Returns (text, truncated)."""
+    body = json.dumps({
+        "contents": [{
+            "role": "user",
+            "parts": [
+                # grim writes png by default (grim -h); keep these in step.
+                {"inline_data": {"mime_type": "image/png",
+                                 "data": base64.b64encode(img_bytes).decode()}},
+                {"text": PROMPT},
+            ],
+        }],
+        "generationConfig": {"temperature": TEMPERATURE},
+    }).encode()
+
+    req = urllib.request.Request(
+        ENDPOINT, data=body,
+        headers={"Content-Type": "application/json",
+                 # Header, not ?key= -- a query string lands in logs and proxies.
+                 "x-goog-api-key": key})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
+            payload = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = json.loads(e.read()).get("error", {}).get("message", "")
+        except Exception:
+            pass
+        fail(f"Gemini returned {e.code}. {detail}".strip())
+    except urllib.error.URLError as e:
+        fail(f"Could not reach Gemini: {e.reason}")
+    except (TimeoutError, OSError) as e:
+        fail(f"Request failed: {e}")
+
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        # A prompt-level block returns no candidate at all.
+        blocked = (payload.get("promptFeedback") or {}).get("blockReason")
+        fail(f"No response from Gemini{f' ({blocked})' if blocked else ''}.")
+    cand = candidates[0]
+    parts = (cand.get("content") or {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    # Thinking tokens count against the output limit, so a large capture can
+    # stop mid-sentence in an otherwise successful-looking response. Measured
+    # 2026-09-08: a 256-token limit returned 39 characters of a 3316-character
+    # page, and without this check those 39 characters were copied and
+    # announced as "OCR Copied". Truncation must never look like success.
+    return text, cand.get("finishReason") == "MAX_TOKENS"
+
+
+def main():
+    key = api_key()
+    img_bytes = capture()
+    notify("OCR", "Extracting and translating text via Gemini...", timeout=3000)
+
+    text, truncated = transcribe(img_bytes, key)
+
+    if not text:
+        if truncated:
+            fail("Hit the output token limit before producing any text.")
+        notify("OCR", "No text found")
+        sys.exit(0)
+
+    try:
+        subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True)
+    except (subprocess.CalledProcessError, OSError) as e:
+        fail(f"Could not copy to clipboard: {e}")
+
+    notify_text = text if len(text) < 150 else text[:147] + "..."
+    if truncated:
+        notify("OCR Copied - TRUNCATED", f"Hit the output token limit; text is "
+               f"incomplete. Capture a smaller region.\n{notify_text}",
+               urgency="critical")
+    else:
+        notify("OCR Copied", notify_text)
+
+
+if __name__ == "__main__":
+    main()

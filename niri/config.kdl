@@ -113,14 +113,14 @@ window-rule {
     open-floating true
 }
 
-// Floating scratchpad terminal (Mod+Grave)
+// Floating TUIs that need no geometry of their own: the scratchpad terminal
+// (Mod+Grave) and the yts fzf picker. One rule with several `match` lines rather
+// than one rule each -- the same form the screen-capture rule below uses. Keeping
+// distinct app-ids (rather than a shared "TUI.float" class, which is how Omarchy
+// does this) means `niri msg windows` still names the program and a later
+// per-app rule has something to match.
 window-rule {
     match app-id="scratch-term"
-    open-floating true
-}
-
-// YouTube Search (yts) — fzf TUI, open floating
-window-rule {
     match app-id="yts"
     open-floating true
 }
@@ -369,6 +369,8 @@ binds {
     Print       { screenshot; }
     Ctrl+Print  { screenshot-screen; }
     Alt+Print   { screenshot-window; }
+    Mod+Print   hotkey-overlay-title="Extract Text from Screen: Gemini" { spawn "capture-ocr"; }
+    Alt+Q       hotkey-overlay-title="Scan a QR Code: zbar" { spawn "qrscan"; }
 
     // Escape hatch so a remote-desktop/KVM app can't hold the session hostage.
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }

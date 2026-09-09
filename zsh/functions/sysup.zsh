@@ -1,7 +1,7 @@
 # sysup - full system + tooling update
 #
 # Order: pacman/AUR (paru) -> uv tools -> Claude Code -> editor/shell plugins ->
-# container images -> fwupd metadata (if stale).
+# nvim :checkhealth -> container images -> fwupd metadata (if stale) -> config-drift.
 #
 # No npm step: there are no user npm globals, and system node/npm are pacman
 # packages already covered by paru -Syu above.
@@ -28,18 +28,59 @@ sysup() {
   # Neither is cosmetic-only: both bracket every sysup with what reads like an
   # error and is not one. disown removes the table entry, not the process -- the
   # pid stays valid, so the trap still reaps it.
+  # One run at a time. paru is covered by pacman's own db.lck, but the uv, plugin,
+  # podman and Claude-prune steps would happily race a second sysup in another
+  # terminal. flock on a runtime-dir file, released when the fd closes.
+  #
+  # If the lock file cannot be opened at all, this runs anyway -- deliberately.
+  # Refusing would turn an exotic filesystem problem (a full or missing
+  # $XDG_RUNTIME_DIR tmpfs) into "sysup will not run", which is worse than one
+  # unprotected run. But it must not be silent: without the warning the guard
+  # short-circuits and the run looks identical to a locked one.
+  #
+  # _lockfd must be cleared first, not just on failure. It is a global, and zsh
+  # sets an fd variable to 0 when that descriptor is closed -- so the second
+  # sysup in one shell starts with a stale _lockfd=0 that a failed open leaves
+  # untouched. Without this line that reads as "lock held" and flocks fd 0,
+  # which is stdin.
+  local _lock="${XDG_RUNTIME_DIR:-/tmp}/sysup.lock"
+  _lockfd=""
+  exec {_lockfd}>"$_lock" 2>/dev/null || _lockfd=""
+  if [[ -z $_lockfd ]]; then
+    echo "!! could not open $_lock — continuing WITHOUT the concurrency lock"
+  elif ! flock -n $_lockfd; then
+    echo "!! another sysup is already running — stopping"
+    exec {_lockfd}>&-
+    return 1
+  fi
+
   local _inhibit_pid=""
   if command -v systemd-inhibit >/dev/null 2>&1; then
     setopt local_options no_monitor
+    # The inhibitor MUST NOT inherit the lock descriptor. It is backgrounded and
+    # outlives the step that starts it, so an inherited fd would hold the lock
+    # after this function returns -- blocking every later sysup with no visible
+    # cause. {_lockfd}>&- closes it in the child only.
     systemd-inhibit --what=sleep:idle --who=sysup \
-      --why="System update in progress" --mode=block sleep infinity &
+      --why="System update in progress" --mode=block sleep infinity {_lockfd}>&- &
     _inhibit_pid=$!
     disown 2>/dev/null
-    trap "kill $_inhibit_pid 2>/dev/null" EXIT INT TERM
+    trap "kill $_inhibit_pid 2>/dev/null; exec {_lockfd}>&-" EXIT INT TERM
+  else
+    trap "exec {_lockfd}>&-" EXIT INT TERM
   fi
 
   echo "==> System & AUR (paru -Syu)"
-  paru -Syu || { echo "!! paru failed — stopping sysup"; return 1; }
+  # Keep a byte boundary, not a timestamp: several ALPM transactions can share
+  # a second, and paru may run more than one transaction in a single invocation.
+  local _pacman_boundary _paru_status=0
+  _pacman_boundary=$(stat -Lc '%d:%i:%s' /var/log/pacman.log 2>/dev/null) || _pacman_boundary=unavailable
+  paru -Syu || _paru_status=$?
+  if (( _paru_status )); then
+    echo "!! paru failed — checking transaction diagnostics before stopping sysup"
+    _sysup_pacnew --pacman-since "$_pacman_boundary" || :
+    return "$_paru_status"
+  fi
 
   echo "==> uv tools"
   uv tool upgrade --all
@@ -51,6 +92,9 @@ sysup() {
   echo "==> Editor & shell plugins"
   _sysup_plugins
 
+  echo "==> Neovim health"
+  _sysup_nvim_health
+
   echo "==> Container images (podman)"
   _sysup_podman_images
 
@@ -58,7 +102,7 @@ sysup() {
   _sysup_fwupd_refresh_if_stale
 
   echo "==> Config drift"
-  _sysup_pacnew
+  _sysup_pacnew --pacman-since "$_pacman_boundary"
 
   echo "==> sysup done"
 }
@@ -78,7 +122,7 @@ sysup() {
 # an option. bash/config-drift holds the checks and the reasoning for each.
 _sysup_pacnew() {
   if [[ -x "$HOME/.local/bin/config-drift" ]]; then
-    "$HOME/.local/bin/config-drift"
+    "$HOME/.local/bin/config-drift" "$@"
   else
     echo "   config-drift not found — skipping"
   fi
@@ -230,3 +274,73 @@ _sysup_prune_claude_versions() {
 }
 
 
+
+# `:checkhealth` after the plugin sync, because a sync is exactly when nvim breaks:
+# a plugin drops a dependency, an API it used gets deprecated, a treesitter parser
+# goes out of step with the ABI. None of that fails the sync -- `Lazy! sync` reports
+# success and the editor just quietly does less, which is the same silent shape as
+# the stale plugins and the .pacnew backlog.
+#
+# Costs ~2.9s headless, so it runs every time rather than on a schedule.
+#
+# ERRORs are always listed: they are real breakage. WARNINGs are only listed when
+# the SET of them changes, because most are permanent and not actionable -- today
+# blink.cmp explains that some sources are enabled dynamically, and jupytext.nvim
+# calls a vim.validate form deprecated for Nvim 1.0. Printing those every single
+# run is how a warning becomes wallpaper; the count still shows, so a new one is
+# visible without the noise. Same reasoning as the lazy-lock sha256 comparison
+# above, and the same trap config-drift avoids.
+_sysup_nvim_health() {
+  command -v nvim >/dev/null 2>&1 || { echo "   nvim not installed — skipping"; return 0 }
+
+  local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/sysup"
+  mkdir -p "$state_dir" 2>/dev/null || return 0
+  local report="$state_dir/nvim-health.txt"
+  local seen="$state_dir/nvim-health-warnings"
+
+  # `+w!` writes the health buffer; nvim exits 0 even when checks fail, so the
+  # report itself is the only signal -- an empty file means checkhealth did not run.
+  nvim --headless "+checkhealth" "+w! $report" +qa >/dev/null 2>&1
+  if [[ ! -s $report ]]; then
+    echo "   ⚠ checkhealth did not produce a report — run :checkhealth by hand"
+    return 0
+  fi
+
+  # Severity markers are emoji (✅/⚠️/❌) which are awkward to match portably, so key
+  # on the word after them. The section name comes from the line under each ==== rule.
+  local -a errors warnings
+  local prog='/^=+$/{getline s; sub(/:.*$/,"",s); next}
+             $0 ~ "^- [^ ]+ " sev " " {sub("^- [^ ]+ " sev " ",""); print s ": " $0}'
+  errors=("${(@f)$(awk -v sev=ERROR   "$prog" "$report")}")
+  warnings=("${(@f)$(awk -v sev=WARNING "$prog" "$report")}")
+  errors=(${errors:#})
+  warnings=(${warnings:#})
+
+  local n_err=${#errors} n_warn=${#warnings}
+
+  if (( n_err )); then
+    echo "   ✗ ${n_err} error(s):"
+    printf '       %s\n' "${errors[@]}"
+  fi
+
+  # Compare the warning set with the last run, not the count: a warning that is
+  # replaced by a different one keeps the count identical.
+  local current previous=""
+  current=$(printf '%s\n' "${warnings[@]}" | sort)
+  [[ -f $seen ]] && previous=$(<"$seen")
+
+  if [[ $current != $previous ]]; then
+    if (( n_warn )); then
+      echo "   ${n_warn} warning(s), changed since the last run:"
+      printf '       %s\n' "${(@f)current}"
+    else
+      echo "   warnings cleared — none left"
+    fi
+    print -r -- "$current" > "$seen"
+  elif (( n_warn )); then
+    echo "   ${n_warn} warning(s), unchanged — see $report"
+  fi
+
+  (( n_err || n_warn )) || echo "   healthy — no errors or warnings"
+  return 0
+}

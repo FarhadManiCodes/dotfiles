@@ -3,8 +3,8 @@
 Everything here installs to the same path below `/etc`, copied (never symlinked)
 by `install-root.sh`, `0644 root:root`.
 
-These are files **owned by no package** — hand-written at some point and then
-forgotten. That is the whole reason this directory exists: an untracked file in
+This directory began with files **owned by no package** — hand-written at some
+point and then forgotten. It also preserves selected modified package-owned configs. That is the whole reason this directory exists: an untracked file in
 `/etc` is invisible until a rebuild silently comes up without it. The same trap
 already caught `fix-wifi.sh`, `sysctl/99-performance.conf`, the zsh plugin list
 and `zram/zram-generator.conf` before this sweep found the rest.
@@ -12,25 +12,124 @@ and `zram/zram-generator.conf` before this sweep found the rest.
 Found by diffing `find /etc -type f` against every path in `pacman -Ql`
 (2026-09-04): 183 unowned files, of which these were the hand-written ones.
 
-## The one exception: `nftables.conf`
+## Both sweeps now run automatically
+
+Coverage is explicit: a failed pacman inventory is not compared. A partial `/etc`
+traversal can establish additions but not removals. The modified-backup inventory
+also reports additions only, because unreadable files may be absent from its output.
+The checker reports differing root copies without using mtimes to recommend which
+one to overwrite. User-unit verification is batched in user-manager scope.
+
+`bash/config-drift` runs them after every `sysup` and diffs each against a tracked baseline:
+`etc/unowned.txt` (44 paths) and `etc/modified.txt` (24). A path not in its baseline is a
+finding; accepting one means adding the line in a commit that says why. The counts move on their
+own — unowned was 183 on 2026-09-04 and 172 two days later — so only the diff carries
+information.
+
+The 131 files under `/etc/ca-certificates/{extracted,trust-source}/` are excluded rather than
+listed: `update-ca-trust` rewrites them wholesale, and a baseline that churns on every
+`ca-certificates` update is a warning nobody reads.
+
+## Package-owned configurations
 
 `/etc/nftables.conf` **is** package-owned (`nftables 1:1.1.7-3`) and modified —
 it holds the actual firewall ruleset. The sweep above cannot see files like this,
-because it tests ownership rather than content; `pacman -Qkk` is what finds them:
+because it tests ownership rather than content. Two probes find them, and
+**neither is a superset of the other** (measured 2026-09-06):
 
 ```bash
-pacman -Qkk 2>&1 | grep "backup file"      # every modified package config
+pacman -Qii | grep -oE '/[^ ]+ \[modified\]'   # 40 ms, content-compared, 22 files
+sudo pacman -Qkk | grep "backup file"          # 19 s observed; includes metadata checks; root avoids unreadable files
 ```
+
+`-Qii` is the default for backup-file content changes; it was about 475x faster
+in the recorded sweep. It is blind to
+files it cannot **read** — `/etc/shadow` and `/etc/gshadow` never appear, reported
+as unmodified rather than as unknown. `-Qkk` sees those, but flags mtime-only
+mismatches over identical content (`/etc/systemd/logind.conf`), and run without
+root it degrades to `failed to calculate SHA256 checksum`, which means unreadable
+and not altered.
 
 Tracking it makes this repo the source of truth, so a future `nftables` upgrade
 shipping a `.pacnew` cannot quietly replace the ruleset. The ruleset itself is
 default-drop with nothing listening, which is why it is safe in a public repo:
 it discloses only that the machine runs a restrictive firewall and serves nothing.
 
+`/etc/pacman.conf` joined this class on 2026-09-05, and is a much smaller case:
+it was **byte-identical to the shipped default** until then (verified by diffing
+against `etc/pacman.conf` extracted from `pacman-7.1.0.r9.g54d9411-2-x86_64.pkg.tar.zst`;
+`pacman -Qkk pacman` agreed with "0 altered files"). The tracked copy differs from
+upstream in **exactly two uncommented lines**, and is kept that way deliberately so
+that `diff /etc/pacman.conf /etc/pacman.conf.pacnew` shows only what upstream changed:
+
+```
+33c33   #Color            ->  Color
+36c36   #VerbosePkgLists  ->  VerbosePkgLists
+```
+
+`VerbosePkgLists` is the one that earns the edit — it turns the upgrade confirmation
+into a table with old version, new version, net change and download size per package,
+which is what makes `sysup`'s pacman step reviewable rather than a flat name list.
+There is no CLI equivalent (`pacman -Syu --help` offers `--color`, `-v` and `--config`
+and nothing else), so the file is the only place it can be set. `Color` came along
+because pacman emits **no colour at all** by default — it is off, not auto — and once
+the file is modified it costs nothing further. It is tty-aware: verified that piped
+output carries no escape sequences, so logs stay clean.
+
+The cost is a permanent `.pacnew` obligation on a file that previously had none.
+That is bounded by `config-drift`'s first check, which reports pending `.pacnew` with
+changed-line counts and ages — the exact failure it was written for.
+
+`conf.d/wireless-regdom` is another package-owned configuration, from `wireless-regdb`.
+Tracked on 2026-09-06 as an exact copy of the live file, it preserves the single active
+`WIRELESS_REGDOM="DE"` assignment and the package's commented country examples. The
+installed udev helper reads it and requests that country domain. Review `.pacnew` changes
+and review the country setting when using the machine elsewhere. The effective device
+rules also depend on driver/firmware and other regulatory inputs; tracking this file is
+not a guarantee of specific channels or transmit power.
+
+## PAM package comparison (2026-09-06)
+
+Read-only comparison used `util-linux-2.42.3-1-x86_64.pkg.tar.zst` from the local
+pacman cache and `ly-1.4.1-1-x86_64.pkg.tar.zst` downloaded from the
+[Arch Linux Archive](https://archive.archlinux.org/packages/l/ly/ly-1.4.1-1-x86_64.pkg.tar.zst).
+Each extracted PAM original matched its installed package's `%BACKUP%` MD5 record
+in `/var/lib/pacman/local/`: `b42499bb09b7d6d649080f46f32fd0aa` for login and
+`0d62d3512df8976f6dc0f2430e39e532` for Ly. This verifies the compared file against
+the installed backup record; it is not an archive signature verification.
+
+- `/etc/pam.d/login`: only the blank line following `#%PAM-1.0` was removed.
+  Every nonblank line is identical; no authentication policy difference.
+- `/etc/pam.d/ly`: the live file consists of the header and four `include
+  system-login` rules (`auth`, `account`, `password`, `session`). The package uses
+  `include login` and adds optional GNOME Keyring and KWallet rules, an optional
+  elogind session rule, and `-session optional pam_systemd.so class=greeter`
+  before the session include.
+
+The installed `system-local-login`, `system-login` and `system-auth` files belong
+to `pambase 20260616-1` and are reported unmodified. The normal include path is
+`login` → `system-local-login` → `system-login`. Including the latter directly
+skips the wrappers, but it still supplies `pam_nologin.so`, the common auth stack,
+and `-session optional pam_systemd.so`. Do not describe the live Ly file as
+removing systemd integration or all nologin checks.
+
+GNOME Keyring, KWallet and elogind PAM modules were absent on inspection;
+`pam_systemd.so` was present. Removing its explicit `class=greeter` call is a
+real stack difference whose runtime effect was not tested. A leading `-` on a
+PAM rule suppresses missing-module logging; it does not disable the rule (see
+[Linux-PAM configuration semantics](https://man7.org/linux/man-pages/man5/pam.d.5.html)).
+The reason and date of the local changes were not established.
+
+No live configuration or installation mapping changed. Both paths remain in
+`etc/modified.txt`: the baseline reflects byte differences, including whitespace.
+Agreed 2026-09-06: leave live PAM unchanged. Tracking Ly or changing its greeter
+session behavior remains a separate decision; see `TODO.md`.
+
 ## What each file is for
 
 | Path | Why |
 |---|---|
+| `pacman.conf` | **Package-owned and modified** — see the exceptions section above. Differs from the shipped default in two lines only: `Color` and `VerbosePkgLists`. |
 | `nftables.conf` | The firewall. Default-drop input, `forward` accept so container networking works. No SSH rule — no sshd. |
 | `iwd/main.conf` | `EnableNetworkConfiguration=true` + `NameResolvingService=systemd`. **Without it iwd does not configure networking at all.** Credentials live in `/var/lib/iwd/*.psk` and are deliberately not here. |
 | `systemd/system/iwd.service.d/override.conf` | 2s `ExecStartPre` buffer for the hardware to wake, plus `Restart=on-failure`. |
@@ -46,9 +145,11 @@ it discloses only that the machine runs a restrictive firewall and serves nothin
 | `snapper/configs/home` | The one that matters. Hourly timeline snapshots of `/home`, retention `HOURLY=5 DAILY=7 WEEKLY=4 MONTHLY=4` — about four months, raised from one week on 2026-09-04. This is the only thing snapshotting `~`. |
 | `systemd/logind.conf.d/10-lid-and-power.conf` | Power-button and lid behaviour. A **drop-in**, not an edit to `logind.conf`, so systemd keeps owning every default not named here. Carries only the three settings that actually deviate: `HandlePowerKey=suspend`, `HandlePowerKeyLongPress=poweroff`, `HandleLidSwitchExternalPower=lock`. The last is why reproducing suspend behaviour requires being unplugged. `/etc/systemd/logind.conf` itself is left at the package default — verified on 2026-09-04 that the drop-in alone supplies all three. |
 | `tlp.d/10-local.conf` | Power management. A **drop-in**, so `/etc/tlp.conf` stays at the package default and upstream keeps owning 22KB of documented settings. Carries 21 values: CPU governors and boost, platform profile, PCIe ASPM, and the 75/81% charge thresholds. TLP reads its defaults, then `tlp.d/*`, then `tlp.conf` — so anything left in `tlp.conf` still wins over this. |
+| `vconsole.conf` | Preserves the existing `FONT=default8x16` Linux console setting. Tracked 2026-09-06 for rebuild reproducibility; the current `sd-vconsole` hook warns and uses defaults when the file is missing/empty. |
 | `environment` | `QT_QPA_PLATFORM=wayland` — without it Qt apps fall back to XWayland. |
+| `conf.d/wireless-regdom` | **Package-owned and modified** — preserves the existing Germany regulatory-domain request (`WIRELESS_REGDOM="DE"`). Location-dependent; review when operating elsewhere. |
 | `conf.d/snapper` | `SNAPPER_CONFIGS="home root"`. One line, and it is what makes `snapper-timeline.timer` and `snapper-cleanup.timer` act on both configs rather than neither. |
-| `udev/rules.d/51-android.rules` | USB access to Samsung devices (`04e8`). **`MODE="0666"` is world read/write** — the conventional form is `0664` with a group. Harmless on a single-user machine, but it is broader than it needs to be. |
+| `udev/rules.d/51-android.rules` | USB access to a Samsung (`04e8`) tablet, connected every month or two to move files; the MTP software is installed on demand, so the rule must be right before it exists. `MODE="0660", TAG+="uaccess"` since 2026-09-08 — logind grants the device to whoever is logged in at this laptop and revokes it at logout. It replaced `MODE="0666"` (every process on the machine) plus an inert `GROUP="users"`, a group this user is not in. |
 
 ## Not everything in `/etc` belongs here
 
@@ -79,15 +180,17 @@ is unchanged within noise (23.5s vs 23.7-24.2s), but the phase is now *measurabl
 init never reported its timing, so `systemd-analyze` folded it into "kernel" (~4.5s); it now
 reads `846ms (kernel) + 3.218s (initrd)`.
 
-The honest case for the migration is alignment and options, not speed. For an unencrypted
-single-device btrfs the two flavours do the same work. What it buys is Arch's tested default,
-early boot in the journal, and the prerequisite for `sd-encrypt` — which matters because this
-machine *has* a TPM (`/dev/tpm0`), so `systemd-cryptenroll` TPM/FIDO2 unlock is now reachable
-if the disk is ever encrypted.
+The honest case for the migration is alignment and options, not speed. On a single-device
+btrfs the two flavours do the same work. What it buys is Arch's tested default, early boot in
+the journal, and the prerequisite for `sd-encrypt`, which keeps `systemd-cryptenroll` TPM/FIDO2
+enrolment available as an option.
 
 **Two boot-path facts worth knowing before touching this again.** `PRESETS=('default')` means
-no fallback image is built, and **all 12 GRUB entries point at the same
-`/initramfs-linux.img`** — the 2 normal ones and the 10 `grub-btrfs` snapshot ones. Snapshots
+no fallback image is built (that is `mkinitcpio`'s own shipped default, not a local edit --
+verified 2026-09-09 against `/usr/share/mkinitcpio/hook.preset`), and **every GRUB entry points
+at the same `/initramfs-linux.img`** -- the handful in `grub.cfg` plus the `grub-btrfs` snapshot
+ones, which live in `grub-btrfs.cfg` and are loaded by `configfile` at `grub.cfg:183`. The total
+drifts with snapshot churn; it was 12 when first measured and 16 on 2026-09-09. Snapshots
 cannot help: `/boot` is its own partition outside btrfs, so no snapshot contains a kernel or
 initramfs. A broken image takes every entry with it, which is why the migration was done with
 `cp /boot/initramfs-linux.img /boot/initramfs-linux-prev.img` first and recovery via the GRUB
@@ -95,12 +198,16 @@ initramfs. A broken image takes every entry with it, which is why the migration 
 `PostTransaction`, so leaving an edited `mkinitcpio.conf` unbuilt means the next kernel update
 builds it unattended.
 
-One cosmetic consequence: `systemd-vconsole-setup` now runs early enough to hit
-`fbcon: Deferring console take-over`, and logs `'/dev/tty1' has no font support, skipping`
-(0 occurrences in the three previous boots, 2 in the first systemd one). `FONT=default8x16` is
-therefore not applied — but that name *is* the kernel's built-in 8x16 font, so nothing looks
-different. The line stays in `/etc/vconsole.conf` deliberately: it costs nothing and starts
-working again if fbcon take-over timing ever changes.
+A cosmetic consequence recorded after the systemd-hook migration was that
+`systemd-vconsole-setup` ran early enough to hit `fbcon: Deferring console take-over`
+and logged `'/dev/tty1' has no font support, skipping`. These are historical boot
+observations, not a fresh check that the font is or is not applied today.
+
+The existing `FONT=default8x16` setting is now preserved in tracked `etc/vconsole.conf`
+(decided 2026-09-06). Its purpose is reproducibility of the console preference. The
+current installed `sd-vconsole` hook warns and uses defaults when this file is absent
+or empty; the missing-file error recorded in November 2025 does not establish a
+current build failure. The file's timestamp does not establish its author or origin.
 
 The reasoning behind each — why the subvolumes are split the way they are, why btrfs is in the
 initramfs — belongs in CLAUDE.md, and is there. The files themselves are a record of one

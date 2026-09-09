@@ -1,0 +1,38 @@
+# Baseline: package-owned /etc files whose content differs from the package.
+#
+# Produced by `pacman -Qii | grep '[modified]'` (40 ms, content-compared).
+# bash/config-drift diffs the live sweep against this file; anything not here is
+# a config you changed and have not decided about. Accepting one means adding
+# the line in a commit that says why.
+#
+# NOT the same check as `pacman -Qkk`, and neither is a superset of the other --
+# see etc/README.md. -Qii is blind to files it cannot READ, so
+# /etc/shadow and /etc/gshadow never appear below even though -Qkk flags them.
+#
+# Seeded 2026-09-06 with 24 entries. 22 since 2026-09-08: both fwupd
+# remotes.d files were returned to AutomaticReports=false, which is the
+# packaged default, so they are byte-identical to the package again and no
+# longer modified. Nothing is tracked for them -- that was the decision.
+
+/etc/bluetooth/main.conf
+/etc/conf.d/snapper
+/etc/conf.d/wireless-regdom
+/etc/default/grub
+/etc/environment
+/etc/fstab
+/etc/group
+/etc/locale.gen
+/etc/ly/config.ini
+/etc/mkinitcpio.conf
+/etc/nftables.conf
+/etc/pacman.conf
+/etc/pacman.d/mirrorlist
+/etc/pam.d/login
+/etc/pam.d/ly
+/etc/pam.d/swaylock
+/etc/passwd
+/etc/resolv.conf
+/etc/shells
+/etc/subgid
+/etc/subuid
+/etc/texmf/web2c/fmtutil.cnf

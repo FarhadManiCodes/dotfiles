@@ -19,8 +19,16 @@ _papis_ask_needs_refine() {
 
 _papis_ask_matching_pdfs() {
   local query="$1"
-  # papis list --all -f "" matches zero documents (unlike omitting the query
-  # entirely, which matches all) -- so the arg must be dropped, not empty.
+  # This branch is defensive and, on papis 0.16.0, unnecessary. The comment here
+  # used to claim `papis list --all -f ""` matched zero documents while omitting
+  # the query matched all, so the empty arg had to be dropped. Re-measured
+  # 2026-09-06 against 0.16.0: both forms return all 15 documents, identically.
+  # (-f is --file, a boolean flag; the query is positional. The real asymmetry is
+  # --all itself -- `papis list` without it returns nothing at all.)
+  #
+  # Kept rather than collapsed because it costs nothing and an upstream query
+  # parser could reintroduce the difference; corrected rather than deleted so the
+  # next reader does not trust a claim the code no longer demonstrates.
   if [[ -n "$query" ]]; then
     papis list --all -f "$query" 2>/dev/null | grep -i '\.pdf$'
   else

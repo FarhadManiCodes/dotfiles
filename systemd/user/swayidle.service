@@ -3,6 +3,7 @@ Description=Idle management (dim / lock / suspend) via swayidle
 Documentation=man:swayidle(1)
 After=graphical-session.target
 PartOf=graphical-session.target
+OnFailure=notify-failure@%n.service
 
 [Service]
 # Locks DIRECTLY with `swaylock -f` instead of `loginctl lock-session`. The old

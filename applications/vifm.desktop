@@ -5,5 +5,5 @@ Exec=vifm-open %u
 Terminal=false
 Type=Application
 MimeType=inode/directory;
-Categories=System;FileManager;
+Categories=System;FileManager;FileTools;
 Icon=utilities-terminal
