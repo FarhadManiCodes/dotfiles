@@ -13,7 +13,8 @@ Omarchy as the reference implementation and "harmonise" toward it.
 > **On the shape of this file.** It was 1780 lines. Each finding carried its original argument,
 > then the correction that overturned half of it, then the disposition — and once a claim is
 > withdrawn, the correction to it has nothing left to correct. Both halves were dropped together
-> on 2026-09-08. Item numbers are unchanged because `TODO.md` cites them;
+> on 2026-09-08. The numbered items here are unchanged; `TODO.md` was renumbered on 2026-09-09
+> and now cites this file rather than the reverse.
 > the full argument for any of them is in git history at the old path: `git log -p -- omarchy-comparison.md`.
 
 ---
@@ -51,7 +52,7 @@ Recorded with the reason, because a bare "no" gets re-proposed.
 | 6 | Restoring `/etc/pam.d/{login,ly}` to the package stack | `login` differs by one blank line. `ly` genuinely differs (includes `system-login` directly) but works; changed nothing. `revisit.md` |
 | 8 | A broad convention test suite to match their 284 files | Add tests for a concrete failure worth preventing, never to match a count. Standing position — see the invariant table below |
 | E | 10 GiB free-space precheck in `sysup` | `CheckSpace` is on in `pacman.conf` and the filesystem is 3% used. Defends a condition this machine is nowhere near — and a root-only guard would miss the separate `/boot`, which is the small one at 993 MiB. (`flock`, the other half of E, was already present, though **not unconditional**: `sysup` continues without a lock if the lock file cannot be opened) |
-| 9 | Full-disk encryption | Deferred to the next rebuild, not rejected — see below |
+| 9 | Full-disk encryption | Considered 2026-09-07 and **not adopted**. Retrofitting is a reinstall or a backup-verified `btrfs send`/restore cycle, so it is a rebuild-time question and not a change that can be made here; carrying it as a deferral put a permanent resident on `TODO.md`, and it was dropped from there on 2026-09-09. The prerequisite survives regardless: `mkinitcpio` uses the systemd initrd, so `sd-encrypt` is reachable and `systemd-cryptenroll` could enrol a TPM or FIDO2 key |
 | 10 | A niri `scroll-factor` for touchpad scrolling | Touchpad scrolling is comfortable. niri accepts it globally **and** per window-rule (both pass `niri validate`); the window-rule form is the narrower start if it ever matters |
 | 11 | Pinning Vim/Zsh/tmux plugins to match nvim's lockfile | Priced, conscious acceptance. Three more lockfile mechanisms for 20 mostly-cosmetic packages. `revisit.md` |
 | 12 | `dirmngr.conf` keyservers | Not a security feature — `makepkg` checks against a fingerprint the PKGBUILD pins, so keyservers deliver, they do not vouch. Zero key-import failures since 2025-11-20. `revisit.md` |
@@ -72,20 +73,6 @@ Recorded with the reason, because a bare "no" gets re-proposed.
 | — | Chromium web apps | `--app=` is a Chromium feature; Firefox has no equivalent and no Chromium-family browser is installed. Adopting it means a second browser and a second cookie jar. `firefox --new-window` gets no distinct `app-id`, so no niri rule can single it out — which removes most of the point |
 | — | `xdg-terminal-exec` and their `foot.desktop` `X-TerminalArg*` keys | Not installed; `TERMINAL=footclient` and per-app settings cover every case since `pcmanfm-qt` moved |
 | — | Software: `dua-cli`, `expac`, `tldr`, `gum`, screen recording, `localsend`, `ffmpegthumbnailer`, `mise-bin`, `fcitx5` | `ncdu -x` is already aliased and covers the one thing `dua-cli` was wanted for; the rest are closed on taste or overlap |
-
-### 9. Disk encryption — deferred to the next rebuild
-
-Omarchy makes full-disk encryption mandatory and opens its security chapter with the reason:
-*"Where losing a laptop can't lead to a security emergency."*
-
-**Deferred 2026-09-07.** Retrofitting is a reinstall or a carefully planned, backup-verified
-`btrfs send`/restore cycle, so it belongs to the next rebuild rather than to an in-place
-migration. One prerequisite is already done: `mkinitcpio` uses the systemd initrd, so
-`sd-encrypt` is reachable and `systemd-cryptenroll` can enrol a TPM or FIDO2 key rather than
-requiring a passphrase at every boot.
-
-It interacts with the still-absent off-machine backup (`TODO.md` §10 D), and the backup is the
-one to build first.
 
 ### 20. `systemd-oomd` — declined for a reason specific to this machine
 
@@ -244,15 +231,15 @@ self-contained and does not need the Omarchy checkout.
 
 | # | Item | Where |
 |---|---|---|
-| C | Fold `check-skills` and the invariant table into one runner | `TODO.md` 10 C |
-| D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md` 10 D |
-| 27 | An editor + agent tmux layout — the user rates this important | `TODO.md` 10 F |
+| C | Fold `check-skills` and the invariant table into one runner | `TODO.md`, "A test runner" |
+| D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md`, "Off-machine backup" |
+| 27 | An editor + agent tmux layout — the user rates this important | `TODO.md`, "An editor + agent tmux layout" |
 | 30 | Their skill layering (a routing `SKILL.md` plus sibling topic guides) as the shape for `config-audit` | `agent-skills.md` |
 
 Also found here but unrelated to Omarchy: 62 accumulated `git fsmonitor--daemon` processes
 holding 326 MB, noticed while measuring the oomd cgroup. Resolved 2026-09-09 by turning
 `core.fsmonitor` off — the count was one daemon per repository, not a leak, and 59 of them
-watched plugin clones. See `docs/architecture.md`; `TODO.md` §11 is closed and removed.
+watched plugin clones. See `docs/architecture.md`; the `TODO.md` item is closed and removed.
 
 ---
 

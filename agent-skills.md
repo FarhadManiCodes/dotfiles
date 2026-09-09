@@ -201,7 +201,7 @@ and the only known-answer fixture was a journal window that expires: `journald` 
 | 4 | Conformance and link checks | done, passing |
 | 5 | `config-drift` gains the two `/etc` sweeps against their baselines | done |
 | 6 | The audit workflow, into the always-loaded file | done |
-| 7 | The three assertions recorded in `TODO.md` §10 (C) | done |
+| 7 | The three assertions recorded in `TODO.md`, "A test runner" | done |
 
 ### What building it already found
 

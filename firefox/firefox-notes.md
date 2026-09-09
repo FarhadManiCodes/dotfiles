@@ -21,8 +21,8 @@ If a site looks broken (missing content, broken layout):
 
 ## Pending To-Do
 
-Open items live in `TODO.md` (item 13), not here — that is where the audit
-workflow looks. Three were moved there on 2026-09-09.
+Open items live in `TODO.md`, under "Three open Firefox items" — not here, because that is
+where the audit workflow looks. Three were moved there on 2026-09-09.
 
 ---
 
