@@ -16,16 +16,16 @@ files that did (`docs/omarchy-comparison.md`, `docs/architecture.md`, `agent-ski
 
 | was | now |
 |---|---|
-| §2 | **1** — `mkinitcpio` fallback initramfs |
+| §2 | closed 2026-09-09 — see below |
 | §5 | closed 2026-09-09 — see below |
-| §6 | **2** — tmux identity segment |
-| §10 C | **3** — a test runner |
-| §10 D | **4** — off-machine backup |
-| §10 F | **5** — editor + agent tmux layout |
+| §6 | **1** — tmux identity segment |
+| §10 C | **2** — a test runner |
+| §10 D | **3** — off-machine backup |
+| §10 F | **4** — editor + agent tmux layout |
 | §12 | closed 2026-09-09 — see below |
-| §13 | **6** — the three Firefox items |
+| §13 | **5** — the three Firefox items |
 
-Items 3–5 all come from `docs/omarchy-comparison.md` and were parked for the same reason: each
+Items 2–4 all come from `docs/omarchy-comparison.md` and were parked for the same reason: each
 is a design job rather than a config edit, and would be poorly served by being squeezed into the
 end of another session. Of that file's five proposals A, B and E are done — `config-drift` gained
 the pacman-log and symlink checks, and `sysup` gained a lock.
@@ -50,48 +50,23 @@ recorded, since both were documentation. `dev_db` never existed and neither did 
 same comment block also invented; the live server holds one database, `postgres`, with
 `postgres` as its only login role, and `DB_USER`/`DB_PASSWORD` are set by nothing on this
 machine. `nvim/docs/architecture.md` now documents the `$DATABASE_URL`-from-podman-secret path
-that actually works) and §5 (disk encryption — dropped outright by the user rather than kept
-as a deferral. It had been carried since 2026-09-07 as "revisit at the next rebuild", which is
-not an action anyone can take from a list; if a rebuild happens the question comes back with
-it, and until then the entry was a permanent resident. `docs/omarchy-comparison.md` records
-that their practice was considered). The state of the last tidy was verified
+that actually works) and §2 (the missing fallback initramfs — closed by installing a second
+kernel instead of enabling the fallback. The item asked "is there a plan B if the boot image
+breaks"; a fallback image and a second kernel answer different halves of it. A fallback carries
+every driver and covers one that `autodetect` trimmed out — a hardware change. A second kernel
+covers a bad kernel or module version. On a laptop that never changes disks the second failure
+is the likelier one, so `linux-lts 6.18.50` is installed, `PRESETS=('default')` stays at
+upstream's default, and `/boot` went 81 MB → 144 MB of 1.1 GB. The trap is in `etc/README.md`:
+`10_linux` reverse-sorts *filenames*, so LTS silently took the `GRUB_DEFAULT=0` slot until
+`GRUB_TOP_LEVEL` pinned it back. **Still to verify: LTS has never actually been booted** — every
+boot since the install is `7.2.4-arch1-2`, and an untested recovery kernel is not yet a recovery
+kernel). The state of the last tidy was verified
 rather than assumed: the three stray `.bak` files are gone, `~/.local/bin/check-skills` is now linked,
 and the udev and TLP changes have reached `/etc`.
 
 ---
 
-## 1. `mkinitcpio` builds no fallback initramfs — and the premise here was wrong
-
-`/etc/mkinitcpio.d/linux.preset` has `PRESETS=('default')`, so `/boot` holds one image and
-there is no `initramfs-linux-fallback.img`.
-
-**Corrected 2026-09-08: this was not disabled locally.** The previous note said it had been
-"disabled deliberately at some point". It was not touched at all — the file is **byte-identical
-to `mkinitcpio 41.1`'s own template** at `/usr/share/mkinitcpio/hook.preset`, which ships
-`PRESETS=('default')` with every fallback line commented out. Verified by diffing the two with
-`%PKGBASE%` substituted. It is also unowned by any package (`etc/unowned.txt` lists the path),
-so nothing would restore a different version.
-
-**A second correction, 2026-09-09 — the first one was wrong.** Yesterday this said `etc/README.md`'s
-"all 12 GRUB entries share a single image" was unverified, on the grounds that `grub.cfg` holds
-only 7 menuentry/submenu lines and 2 references to the image. **That was the wrong probe.**
-`grub-btrfs 4.14-1` is installed and `grub.cfg:183` loads `configfile "${prefix}/grub-btrfs.cfg"`,
-a separate 12.7 KB file the grep never read. Counted properly: **5 entries in `grub.cfg` and 11 in
-`grub-btrfs.cfg`**, with 30 references to `initramfs-linux.img` in the latter alone. The original
-claim was right in substance — every entry points at the same image — and only the total drifts as
-snapshots come and go. Exactly the corollary in `docs/system-notes.md`: a number from a probe you wrote is
-not evidence against a number from a probe you cannot see.
-
-So the real question is not "why was this changed" but **"do we want upstream's default?"** A
-fallback image uses the same `HOOKS` without `autodetect`, so it carries every module rather
-than only those probed on the building machine. It is the escape hatch when a hardware change or
-a module regression makes the trimmed image unbootable — and there is exactly one kernel
-installed here, so there is no second entry to fall back to either.
-
-Enabling it is two lines in the preset plus a `mkinitcpio -P`. Against it: it costs ~50 MB more
-in a 1.1 GB `/boot` currently at 8%, and Arch turned it off by default for a reason.
-
-## 2. Verify the tmux identity segment in the two cases that cannot be tested from here
+## 1. Verify the tmux identity segment in the two cases that cannot be tested from here
 
 `bash/tmux-identity` hides `user@host` when local as the usual user, which is confirmed live.
 The other two branches were only tested by faking the environment on throwaway sockets: over
@@ -101,7 +76,7 @@ Worth a look the next time either happens for real. Note `SSH_CONNECTION` is rea
 environment that started the *server*, so attaching over ssh to a locally-started tmux will
 correctly show nothing — that is not a failure.
 
-## 3. A test runner
+## 2. A test runner
 
 `tests/test_config_drift.py` covers the checker (14 methods, standard-library `unittest`), but
 `docs/architecture.md` and `docs/system-notes.md` are full of invariants that still rest on memory. **Copying Omarchy's bash harness
@@ -145,7 +120,7 @@ mistake in a new costume.
 Omarchy has **no CI** — 284 test files run by hand. A reasonable model to copy; a workflow can
 come later if it earns its place.
 
-## 4. Off-machine backup
+## 3. Off-machine backup
 
 **Deferred by the user 2026-09-07.** Revisit later; no implementation now.
 
@@ -177,7 +152,7 @@ Interacts with the NVMe health check now in `sysclean` (`docs/architecture.md`) 
 disk-health warning is only actionable if there is somewhere to restore from, which is why its
 warning path points here.
 
-## 5. An editor + agent tmux layout — **wanted; own session** (added 2026-09-08)
+## 4. An editor + agent tmux layout — **wanted; own session** (added 2026-09-08)
 
 From `docs/omarchy-comparison.md` §27, not from its A–E proposals. **The user rates this
 important.** We have exactly one layout, `tmux/layouts/cpp_layout.sh` on `Prefix W`; an
@@ -226,7 +201,7 @@ Open questions for that session: which agent(s) and whether the choice is an arg
 whether it replaces or sits beside `Prefix W`; whether the `tdlm` per-subdirectory and `tsl`
 swarm shapes are wanted at all, or just the single layout.
 
-## 6. Three open Firefox items, moved out of `firefox/firefox-notes.md` (2026-09-09)
+## 5. Three open Firefox items, moved out of `firefox/firefox-notes.md` (2026-09-09)
 
 They had been sitting under a `## Pending To-Do` heading in an app reference, where the audit
 workflow never looks — `TODO.md` is where open items are supposed to live. Each was checked
