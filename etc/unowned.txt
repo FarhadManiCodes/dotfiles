@@ -57,6 +57,18 @@
 /etc/subgid-
 /etc/subuid-
 
+# --- mirrorlist rollback copy -------------------------------------------------
+# Written by bash/mirrorlist-rank --install before it replaces the mirrorlist: the
+# only way back if a re-rank installs a bad list, since no pacman-mirrorlist
+# package sits in the cache to extract one from. Inert -- pacman.conf Includes the
+# literal mirrorlist path, not a glob, so it is never read as extra mirrors.
+#
+# Transient by nature: it appears at each --install and can be deleted once the
+# new list is trusted. Listed here so that it does not read as a new finding
+# every time it comes back; config-drift checks /etc for additions, so the entry
+# costs nothing while the file is absent.
+/etc/pacman.d/mirrorlist.bak
+
 # --- pacman's own keyring state ----------------------------------------------
 /etc/pacman.d/gnupg/gpg-agent.conf
 /etc/pacman.d/gnupg/gpg.conf

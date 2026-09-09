@@ -1,6 +1,6 @@
 # sysup - full system + tooling update
 #
-# Order: mirrorlist age -> pacman/AUR (paru) -> uv tools -> Claude Code ->
+# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> Claude Code ->
 # editor/shell plugins -> nvim :checkhealth -> container images -> fwupd metadata
 # (if stale) -> config-drift.
 #
@@ -71,8 +71,8 @@ sysup() {
     trap "exec {_lockfd}>&-" EXIT INT TERM
   fi
 
-  echo "==> Mirrorlist age"
-  _sysup_mirrorlist_stale
+  echo "==> Mirrorlist"
+  _sysup_mirrorlist_check
 
   echo "==> System & AUR (paru -Syu)"
   # Keep a byte boundary, not a timestamp: several ALPM transactions can share
@@ -232,50 +232,131 @@ _sysup_podman_images() {
 # The one check that runs BEFORE the update, because that is the only moment it
 # can change anything. Everything else here reports at the end, config-drift
 # included -- by which point paru has already fetched from whatever mirrors were
-# in the file. Arch delists a mirror that falls out of sync, and the delisted
-# mirror keeps serving a stale database without erroring: this list had grown to
-# 96 entries, 12 of them hosts Arch had already retired, before the 2026-09-04
-# re-rank.
+# in the file.
 #
-# Reports only, unlike the fwupd step below. Re-ranking fetches over the network,
-# picks a country, and writes /etc as root. Not something to do unattended in the
-# middle of an update -- and the obvious one-liner for it is a trap: `rankmirrors
-# ... | sudo tee /etc/pacman.d/mirrorlist` truncates the target when the pipeline
-# is BUILT, before curl or rankmirrors has produced a byte, so a failed fetch
-# leaves an empty mirrorlist and pacman with nowhere to go (verified on a
-# scratch file: a failing producer left it at 0 bytes). Hence the printed form
-# stages to /tmp, checks the count, and keeps a .bak. Nothing else reads
-# /etc/pacman.d/ by glob -- pacman.conf Includes the literal path -- so the .bak
-# sitting beside it is inert.
+# It asks two different questions, and either alone misleads:
 #
-# Age, not correctness. A recent mtime only says the file was rewritten, by
-# rankmirrors or by merging pacman-mirrorlist's .pacnew; it is no evidence that
-# any mirror in it is still in sync -- that question needs the network. 90 days
-# matches the fwupd window below, the other thing here that goes stale on a
-# season rather than on an update.
-_sysup_mirrorlist_stale() {
-  local ml=/etc/pacman.d/mirrorlist
+#   age      -- a stat. Has the list been re-ranked this season? Speed drifts as
+#               mirrors and routes change, and nothing re-ranks it automatically.
+#   validity -- needs the network. Arch delists a mirror that falls out of sync,
+#               and a delisted mirror keeps serving a stale database without
+#               erroring. A file written yesterday can hold a mirror that broke
+#               this morning, so a recent mtime is no evidence the mirrors are
+#               good. This list had grown to 96 entries, 12 of them already
+#               retired, before the 2026-09-04 re-rank.
+#
+# The validity half is best-effort on purpose: an 8-second timeout, and being
+# offline (or archlinux.org being down) reports "NOT checked" rather than
+# failing sysup or, worse, passing quietly. An empty answer must never read as
+# good news.
+#
+# Reports only. Re-ranking is bash/mirrorlist-rank, which measures speed from
+# this machine and is the one thing that should ever write the file.
+# Two optional parameters, and they exist for one reason: the warning path is the
+# half that matters and it fires twice a year, so it must be exercisable without
+# waiting a season or editing this file and remembering to put it back.
+#
+#   $1  days that count as stale   (default 90)
+#   $2  mirrorlist to inspect      (default /etc/pacman.d/mirrorlist)
+#
+# `_sysup_mirrorlist_check 1` therefore rehearses the whole warning against the
+# real file. sysup passes neither.
+#
+# The re-rank offer is made only when inspecting the real mirrorlist:
+# mirrorlist-rank writes /etc/pacman.d/mirrorlist, so offering it while reporting
+# on a copy would act on something other than what was measured.
+_sysup_mirrorlist_check() {
+  local max_age=${1:-90} ml=${2:-/etc/pacman.d/mirrorlist}
   if [[ ! -r $ml ]]; then
-    echo "   $ml unreadable — age not checked"
+    echo "   $ml unreadable — not checked"
     return 0
   fi
 
-  local servers age
-  servers=$(grep -c '^[[:space:]]*Server[[:space:]]*=' "$ml")
+  local age servers
   age=$(( ( $(date +%s) - $(stat -Lc %Y "$ml") ) / 86400 ))
+  servers=$(grep -c '^[[:space:]]*Server[[:space:]]*=' "$ml")
 
   if (( servers == 0 )); then
     echo "   ⚠ no active Server line — pacman has no mirror to use"
-  elif (( age > 90 )); then
-    echo "   ⚠ last written ${age} days ago (${servers} servers) — re-rank before updating:"
-    echo "        curl -fsS 'https://archlinux.org/mirrorlist/?country=DE&protocol=https&ip_version=4&use_mirror_status=on' \\"
-    echo "          | sed 's/^#Server/Server/' > /tmp/ml"
-    echo "        rankmirrors -n 10 /tmp/ml > /tmp/ml.ranked && grep -c '^Server' /tmp/ml.ranked"
-    echo "        sudo cp $ml $ml.bak && sudo install -m644 /tmp/ml.ranked $ml"
-    echo "     put the old list back if the new one is wrong:"
-    echo "        sudo mv $ml.bak $ml"
+    return 0
+  fi
+  local stale=0
+  if (( age > max_age )); then
+    echo "   ⚠ last re-ranked ${age} days ago (${servers} servers)"
+    stale=1
   else
-    echo "   ${servers} servers, last written ${age} days ago"
+    echo "   ${servers} servers, last re-ranked ${age} days ago"
+  fi
+
+  command -v jq >/dev/null 2>&1 || { echo "   jq missing — mirror validity NOT checked"; return 0 }
+  local report
+  if ! report=$(curl -fsS --max-time 8 https://archlinux.org/mirrors/status/json/ 2>/dev/null) ||
+     [[ -z $report ]]; then
+    echo "   archlinux.org unreachable — mirror validity NOT checked"
+    return 0
+  fi
+
+  # Arch publishes each mirror keyed by its base url; a Server line is that url
+  # with $repo/os/$arch appended, so stripping the suffix makes them comparable.
+  #
+  # Thresholds, chosen from the published population rather than by feel. Arch
+  # runs 96 checks per mirror over a rolling 24 h (num_checks/cutoff in the same
+  # JSON), and completion_pct is the fraction that succeeded -- so 0.99 means ONE
+  # missed check in a day, which is not worth a warning. It was < 1 briefly and
+  # immediately flagged a mirror at 99%: a warning nobody can act on is how a
+  # check becomes wallpaper. Of 1229 active mirrors, 980 sit at exactly 100%, 57
+  # between 95 and 99, and 178 below 90 -- so 0.95 separates "had a blip" from
+  # "is actually unreliable". delay is seconds behind upstream; a day matches
+  # Arch own cutoff.
+  local -a urls
+  urls=(${(f)"$(sed -n 's/^[[:space:]]*Server[[:space:]]*=[[:space:]]*//p' "$ml" | sed 's/\$repo.*//')"})
+
+  local problems
+  problems=$(print -r -- "$report" | jq -r --args '
+    (.urls | INDEX(.url)) as $m
+    | $ARGS.positional[] as $u
+    | ($m[$u]) as $e
+    | if   $e == null                    then "\($u) — no longer on the Arch mirror list"
+      elif ($e.active | not)             then "\($u) — marked inactive by Arch"
+      elif ($e.completion_pct // 0) < 0.95 then "\($u) — failed \((((1 - ($e.completion_pct // 0)) * 96)|round)) of the last 96 mirror checks"
+      elif ($e.delay // 0) > 86400       then "\($u) — \((($e.delay // 0)/3600)|floor) h behind upstream"
+      else empty end' -- $urls)
+
+  if [[ -n $problems ]]; then
+    local -a bad=(${(f)problems})
+    echo "   ⚠ ${#bad} of ${servers} mirrors need attention:"
+    printf '        %s\n' "${bad[@]}"
+  else
+    echo "   all ${servers} still listed, active and in sync"
+  fi
+
+  # Offer the fix rather than printing it. Both findings have the same answer --
+  # re-rank -- and this is the moment it is worth doing, before paru downloads
+  # anything. Ranking is a real measurement (it downloads from every candidate,
+  # 54 of them for DE, minutes not seconds), so it is never automatic: it asks,
+  # and Enter declines. Skipped entirely without a terminal, so sysup driven from
+  # a script cannot block on a prompt nobody will answer.
+  (( stale )) || [[ -n $problems ]] || return 0
+  if [[ $ml != /etc/pacman.d/mirrorlist ]]; then
+    echo "        fix: mirrorlist-rank --install   (not offered — this was a copy, not the live list)"
+    return 0
+  fi
+  if ! command -v mirrorlist-rank >/dev/null 2>&1; then
+    echo "        fix: mirrorlist-rank --install   (not on PATH — see bash/mirrorlist-rank)"
+    return 0
+  fi
+  if [[ ! -t 0 ]]; then
+    echo "        fix: mirrorlist-rank --install"
+    return 0
+  fi
+  local reply=""
+  read -q "reply?   re-rank now? it times every candidate mirror, about 20 s [y/N] " || true
+  echo
+  if [[ $reply == y ]]; then
+    mirrorlist-rank --install
+  else
+    echo "        left alone — 'mirrorlist-rank' ranks and reports what would change"
+    echo "        without writing anything; add --install to apply it"
   fi
   return 0
 }
