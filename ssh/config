@@ -15,3 +15,8 @@
 Host *
     AddKeysToAgent 1h
     IdentityFile ~/.ssh/id_ed25519
+    # Probe an otherwise idle server every 20s; the default count of 3 gives an
+    # unresponsive connection about 60s before SSH exits. This detects failure,
+    # but does not reconnect or resume an interrupted operation.
+    ServerAliveInterval 20
+    ServerAliveCountMax 3
