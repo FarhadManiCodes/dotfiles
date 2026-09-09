@@ -833,6 +833,19 @@ and a blanket `pg_dumpall` does not belong in the container. There is deliberate
    with the reason — the same false positive gets re-raised every audit otherwise.
 6. `git merge --no-ff` back, so the audit stays one reviewable unit in the history.
 
+   **When the branch's own history cannot be published** — this repo is public, and an audit
+   branch may carry working notes that should not be — do not rebase or filter it. Rebuild it:
+   branch from `master` and construct each commit by taking file content from the finished,
+   cleaned tree. Filtering leaves the removed text in the commit **messages**, which is the trap;
+   rebuilding writes fresh messages and cannot leak by construction. Verify by **tree hash** —
+   the rebuilt branch must produce a byte-identical tree — and scan both content and messages
+   with a positive control against the original, so a broken probe cannot read as a pass.
+
+   A rebuilt branch is **not an ancestor of master**, so its branch ref is the only thing keeping
+   the original commits alive. Tag it (`safety/<branch>-full`) before deleting, and note **tags
+   are not pushed by default**: `git push` alone leaves that history on this disk only.
+   Done once, 2026-09-09 — 92 commits became 30 under `safety/omarchy-comparison-full`.
+
 **Sync live changes back to dotfiles**: just `cp` the changed file — the symlink means the
 dotfiles file IS the live file, so this is only needed if symlinks were bypassed.
 
