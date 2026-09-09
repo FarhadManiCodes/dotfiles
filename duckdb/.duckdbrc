@@ -1,76 +1,107 @@
--- DuckDB Global Configuration
--- Location: ~/.duckdbrc
--- Read by the DuckDB *CLI*, which is not currently installed — the duckdb used
--- by the `de` venv template is the Python package, which ignores this file.
--- Kept for if/when the CLI is installed again.
+-- DuckDB CLI configuration
+-- Location: ~/.duckdbrc — read by the DuckDB *CLI* only. The `duckdb` Python
+-- package used by the `de` venv template ignores this file entirely (the PyPI
+-- package ships no CLI binary at all).
+--
+-- Rewritten 2026-09-05, the first time this file was ever run: the CLI was not
+-- installed when it was written (2025-06-26), so nothing in it had been
+-- executed. Five directives were broken and three were silent no-ops — the CLI
+-- aborts on any init-file error, so `duckdb` would not start at all. Every
+-- line below is verified against duckdb 1.5.5.
 
 -- ============================================================================
--- DISPLAY SETTINGS (matches your terminal aesthetic)
+-- DISPLAY
 -- ============================================================================
 
--- Custom prompt
+-- Output mode is deliberately left at the default `duckbox`. The old `.mode
+-- table` switched to the sqlite-compatible renderer, which drops the column
+-- type row and disables every duckbox-only control: .maxwidth, .maxrows,
+-- .thousand_sep, .decimal_sep, .large_number_rendering.
+--
+-- `.headers on` is not set either: both modes always print headers.
+-- `.width auto` is gone: `.width` takes a list of NUMBERS (minimum column
+-- widths). A non-numeric argument is accepted and silently ignored, so that
+-- line never did anything. `.maxwidth 0` is the "use the terminal width" knob.
+
 .prompt '🦆 '
-
--- Better table formatting
-.mode table
-.headers on
-.width auto
 .timer on
+.maxrows 40
+.maxwidth 0
 
 -- ============================================================================
--- PERFORMANCE SETTINGS
+-- RESOURCES
 -- ============================================================================
 
-SET memory_limit = '2GB';
-SET threads = 4;
+-- DuckDB's own defaults here would be memory_limit 46.8 GiB (~80% of 58.5) and
+-- threads 16 (every logical CPU). Both are deliberately lowered.
+--
+-- memory_limit: half of RAM. This machine has **no disk swap** — zram is the
+-- only swap device — so an over-commit is a hard OOM, not a slowdown. Leaving
+-- ~29 GiB for the rest of the session is the point; raise it per-session with
+-- `SET memory_limit` for a genuinely large job rather than raising it here.
+--
+-- threads: 8 = the **physical** core count (16 logical, 2 threads per core).
+-- Same reasoning already applied to C++ builds: hyperthreads do not help a
+-- memory-bandwidth-bound workload and cost cache, and DuckDB's scan/join
+-- pipeline is exactly that kind of workload.
+SET memory_limit = '29GB';
+SET threads = 8;
+
 SET enable_progress_bar = true;
 SET enable_progress_bar_print = true;
-SET max_print_length = 1000;
 
--- Better date/time formatting
-SET Calendar = 'ISO';
-SET DateStyle = 'ISO';
+-- Removed, all three verified broken on 1.5.5:
+--   SET max_print_length = 1000   -- no such parameter; use .maxrows above
+--   SET Calendar = 'ISO'          -- only 'gregorian' is accepted, and it is the default
+--   SET DateStyle = 'ISO'         -- no such parameter, even with icu loaded;
+--                                 -- DATE and TIMESTAMP already render as ISO
 
 -- ============================================================================
--- GLOBAL MACROS (available everywhere)
+-- MACROS
 -- ============================================================================
 
--- Quick table overview
+-- Table overview: every table with its column count.
 CREATE OR REPLACE MACRO describe_all() AS TABLE
 SELECT
     table_name,
-    COUNT(*) as column_count
+    COUNT(*) AS column_count
 FROM information_schema.columns
 GROUP BY table_name
 ORDER BY table_name;
 
--- Advanced column profiling
-CREATE OR REPLACE MACRO profile_column(table_name, column_name) AS TABLE
-SELECT
-    $column_name as column_name,
-    COUNT(*) as total_rows,
-    COUNT($column_name) as non_null_count,
-    COUNT(*) - COUNT($column_name) as null_count,
-    ROUND((COUNT($column_name) * 100.0 / COUNT(*)), 2) as non_null_percentage,
-    COUNT(DISTINCT $column_name) as distinct_count,
-    MIN($column_name) as min_value,
-    MAX($column_name) as max_value
-FROM query_table($table_name);
-
--- Quick random sample
+-- Random sample of a table.
+--
+-- Note `ORDER BY random() LIMIT n` rather than `USING SAMPLE n`: the sample
+-- clause only accepts constants ("Only constants are supported in sample
+-- clause currently"), so it cannot take a macro parameter at all. LIMIT can.
 CREATE OR REPLACE MACRO sample(table_name, n := 5) AS TABLE
-SELECT * FROM query_table($table_name)
-USING SAMPLE $n;
+SELECT * FROM query_table(table_name)
+ORDER BY random()
+LIMIT n;
+
+-- `profile_column(table, column)` was removed rather than repaired. It could
+-- not work: a macro parameter is a *value*, not a column reference, so
+-- COUNT(column_name) counted the string 'name' instead of the column. Being a
+-- constant it is never NULL, so the macro always reported null_count = 0 and
+-- distinct_count = 1 whatever the data — plausible-looking numbers that were
+-- simply wrong. Verified on a table with a known NULL: it returned 3/0/1 where
+-- the truth was 3/1/2.
+--
+-- DuckDB's built-in SUMMARIZE already does this correctly, for every column at
+-- once: min, max, approx_unique, avg, std, quartiles, count and
+-- null_percentage.
+--
+--     SUMMARIZE my_table;
+--     SUMMARIZE SELECT * FROM 'data.parquet';
 
 -- ============================================================================
 -- STARTUP MESSAGE
 -- ============================================================================
 .print ""
-.print "🦆 DuckDB (Global Configuration)"
-.print "================================"
+.print "🦆 DuckDB — global config (~/.duckdbrc)"
+.print "======================================"
 .print ""
-.print "💡 Global macros available:"
-.print "   describe_all()                 - Overview of all tables"
-.print "   profile_column('table', 'col') - Advanced column statistics"
-.print "   sample('table', 10)            - Random sample"
+.print "  describe_all()        - every table with its column count"
+.print "  sample('t', n := 10)  - random rows"
+.print "  SUMMARIZE t           - built-in per-column profile (min/max/nulls/quartiles)"
 .print ""
