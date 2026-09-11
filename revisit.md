@@ -610,3 +610,18 @@ artifact, and `vifm/vifmrc:149` does use it. Podman runs `runc` with `criu` abse
 `/var/lib/docker`, `pg.service` active, `DefaultDependencies=false` inside `[Quadlet]` and not
 `[Unit]`. `niri validate` passes against the tracked `config.kdl`.
 
+---
+
+## Tmux identity scope — ACCEPTED (2026-09-11)
+
+The normal remote workflow was checked from the laptop: a pane in the locally started tmux
+server connected successfully to the Debian Google Cloud VM, advertised `tmux-256color`, and
+rendered colour correctly. The local status identity appropriately stayed hidden because it
+describes the tmux server's startup context, not the destination of an individual pane.
+
+For persistent work on the VM, a separate plugin-free server configuration now displays
+`user@hostname`; it was installed and visually confirmed on the VM. The VM does not need the
+laptop's desktop-oriented tmux configuration. Testing `bash/tmux-identity` from a tmux server
+started after an inbound SSH login to the laptop would exercise a supported edge case, but it
+does not represent the chosen workflow and no longer warrants an open real-use TODO. Its four
+branches remain appropriate regression-test scope for the planned test runner.

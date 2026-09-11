@@ -4,48 +4,18 @@ Open work and decisions that need the user. Planning clarified 2026-09-11; this 
 does not approve or start implementation. Accepted findings remain in `revisit.md`.
 
 Suggested order: agree the editor + agent layout first, then build the test runner in small
-increments. Browser work needs specific use cases; identity verification can wait for a real
-occasion. Off-machine backup remains deferred.
+increments. Browser work needs specific use cases. Off-machine backup remains deferred.
 
 | Item | Status | Next requirement |
 |---|---|---|
-| 1. Tmux identity | Awaiting a real-use check | SSH-started server or another-user session |
-| 2. Test runner | Scoped; needs an implementation session | One entry point for existing checks |
-| 3. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
-| 4. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
-| 5a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
-| 5b. Tridactyl workflow review | Needs concrete problems | Name recurring browsing friction |
-| 5c. Firefox containers | Needs a use case and browser trial | Choose accounts or sessions to separate |
+| 1. Test runner | Scoped; needs an implementation session | One entry point for existing checks |
+| 2. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
+| 3. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
+| 4a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
+| 4b. Tridactyl workflow review | Needs concrete problems | Name recurring browsing friction |
+| 4c. Firefox containers | Needs a use case and browser trial | Choose accounts or sessions to separate |
 
-## 1. Verify the tmux identity segment
-
-**Problem:** exceptional cases need real-use visual confirmation. No defect is established.
-
-`bash/tmux-identity` hides `user@host` when local as the usual user, which is confirmed live.
-The other two branches were only tested by faking the environment on throwaway sockets: over
-**ssh** it should show the bare hostname, and as **another user** the bare username.
-
-**Next steps:** when either happens naturally, record the server's startup context, inspect
-`@tmux_power_left_a`, and compare the rendered status bar with the expected text below.
-Do not create an account or configure SSH solely to close this item.
-
-| Context at config load | Expected identity text, alongside the user icon |
-|---|---|
-| Local, usual user | No identity segment — already confirmed live |
-| SSH, usual user | Hostname |
-| Local, another user | Username |
-| SSH, another user | `user@host` |
-
-Note `SSH_CONNECTION` is read from the
-environment that started the *server*, so attaching over ssh to a locally-started tmux will
-correctly show nothing — that is not a failure.
-
-**Done when:** the exceptional cases have recorded real-use observations matching the expected
-rendering. Automated branch tests in item 2 complement this check.
-
-**Feasibility:** small and opportunistic; waiting for the occasion, not implementation work.
-
-## 2. A test runner
+## 1. A test runner
 
 **Problem:** `tests/test_config_drift.py` and `bash/check-skills` have separate entry points,
 and a few documented decisions and script branches have no regression coverage.
@@ -65,8 +35,9 @@ because it would duplicate infrastructure.
    reference `network-online.target`; relevant `bash/tmux-theme` background slots use explicit
    hex rather than `default` or palette indices. Scope checks to active code/settings — comments
    and printed instructions already contain some of these words. Link mappings have coverage.
-3. Test the real `bash/tmux-identity` using a fake `tmux` that records arguments. Cover item 1's
-   four combinations, the usual-user override, and the username fallback when `USER` is unset.
+3. Test the real `bash/tmux-identity` using a fake `tmux` that records arguments. Cover its four
+   documented local/SSH and usual/other-user combinations, the usual-user override, and the
+   username fallback when `USER` is unset.
 4. Test the real `bash/lock-once` for absent, live, vanished and zombie processes, multiple
    candidate PIDs, and failure of the locking command. It reads `/proc/<pid>/stat`, so a fake
    `pgrep` alone is insufficient: design controlled process-state responses too. Replace
@@ -94,7 +65,7 @@ Deliberately **not** asserted: the journal query in
 that window around 2026-10-21, and a test that fails when the journal rotates is the tmux-power
 mistake in a new costume.
 
-## 3. Off-machine backup
+## 2. Off-machine backup
 
 **Deferred by the user 2026-09-07.** Revisit later; no implementation now.
 
@@ -150,7 +121,7 @@ Interacts with the NVMe health check now in `sysclean` (`docs/architecture.md`) 
 disk-health warning is only actionable if there is somewhere to restore from, which is why its
 warning path points here.
 
-## 4. An editor + agent tmux layout
+## 3. An editor + agent tmux layout
 
 From `docs/omarchy-comparison.md` §27, not from its A–E proposals. **The user rates this
 important.** We have exactly one layout, `tmux/layouts/cpp_layout.sh` on `Prefix W`; an
@@ -218,12 +189,12 @@ Two corrections to make when writing ours, both verified 2026-09-08:
   (tested on a throwaway server), but `-l %` is the current form and `cpp_layout.sh` already
   uses the percentage style via `resize-pane -y 30%`.
 
-## 5. Three open Firefox items
+## 4. Three open Firefox items
 
 Moved from `firefox/firefox-notes.md` on 2026-09-09. These are independent tasks; browser
 preferences remain documented there and tracked Tridactyl settings in `tridactyl/tridactylrc`.
 
-### 5a. Sensitive-site Tridactyl rules
+### 4a. Sensitive-site Tridactyl rules
 
 **Problem:** banking and password-manager sites were intended to have site-specific disable
 rules, but their domains and desired behavior have not been supplied.
@@ -245,7 +216,7 @@ as a DocStart autocmd entering ignore mode. The content script still runs, and `
 disable, upstream documents `seturl <url-regex> superignore true`. These are different behaviors;
 see [Tridactyl's documentation](https://github.com/tridactyl/tridactyl).
 
-### 5b. Tridactyl workflow review
+### 4b. Tridactyl workflow review
 
 **Problem:** "deep-config session" has no defined outcome. Existing settings already cover
 search engines, hints, tabs, editor integration and reading/media shortcuts.
@@ -261,7 +232,7 @@ with a reason. Avoid an unbounded review of every available setting.
 **Feasibility:** depends on the problems selected; small binding changes are straightforward,
 but usefulness needs interactive confirmation.
 
-### 5c. Firefox Multi-Account Containers
+### 4c. Firefox Multi-Account Containers
 
 **Problem:** account/session separation is being considered, but no concrete use case has been
 chosen. Containers separate cookies and site storage; they are not a general extension-security
