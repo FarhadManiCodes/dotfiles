@@ -121,7 +121,10 @@ Vim config auto-reloads on save. Editing `vim/config/basic.vim` takes effect imm
 ### IPython
 
 `IPYTHONDIR` is `~/.config/ipython` (set in `zsh/.zshenv`), so the profile lives there rather
-than in `~/.ipython`. Three tracked files, all hand-written:
+than in `~/.ipython`. IPython is launched from Zsh in this setup; its directory override
+does not belong in Niri's environment.d defaults. The verified session-environment separation
+is described in `docs/system-notes.md`, "Environment variables".
+Three tracked files, all hand-written:
 
 - `ipython_config.py` — autoreload, `nvim` as the editor, no exit confirmation, verbose
   tracebacks
@@ -468,6 +471,10 @@ the repo buys little over trust-on-first-use for a single well-known host.
 
 ### Window manager (Niri)
 
+- `niri/niri-session-isolated` and `niri/niri-isolated.desktop` — separate Ly session,
+  root-owned copies installed by `install-root.sh`. Application defaults remain in
+  `environment.d`; only named login metadata is forwarded. Implementation and
+  remaining live checks: [isolated session](../niri/isolated-session.md).
 - `niri/config.kdl` — keybindings, workspaces, window rules
 - `mako/config` — notification daemon
 - `fuzzel/fuzzel.ini` — app launcher

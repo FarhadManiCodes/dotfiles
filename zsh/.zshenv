@@ -69,19 +69,21 @@ export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 export APPTAINER_CACHEDIR="$XDG_CACHE_HOME/apptainer"
 export APPTAINER_TMPDIR="$XDG_CACHE_HOME/apptainer/tmp"
 
-# OpenBLAS — limit threads to physical cores, reserve main thread for Python.
-# Governs the OpenBLAS bundled inside numpy/scipy wheels (they ignore system BLAS).
+# OpenBLAS — match worker count to this machine's 8 physical cores, not its 16
+# logical CPUs. nproc / 2 is a machine-specific approximation, not a topology query.
+# Applies to non-OpenMP OpenBLAS builds, including those bundled in numpy/scipy wheels.
 export OPENBLAS_NUM_THREADS=$(( $(nproc) / 2 ))
 
-# AOCL BLIS — the same cap for C++. `-lblas` resolves to /usr/lib/libblas.so ->
-# AOCL libblis-mt, which with no BLIS_NUM_THREADS/OMP_NUM_THREADS defaults to all
-# 16 logical cores (measured). Pinned to physical cores to match the Python side
-# and leave headroom for interactive work, consistent with -j and the rclone
-# CPUWeight. Costs about 7.6% on an idle-machine 2000^3 dgemm: 5 runs each gave
+# AOCL BLIS — the same worker count for C++ projects linking AOCL explicitly
+# (see docs/system-notes.md; there is no global -lblas adapter). With neither
+# BLIS_NUM_THREADS nor OMP_NUM_THREADS, it used all 16 logical CPUs (measured).
+# Matching the physical-core count aims to reduce contention, but does not pin
+# workers or reserve CPUs. Costs about 7.6% on an idle-machine 2000^3 dgemm: 5 runs each gave
 # 469 GFLOP/s at 16 threads vs 433 at 8, with non-overlapping ranges. Accepted
-# deliberately — SMT wins on throughput here, but saturating all 16 logical
-# cores leaves nothing for interactive work.
+# deliberately — SMT won throughput in that test; interactive headroom is a
+# policy goal, not guaranteed CPU isolation.
 export BLIS_NUM_THREADS=$(( $(nproc) / 2 ))
+# Disable OpenBLAS automatic CPU affinity where enabled; does not reserve a main CPU.
 export OPENBLAS_MAIN_FREE=1
 
 # Less
@@ -95,4 +97,3 @@ export MANROFFOPT="-c"
 export _ZO_ECHO=1
 export _ZO_RESOLVE_SYMLINKS=1
 export _ZO_EXCLUDE_DIRS="/tmp:/proc:/sys:/dev:/run:$HOME:$HOME/Downloads"
-
