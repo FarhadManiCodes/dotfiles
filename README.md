@@ -46,6 +46,9 @@ sudo bash install-root.sh # system-level: root-owned files under /etc
 
 > `--recurse-submodules` is required to pull the Neovim config.
 
+The optional [isolated Niri session](niri/isolated-session.md) has a separate Ly entry
+and a two-file installation procedure; startup and environment isolation are verified.
+
 ### After install
 
 ```bash
@@ -119,7 +122,7 @@ dotfiles/
 ├── mako/config
 ├── wob/wob.ini             # overlay bar (volume/brightness)
 ├── fuzzel/fuzzel.ini
-├── environment.d/          # Wayland environment variables
+├── environment.d/          # User-service environment: paths, locale, apps, Wayland
 ├── paru/paru.conf          # AUR helper config
 ├── lazygit/config.yml
 ├── ptpython/config.py

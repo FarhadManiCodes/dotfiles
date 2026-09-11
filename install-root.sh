@@ -23,6 +23,12 @@ fi
 
 echo "🔐 Installing system (root) configs from ${DOTFILES}..."
 
+# Separate Ly entry; leave the packaged launcher and session file intact.
+install -D -m 0755 -o root -g root \
+  "${DOTFILES}/niri/niri-session-isolated" /usr/local/bin/niri-session-isolated
+install -D -m 0644 -o root -g root \
+  "${DOTFILES}/niri/niri-isolated.desktop" /usr/share/wayland-sessions/niri-isolated.desktop
+
 # --- /etc/pam.d/swaylock : fingerprint + password unlock for the lock screen ---
 # Copied, never symlinked: a PAM auth file must not point at a user-writable path.
 if ! cmp -s "${DOTFILES}/pam/swaylock" /etc/pam.d/swaylock 2>/dev/null; then

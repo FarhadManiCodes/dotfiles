@@ -126,6 +126,9 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 
 ## Important Files and Paths
 
+- [Isolated session](isolated-session.md): optional Ly entry, launcher environment
+  boundary, installation, rollback and pending live acceptance.
+
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
 - Library browser (Mod+z): `~/.local/bin/book-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)

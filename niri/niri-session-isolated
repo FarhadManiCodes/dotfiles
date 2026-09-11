@@ -1,0 +1,113 @@
+#!/bin/sh
+# Only these login values cross into the launcher. Ly's own shell reads remain.
+exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C /bin/sh -s -- \
+    "${XDG_SESSION_ID-}" "${XDG_SEAT-}" "${XDG_VTNR-}" <<'SESSION'
+fail() { printf 'niri-session-isolated: %s\n' "$*" >&2; exit 1; }
+
+session_id=$1 seat=$2 vtnr=$3
+case "$session_id" in ''|*[!a-zA-Z0-9]*) fail 'invalid XDG_SESSION_ID' ;; esac
+case "$seat" in ''|*[!a-zA-Z0-9_-]*) fail 'invalid XDG_SEAT' ;; esac
+case "$vtnr" in ''|0|*[!0-9]*) fail 'invalid XDG_VTNR' ;; esac
+
+uid=$(/usr/bin/id -u) || exit $?
+XDG_RUNTIME_DIR=/run/user/$uid
+export XDG_RUNTIME_DIR
+DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
+export DBUS_SESSION_BUS_ADDRESS
+[ "$(/usr/bin/stat -c '%u:%a' "$XDG_RUNTIME_DIR")" = "$uid:700" ] ||
+    fail 'runtime directory must belong to this user with mode 0700'
+
+# "self" checks the caller, not another session named by an inherited variable.
+metadata=$(/usr/bin/loginctl show-session self \
+    --property=Id --property=User --property=Remote --property=Type \
+    --property=Seat --property=VTNr --no-pager) || exit $?
+actual_id='' actual_user='' actual_remote='' actual_type='' actual_seat='' actual_vtnr=''
+while IFS='=' read -r key value; do
+    case "$key" in
+        Id) actual_id=$value ;; User) actual_user=$value ;;
+        Remote) actual_remote=$value ;; Type) actual_type=$value ;;
+        Seat) actual_seat=$value ;; VTNr) actual_vtnr=$value ;;
+    esac
+done <<EOF
+$metadata
+EOF
+[ "$actual_id" = "$session_id" ] && [ "$actual_user" = "$uid" ] &&
+    [ "$actual_remote" = no ] && [ "$actual_type" = wayland ] &&
+    [ "$actual_seat" = "$seat" ] && [ "$actual_vtnr" = "$vtnr" ] ||
+    fail 'login metadata does not match the calling local Wayland session'
+
+# Keep the file: unlinking a held flock would let another launcher lock a new inode.
+umask 077
+exec 9>"$XDG_RUNTIME_DIR/niri-session-isolated.lock" || exit $?
+/usr/bin/flock --nonblock 9 || fail 'another isolated launcher holds the session lock'
+
+# Closing fd 9 in clients keeps ownership exclusively in this launcher.
+ctl() { /usr/bin/systemctl --user "$@" 9>&-; }
+# Check whether startup is safe; let start report any unit-loading failure.
+state=$(ctl show niri.service --property=ActiveState --value --no-pager) || exit $?
+case "$state" in
+    inactive|failed) ;;
+    *) fail "niri.service is unavailable for startup (state: $state)" ;;
+esac
+
+# From here we own the session. Rejections above must never tear another one down.
+waiter=
+# Invoked by the EXIT trap; ShellCheck does not follow this indirect call.
+# shellcheck disable=SC2329
+cleanup() {
+    result=$?
+    trap - EXIT
+    trap '' HUP INT TERM
+    # Stop/reap the waiting client first: it must not enqueue a late start after
+    # teardown. This kills only our client, never the compositor directly.
+    if [ -n "$waiter" ]; then
+        kill "$waiter" || printf 'niri-session-isolated: could not stop waiting client\n' >&2
+        wait "$waiter" || : # interrupted client status is secondary to result
+    fi
+    # The packaged service is Before=graphical-session.target: stopping that
+    # target can finish before Niri does. Join Niri's stop job explicitly too.
+    teardown_failed=0
+    ctl start --job-mode=replace-irreversibly niri-shutdown.target || teardown_failed=1
+    ctl stop niri.service || teardown_failed=1
+    if [ "$teardown_failed" -eq 0 ]; then
+        if ! ctl unset-environment WAYLAND_DISPLAY DISPLAY NIRI_SOCKET \
+            XDG_SESSION_ID XDG_SEAT XDG_VTNR XDG_SESSION_TYPE \
+            XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP; then
+            printf 'niri-session-isolated: environment cleanup failed\n' >&2
+            [ "$result" -ne 0 ] || result=1
+        fi
+    else
+        printf 'niri-session-isolated: shutdown failed; retaining session variables\n' >&2
+        [ "$result" -ne 0 ] || result=1
+    fi
+    exit "$result"
+}
+trap 'cleanup' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# ResetFailedUnit cannot load a unit; an inactive unit has no failure to clear.
+if [ "$state" = failed ]; then
+    ctl reset-failed niri.service || exit $?
+fi
+ctl unset-environment WAYLAND_DISPLAY DISPLAY NIRI_SOCKET || exit $?
+ctl set-environment "XDG_SESSION_ID=$session_id" "XDG_SEAT=$seat" \
+    "XDG_VTNR=$vtnr" XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=niri \
+    XDG_SESSION_DESKTOP=niri-isolated || exit $?
+
+# A shell wait is interruptible; a foreground external command delays traps.
+# Record signals during the fork/assignment gap so cleanup always knows the PID.
+interrupted=0
+trap 'interrupted=129' HUP
+trap 'interrupted=130' INT
+trap 'interrupted=143' TERM
+/usr/bin/systemctl --user --wait start niri.service 9>&- &
+waiter=$!
+[ "$interrupted" -eq 0 ] || exit "$interrupted"
+wait "$waiter"
+result=$?
+[ "$interrupted" -eq 0 ] || exit "$interrupted"
+waiter=
+exit "$result"
+SESSION

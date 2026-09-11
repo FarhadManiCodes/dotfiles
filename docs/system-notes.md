@@ -277,18 +277,60 @@ dotfiles file IS the live file, so this is only needed if symlinks were bypassed
 
 ## Environment variables
 
-| Variable | Value |
-|---|---|
-| `DOTFILES` | `~/dotfiles` |
-| `XDG_CONFIG_HOME` | `~/.config` |
-| `XDG_DATA_HOME` | `~/.local/share` |
-| `EDITOR` | `vim` |
-| `IPYTHONDIR` | `~/.config/ipython` |
-| `CENTRAL_VENVS` | `~/.central_venvs` |
+| Variable | Value | Source |
+|---|---|---|
+| `DOTFILES` | `~/dotfiles` | `zsh/.zshenv` |
+| `XDG_CONFIG_HOME` | `~/.config` | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `XDG_DATA_HOME` | `~/.local/share` | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `XDG_STATE_HOME` | `~/.local/state` | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `XDG_CACHE_HOME` | `~/.cache` | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `EDITOR`, `VISUAL` | `vim` | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `OPENBLAS_NUM_THREADS`, `BLIS_NUM_THREADS` | `8` in user-service defaults; `nproc / 2` in Zsh | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `OPENBLAS_MAIN_FREE` | `1` | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `IPYTHONDIR` | `~/.config/ipython` | `zsh/.zshenv` |
+| `CENTRAL_VENVS` | `~/.central_venvs` | `zsh/.zshenv` |
 
-All of these are set in `zsh/.zshenv`, so they are present in **every** zsh invocation,
-including the non-interactive ones a script, a `zsh -c`, or an agent tool call gets. Verified
-2026-09-06 with `env -i zsh -c`.
+The table lists configuration sources, not a snapshot of the running session. The
+`environment.d` entries supply defaults for services started by the systemd user manager
+and their descendants, including the graphical session. Independent TTY and SSH shells do
+not automatically read these files: the matching `.zshenv` entries supply those values for
+Zsh, including non-interactive invocations. The earlier shell behavior was verified
+2026-09-06 with `env -i zsh -c`; that check predates the environment.d additions.
+
+`defaults.conf` also defines the user-service PATH, browser/terminal preferences, rootless
+Podman and SSH-agent socket addresses, and German `LC_TIME`, `LC_PAPER`, `LC_MEASUREMENT`
+and `LC_MONETARY`. `LANG=en_US.UTF-8` comes from `/etc/locale.conf` and `.zshenv`, not
+`/etc/environment`; `LC_ALL` must remain unset for the category overrides to work.
+`wayland.conf` holds toolkit preferences. Its `NO_AT_BRIDGE=1` is intentional: preserve
+the choice to disable the ATK accessibility bridge in applications that honor it.
+The system-wide `QT_QPA_PLATFORM=wayland` and user-service `wayland;xcb` differ; their
+reconciliation is pending, not a reason to silently change either value.
+
+**Physical-core-based numerical policy:** eight workers match this machine's eight physical
+cores rather than its sixteen logical CPUs. This is a worker-count policy, not CPU pinning
+or a reservation of CPUs for interactive work. Fewer workers can reduce per-thread memory
+overhead; no memory reduction has been measured here. `OPENBLAS_MAIN_FREE=1` disables
+OpenBLAS automatic affinity where enabled. `OPENBLAS_NUM_THREADS` applies to non-OpenMP
+builds; it does not cap every possible OpenBLAS build. See the
+[OpenBLAS runtime-variable reference](https://www.openmathlib.org/OpenBLAS/docs/runtime_variables/).
+The shell's `nproc / 2` is an existing machine-specific approximation, not a physical-core
+topology query; changing shell computation is a separate step.
+
+**Session decoupling is verified for the isolated entry (2026-09-11).**
+The separate [isolated Niri session](../niri/isolated-session.md) forwards only validated
+login metadata to the existing service. It does not read or duplicate `environment.d`.
+`IPYTHONDIR` and the Cargo PATH addition remain on the shell side. The packaged
+`/usr/bin/niri-session` remains unchanged as recovery and still runs its login shell,
+bare `systemctl --user import-environment`, and
+`dbus-update-activation-environment --all`. The isolated login reached readiness
+without the deprecation warning, and Niri/swayidle process environments confirmed
+the selected application defaults and absence of shell-only exports. Implementation
+is closed; unverified manual cases are recorded in the isolated-session guide.
+
+The environment generator runs at user-manager startup and configuration reload. Existing
+processes retain their environment, and a new graphical login need not recreate a lingering
+user manager. Editing these files alone is not proof that running applications received the
+values; this documentation update did not reload the manager or restart the session.
 
 `CENTRAL_VENVS` only joined them that day. It had been exported from
 `zsh/functions/virtualenv.zsh`, which `.zshrc` sources, so it existed **only in interactive
@@ -368,7 +410,10 @@ System-level choices that aren't captured in any config file:
     `blis`/`blis-mt`/`flame` modules). The `.pc` files are also **broken out of the box**: they
     hardcode `prefix=/opt/aocl/5.3.0/gcc/MT`, which does not exist. Override it with
     `pkg-config --define-variable=prefix=/opt/aocl/gcc/MT --libs flame`.
-  - Thread count is pinned in `zsh/.zshenv`; unset, BLIS uses all 16 logical cores.
+  - BLIS worker count is set to 8 in `environment.d/defaults.conf`; `zsh/.zshenv` still
+    calculates `nproc / 2` (8 with all 16 logical CPUs available). This matches the physical
+    core count but does not pin workers to cores. With both thread-count overrides unset,
+    BLIS was measured using all 16 logical CPUs.
     `BLIS_NUM_THREADS` **outranks** `OMP_NUM_THREADS` (measured), so a project setting
     `OMP_NUM_THREADS` for its own parallel regions will not resize BLIS.
   - **Don't wrap BLAS calls in an `omp parallel` region.** `omp_max_active_levels` is 1 by
