@@ -437,6 +437,10 @@ for remote in gdrive Dropbox; do
 done
 systemctl --user enable study-library-sync.timer 2>/dev/null || true
 
+# shpool is socket-activated: enabling the socket is enough, and avoids keeping
+# the daemon running until a client actually needs it.
+systemctl --user enable shpool.socket 2>/dev/null || true
+
 # The *user* podman socket, which docker-compose reaches via DOCKER_HOST (see
 # environment.d/defaults.conf). Without this a fresh install has DOCKER_HOST pointing at a
 # socket nothing ever creates, and compose fails with no obvious cause. Never enable the

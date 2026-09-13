@@ -1,6 +1,7 @@
 [Unit]
 Description=Shpool - Shell Session Pool
 Requires=shpool.socket
+OnFailure=notify-failure@%n.service
 
 [Service]
 Type=simple

@@ -154,6 +154,7 @@ that produced `etc/`.
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — PDF/book search with rga + fzf
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
+  - `shpool.zsh` — detachable `keep`, per-repository `lg`, and interactive `attach`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep),
     plus the NVMe health check in step 10
   - `sysup.zsh` — full system update (mirrorlist age → paru → uv → Claude Code →

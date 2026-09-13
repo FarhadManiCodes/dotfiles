@@ -429,6 +429,10 @@ System-level choices that aren't captured in any config file:
 - **`rust` (306 MiB) is not removable like Go was**: `paru` is written in Rust and depends on
   `libalpm.so>=14`, so it needs rebuilding whenever pacman bumps that soname. Keeping rust
   installed avoids re-fetching it each time.
+- **`shpool` is installed with `cargo install shpool`**, not from the AUR. The resulting
+  `~/.cargo/bin/shpool` is intentionally untracked and must be recreated on a rebuild. It
+  backs the `keep`/`lg` zsh functions and the Mod+A restore picker; `shpool.socket` is the
+  enabled user unit and starts the daemon on demand.
 - **`qpdf` is a deliberate hand-install, not orphaned**: no config references it, but it's the
   only tool here that preserves **hyperlinks** through page extraction/merge (verified on a
   papis paper: 56 links + outline kept; `mutool` keeps bookmarks but drops links; `pdfjam`/`gs`

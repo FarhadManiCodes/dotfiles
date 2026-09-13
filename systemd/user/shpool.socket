@@ -1,5 +1,6 @@
 [Unit]
 Description=Shpool Shell Session Pooler
+OnFailure=notify-failure@%n.service
 
 [Socket]
 ListenStream=%t/shpool/shpool.socket

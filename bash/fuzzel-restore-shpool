@@ -6,13 +6,47 @@ set -uo pipefail
 # it. shpool is cargo-installed, so it must be called by full path here.
 shpool="$HOME/.cargo/bin/shpool"
 
-sessions=$("$shpool" list --json 2>/dev/null | jq -r '.sessions[].name')
+notify_error() {
+    notify-send --urgency=critical "shpool restore failed" "$1"
+}
+
+if [[ ! -x "$shpool" ]]; then
+    notify_error "shpool is not installed at $shpool. Recreate it with: cargo install shpool"
+    exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+    notify_error "jq is not installed, so the shpool session list cannot be read."
+    exit 1
+fi
+
+if ! sessions_json=$("$shpool" list --json 2>/dev/null); then
+    notify_error "Could not reach shpool. Check: systemctl --user status shpool.socket"
+    exit 1
+fi
+
+if ! sessions=$(jq -r '
+    .sessions as $sessions
+    | if ($sessions | type) != "array" then
+        error("sessions is not an array")
+      else
+        $sessions[]
+        | if (.name | type) == "string" then
+            .name
+          else
+            error("session name is not a string")
+          end
+      end
+' <<< "$sessions_json"); then
+    notify_error "shpool returned an invalid session list."
+    exit 1
+fi
 
 if [[ -z "$sessions" ]]; then
     notify-send "shpool" "No background sessions running."
     exit 0
 fi
 
-selected=$(echo "$sessions" | fuzzel --dmenu --prompt="Restore Task > ")
+selected=$(printf '%s\n' "$sessions" | fuzzel --dmenu --prompt="Restore Task > ")
 
 [[ -n "$selected" ]] && exec footclient --app-id=foot-popup -e "$shpool" attach "$selected"
