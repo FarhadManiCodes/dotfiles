@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Niri's spawned processes get the isolated application PATH, which deliberately
+# excludes Cargo (see niri/isolated-session.md) -- only an interactive zsh adds
+# it. shpool is cargo-installed, so it must be called by full path here.
+shpool="$HOME/.cargo/bin/shpool"
+
+sessions=$("$shpool" list --json 2>/dev/null | jq -r '.sessions[].name')
+
+if [[ -z "$sessions" ]]; then
+    notify-send "shpool" "No background sessions running."
+    exit 0
+fi
+
+selected=$(echo "$sessions" | fuzzel --dmenu --prompt="Restore Task > ")
+
+[[ -n "$selected" ]] && exec footclient --app-id=foot-popup -e "$shpool" attach "$selected"

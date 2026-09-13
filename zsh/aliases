@@ -96,7 +96,15 @@ alias free='free -h'
 # ============================================================================
 # LAZYGIT
 # ============================================================================
-command -v lazygit >/dev/null 2>&1 && alias lg=lazygit
+# lg is a function (zsh/functions/shpool.zsh) -- per-repo shpool session so
+# closing the window never kills lazygit mid-operation, and running `lg`
+# again from the same repo reattaches instead of a plain alias silently
+# reusing whatever directory the session was first created in.
+
+# ============================================================================
+# SHPOOL
+# ============================================================================
+command -v shpool >/dev/null 2>&1 && alias sessions='shpool list'
 
 # ============================================================================
 # VIM

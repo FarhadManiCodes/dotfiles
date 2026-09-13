@@ -418,7 +418,7 @@ done
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
 mkdir -p "${HOME}/.config/systemd/user"
-for file in "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer; do
+for file in "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer "${DOTFILES}/systemd/user/"*.socket; do
   [ -e "$file" ] || continue
   ln -sf "$file" "${HOME}/.config/systemd/user/"
 done

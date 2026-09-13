@@ -142,6 +142,17 @@ window-rule {
     default-column-width { proportion 0.5; }
 }
 
+// Restored shpool session (Mod+A / fuzzel-restore-shpool) — narrow column,
+// bordered distinctly so it reads as an ephemeral background task.
+window-rule {
+    match app-id="foot-popup"
+    default-column-width { proportion 0.33; }
+    border {
+        width 1
+        active-color "#f5a97f"
+    }
+}
+
 // Block password managers from screen capture (inert until one is installed).
 window-rule {
     match app-id=r#"^org\.keepassxc\.KeePassXC$"#
@@ -213,6 +224,9 @@ binds {
 
     // Mod+` — floating scratchpad terminal (quick lookups, man pages, one-offs).
     Mod+Grave hotkey-overlay-title="Scratchpad Terminal" { spawn "footclient" "--app-id" "scratch-term"; }
+
+    // Restore a background shpool session (keep/lg) via a fuzzel picker.
+    Mod+A hotkey-overlay-title="Restore Background Task" { spawn "fuzzel-restore-shpool"; }
 
     // Ctrl+` — clipboard history (fuzzel, top-right).
     Ctrl+Grave {
