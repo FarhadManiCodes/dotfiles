@@ -352,6 +352,7 @@ binds {
     // Consume/expel windows in/out of a column.
     Mod+BracketLeft  { consume-or-expel-window-left; }
     Mod+BracketRight { consume-or-expel-window-right; }
+    Mod+Backspace hotkey-overlay-title="Stack into Left Column" { consume-or-expel-window-left; }
     Mod+Comma  { consume-window-into-column; }
     Mod+Period { expel-window-from-column; }
 
