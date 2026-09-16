@@ -1,7 +1,9 @@
 # Converting a PDF that is not a library paper
 
-Read after choosing the conversion path in `SKILL.md`. This is the cheap path: no figure
-descriptions, no citation verification, no network, no API key.
+Read after choosing the conversion path in `SKILL.md`. This path skips figure descriptions and
+citation verification. PDF input still uses the configured OCR backend: default `maas` mode
+needs `ZHIPU_API_KEY` and network access, while `selfhosted` mode runs locally. Markdown input
+skips OCR and needs neither.
 
 ## Markdown out of a PDF
 
@@ -37,10 +39,10 @@ You can tell which was run by looking in the work directory:
 
 Needs `pandoc` and `xelatex` on PATH — system binaries, not pip dependencies.
 
-`--title` and `--author` add a title page; omit them and there is none. `--clean-toc` is the one
-option that breaks the no-network promise: it spends a Gemini call to catch table-of-contents
-lines the layout model mistagged as headings, beyond the mechanical dedup that always runs. Off
-by default, and it needs `GOOGLE_API_KEY`.
+`--title` and `--author` add a title page; omit them and there is none. `--clean-toc` spends
+Gemini calls to catch table-of-contents lines the layout model mistagged as headings, beyond the
+mechanical dedup that always runs. It is off by default and needs `GOOGLE_API_KEY`; these calls
+are additional to any network access used by the configured OCR backend.
 
 `render_pdf` drives xelatex directly rather than through pandoc's `--pdf-engine`, deliberately:
 pandoc treats any nonzero engine exit as total failure and discards a PDF that nonstopmode's

@@ -22,14 +22,16 @@ neither.
 |---|---|---|
 | A paper in the library, searchable | `papis add …`, then `pask index` | Gemini + CrossRef/S2/OpenAlex |
 | An answer from the library | `pask "your question"` | Gemini |
-| **A general PDF as markdown** | `refinery-typeset <pdf>`, then read `<pdf-stem>.refinery/parsed.md` | **none** |
-| A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | **none** |
+| **A general PDF as markdown** | `refinery-typeset <pdf>`, then read `<pdf-stem>.refinery/parsed.md` | Configured OCR backend |
+| A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | Configured OCR backend |
 | A paper as enriched markdown | `refinery <pdf>` → `<stem>.refinery/refinery.md` | Gemini + providers |
 
-`refinery-typeset` runs parse only — no figure-description stage, no citation verification, and
-no network calls at all unless `--clean-toc` is passed. It is the right tool for anything that is
-not a paper you want in the library, and it is the one people reach past because `refinery` has
-the more obvious name.
+`refinery-typeset` runs parse only — no figure-description stage and no citation verification.
+For PDF input it still uses the configured OCR backend: default `maas` mode needs
+`ZHIPU_API_KEY` and network access, while `selfhosted` mode runs locally. Markdown input skips
+OCR and needs neither. `--clean-toc` adds Gemini calls. It is the right tool for anything that
+is not a paper you want in the library, and it is the one people reach past because `refinery`
+has the more obvious name.
 
 **`parsed.md` is raw OCR markdown. `refinery.md` is the enriched version** — figure descriptions
 spliced in after captions, `[surname_year]` citekeys rewritten. Only `refinery` produces the
