@@ -1,6 +1,6 @@
 # sysup - full system + tooling update
 #
-# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> Claude Code ->
+# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> Cargo tools -> Claude Code ->
 # editor/shell plugins -> nvim :checkhealth -> container images -> fwupd metadata
 # (if stale) -> config-drift.
 #
@@ -87,7 +87,24 @@ sysup() {
   fi
 
   echo "==> uv tools"
-  uv tool upgrade --all
+  echo "    Installed tools:"
+  uv tool list --show-version-specifiers || {
+    echo "!! could not list uv tools — stopping sysup"
+    return 1
+  }
+  echo "    Checking for updates..."
+  uv tool upgrade --all || {
+    echo "!! uv tool upgrade failed — stopping sysup"
+    return 1
+  }
+  echo "    All uv tools checked"
+
+  echo "==> Cargo tools"
+  cargo install-update --all || {
+    echo "!! Cargo tool update failed — stopping sysup"
+    return 1
+  }
+  echo "    All Cargo tools checked"
 
   echo "==> Claude Code"
   claude update
