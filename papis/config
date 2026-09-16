@@ -67,6 +67,8 @@ unique-document-keys = ['doi', 'isbn', 'isbn10', 'eprint', 'url', 'doc_url']
 editmode = vi
 
 [ask]
+# Refinery handles enrichment; disable PaperQA's separate image enrichment.
+multimodal = False
 llm = gemini/gemini-3-flash-preview
 summary-llm = gemini/gemini-2.5-flash-lite
 embedding = gemini/gemini-embedding-2
