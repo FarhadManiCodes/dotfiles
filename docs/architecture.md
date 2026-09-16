@@ -157,8 +157,8 @@ that produced `etc/`.
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, and interactive `attach`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep),
     plus the NVMe health check in step 10
-  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → Claude Code →
-    plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
+  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → Cargo tools →
+    Claude Code → plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search

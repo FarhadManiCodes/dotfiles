@@ -432,7 +432,9 @@ System-level choices that aren't captured in any config file:
 - **`shpool` is installed with `cargo install shpool`**, not from the AUR. The resulting
   `~/.cargo/bin/shpool` is intentionally untracked and must be recreated on a rebuild. It
   backs the `keep`/`lg` zsh functions and the Mod+A restore picker; `shpool.socket` is the
-  enabled user unit and starts the daemon on demand.
+  enabled user unit and starts the daemon on demand. `sysup` updates it and the other
+  Cargo-installed tools with `cargo install-update --all`; the `cargo-update` command itself
+  is a pacman package and is updated earlier in the same run by `paru -Syu`.
 - **`qpdf` is a deliberate hand-install, not orphaned**: no config references it, but it's the
   only tool here that preserves **hyperlinks** through page extraction/merge (verified on a
   papis paper: 56 links + outline kept; `mutool` keeps bookmarks but drops links; `pdfjam`/`gs`
