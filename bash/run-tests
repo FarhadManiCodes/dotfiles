@@ -1,0 +1,38 @@
+#!/bin/bash
+# One entry point for this repository's test suites.
+#
+# Every suite runs even after an earlier one fails, so a single broken suite
+# cannot hide the state of the rest. Exit 0 = every suite passed.
+#
+# The checkout is resolved from this script's own real path rather than $PWD or
+# $HOME/dotfiles: install.sh symlinks every bash/ file into ~/.local/bin, so the
+# invocation path is usually outside the checkout and is not a symlink away from
+# it either. Suites are addressed by absolute path for the same reason.
+#
+# A missing suite is a failure, not a pass: unittest discovery exits 1 on an
+# absent directory and bash exits 127 on an absent script, both recorded below.
+
+set -uo pipefail
+
+root=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd)
+results=()
+status=0
+
+suite() {
+  local name=$1
+  shift
+  printf '\n\033[1m== %s ==\033[0m\n' "$name"
+  if "$@"; then
+    results+=("$(printf '\033[32mpass\033[0m  %s' "$name")")
+  else
+    results+=("$(printf '\033[31mFAIL\033[0m  %s' "$name")")
+    status=1
+  fi
+}
+
+suite unittest python3 -B -m unittest discover -s "$root/tests"
+suite skills bash "$root/bash/check-skills"
+
+printf '\n\033[1m== summary ==\033[0m\n'
+printf '   %s\n' "${results[@]}"
+exit "$status"

@@ -16,7 +16,9 @@
 # Read-only. No dependencies beyond coreutils. Exit 0 = all pass.
 
 set -uo pipefail
-df_dir=${DOTFILES:-$HOME/dotfiles}
+# Resolved from this script's own real path: install.sh symlinks bash/ into
+# ~/.local/bin, so neither $PWD nor the invocation path locates the checkout.
+df_dir=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd)
 skills_dir="$df_dir/skills"
 fail=0
 checked=0
@@ -24,7 +26,7 @@ checked=0
 red()  { printf '   \033[31mFAIL\033[0m  %s\n' "$1"; fail=$((fail+1)); }
 green(){ printf '   \033[32mok\033[0m    %s\n' "$1"; }
 
-[[ -d $skills_dir ]] || { echo "no skills/ directory at $skills_dir"; exit 0; }
+[[ -d $skills_dir ]] || { printf 'no skills/ directory at %s\n' "$skills_dir" >&2; exit 1; }
 
 for dir in "$skills_dir"/*/; do
   [[ -d $dir ]] || continue
@@ -123,9 +125,12 @@ for dir in "$skills_dir"/*/; do
 done
 
 printf '\n'
-if ((fail == 0)); then
-  printf '\033[32m%d assertions passed.\033[0m\n' "$checked"
-else
+if ((fail > 0)); then
   printf '\033[31m%d of %d assertions failed.\033[0m\n' "$fail" "$checked"
+elif ((checked == 0)); then
+  # An empty skills/ asserts nothing, which must not read as a clean run.
+  printf '\033[31mno skills asserted in %s.\033[0m\n' "$skills_dir"
+else
+  printf '\033[32m%d assertions passed.\033[0m\n' "$checked"
 fi
-exit $(( fail > 0 ))
+exit $(( fail > 0 || checked == 0 ))
