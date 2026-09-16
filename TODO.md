@@ -12,8 +12,8 @@ Off-machine backup remains deferred.
 | 1. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
 | 2. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
 | 3a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
-| 3b. Tridactyl workflow review | Needs concrete problems | Name recurring browsing friction |
-| 3c. Firefox containers | Needs a use case and browser trial | Choose accounts or sessions to separate |
+| 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
+| 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
 
 ## 1. Off-machine backup
 
@@ -139,10 +139,11 @@ Two corrections to make when writing ours, both verified 2026-09-08:
   (tested on a throwaway server), but `-l %` is the current form and `cpp_layout.sh` already
   uses the percentage style via `resize-pane -y 30%`.
 
-## 3. Three open Firefox items
+## 3. Firefox items
 
 Moved from `firefox/firefox-notes.md` on 2026-09-09. These are independent tasks; browser
 preferences remain documented there and tracked Tridactyl settings in `tridactyl/tridactylrc`.
+3b and 3c closed 2026-09-16; only 3a remains open.
 
 ### 3a. Sensitive-site Tridactyl rules
 
@@ -166,49 +167,35 @@ as a DocStart autocmd entering ignore mode. The content script still runs, and `
 disable, upstream documents `seturl <url-regex> superignore true`. These are different behaviors;
 see [Tridactyl's documentation](https://github.com/tridactyl/tridactyl).
 
-### 3b. Tridactyl workflow review
+### 3b. Tridactyl workflow review — closed 2026-09-16
 
 **Problem:** "deep-config session" has no defined outcome. Existing settings already cover
 search engines, hints, tabs, editor integration and reading/media shortcuts.
 
-**User input needed:** name three recurring annoyances or missing actions in normal browsing.
+**Resolution:** asked the user for three recurring annoyances or missing actions; there are
+none. The item traced back to `docs/omarchy-comparison.md` rather than an observed problem in
+this config. Current Tridactyl config retained as-is. Reopen only if a concrete friction point
+shows up in normal use.
 
-**Next steps:** map each problem to the current config, propose a specific change, and try it
-on representative sites. Review search engines or bindings where they relate to those problems.
+### 3c. Firefox containers — closed 2026-09-16
 
-**Done when:** the named problems are resolved, or the current behavior is deliberately retained
-with a reason. Avoid an unbounded review of every available setting.
+**Use case (2026-09-16):** separate personal from work sessions. Manual container selection —
+no automatic per-site assignment, so the Multi-Account Containers extension is not needed.
 
-**Feasibility:** depends on the problems selected; small binding changes are straightforward,
-but usefulness needs interactive confirmation.
+**Evidence re-verified 2026-09-16** (profile `g9208rug.default-release`, the `Default=` profile
+in `profiles.ini`, Firefox not running while inspected): Multi-Account Containers is still not
+installed. `containers.json` already defines the four native identities — Personal (`id 1`),
+Work (`id 2`), Banking (`id 3`), Shopping (`id 4`) — via `contextualIdentities`, Firefox's
+built-in feature, not the extension. `privacy.userContext.enabled` is unset (defaults off), so
+the "Open New Container Tab" option is currently hidden from the `+`/right-click menu.
+`privacy.userContext.extension` is `tridactyl.vim@cmcaine.co.uk`. Installed extensions: uBlock
+Origin, Proton VPN, DownThemAll!, Tridactyl (all active), Catppuccin Latte · Mauve theme
+(inactive).
 
-### 3c. Firefox Multi-Account Containers
+**Decision:** flip `privacy.userContext.enabled` to `true` (added to `firefox/firefox-notes.md`
+about:config table). No extension install, so no Tridactyl link-interception question — manual
+selection doesn't touch link-opening behavior.
 
-**Problem:** account/session separation is being considered, but no concrete use case has been
-chosen. Containers separate cookies and site storage; they are not a general extension-security
-boundary. See [Mozilla's documentation](https://support.mozilla.org/en-US/kb/containers).
-
-**Decision needed:** which accounts or sessions to separate, and whether automatic per-site
-assignment is needed rather than manual container selection.
-
-**Next steps:**
-
-1. Compare the installed Firefox's native capabilities with the extension's additions for that
-   use case. Recheck installed state before acting; the observations below are dated.
-2. Trial one use case and verify Tridactyl compatibility, including opening links and redirects.
-   The recorded preference is a compatibility question, not proof of a conflict.
-3. Check session persistence after restart and document the chosen identities and assignment
-   policy without committing browser session data or credentials.
-
-**Done when:** intended accounts remain separate, links open in the intended container,
-sessions survive restart, and Tridactyl behaves as expected. A trial can also conclude that
-containers offer no needed benefit and close the item with that reason.
-
-**Feasibility:** reasonable; requires an interactive browser trial.
-
-**Evidence recorded 2026-09-09:** Multi-Account Containers was not installed. `containers.json`
-held Personal / Work / Banking / Shopping, while `privacy.userContext.enabled` was unset.
-`privacy.userContext.extension` was `tridactyl.vim@cmcaine.co.uk`; coexistence was unverified.
-The profile had uBlock Origin 1.74.0, Proton VPN 1.3.6 and DownThemAll! 4.15.1, plus the
-Catppuccin Latte · Mauve theme. Tridactyl was installed globally by `firefox-tridactyl`, explaining
-its absence from the profile's add-on list; the theme explained the previously unidentified GUID.
+**Verified 2026-09-16 (user, interactive):** enabled the pref, confirmed Personal/Work cookie
+separation, confirmed both container tabs survive a full restart, confirmed Tridactyl hinting,
+tab open/close/switch behave normally with containers in use. No extension needed.

@@ -44,6 +44,7 @@ where the audit workflow looks. Three were moved there on 2026-09-09.
 | `network.http.speculative-parallel-limit` | 0 | Privacy |
 | `dom.screenwakelock.enabled` | false | Prevent Firefox from requesting suspend inhibition via xdg-portal — swayidle timers are the sole authority for suspend |
 | `network.manage-offline-status` | false | Stop Firefox polling WiFi state via deprecated WEXT ioctls (kernel warns "uses wireless extensions"). Its Socket Thread made these calls; iwd + the status bar handle network state instead |
+| `privacy.userContext.enabled` | true | Expose the built-in Personal/Work/Banking/Shopping container tabs (native `contextualIdentities`, already defined in `containers.json`) via right-click / long-press "+". Manual selection only — see TODO.md 3c for why the Multi-Account Containers extension was skipped |
 
 *May affect video calls — see above
 
