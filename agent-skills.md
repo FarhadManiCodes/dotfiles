@@ -201,7 +201,7 @@ and the only known-answer fixture was a journal window that expires: `journald` 
 | 4 | Conformance and link checks | done, passing |
 | 5 | `config-drift` gains the two `/etc` sweeps against their baselines | done |
 | 6 | The audit workflow, into the always-loaded file | done |
-| 7 | The three assertions recorded in `TODO.md`, "A test runner" | done |
+| 7 | Three assertions in `bash/check-skills`: frontmatter conformance, every `references/` target exists, every named `bash/` tool is present and executable | done; run by `bash/run-tests` since 2026-09-16 |
 
 ### What building it already found
 
