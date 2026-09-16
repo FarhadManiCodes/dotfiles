@@ -625,3 +625,39 @@ laptop's desktop-oriented tmux configuration. Testing `bash/tmux-identity` from 
 started after an inbound SSH login to the laptop would exercise a supported edge case, but it
 does not represent the chosen workflow and no longer warrants an open real-use TODO. Its four
 branches remain appropriate regression-test scope for the planned test runner.
+
+---
+
+## Test runner follow-on scope — DROPPED by the user (2026-09-16)
+
+`bash/run-tests` was delivered and `TODO.md`'s test-runner item was closed and removed the same
+day. One command now runs the unittest suite and `check-skills`, reports each, continues past a
+failure so one broken suite cannot hide the rest, and exits nonzero if any failed. `install.sh`
+symlinks it to `~/.local/bin/run-tests`.
+
+**Three planned increments were dropped with the item, and should not be re-raised as gaps.**
+The invariant greps (`install.sh` never executes sudo; no active user unit orders against
+`network-online.target`; `bash/tmux-theme` uses explicit background hex), a fake-`tmux` test of
+`bash/tmux-identity`'s four local/SSH branches, and a controlled-process-state test of
+`bash/lock-once`. All three conventions currently hold, and the standing position in
+`docs/omarchy-comparison.md` — add tests for a concrete failure worth preventing, never to match
+a count — is the argument for not writing them absent a real regression. This supersedes the
+closing sentence of the tmux identity entry above, which reserved those four branches as scope
+for the then-planned runner.
+
+**Two things building it found.** `install.sh` symlinks every `bash/` file into `~/.local/bin`,
+so resolving a checkout with `dirname "$0"` lands on `~/.local` — verified against a symlinked
+probe, and the reason both `run-tests` and `check-skills` now resolve through `realpath` rather
+than the former `${DOTFILES:-$HOME/dotfiles}` guess. Separately, the first version of the new
+empty-`skills/` guard was ordered ahead of the failure branch, so a skill with broken
+frontmatter reported "no skills asserted" and hid the real defect; it was caught by running the
+guard against a deliberately broken fixture, not by reading it.
+
+**Missing input is no longer a silent pass.** An absent or empty `skills/` exits 1 where it
+previously exited 0, unittest discovery exits 1 on an absent `tests/`, and bash exits 127 on an
+absent script — all three recorded as suite failures rather than skipped.
+
+**Still deliberately unasserted, and not a gap.** The journal query in
+`skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md`. Retention drops that window
+around 2026-10-21, and a test that fails when the journal rotates is the tmux-power mistake in a
+new costume. This note previously lived in the `TODO.md` section that was removed with the item.

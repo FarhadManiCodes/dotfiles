@@ -211,11 +211,15 @@ already does).
   the CLI half (`gh`, python's `webbrowser`, xdg-open's generic path), while GUI links and
   portals follow `mimeapps.list`. A future browser switch has to edit both, by hand — see 28.
 
-## The invariant table (8) — the spec for a future test, not a backlog
+## The invariant table (8) — recorded conventions, deliberately unasserted
 
 Add tests for a concrete failure worth preventing, never to match a count. These four are the
 decisions already argued elsewhere in the repo, each expressible as a one-line grep; they are
 recorded so a future regression has somewhere to attach.
+
+Writing the three unasserted ones was dropped on 2026-09-16 when the runner shipped without
+them: the conventions hold, and this section's own standing position is the argument against
+writing a grep for each. See `revisit.md`, "Test runner follow-on scope".
 
 | Convention | State |
 |---|---|
@@ -231,10 +235,13 @@ self-contained and does not need the Omarchy checkout.
 
 | # | Item | Where |
 |---|---|---|
-| C | Fold `check-skills` and the invariant table into one runner | `TODO.md`, "A test runner" |
 | D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md`, "Off-machine backup" |
 | 27 | An editor + agent tmux layout — the user rates this important | `TODO.md`, "An editor + agent tmux layout" |
 | 30 | Their skill layering (a routing `SKILL.md` plus sibling topic guides) as the shape for `config-audit` | `agent-skills.md` |
+
+Item C — fold `check-skills` and the invariant table into one runner — left this table on
+2026-09-16. `bash/run-tests` is that entry point; the invariant half was dropped rather than
+built, with the reason in `revisit.md`, "Test runner follow-on scope".
 
 Also found here but unrelated to Omarchy: 62 accumulated `git fsmonitor--daemon` processes
 holding 326 MB, noticed while measuring the oomd cgroup. Resolved 2026-09-09 by turning

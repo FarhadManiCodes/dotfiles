@@ -1,71 +1,21 @@
 # TODO
 
-Open work and decisions that need the user. Planning clarified 2026-09-11; this rewrite
-does not approve or start implementation. Accepted findings remain in `revisit.md`.
+Open work and decisions that need the user. Planning clarified 2026-09-11; renumbered again on
+2026-09-16 when the test runner was delivered and closed. Accepted findings remain in
+`revisit.md`; the runner's dropped follow-on scope is recorded there.
 
-Suggested order: agree the editor + agent layout first, then build the test runner in small
-increments. Browser work needs specific use cases. Off-machine backup remains deferred.
+Suggested order: agree the editor + agent layout first. Browser work needs specific use cases.
+Off-machine backup remains deferred.
 
 | Item | Status | Next requirement |
 |---|---|---|
-| 1. Test runner | Scoped; needs an implementation session | One entry point for existing checks |
-| 2. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
-| 3. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
-| 4a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
-| 4b. Tridactyl workflow review | Needs concrete problems | Name recurring browsing friction |
-| 4c. Firefox containers | Needs a use case and browser trial | Choose accounts or sessions to separate |
+| 1. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
+| 2. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
+| 3a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
+| 3b. Tridactyl workflow review | Needs concrete problems | Name recurring browsing friction |
+| 3c. Firefox containers | Needs a use case and browser trial | Choose accounts or sessions to separate |
 
-## 1. A test runner
-
-**Problem:** `tests/test_config_drift.py` and `bash/check-skills` have separate entry points,
-and a few documented decisions and script branches have no regression coverage.
-
-**Deliverable:** one command that reports each suite's result and exits nonzero if any required
-suite fails. Keep standard-library `unittest`; copying Omarchy's Bash harness was withdrawn
-because it would duplicate infrastructure.
-
-**Implementation sequence:**
-
-1. Add the entry point for the existing unittest suite and `check-skills`. Resolve the checkout
-   from the runner's own location and pass it explicitly to checks that need it. `check-skills`
-   currently uses `DOTFILES` or `$HOME/dotfiles` and exits successfully if `skills/` is absent:
-   missing required input must not look like a passing suite.
-2. Add the three remaining conventions from `docs/omarchy-comparison.md`, "The invariant
-   table (8)": `install.sh` never executes sudo; active user-unit ordering directives do not
-   reference `network-online.target`; relevant `bash/tmux-theme` background slots use explicit
-   hex rather than `default` or palette indices. Scope checks to active code/settings — comments
-   and printed instructions already contain some of these words. Link mappings have coverage.
-3. Test the real `bash/tmux-identity` using a fake `tmux` that records arguments. Cover its four
-   documented local/SSH and usual/other-user combinations, the usual-user override, and the
-   username fallback when `USER` is unset.
-4. Test the real `bash/lock-once` for absent, live, vanished and zombie processes, multiple
-   candidate PIDs, and failure of the locking command. It reads `/proc/<pid>/stat`, so a fake
-   `pgrep` alone is insufficient: design controlled process-state responses too. Replace
-   `swaylock` with a fake before exercising any branch.
-
-**Testing rules:** run real scripts against temporary fixtures and fakes that record calls.
-Keep environment overrides inside test subprocesses. Never invoke the live locker or mutate
-a live tmux server. A unittest assertion already stops its test method; do not add whole-file
-abort semantics. Independent tests and subsequent suites must continue after a failure.
-
-**Done when:** the runner works from outside the checkout, deliberate fixture failures are
-detected, later suites still run, and the final status reflects failures or missing required
-inputs. Tests leave live configuration and services untouched.
-
-**Feasibility:** high; deliver each numbered increment separately. No new framework or CI is
-required. Add coverage for concrete failures rather than every sentence in the architecture docs.
-
-**Retained context:** `check-skills` already checks frontmatter, names, descriptions, body
-length and referenced resources; its source is the current assertion inventory. It was verified
-against a deliberately broken fixture on 2026-09-06, after repeated inline reviews had missed
-a real description defect.
-
-Deliberately **not** asserted: the journal query in
-`skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md`. Journal retention drops
-that window around 2026-10-21, and a test that fails when the journal rotates is the tmux-power
-mistake in a new costume.
-
-## 2. Off-machine backup
+## 1. Off-machine backup
 
 **Deferred by the user 2026-09-07.** Revisit later; no implementation now.
 
@@ -121,7 +71,7 @@ Interacts with the NVMe health check now in `sysclean` (`docs/architecture.md`) 
 disk-health warning is only actionable if there is somewhere to restore from, which is why its
 warning path points here.
 
-## 3. An editor + agent tmux layout
+## 2. An editor + agent tmux layout
 
 From `docs/omarchy-comparison.md` §27, not from its A–E proposals. **The user rates this
 important.** We have exactly one layout, `tmux/layouts/cpp_layout.sh` on `Prefix W`; an
@@ -189,12 +139,12 @@ Two corrections to make when writing ours, both verified 2026-09-08:
   (tested on a throwaway server), but `-l %` is the current form and `cpp_layout.sh` already
   uses the percentage style via `resize-pane -y 30%`.
 
-## 4. Three open Firefox items
+## 3. Three open Firefox items
 
 Moved from `firefox/firefox-notes.md` on 2026-09-09. These are independent tasks; browser
 preferences remain documented there and tracked Tridactyl settings in `tridactyl/tridactylrc`.
 
-### 4a. Sensitive-site Tridactyl rules
+### 3a. Sensitive-site Tridactyl rules
 
 **Problem:** banking and password-manager sites were intended to have site-specific disable
 rules, but their domains and desired behavior have not been supplied.
@@ -216,7 +166,7 @@ as a DocStart autocmd entering ignore mode. The content script still runs, and `
 disable, upstream documents `seturl <url-regex> superignore true`. These are different behaviors;
 see [Tridactyl's documentation](https://github.com/tridactyl/tridactyl).
 
-### 4b. Tridactyl workflow review
+### 3b. Tridactyl workflow review
 
 **Problem:** "deep-config session" has no defined outcome. Existing settings already cover
 search engines, hints, tabs, editor integration and reading/media shortcuts.
@@ -232,7 +182,7 @@ with a reason. Avoid an unbounded review of every available setting.
 **Feasibility:** depends on the problems selected; small binding changes are straightforward,
 but usefulness needs interactive confirmation.
 
-### 4c. Firefox Multi-Account Containers
+### 3c. Firefox Multi-Account Containers
 
 **Problem:** account/session separation is being considered, but no concrete use case has been
 chosen. Containers separate cookies and site storage; they are not a general extension-security

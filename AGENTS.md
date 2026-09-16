@@ -50,11 +50,14 @@ when working from the repository root.
 
 ## Validation
 
-No repository-wide pipeline exists. Use checks appropriate to the changed files, and report
-checks not run and their limitations.
+No CI runs anything. Use checks appropriate to the changed files, and report checks not run
+and their limitations.
 
-- `python3 -B -m unittest discover -s tests` for the checkers; `bash -n` and `shellcheck`
-  for Bash; `zsh -n` for Zsh, never Bash-only checks; `bash bash/check-skills` for skills;
+- `bash bash/run-tests` is the single entry point for the test suites: every suite runs even
+  after an earlier failure, and a missing suite fails rather than passing quietly. Separately,
+  `python3 -B -m unittest discover -s tests` for the checkers and `bash bash/check-skills`
+  for skills.
+- `bash -n` and `shellcheck` for Bash; `zsh -n` for Zsh, never Bash-only checks;
   `bash bash/config-drift` (or `-v`) to audit the live machine, read-only and no root.
 - Units: `systemd-analyze verify <unit>` plus runtime evidence; verification alone cannot
   prove network ordering or successful execution.
