@@ -90,6 +90,17 @@ Before deciding:
 3. Retain the change only for a material improvement.
 4. If adopted, ensure module loading is persistent and make drift checks report when either sysctl fails to apply.
 
+### Kyber I/O scheduling
+
+Decision pending. The machine has one SK hynix NVMe device, `nvme0n1`, currently using the kernel's `none` scheduler with `mq-deadline`, `kyber`, and `bfq` available. Kyber may improve interactive read latency while builds, package updates, copies, or data jobs saturate the device, but it may reduce peak throughput relevant to scientific and data workloads.
+
+Before deciding:
+
+1. Measure a representative heavy-write workload with `none`, including throughput, interactive read tail latency, CPU cost, and desktop responsiveness.
+2. Temporarily switch only `nvme0n1` to `kyber` and repeat the same measurement.
+3. Retain the change only when responsiveness improves without an unacceptable workload penalty.
+4. If adopted, use a narrowly targeted udev rule, install it through `install-root.sh`, and cover it with the privileged drift checks.
+
 ### SSH server
 
 Decision pending. Preserve the current safe state: no configured `sshd` and no SSH firewall opening. If remote SSH is later wanted, verify at least one usable public key before enabling the service or firewall, disable password authentication, prohibit root login, retain local recovery, and verify the effective daemon configuration.
@@ -136,7 +147,6 @@ There is no current `NOPASSWD` rule to change. If temporary cached or passwordle
 
 The later Omarchy range through `9c5482c5` still has the following potentially transferable items to classify:
 
-- Kyber I/O scheduling for physical disks.
 - Matching kernel headers as a DKMS prerequisite.
 - Optional Claude browser integration.
 
