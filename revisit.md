@@ -661,3 +661,54 @@ absent script — all three recorded as suite failures rather than skipped.
 `skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md`. Retention drops that window
 around 2026-10-21, and a test that fails when the journal rotates is the tmux-power mistake in a
 new costume. This note previously lived in the `TODO.md` section that was removed with the item.
+
+---
+
+## mupdf instead of poppler for rga — REJECTED (tested, 2026-09-17)
+
+`poppler` was removed on 2026-07-10 as collateral: `pacman -Rns cups cups-pdf gsfonts`
+cascaded through `cups-filters`, which depended on it. That took `pdftotext` and
+`pdfinfo` with it. `rga`'s only PDF adapter is poppler, so `rgbook` returned nothing for
+two months, and `fbook`'s `pdfinfo` preview silently said "No info available" — invisible
+because that preview window is hidden by default. The printing removal itself was
+deliberate and stays so; only the casualty was unnoticed.
+
+Since `mutool` is already here for sioyek, replacing poppler with it was tested rather
+than assumed:
+
+- **It can do the extraction.** `mutool draw -q -F txt` yields 514 KB and 282 form-feed
+  page breaks on a sample book — form feeds being exactly what rga's `postprocpagebreaks`
+  adapter needs to produce the `Page N` labels `rgbook` depends on. A standalone wrapper
+  worked.
+- **Wiring it into rga does not.** rga has no mupdf adapter, so it needs a custom adapter
+  plus a wrapper script: rga feeds the file on **stdin** (`pdftotext -` reads stdin;
+  mutool needs a seekable file *and* a `.pdf` extension to pick its handler), and the
+  chain into `postprocpagebreaks` kept recursing. Four iterations did not produce a
+  working end-to-end result.
+- **The deciding argument is not the fiddliness.** The custom adapter lives in
+  `~/.config/ripgrep-all/config.jsonc`, which is **deliberately untracked** — see the
+  2026-09-04 sweep note in `docs/architecture.md`, "Tracking it would pin something
+  upstream owns". That trades a packaged dependency for a hand-rolled one this repo's own
+  tooling cannot see, and `config-drift` would never know it had gone.
+- **And it is incomplete anyway.** mupdf does not replace `pdfinfo`, so `fbook`'s preview
+  would stay broken unless `bash/vifm-pick` and `zsh/functions/pdf.zsh` both moved to
+  `mutool info`.
+
+**Decision:** keep `poppler`. It is not an extra dependency — it was present until an
+accident removed it, so reinstalling restores the state the code was written against.
+**Recheck** only if poppler ever pulls in something unwanted; the mupdf route is then a
+real fallback, but as a tracked script in `bash/`, not a stray adapter in an untracked
+config.
+
+---
+
+## `setsid -f handlr open` — CHECKED AND CLEAN (false alarm, 2026-09-17)
+
+Briefly recorded as broken while diagnosing the pickers: `setsid -f handlr open <pdf>`
+appeared to launch nothing, which would have meant vifm's `filetype * setsid -f handlr
+open %f` catch-all was dead. **It was the probe.** The test ran `pkill -x sioyek`
+immediately before each launch, and sioyek is single-instance, so the relaunch raced a
+shutting-down instance. Re-tested three ways side by side — `handlr open`,
+`setsid -f handlr open`, `setsid -f sioyek` — all three launch correctly. `handlr get
+application/pdf` returns `sioyek.desktop` and `mimeapps.list` is right. Nothing to fix;
+recorded so it is not re-investigated.
