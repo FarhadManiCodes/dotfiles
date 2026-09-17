@@ -57,10 +57,15 @@ fi
 #                      the freezer cannot freeze and SIGKILL cannot reach. Without
 #                      it one stuck process on an rclone mount turns a lid-close
 #                      into an all-night suspend-retry storm (2026-09-02).
-for hook in unblock-fuse; do
-  sleep_hook="/usr/lib/systemd/system-sleep/${hook}"
-  if ! cmp -s "${DOTFILES}/system-sleep/${hook}" "$sleep_hook" 2>/dev/null; then
-    install -D -m 0755 -o root -g root "${DOTFILES}/system-sleep/${hook}" "$sleep_hook"
+# Driven by the directory rather than a hardcoded name, so a hook added to
+# system-sleep/ is installed rather than silently skipped -- bash/config-drift
+# already iterates the whole directory, so the two would otherwise disagree
+# about which hooks exist. The -f guard also covers the unmatched-glob case.
+for src in "${DOTFILES}"/system-sleep/*; do
+  [ -f "$src" ] || continue
+  sleep_hook="/usr/lib/systemd/system-sleep/${src##*/}"
+  if ! cmp -s "$src" "$sleep_hook" 2>/dev/null; then
+    install -D -m 0755 -o root -g root "$src" "$sleep_hook"
     echo "  ${sleep_hook} installed"
   else
     echo "  ${sleep_hook} already up to date"
