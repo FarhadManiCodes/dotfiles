@@ -52,7 +52,7 @@ fnb() {
     fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
       --preview-window='right:30%' \
       --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(timeout 2 xdg-open $(dirname {}) 2>/dev/null &)' \
+      --bind 'ctrl-o:execute(timeout 2 xdg-open "$(dirname {})" 2>/dev/null &)' \
       --header 'Enter: edit notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key file
@@ -89,7 +89,7 @@ fdata() {
                    fi' \
       --preview-window='right:40%' \
       --expect 'ctrl-d,ctrl-v' \
-      --bind 'ctrl-o:execute(xdg-open $(dirname {}) 2>/dev/null &)' \
+      --bind 'ctrl-o:execute(xdg-open "$(dirname {})" 2>/dev/null &)' \
       --header '📊 Data & Model Files | Enter: edit | Ctrl+D: cd | Ctrl+V: copy path | Ctrl+O: open folder')
 
   local key file

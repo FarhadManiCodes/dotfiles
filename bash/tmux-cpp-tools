@@ -265,8 +265,34 @@ cmd_clean() {
     pause
 }
 
+# find_project_root's first pass returns the path it reads out of
+# build/CMakeCache.txt, and CMAKE_SOURCE_DIR is absolute -- a cache that travels
+# with a copied or restored project still names the tree it was built in. The
+# git-root guard bounds the walk, not the value read from the cache. Every other
+# subcommand only builds or reads there, so a wrong answer is a confusing error;
+# this one calls rm -rf, so it proves the target first. Demonstrated: with
+# other/'s cache sitting in here/build, this deleted other/build while the shell
+# was in here/.
+require_clean_target() {
+    local root pwd_real
+    root=$(cd "$PROJECT_ROOT" 2>/dev/null && pwd -P) \
+        || die "Project root does not resolve: $PROJECT_ROOT"
+    pwd_real=$(pwd -P)
+    [[ -f "$root/CMakeLists.txt" ]] \
+        || die "No CMakeLists.txt in $root — refusing to delete anything."
+    [[ "$BUILD_DIR" == "$PROJECT_ROOT/build" ]] \
+        || die "Build dir is $BUILD_DIR, not $PROJECT_ROOT/build — refusing."
+    [[ ! -L "$BUILD_DIR" ]] \
+        || die "$BUILD_DIR is a symlink — refusing to delete through it."
+    [[ "$pwd_real" == "$root" || "$pwd_real" == "$root"/* ]] \
+        || die "$root is not the project you are in ($pwd_real).
+Its build/CMakeCache.txt names a different source tree. Remove that build
+directory by hand if deleting it is really what you want."
+}
+
 cmd_clean_all() {
     require_cmake
+    require_clean_target
     header "Removing $BUILD_DIR"
     rm -rf "$BUILD_DIR"
     rm -f "$PROJECT_ROOT/compile_commands.json"

@@ -344,6 +344,14 @@ an interactive-only tool.
 
 System-level choices that aren't captured in any config file:
 
+- **yt-dlp's bgutil helper is a separate Node checkout**, not part of its uv tool
+  environment. Recreate `~/.local/share/bgutil-pot` from the upstream release
+  matching the installed `bgutil-ytdlp-pot-provider` Python package, then run
+  `npm ci` and `./node_modules/.bin/tsc` in `server/`. `yt-dlp/config` points to
+  that location. Since 2026-09-17, `sysup` updates an existing checkout after uv,
+  builds before replacing it, and retains the previous copy. It does not bootstrap
+  absent installations. See the Zsh section of `docs/architecture.md` for behavior
+  on failure and backup locations.
 - **`shellcheck-bin` (AUR), not repo `shellcheck`**: same upstream version, but the repo
   package is dynamically linked against the Haskell runtime (`ghc-libs` + ~53 `haskell-*`
   packages, ~190 MiB). `shellcheck-bin` is the official upstream static binary (sourced from

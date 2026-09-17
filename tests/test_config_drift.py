@@ -293,6 +293,48 @@ class ConfigDriftTests(unittest.TestCase):
         (self.root / 'source').unlink()
         self.assertIn('unreadable or missing', self.run_section(code, 'drift=0'))
 
+    def test_privileged_root_config_checks(self):
+        # Every branch is exercised against a fixture, because a permission check
+        # that has never been seen to fail is indistinguishable from one that
+        # cannot fail. /etc/nftables.conf is the positive control for the clean
+        # path: root:root 0644 under root-owned parents.
+        code = 'check_parents() {' + section('check_parents() {', 'while IFS= read -r src; do')
+        setup = 'priv=0\ndeclare -A parent_seen=()'
+
+        def run(snippet):
+            return self.run_section(code + snippet, setup)
+
+        self.assertIn('COUNTS 0 0', run('\ncheck_privileged /etc/nftables.conf\n'))
+
+        target = self.write('real', 'x')
+        link = self.root / 'link'
+        link.symlink_to(target)
+        self.assertIn('is a symlink', run(f'\ncheck_privileged "{link}"\n'))
+
+        conf = self.write('conf', 'x')
+        self.assertIn('not root:root', run(f'\ncheck_privileged "{conf}"\n'))
+
+        conf.chmod(0o666)
+        self.assertIn('writable by group or others', run(f'\ncheck_privileged "{conf}"\n'))
+
+        # Absent state is reported as not checked and counted as a skip, never
+        # as a pass.
+        missing = run(f'\ncheck_privileged "{self.root}/absent"\n')
+        self.assertIn('metadata unreadable', missing)
+        self.assertIn('COUNTS 0 1', missing)
+
+        adir = self.root / 'adir'
+        adir.mkdir()
+        self.assertIn('not a regular file', run(f'\ncheck_privileged "{adir}"\n'))
+
+        conf.chmod(0o644)
+        self.assertIn('not executable', run(f'\ncheck_privileged "{conf}" exec\n'))
+        self.assertNotIn('not executable', run(f'\ncheck_privileged "{conf}"\n'))
+
+        # A root-owned file under a directory someone else can write is not
+        # protected, so the parents are walked separately.
+        self.assertIn('its contents can be replaced', run(f'\ncheck_parents "{conf}"\n'))
+
     def test_baseline_differences_and_partial_scan(self):
         code = 'check_baseline() {' + section('check_baseline() {', '# Keep producer exit statuses')
         self.write('baseline', '# comment\n/etc/b\n/etc/a\n/etc/a\n')

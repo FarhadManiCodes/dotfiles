@@ -9,18 +9,41 @@
 # Default library path (local sync from cloud, can override with STUDY_LIBRARY env var)
 STUDY_LIBRARY="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
 
+# Open by type: sioyek for PDF — it is the only one taking --page, which is the
+# point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
+# mimeapps.list, dispatched here because handlr cannot carry a page number.
+_open_book() {
+  local file="$1" page="${2:-}"
+  case "${file:l}" in
+    *.pdf)
+      if [[ -n "$page" ]]; then
+        sioyek --page "$page" "$file" 2>/dev/null &
+      else
+        sioyek "$file" 2>/dev/null &
+      fi
+      ;;
+    *.djvu) zathura "$file" 2>/dev/null & ;;
+    *.epub) foliate "$file" 2>/dev/null & ;;
+    *)      handlr open "$file" 2>/dev/null & ;;
+  esac
+}
+
 # ----------------------------------------------------------------------------
 # rgbook - live search PDFs by content
 # Usage: rgbook [query]
-# Keys: Enter → open in zathura at page, Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
+# Keys: Enter → open at page (sioyek), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 rgbook() {
   local sp="${STUDY_LIBRARY}"
   local query="${*:-}"
+  # Exported for fzf's preview shell: {1} must sit outside our quotes, because
+  # fzf substitutes it as a single-quoted string.
+  local -x SP="$sp"
 
   # rga output: path:line:Page N:text → format to: path<TAB>filename:Page N:text
   local rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
   local format_cmd="awk -F: -v sp='$sp/' '{
+    gsub(/\\033\\[[0-9;]*m/, \"\", \$1);
     gsub(sp, \"\", \$1);
     n=split(\$1,a,\"/\");
     key=\$1\":\"\$3;
@@ -34,7 +57,7 @@ rgbook() {
       --bind "start:reload:$reload_cmd" \
       --delimiter=$'\t' \
       --with-nth=2 \
-      --preview "rga --context 3 --no-heading {q} '$sp/{1}' 2>/dev/null | head -20" \
+      --preview 'rga --context 3 --no-heading {q} "$SP/"{1} 2>/dev/null | head -20' \
       --preview-window='hidden,right:50%' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-d,ctrl-o' \
@@ -65,11 +88,7 @@ rgbook() {
       vifm "$(dirname "$file")"
       ;;
     *)
-      if [[ -n "$page" ]]; then
-        zathura --page="$page" "$file" 2>/dev/null &
-      else
-        zathura "$file" 2>/dev/null &
-      fi
+      _open_book "$file" "$page"
       ;;
   esac
 }
@@ -77,15 +96,16 @@ rgbook() {
 # ----------------------------------------------------------------------------
 # fbook - find book by filename
 # Usage: fbook [pattern]
-# Keys: Enter → open in zathura, Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
+# Keys: Enter → open (sioyek/zathura/Foliate by type), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 fbook() {
   local search_path="${STUDY_LIBRARY}"
   local pattern="${*:-.}"
 
+  local -x SP="$search_path"
   local result=$(fd --type f -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
     sed "s|^$search_path/||" | \
-    fzf --preview "pdfinfo \"$search_path/{}\" 2>/dev/null || echo 'No info available'" \
+    fzf --preview 'pdfinfo "$SP/"{} 2>/dev/null || echo "No info available"' \
         --preview-window='hidden,right:40%' \
         --bind 'ctrl-p:toggle-preview' \
         --expect='ctrl-d,ctrl-o' \
@@ -109,7 +129,7 @@ fbook() {
       vifm "$(dirname "$file")"
       ;;
     *)
-      zathura "$file" 2>/dev/null &
+      _open_book "$file"
       ;;
   esac
 }
