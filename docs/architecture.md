@@ -157,11 +157,22 @@ that produced `etc/`.
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, and interactive `attach`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep),
     plus the NVMe health check in step 10
-  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → Cargo tools →
+  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → bgutil → Cargo tools →
     Claude Code → plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
+
+**yt-dlp's token helper:** immediately after uv updates, `_sysup_bgutil` compares
+the installed Python plugin version with the runnable Node helper at
+`~/.local/share/bgutil-pot`. A mismatch fetches that exact upstream release, runs
+`npm ci` and the local TypeScript compiler in a staging directory, and verifies
+`generate_once.js --version` before replacing the live checkout. Matching versions
+need no fetch or build. Missing installations are skipped; local edits are preserved.
+Any update failure stops `sysup` with a nonzero result. The previous helper stays in
+`bgutil-pot.update.*/previous`; a failed rename restores it automatically. Backups
+are retained for manual recovery, not pruned. This closes the 2026-09-17 failure
+where uv updated the plugin to 2.0.0 but left the helper at 1.3.1.
 
 ### NVMe health — the one hardware fault nothing else would report
 
