@@ -1,6 +1,5 @@
 playaudio() {
-    local queue=/tmp/fzf_audio_queue.txt
-    > "$queue"
+    local queue=$(mktemp "$XDG_RUNTIME_DIR/playaudio.XXXXXX")
 
     find ~/Audio -type f -iregex ".*\.\(mp3\|m4a\|wav\|ogg\|flac\|opus\)$" \
         | fzf \
@@ -10,5 +9,10 @@ playaudio() {
             --header "TAB: queue  ENTER: play (headless)" \
         > /dev/null
 
-    [[ -s "$queue" ]] && mpv --no-video --playlist="$queue" > /dev/null 2>&1 &
+    # mpv is the last reader, so the queue outlives this function, not the fzf call.
+    if [[ -s "$queue" ]]; then
+        ( mpv --no-video --playlist="$queue" > /dev/null 2>&1; rm -f "$queue" ) &
+    else
+        rm -f "$queue"
+    fi
 }

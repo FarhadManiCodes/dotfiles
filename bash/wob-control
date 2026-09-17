@@ -1,41 +1,43 @@
 #!/bin/bash
+pipe="$XDG_RUNTIME_DIR/wobpipe"
+
 case "$1" in
     volume-up)
         wpctl set-mute @DEFAULT_AUDIO_SINK@ 0
         wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
-        wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{v=int($2*100); print (v>100?100:v) " volume"}' > /tmp/wobpipe
+        wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{v=int($2*100); print (v>100?100:v) " volume"}' > "$pipe"
         ;;
     volume-down)
         wpctl set-mute @DEFAULT_AUDIO_SINK@ 0
         wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-        wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > /tmp/wobpipe
+        wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > "$pipe"
         ;;
     volume-mute)
         wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
         if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then
             brightnessctl --device "platform::mute" set 1 &>/dev/null
-            echo "0 muted" > /tmp/wobpipe
+            echo "0 muted" > "$pipe"
         else
             brightnessctl --device "platform::mute" set 0 &>/dev/null
-            wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > /tmp/wobpipe
+            wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > "$pipe"
         fi
         ;;
     brightness-up)
         brightnessctl set +5%
-        echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > /tmp/wobpipe
+        echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > "$pipe"
         ;;
     brightness-down)
         brightnessctl set 5%-
-        echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > /tmp/wobpipe
+        echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > "$pipe"
         ;;
     mic-mute)
         wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
         if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
             brightnessctl --device "platform::micmute" set 1 &>/dev/null
-            echo "0 mic" > /tmp/wobpipe
+            echo "0 mic" > "$pipe"
         else
             brightnessctl --device "platform::micmute" set 0 &>/dev/null
-            echo "100 mic" > /tmp/wobpipe
+            echo "100 mic" > "$pipe"
         fi
         ;;
     led-sync)

@@ -39,8 +39,8 @@ This prevents predictable-path symlink attacks and crafted filenames crossing fr
 
 ### Move remaining fixed runtime files out of shared `/tmp`
 
-- Move `/tmp/wobpipe` to `${XDG_RUNTIME_DIR}/wobpipe`, updating Niri startup and `bash/wob-control` together.
-- Make `playaudio` create its fzf/mpv playlist with `mktemp` below `$XDG_RUNTIME_DIR` rather than truncating `/tmp/fzf_audio_queue.txt`; clean it only after its final consumer is finished.
+- **Done 2026-09-17.** Moved `/tmp/wobpipe` to `${XDG_RUNTIME_DIR}/wobpipe`, updating Niri startup and `bash/wob-control` together. `spawn-at-startup` does not re-run on config reload, so the live pipeline was migrated by hand the same way Niri will start it; verified by an OSD capture and by `volume-up`/`volume-down` moving the sink ±5% without blocking on the FIFO.
+- **Done 2026-09-17.** `playaudio` now creates its fzf/mpv playlist with `mktemp` below `$XDG_RUNTIME_DIR` rather than truncating `/tmp/fzf_audio_queue.txt`, and removes it once mpv — the last reader, which outlives the function — exits. Verified with stubbed `find`/`fzf`/`mpv`: the queue is mode 0600, still present while mpv reads it, and gone afterwards on both the queued and empty-selection paths.
 
 The later Omarchy screen-recording fix confirms this rule but adds no separate recording task: `toggle-record.sh` writes audio directly below `~/Audio/Recordings` and stores no trusted control pathname in `/tmp`. Other reviewed temporary files outside the Neovim submodule already use `mktemp`; the Neovim submodule remains outside this finding.
 

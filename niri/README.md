@@ -35,7 +35,7 @@ The configuration is organized into these major sections:
 
 4. **Startup Programs** (niri `spawn-at-startup`)
    - swaybg (wallpaper)
-   - wob (on-screen display for volume/brightness via FIFO at /tmp/wobpipe)
+   - wob (on-screen display for volume/brightness via FIFO at $XDG_RUNTIME_DIR/wobpipe)
    - mate-polkit (authentication agent)
    - cliphist daemon (clipboard history)
    - wlsunset (screen temperature adjustment)
