@@ -48,7 +48,13 @@ The later Omarchy screen-recording fix confirms this rule but adds no separate r
 
 ### Validate `tmux-cpp-tools clean-all` targets
 
-Before recursive deletion, resolve and prove that `PROJECT_ROOT` is a valid project directory and `BUILD_DIR` is exactly its intended `build` child. Refuse deletion if that invariant cannot be established. Keep removal of `compile_commands.json` constrained to the same validated project root.
+**Done 2026-09-17.** The hazard turned out to be concrete rather than theoretical, and was reproduced before being fixed: `find_project_root`'s first pass returns the path it reads out of `build/CMakeCache.txt`, and `CMAKE_SOURCE_DIR` is absolute, so a cache that travels with a copied or restored project still names the tree it was built in. The git-root guard on the walk does not bound that value. With `other/`'s cache sitting in `here/build`, `clean-all` deleted `other/build` while the shell was in `here/`.
+
+`require_clean_target` now runs before the `rm -rf` and refuses unless the root resolves and holds a `CMakeLists.txt`, `BUILD_DIR` is exactly `$PROJECT_ROOT/build`, that path is not a symlink, and the current directory is inside the tree being cleaned — which is what catches the foreign-cache case. `compile_commands.json` removal is constrained to the same validated root. Only the destructive path is guarded: every other subcommand builds or reads, where a wrong answer is a confusing error rather than data loss.
+
+Covered by `tests/test_tmux_cpp_tools.py` — foreign cache refused with the victim's build directory intact, ordinary project and subdirectory invocation still allowed, symlinked `build` refused, missing `CMakeLists.txt` refused. The original requirement was:
+
+- Before recursive deletion, resolve and prove that `PROJECT_ROOT` is a valid project directory and `BUILD_DIR` is exactly its intended `build` child. Refuse deletion if that invariant cannot be established. Keep removal of `compile_commands.json` constrained to the same validated project root.
 
 ### Protect package transactions from user-session teardown
 
