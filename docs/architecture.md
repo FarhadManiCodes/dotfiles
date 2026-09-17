@@ -157,8 +157,9 @@ that produced `etc/`.
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, and interactive `attach`
   - `sysclean.zsh` — smart system & cache cleanup (`sysclean` safe vs `sysclean --all` deep),
     plus the NVMe health check in step 10
-  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → bgutil → Cargo tools →
-    Claude Code → plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
+  - `sysup.zsh` — full system update (mirrorlist age → paru → uv → bgutil → yts →
+    Cargo tools → Claude Code → plugins → nvim `:checkhealth` → images → fwupd →
+    `config-drift`)
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones not tracked; the list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
@@ -174,6 +175,22 @@ Any update failure stops `sysup` with a nonzero result. The previous helper stay
 `bgutil-pot.update.*/previous`; a failed rename restores it automatically. Backups
 are retained for manual recovery, not pruned. This closes the 2026-09-17 failure
 where uv updated the plugin to 2.0.0 but left the helper at 1.3.1.
+
+**yts, the one locally-built app:** `_sysup_yts` compares `~/projects/yts`'s HEAD with
+the commit recorded at install time in `~/.local/share/yts-gui/.installed-commit`, which
+yts's own `make install` writes because `__version__` marks releases rather than commits.
+A mismatch runs `make test`, then `make install`, then proves the result imports —
+`uv pip install` reporting success is not evidence the launcher works. Non-fatal, unlike
+the bgutil step: a stale launcher is an older working app, not a broken toolchain, so it
+warns and `sysup` continues.
+
+It refuses to install from a dirty worktree, checking **untracked files too**: `make
+install` runs `uv pip install .` against the worktree rather than HEAD, so an untracked
+new module ships exactly like a modified one, and the stamp would then claim HEAD was
+installed when it was not. Both directories are arguments, because `make install` runs
+`uv venv --clear` — a test pointed at the live prefix would wipe the working app. It
+exists because the launcher sat three months stale on 2026-09-17 while starting and
+running fine.
 
 `--ignore-scripts` and the token gate arrived together on 2026-09-17 and depend on
 each other. `npm ci` otherwise runs the dependency tree's install scripts, which is

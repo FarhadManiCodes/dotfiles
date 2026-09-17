@@ -1,6 +1,7 @@
 # sysup - full system + tooling update
 #
-# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> Cargo tools -> Claude Code ->
+# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools ->
+# Claude Code ->
 # editor/shell plugins -> nvim :checkhealth -> container images -> fwupd metadata
 # (if stale) -> config-drift.
 #
@@ -104,6 +105,9 @@ sysup() {
     echo "!! bgutil update failed; yt-dlp/helper may still be mismatched — stopping sysup"
     return 1
   }
+
+  echo "==> yts (local app)"
+  _sysup_yts || echo "!! yts install failed — continuing sysup"
 
   echo "==> Cargo tools"
   cargo install-update --all || {
@@ -265,6 +269,91 @@ _sysup_bgutil() (
     return 1
   }
   echo "    Installed bgutil $plugin_version; previous helper: $stage/previous"
+)
+
+# yts is built from a local checkout -- `make install` gives it its own venv
+# under ~/.local/share/yts-gui -- so nothing upstream ever refreshes it. The
+# launcher keeps running whatever commit was current when it was last built,
+# and says nothing: on 2026-09-17 it was three months behind, still serving
+# code whose replacement had been committed that morning. Nobody notices,
+# because the app starts and works fine.
+#
+# The version marks releases, not commits, so the *commit* is recorded at
+# install time ($PREFIX/share/yts-gui/.installed-commit) and compared here.
+#
+# Non-fatal, unlike the bgutil step above: a stale launcher is an older working
+# app, not a broken toolchain, and it must not stop the rest of sysup.
+# A subshell keeps our cwd and `emulate` away from sysup's inhibitor trap.
+#
+# Both directories are arguments so the tests can drive this without touching
+# the real checkout or, more to the point, the real install: `make install`
+# runs `uv venv --clear`, so a test pointed at the live prefix would wipe the
+# working app. The defaults are what yts's Makefile uses.
+_sysup_yts() (
+  emulate -L zsh
+  trap - EXIT INT TERM
+  local repo=${1:-"$HOME/projects/yts"}
+  local prefix=${2:-"$HOME/.local/share/yts-gui"}
+  local head installed changes
+
+  if [[ ! -d $repo/.git ]]; then
+    echo "    no checkout at $repo — skipping"
+    return 0
+  fi
+  if [[ ! -d $prefix ]]; then
+    echo "    not installed — skipping (run 'make install' in $repo)"
+    return 0
+  fi
+  head=$(git -C "$repo" rev-parse HEAD) || return 1
+  if [[ -r $prefix/.installed-commit ]]; then
+    installed=$(<"$prefix/.installed-commit")
+    installed=${installed//[[:space:]]/}
+  else
+    installed=""
+  fi
+  if [[ $installed == $head ]]; then
+    echo "    already installed at ${head[1,7]}"
+    return 0
+  fi
+
+  # Never promote a working tree. `make install` runs `uv pip install .` on the
+  # worktree, not on HEAD, so a half-finished edit would replace the launcher
+  # with code not meant to run -- and the stamp would then claim HEAD is
+  # installed when it is not.
+  #
+  # --untracked-files=all, not =no: an untracked new module is packaged by
+  # `uv pip install .` exactly like a modified one, so ignoring untracked files
+  # would leave the hole this guard exists to close. yts's .gitignore already
+  # covers __pycache__, build/, dist/ and the venvs, so this does not trip on
+  # ordinary development litter.
+  changes=$(git -C "$repo" status --porcelain --untracked-files=all) || return 1
+  if [[ -n $changes ]]; then
+    echo "    !! uncommitted changes in $repo — not installing"
+    echo "       installed ${installed[1,7]:-unknown}, checkout ${head[1,7]}"
+    return 1
+  fi
+
+  echo "    Installing ${installed[1,7]:-unknown} -> ${head[1,7]}"
+  # Gate on the tests before touching the installed build: `make install`
+  # clears the app venv, so a failure part-way leaves nothing to fall back to.
+  # stdout only, like the install below: a swallowed stderr leaves a non-fatal
+  # step reporting a bare SHA, which is easy to scroll past and gives nothing
+  # to act on.
+  make -C "$repo" test >/dev/null || {
+    echo "    !! tests fail at ${head[1,7]} — keeping the installed build"
+    return 1
+  }
+  make -C "$repo" install >/dev/null || {
+    echo "    !! make install failed — the installed build may be incomplete"
+    return 1
+  }
+  # The launchers are the point of the whole step, so prove one imports rather
+  # than trusting that pip reported success.
+  "$prefix/venv/bin/python" -c 'import yts.app, yts.fuzzel' 2>/dev/null || {
+    echo "    !! the installed build does not import"
+    return 1
+  }
+  echo "    Installed ${head[1,7]}"
 )
 
 # A package upgrade that finds a config you have modified writes its new version alongside as
