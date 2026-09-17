@@ -140,6 +140,7 @@ If a DKMS package is introduced, install the headers matching every kernel for w
 - Cursor CLI: revisit only for a specific need for Grok coding-agent access.
 - Muse Code: background-agent and worktree features overlap existing tools and add another provider.
 - Ori: another provider account, credential, billing relationship, and data processor for OpenRouter model experimentation; no current need.
+- Claude browser integration: unsupported by the current Firefox workflow and expands the agent's access to browser content and actions. Do not install its Chromium extension system-wide or force `--chrome`. If browser automation becomes a concrete need, evaluate it separately with a dedicated Chromium profile, minimal logged-in accounts, and explicit activation.
 - Video wallpapers and Omarchy's fullscreen-desktop toggle: Quickshell/Hyprland-specific and not useful enough to reproduce under Niri.
 - Broadcom DKMS, hybrid-GPU/`supergfxctl`, Elgato Wave, KEF speakers, and the keyboard-layout widget: hardware or shell assumptions do not match this machine.
 - `libfprint-git`: the reader works with stable `libfprint` and `fprintd`; switch only for a demonstrated support gap.
@@ -149,10 +150,6 @@ If a DKMS package is introduced, install the headers matching every kernel for w
 - Windows VM hardening: no Windows VM or root container daemon.
 - Omarchy's screen-recording state change: no analogous local recording state; the general `/tmp` findings are already adopted above.
 
-## Remaining upstream review
+## Completed upstream range
 
-The later Omarchy range through `9c5482c5` still has the following potentially transferable items to classify:
-
-- Optional Claude browser integration.
-
-Factory reset, Windows RDP password handling, Quickshell/QConsole, Plymouth, Omarchy kernel selection, and hardware-specific fixes are out of scope unless the local setup changes.
+The potentially transferable items in the later Omarchy range through `9c5482c5` have been classified. Factory reset, Windows RDP password handling, Quickshell/QConsole, Plymouth, Omarchy kernel selection, and hardware-specific fixes remain out of scope unless the local setup changes.
