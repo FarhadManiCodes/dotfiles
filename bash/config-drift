@@ -209,17 +209,84 @@ check_root "$df_dir/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.con
 check_root "$df_dir/zram/zram-generator.conf"   /etc/systemd/zram-generator.conf
 check_root "$df_dir/system-sleep/unblock-fuse"  /usr/lib/systemd/system-sleep/unblock-fuse
 
-# A sleep hook that has lost +x is installed, up to date, and dead: systemd-sleep
-# runs only executables and says nothing about the rest. That is how
-# restart-swayidle sat inert through 1002 resumes. install-root.sh warns too, but
-# only when someone runs it with sudo; this runs after every sysup.
-for f in "$df_dir"/system-sleep/*; do
-  hook=/usr/lib/systemd/system-sleep/${f##*/}
-  if [[ -e $hook && ! -x $hook ]]; then
-    warn "${hook} is not executable — systemd-sleep will skip it"; drift=1
-  fi
-done
 ((drift)) || ok "all compared root configs match (access exclusions listed above)"
+
+# --------------------------------------------- root configs are privileged ----
+# The check above answers "is this the file I wrote?". It cannot answer "can
+# anyone else rewrite it?" -- a 0666 sysctl.d drop-in, or a pam.d entry replaced
+# by a symlink into $HOME, compares byte-identical and is still a way in.
+# install-root.sh copies with explicit root:root modes precisely so these stay
+# out of user-writable space; this reports when that has stopped being true.
+#
+# Report-only, like the rest of this script. Repairing a privileged file is
+# install-root.sh's job, run knowingly under sudo -- a checker that edits /etc is
+# a checker that needs root, and this one deliberately does not.
+#
+# stat needs only search permission on the parents, not read on the file, so
+# ownership and mode are answerable here even where the content check had to
+# skip. Where it is not answerable, say so: unreadable is never reported as safe.
+hdr "Root configs are root-owned and unwritable by others"
+priv=0
+declare -A parent_seen=()
+
+# A root-owned file inside a directory someone else can write is not protected:
+# the file cannot be edited, but it can be renamed away and replaced.
+check_parents() {
+  local d=${1%/*} meta owner mode
+  while [[ -n $d ]]; do
+    if [[ -z ${parent_seen[$d]:-} ]]; then
+      parent_seen[$d]=1
+      if meta=$(stat -c '%U %a' -- "$d" 2>/dev/null); then
+        read -r owner mode <<<"$meta"
+        if [[ $owner != root ]]; then
+          warn "$d is owned by $owner — its contents can be replaced"; priv=1
+        elif ((8#$mode & 022)); then
+          warn "$d is mode $mode — group/world-writable directory"; priv=1
+        fi
+      else
+        skip "$d metadata unreadable — not checked"
+      fi
+    fi
+    d=${d%/*}
+  done
+}
+
+# $2 = exec when the file is only useful if it is executable. A sleep hook that
+# has lost +x is installed, up to date, and dead: systemd-sleep runs only
+# executables and says nothing about the rest. That is how restart-swayidle sat
+# inert through 1002 resumes. install-root.sh warns too, but only when someone
+# runs it with sudo; this runs after every sysup.
+check_privileged() {
+  local dest=$1 need_exec=${2:-} meta owner group mode kind
+  if [[ -L $dest ]]; then
+    warn "$dest is a symlink — install-root.sh copies; a link can leave root-owned space"
+    priv=1; return
+  fi
+  if ! meta=$(stat -c '%U %G %a %F' -- "$dest" 2>/dev/null); then
+    skip "$dest metadata unreadable — not checked"; return
+  fi
+  read -r owner group mode kind <<<"$meta"
+  [[ $kind == "regular file" ]] || { warn "$dest is a $kind, not a regular file"; priv=1; }
+  [[ $owner == root && $group == root ]] || { warn "$dest is $owner:$group, not root:root"; priv=1; }
+  ((8#$mode & 022)) && { warn "$dest is mode $mode — writable by group or others"; priv=1; }
+  [[ $need_exec == exec && ! -x $dest ]] && \
+    { warn "$dest is mode $mode — not executable, so it will be skipped"; priv=1; }
+  check_parents "$dest"
+}
+
+while IFS= read -r src; do
+  [[ -n $src ]] && check_privileged "/etc${src#"$df_dir"/etc}"
+done < <(find "$df_dir/etc" -type f \
+    ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null)
+check_privileged /etc/pam.d/swaylock
+check_privileged /etc/sysctl.d/99-performance.conf
+check_privileged /etc/systemd/zram-generator.conf
+check_privileged /usr/share/wayland-sessions/niri-isolated.desktop
+check_privileged /usr/local/bin/niri-session-isolated exec
+for f in "$df_dir"/system-sleep/*; do
+  check_privileged "/usr/lib/systemd/system-sleep/${f##*/}" exec
+done
+((priv)) || ok "root-owned, not writable by others, under root-owned directories"
 
 # ------------------------------------------------ Spotify's local config ----
 # install.sh seeds this copy once: the template's client_id is empty and the
