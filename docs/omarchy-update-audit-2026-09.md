@@ -107,7 +107,9 @@ Decision pending. Preserve the current safe state: no configured `sshd` and no S
 
 ### Claude and ChatGPT/Codex desktop applications
 
-Both are feasible on Arch through reviewed packaging recipes that repackage official vendor Linux builds and pin checksums, but the applications remain proprietary and neither has been selected. If adopted, adapt only the reviewed recipe needed and reconsider Omarchy-specific Wayland flags for this Niri setup rather than copying them unchanged.
+Claude Desktop is not officially packaged for Arch. Omarchy's public recipe repackages the official vendor Debian package, pins its checksum, and supplies Arch and Wayland integration. The application remains proprietary even though the packaging recipe is reviewable. If Claude Desktop is wanted later, adapt that recipe locally rather than enabling the complete Omarchy package repository solely for this application.
+
+The Codex CLI, Codex Desktop, and ChatGPT Desktop are distinct applications. Omarchy's public `openai-codex-desktop` recipe repackages the official Linux desktop application, pins checksums, and adds desktop and Wayland integration. The application remains proprietary while the packaging recipe is public and reviewable. If adopted, reconsider Omarchy's forced native-Wayland options for the local Niri configuration and display scale rather than copying them unchanged.
 
 ### 1Password display scaling
 
