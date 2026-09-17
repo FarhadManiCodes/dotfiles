@@ -755,3 +755,41 @@ trade.
 
 **Reopen if** `user@1000.service` ever reports `NRestarts > 0`, or a started/completed gap
 appears in `pacman.log` — not merely because an update feels slow or a session misbehaves.
+
+---
+
+## Package maintenance sweep: snap-pac, dosfstools, batsignal, brightnessctl, wlsunset — ACCEPTED (2026-09-17)
+
+From a pass over all 183 explicitly-installed (non-dependency) packages, checking local
+build dates and upstream (GitHub/AUR/sourcehut) activity. These five looked stale on a
+first pass; none warranted a change once checked individually.
+
+- **snap-pac** — upstream (`wesbarnett/snap-pac`) has had zero commits since 2022-01,
+  no release since 3.0.1 (2021). Accepted anyway: the package is only three pacman hooks
+  (`/usr/share/libalpm/hooks/{05-snap-pac-pre,10-snap-pac-removal,zz-snap-pac-post}.hook`)
+  wrapping `snapper create`. Its whole dependency surface is the pacman hook format and the
+  `snapper` CLI, both stable, so there is little left for a quiet upstream to break.
+- **dosfstools** — installed 2025-12-05, no in-repo note of why. Traced instead of guessed:
+  `pacman -Qi` shows it `Optional For: grub, libblockdev-fs, udisks2` (all installed), and
+  `/boot` (the EFI System Partition, `/etc/fstab`) is `vfat` with `fs_passno=2`, which needs
+  `fsck.fat` from this package to be checkable. Not cruft — backs the bootloader and the
+  udisks2-based USB mounting `docs/architecture.md` already documents (vifm `:media`).
+- **batsignal** — upstream (`electrickite/batsignal`) quiet since 2024-06, no formal GitHub
+  releases. The obvious same-footprint alternative, `poweralertd` (kennylevinsen, same author
+  as `wlsunset`), is actually worse on every axis checked: less recent upstream activity
+  (last push 2024-04 vs batsignal's 2024-06), far less used (17 vs 233 GitHub stars), and it
+  requires `upower` running as an extra daemon. batsignal depends only on `glibc` and
+  `libnotify` and reads `/sys/class/power_supply` directly. Kept.
+- **brightnessctl** — upstream (`Hummer12007/brightnessctl`) last pushed 2024-12, tag still
+  0.5.1 (2020), matching the installed version. It is the de facto standard for sysfs
+  backlight control on Wayland; `light` is not meaningfully better maintained and would just
+  be a config rewrite (`niri/config.kdl:249`, wob-backed brightness slider) for no gain.
+- **wlsunset** — upstream moved to `git.sr.ht/~kennylevinsen/wlsunset` (not `emersion`, a
+  wrong initial guess corrected during the check); quiet but alive, installed 0.4.0 matches
+  latest tag. `gammastep` is more actively developed but adds features (auto location, a
+  status indicator) beyond the fixed-lat/long usage in `niri/config.kdl:79` — more moving
+  parts for a job already done correctly.
+
+**Recheck:** any of these five repos gets archived, a real bug or missing feature surfaces
+in daily use, or Arch drops the package from a repo — not merely because upstream stays
+quiet for another audit cycle.
