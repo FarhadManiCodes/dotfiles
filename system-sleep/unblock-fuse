@@ -94,11 +94,18 @@ pre)
 post)
     [ -e "$MARKER" ] || exit 0
     rm -f "$MARKER"
-    out=$(systemd-run --no-block --collect --unit=unblock-fuse-remount \
+    # if/else, not `&& logger … || logger …`: in that form a failing logger on
+    # the success branch falls through to the failure branch, recording
+    # "FAILED to queue remount" for a remount that was queued. These log lines
+    # are the evidence a suspend post-mortem works from, so a false one is
+    # worse than none.
+    if out=$(systemd-run --no-block --collect --unit=unblock-fuse-remount \
             --description="Remount rclone after unblock-fuse aborted a connection" \
-            "$0" remount 2>&1) \
-        && logger -t unblock-fuse "queued remount via systemd-run" \
-        || logger -t unblock-fuse "FAILED to queue remount: $out"
+            "$0" remount 2>&1); then
+        logger -t unblock-fuse "queued remount via systemd-run"
+    else
+        logger -t unblock-fuse "FAILED to queue remount: $out"
+    fi
     ;;
 
 remount)
@@ -124,8 +131,7 @@ remount)
         for u in $(systemctl --user --machine="${user}@.host" list-units --all \
                        --plain --no-legend --no-pager 'rclone@*.service' 2>/dev/null \
                    | awk '{print $1}'); do
-            out=$(systemctl --user --machine="${user}@.host" restart "$u" 2>&1)
-            if [ $? -eq 0 ]; then
+            if out=$(systemctl --user --machine="${user}@.host" restart "$u" 2>&1); then
                 logger -t unblock-fuse "restarted $u for $user"
             else
                 logger -t unblock-fuse "FAILED to restart $u for $user: $out"
