@@ -31,7 +31,10 @@ selected=$(printf '%b' "$entries" | fuzzel --dmenu --prompt " Mic  " --width 50)
 [[ -z "$selected" ]] && exit 0
 
 if [[ "$selected" == "[src]"* ]]; then
-    name=$(echo "$selected" | sed 's/\[src\] [* ] //')
+    # Strips the "[src] " prefix and the two-character marker set at line 12,
+    # which is "* " for the default source and "  " otherwise. Brackets are
+    # escaped because [src] would otherwise be a character class.
+    name=${selected#\[src\] [* ] }
     pactl set-default-source "$name"
     notify-send -a "" -u low " Default input: $name"
 elif [[ "$selected" == "[kill]"* ]]; then

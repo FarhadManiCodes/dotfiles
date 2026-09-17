@@ -57,7 +57,9 @@ and their limitations.
   after an earlier failure, and a missing suite fails rather than passing quietly. Separately,
   `python3 -B -m unittest discover -s tests` for the checkers and `bash bash/check-skills`
   for skills.
-- `bash -n` and `shellcheck` for Bash; `zsh -n` for Zsh, never Bash-only checks;
+- `bash -n` and `shellcheck` for Bash — with `-x` where a script sources another
+  repo file, or its `source=` annotation is reported as unfollowed rather than honoured;
+  `zsh -n` for Zsh, never Bash-only checks;
   `bash bash/config-drift` (or `-v`) to audit the live machine, read-only and no root.
 - Units: `systemd-analyze verify <unit>` plus runtime evidence; verification alone cannot
   prove network ordering or successful execution.
