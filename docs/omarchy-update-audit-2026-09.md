@@ -26,7 +26,7 @@ This is defense in depth, not protection against a maliciously modified `install
 
 ### Harden the Vifm picker exchange
 
-Replace the predictable `/tmp/vifm-pick-*` protocol shared by `bash/vifm-pick` and `vifm/vifmrc`:
+**Done 2026-09-17.** Replaced the predictable `/tmp/vifm-pick-*` protocol shared by `bash/vifm-pick` and `vifm/vifmrc`. The injection was demonstrated, not assumed — a file named `data"; touch PWNED; echo ".csv` executed `touch PWNED`, and the old construction was re-run as a positive control so the test was not blind. Opening and copying moved into the helper with argument lists; only `cd`/`goto` return to vifm, through `$XDG_RUNTIME_DIR/vifm-pick/` at mode 0700. A fixed directory name was chosen over a unique one: the parent is already 0700 and single-user, so uniqueness buys concurrency safety rather than security, at the cost of a much longer `vifmrc`. The original requirements were:
 
 - Create a unique private exchange directory below `$XDG_RUNTIME_DIR`, mode `0700`.
 - Pass that exact directory explicitly between Vifm and the helper.
