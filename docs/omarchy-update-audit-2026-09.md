@@ -8,7 +8,7 @@ The first reviewed Omarchy range ended at `31bd80da` (2026-09-11). A later remot
 
 ### Harden privileged configuration drift checks
 
-Extend `bash/config-drift` for files installed by `install-root.sh`:
+**Done 2026-09-17.** Extended `bash/config-drift` with a "Root configs are root-owned and unwritable by others" section, separate from the existing content comparison because the two answer different questions: a 0666 `sysctl.d` drop-in, or a `pam.d` entry replaced by a symlink into `$HOME`, compares byte-identical and is still a way in. `stat` needs only search permission on the parents, so ownership and mode are answerable even where the content check has to skip. Every branch is covered by `tests/test_config_drift.py::test_privileged_root_config_checks` against fixtures — symlink, wrong owner, group/world-writable, absent, directory-instead-of-file, missing `+x`, and a non-root parent — with `/etc/nftables.conf` as the positive control for the clean path, because a permission check never seen to fail is indistinguishable from one that cannot. The requirements were:
 
 - Require regular files rather than symbolic links.
 - Verify expected `root:root` ownership.
@@ -20,7 +20,9 @@ Extend `bash/config-drift` for files installed by `install-root.sh`:
 
 ### Pin the command path in root scripts
 
-After `install-root.sh` confirms it is running as root, set and export a fixed system-only `PATH` such as `/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin`. Keep user-local and repository directories out of privileged command lookup. Use absolute paths selectively for especially sensitive command identities.
+**Done 2026-09-17.** `install-root.sh` sets and exports `/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin` immediately after the root check, keeping user-local and repository directories out of privileged command lookup; every command it calls resolves on that path. Absolute paths were not adopted on top — the pin covers the same ground without making the script harder to read. Whether sudo's `secure_path` already did this is **unverified**: it is configured in `/etc/sudoers`, which is `0440 root:root` and unreadable here, and the script is runnable as root directly in any case.
+
+Found while doing it: the same script built `dest="/etc${src#${DOTFILES}/etc}"` with the prefix unquoted, so it was matched as a glob. With a checkout path containing `[` or `*` that strips the wrong thing — `/tmp/my[repo]` yields `/etc/tmp/my[repo]/etc/pam.d/swaylock` — in a script that then writes the result as root. Quoted.
 
 This is defense in depth, not protection against a maliciously modified `install-root.sh`: the script itself remains in a user-writable checkout and must be reviewed before it is deliberately run through sudo.
 
