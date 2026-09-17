@@ -14,6 +14,7 @@ Off-machine backup remains deferred.
 | 3a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
+| 4. ath11k regulatory-domain error | Needs user input | Check router for 5GHz/6GHz, then re-test |
 
 ## 1. Off-machine backup
 
@@ -199,3 +200,62 @@ selection doesn't touch link-opening behavior.
 **Verified 2026-09-16 (user, interactive):** enabled the pref, confirmed Personal/Work cookie
 separation, confirmed both container tabs survive a full restart, confirmed Tridactyl hinting,
 tab open/close/switch behave normally with containers in use. No extension needed.
+
+## 4. ath11k regulatory-domain error
+
+**Problem:** every boot logs, twice, from the wifi driver:
+
+```
+ath11k_pci 0000:02:00.0: Failed to set the requested Country regulatory setting
+ath11k_pci 0000:02:00.0: failed to process regulatory info -22
+```
+
+Not previously in `revisit.md`; surfaced 2026-09-17 during a package-maintenance sweep that
+also checked journal warnings.
+
+**Evidence so far:**
+
+- Persistent across every boot checked (back to 2026-09-14) — not a fluke.
+- Fires immediately after the firmware handshake, 2.4s before the interface associates:
+  `chip_id 0x12 chip_family 0xb board_id 0xff soc_id 0x400c1211`, then
+  `fw_version ... WLAN.HSP.1.1-03125-QCAHSPSWPL_V1_V2_SILICONZ_LITE-3.6510.41`. `board_id 0xff`
+  is the chip's own factory-reported ID (read before any driver/firmware-file selection), not
+  something a different `board-2.bin` would change — it means no board-specific
+  calibration/country table is programmed into this particular card.
+- Despite the error, wifi works normally: associates within 2.4s, `iw reg get` correctly shows
+  `country DE` with full ETSI channel/power tables, and TX power is correctly limited to what
+  the AP advertises. No `regulatory domain changed` kernel line appears anywhere in the boot log
+  for comparison, though.
+- **Working hypothesis, not confirmed:** the driver is pushing a country code to the *firmware*
+  over QMI (device-side enforcement) and getting rejected because board_id 0xff has no
+  calibration slot for it — separate from the *kernel's* own regulatory enforcement
+  (`cfg80211`/`wireless-regdb`), which is what `iw reg get` reflects and is demonstrably working.
+  Not verified against the `ath11k` QMI source, so this is plausible, not proven.
+- **Side finding, unconfirmed:** the Bluetooth controller (same laptop) reports manufacturer
+  `0x001D` via `bluetoothctl show` — Bluetooth SIG company ID for **Qualcomm**, not MediaTek.
+  That would make wifi and Bluetooth the same Qualcomm WCN6855 combo chip, both carrying this
+  board_id-0xff quirk. This conflicts with the existing `revisit.md` bluez entry, which says
+  "Controller is MediaTek MT7922". Worth a separate correction if confirmed — not actioned yet.
+- **Untested:** 5GHz and 6GHz association. Only a 2.4GHz connection (`Vodafone-6139`, channel 1)
+  has been observed. `iwctl station wlan0 get-bsses "Vodafone-6139"` shows exactly one BSS —
+  no 5GHz BSS currently broadcasting under that SSID, so the router's 5GHz may be off, or
+  under a different SSID not appearing in the scan (18 networks scanned, none obviously a
+  `-5G` variant of this one).
+
+**Decisions needed:** user to check the router admin page (2026-09-18 or later) for whether
+5GHz/6GHz is enabled and under what SSID.
+
+**Next steps once 5GHz is available:** connect, then compare
+`journalctl -b -k | grep -i ath11k`, `iw reg get`, and `iw dev wlan0 info | grep -i txpower`
+against the current 2.4GHz-only baseline. Ideally test a DFS channel (5250–5350 or
+5470–5725 MHz) specifically, since that is where regulatory enforcement actually does
+something (AP-side Channel Availability Check, client-side radar channel-switch behavior) —
+a clean non-DFS 5GHz association would confirm less than a DFS one.
+
+**Done when:** 5/6GHz (and ideally DFS) is tested and the outcome — clean, or a new failure
+mode — is logged. Route to `revisit.md` as ACCEPTED if it stays cosmetic, or investigate
+further (e.g. check whether a newer `linux-firmware-atheros` board file changes board_id
+0xff) if not. If the router turns out to have no 5GHz/6GHz at all, this stays open as
+unverifiable rather than resolved.
+
+**Feasibility:** small — the test itself is a few commands, blocked only on router access.
