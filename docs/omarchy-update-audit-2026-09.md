@@ -117,6 +117,12 @@ Revisit only if 1Password is installed and an Electron/Wayland scaling problem i
 
 There is no current `NOPASSWD` rule to change. If temporary cached or passwordless convenience is introduced later, require a clear lifetime, verified expiry, and fail-closed behavior.
 
+### Matching kernel headers for DKMS
+
+Conditionally required, with no package change now. The machine has the stock `linux` and `linux-lts` kernels, no matching header packages, and no installed DKMS modules. Headers are therefore not currently needed for normal kernel operation.
+
+If a DKMS package is introduced, install the headers matching every kernel for which the module must work before installing or building the module—currently `linux-headers` and `linux-lts-headers`. Stop when header installation fails, verify each `/usr/lib/modules/<release>/build` tree matches its kernel, and require `dkms status` to report successful builds. Treat a DKMS package without matching headers as incomplete installation.
+
 ## Already safe or already handled
 
 - The fixed global `PATH` has no automatic `./bin`, `$PWD/bin`, or Mise project-bin injection. Keep invoking trusted project tools explicitly, such as `./bin/tool`.
@@ -147,7 +153,6 @@ There is no current `NOPASSWD` rule to change. If temporary cached or passwordle
 
 The later Omarchy range through `9c5482c5` still has the following potentially transferable items to classify:
 
-- Matching kernel headers as a DKMS prerequisite.
 - Optional Claude browser integration.
 
 Factory reset, Windows RDP password handling, Quickshell/QConsole, Plymouth, Omarchy kernel selection, and hardware-specific fixes are out of scope unless the local setup changes.
