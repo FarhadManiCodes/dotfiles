@@ -240,6 +240,32 @@ behave. It needs `jq`, and skips with a message if either tool is absent.
 Interacts with the off-machine backup gap (`TODO.md`, "Off-machine backup"): a health warning is only
 actionable if there is somewhere to restore from, so the warning path says so.
 
+### sysclean's removals — glob qualifiers are not decoration
+
+Every `rm` in `sysclean` takes an array built with `(N)`, never a pattern of its own. In zsh a
+pattern that matches nothing is a **fatal error for the whole command**, so a bare
+`rm -f a/download-* a/*.part` removes *neither* set when either one misses — and the error
+escapes `2>/dev/null`, because globbing happens before the redirection is applied. That is not
+a hypothetical: with nine `download-*` files and no `*.part`, step 2 removed none of the nine
+and printed `no matches found` on every run (2026-09-17). Steps 7 and 9 had the same shape, and
+step 7 then printed "coredumps cleared" over a removal that never ran. `bash` forgives all of
+this, which is why the repo's rule is `zsh -n` for zsh files and never a Bash-only check.
+`rm -f` with zero arguments exits 0, so collecting first is safe when everything is empty.
+
+**The file-history prune refuses an empty answer.** Step 8 removes `~/.claude/file-history/<id>/`
+directories with no matching `projects/**/<id>.jsonl`. If the session glob finds nothing it
+reports that and prunes nothing, because "no sessions" means the probe failed, not that every
+undo snapshot is orphaned — and the layout it depends on belongs to Claude Code, which is free
+to change it. Same rule as the "health NOT checked" branches above.
+
+**npm is the one cache wiped only under `--all`.** `uv` gets `prune` vs `clean` and `ccache`
+`-c` vs `-C`; npm has no prune equivalent, so its only available action is a full wipe, which
+is a deep-clean act. Wiping it routinely also undoes itself — `sysup`'s bgutil rebuild runs
+`npm ci` and re-downloads everything.
+
+`tests/test_sysclean.py` covers all of the above; the glob and guard cases were each confirmed
+to fail against the pre-fix code before being kept.
+
 ### Mirrorlist — the one check that runs before the update
 
 `_sysup_mirrorlist_check` (2026-09-09) runs **before** `paru -Syu` rather than joining

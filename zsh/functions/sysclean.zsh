@@ -26,8 +26,21 @@ sysclean() {
 
   # 2. Pacman / Paru download cache & partials
   echo "==> 2. Pacman / Paru download cache"
-  # Clean partial downloads first so paccache/pacman don't fail on fd errors
-  sudo rm -f /var/cache/pacman/pkg/download-* /var/cache/pacman/pkg/*.part 2>/dev/null
+  # Clean partial downloads first so paccache/pacman don't fail on fd errors.
+  #
+  # (N) on each pattern, and an array rather than two words on an `rm` line:
+  # zsh's NOMATCH aborts the whole command when *either* pattern has no match,
+  # and the error escapes 2>/dev/null because globbing happens before the
+  # redirection is applied. With 9 download-* files and no *.part -- the state
+  # of this machine -- the bare form removed none of the nine. The directory is
+  # 0755 root:root, so the glob itself needs no root; only the removal does.
+  local -a partials=(/var/cache/pacman/pkg/download-*(N) /var/cache/pacman/pkg/*.part(N))
+  if (( ${#partials} )); then
+    sudo rm -f -- "${partials[@]}"
+    echo "   Removed ${#partials} partial download(s)."
+  else
+    echo "   No partial downloads to remove."
+  fi
 
   if command -v paccache >/dev/null 2>&1; then
     if [[ "$all" == true ]]; then
@@ -79,9 +92,23 @@ sysclean() {
   fi
 
   # 5. Node npm cache
+  #
+  # Only on --all. npm has no prune equivalent, so the one thing available here
+  # is a full wipe -- which is a deep-clean action, not a routine one, and the
+  # step above draws exactly that line for uv (prune vs clean) and ccache
+  # (-c vs -C). Wiping it on every run also undoes itself: the bgutil helper
+  # rebuild in `sysup` runs `npm ci`, which then re-downloads the lot.
   echo "==> 5. Node npm cache"
-  if command -v npm >/dev/null 2>&1; then
-    npm cache clean --force 2>/dev/null && echo "   npm cache cleaned." || true
+  if ! command -v npm >/dev/null 2>&1; then
+    :
+  elif [[ "$all" == true ]]; then
+    if npm cache clean --force 2>/dev/null; then
+      echo "   npm cache cleaned."
+    else
+      echo "   !! npm cache clean failed — cache left as it was."
+    fi
+  else
+    echo "   Kept (full wipe only on --all; npm has no prune)."
   fi
 
   # 6. C/C++ compiler cache (ccache)
@@ -96,15 +123,25 @@ sysclean() {
 
   # 7. Systemd Core Dumps & Journal Logs
   echo "==> 7. System logs & crash dumps"
-  if [[ -d /var/lib/systemd/coredump ]]; then
-    sudo rm -rf /var/lib/systemd/coredump/* 2>/dev/null
-    echo "   Systemd coredumps cleared."
+  # (N) and an array for the same reason as step 2: bare /…/coredump/* aborts
+  # on an empty directory, which is its normal state, and the old unconditional
+  # echo then claimed the dumps had been cleared.
+  local -a dumps=(/var/lib/systemd/coredump/*(N))
+  if (( ${#dumps} )); then
+    sudo rm -rf -- "${dumps[@]}"
+    echo "   Removed ${#dumps} coredump(s)."
+  else
+    echo "   No coredumps to clear."
   fi
   # 2 months, not 2 weeks: the journal is ~24 MB and journald already caps
   # itself, so short retention destroys diagnostic history to reclaim nothing.
   if command -v journalctl >/dev/null 2>&1; then
-    sudo journalctl --vacuum-time=2months >/dev/null 2>&1
-    echo "   Systemd journal logs older than 2 months cleaned."
+    local vac
+    if vac=$(sudo journalctl --vacuum-time=2months 2>&1); then
+      echo "   Systemd journal logs older than 2 months cleaned."
+    else
+      echo "   !! journal vacuum failed: ${vac##*$'\n'}"
+    fi
   fi
 
   # 8. Claude Code orphaned file-history (undo snapshots for deleted sessions)
@@ -117,11 +154,21 @@ sysclean() {
     for f in "$claude_proj"/**/*.jsonl(N); do
       _live[${f:t:r}]=1
     done
-    local d removed=0
-    for d in "$claude_hist"/*(N/); do
-      [[ -z ${_live[${d:t}]} ]] && rm -rf -- "$d" && (( removed++ ))
-    done
-    echo "   Removed $removed orphaned file-history dir(s)."
+    # No sessions found means the probe failed, not that every snapshot is
+    # orphaned. Without this the loop below deletes the whole undo history in
+    # one go -- and the layout it depends on (one <session-uuid>.jsonl per
+    # file-history/<session-uuid>/) belongs to Claude Code, which is free to
+    # change it. Refusing to act on an empty answer is the same rule the rest
+    # of this repo's probes follow.
+    if (( ${#_live} == 0 )); then
+      echo "   !! no sessions found under ${claude_proj/#$HOME/~} — not pruning"
+    else
+      local d removed=0
+      for d in "$claude_hist"/*(N/); do
+        [[ -z ${_live[${d:t}]} ]] && rm -rf -- "$d" && (( removed++ ))
+      done
+      echo "   Removed $removed orphaned file-history dir(s)."
+    fi
   else
     echo "   No Claude file-history to check."
   fi
@@ -129,9 +176,14 @@ sysclean() {
   # 9. Browser web caches (only on --all)
   if [[ "$all" == true ]]; then
     echo "==> 9. Browser web content cache"
-    if [[ -d ~/.cache/mozilla/firefox ]]; then
-      rm -rf ~/.cache/mozilla/firefox/*/cache2/* 2>/dev/null
-      echo "   Firefox web asset cache cleared."
+    # (N) again: this one works today only because both profiles happen to have
+    # a cache2/, and would abort the removal for both if either did not.
+    local -a ffcache=(~/.cache/mozilla/firefox/*/cache2/*(N))
+    if (( ${#ffcache} )); then
+      rm -rf -- "${ffcache[@]}"
+      echo "   Firefox web asset cache cleared (${#ffcache} entries)."
+    else
+      echo "   No Firefox web asset cache to clear."
     fi
   fi
 
@@ -206,7 +258,9 @@ _sysclean_nvme_health() {
 
     local -a problems=()
     [[ ${h[passed]} == true ]] || problems+=("SMART overall health self-assessment FAILED")
-    (( h[crit] ))                  && problems+=("critical warning flags set (0x${h[crit]})")
+    # The JSON field is a decimal, so "0x${h[crit]}" mislabelled it: a
+    # critical_warning of 16 printed as 0x16 when the flags are 0x10.
+    (( h[crit] ))                  && problems+=("critical warning flags set ($(printf '0x%02x' ${h[crit]}))")
     (( h[spare] < h[spare_min] ))  && problems+=("spare capacity ${h[spare]}% is below the drive's own ${h[spare_min]}% threshold")
     (( h[used] >= 80 ))            && problems+=("${h[used]}% of rated write endurance used")
     (( h[media] ))                 && problems+=("${h[media]} media/data-integrity error(s)")
