@@ -52,7 +52,7 @@ Before recursive deletion, resolve and prove that `PROJECT_ROOT` is a valid proj
 
 ### Protect package transactions from user-session teardown
 
-Design and test a local equivalent of Omarchy's PID-1 system-scope protection for `sysup`. Omarchy's direct-Pacman wrapper cannot be copied unchanged because Paru must remain unprivileged while building AUR packages.
+**Declined 2026-09-17 — see `revisit.md`.** Measured rather than designed: 848 pacman transactions since 2025-11-20 with a started/completed gap of zero, `user@1000.service` at `NRestarts=0`, and no user-manager restart across three systemd upgrades. Both mechanisms were tested — a system scope needs interactive polkit authentication, which would put a root prompt in front of a command that deliberately needs none, and a user scope lands inside the cgroup it would have to escape. `check_pacman_transaction` already detects an incomplete transaction after every run, so the gap is prevention of something that has not occurred. The original requirement was:
 
 The local implementation must:
 
