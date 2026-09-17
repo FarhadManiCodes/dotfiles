@@ -712,3 +712,46 @@ shutting-down instance. Re-tested three ways side by side — `handlr open`,
 `setsid -f handlr open`, `setsid -f sioyek` — all three launch correctly. `handlr get
 application/pdf` returns `sioyek.desktop` and `mimeapps.list` is right. Nothing to fix;
 recorded so it is not re-investigated.
+
+---
+
+## PID-1 scope protection for `sysup`'s paru run — DECLINED (measured, 2026-09-17)
+
+Omarchy wraps its package transaction in a PID-1-owned system scope so a user-manager
+teardown cannot take the upgrade with it. The concern is real in shape: `paru -Syu` runs in
+the interactive shell, which sits at
+`/user.slice/user-1000.slice/user@1000.service/app.slice/app-niri-foot-*.scope`, so paru and
+its elevated pacman descendant are both under `user@1000.service`.
+
+**The trigger has never fired here.** `/var/log/pacman.log` since 2025-11-20: **848
+transactions started, 848 completed, gap of zero**, and zero occurrences of "transaction
+failed", "interrupted", "could not commit" or "unable to lock". `user@1000.service` reports
+`NRestarts=0`, and systemd has been upgraded three times (261 → 261.1 → 261.2 → 261.3)
+without restarting the user manager.
+
+**There is no unprivileged version of the protection.** Both halves were tested:
+
+- `systemd-run --system --scope` fails with *"Access denied … requires interactive
+  authentication"*. Adopting it means sysup prompts for root **before** paru runs, reversing
+  a property the function documents as deliberate — an unprivileged `sleep:idle` block
+  inhibitor is enough, no sudo needed, "despite the equivalent upstream script reaching for
+  pkexec".
+- `systemd-run --user --scope` lands at
+  `/user.slice/user-1000.slice/user@1000.service/app.slice/run-p*.scope` — inside the very
+  cgroup it would need to escape. Useless for this purpose.
+
+And paru must stay unprivileged for AUR builds, so the scope would need `--uid` plus a
+preserved tty (paru prompts), cwd and environment, with `SudoLoop` managing its own sudo
+lifetime inside the wrapper — all of it around the single most important command here.
+
+**Detection already exists, so this is a prevention gap, not a blind spot.**
+`check_pacman_transaction` in `bash/config-drift` warns "pacman transaction has no
+completion record", and `sysup` calls it after every paru run with a byte-precise
+`--pacman-since` boundary. An interrupted transaction is reported on the spot.
+
+Same shape as finding 20, `systemd-oomd`: Omarchy's prerequisites are met and their
+reasoning is sound for their setup, but this machine's cgroup topology makes it the wrong
+trade.
+
+**Reopen if** `user@1000.service` ever reports `NRestarts > 0`, or a started/completed gap
+appears in `pacman.log` — not merely because an update feels slow or a session misbehaves.
