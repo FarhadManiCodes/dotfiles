@@ -39,13 +39,24 @@ reply() {
     return 0
 }
 
+# Open by type: sioyek for PDF — it is the only one taking --page, which is the
+# point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
+# mimeapps.list, dispatched here because handlr cannot carry a page number.
 # setsid detaches the viewer from vifm's term() window, which closes on exit.
 open_book() {
-    if [[ -n "${2:-}" ]]; then
-        setsid -f sioyek --page "$2" "$1" >/dev/null 2>&1
-    else
-        setsid -f sioyek "$1" >/dev/null 2>&1
-    fi
+    local file="$1" page="${2:-}"
+    case "${file,,}" in
+        *.pdf)
+            if [[ -n "$page" ]]; then
+                setsid -f sioyek --page "$page" "$file" >/dev/null 2>&1
+            else
+                setsid -f sioyek "$file" >/dev/null 2>&1
+            fi
+            ;;
+        *.djvu) setsid -f zathura "$file" >/dev/null 2>&1 ;;
+        *.epub) setsid -f foliate "$file" >/dev/null 2>&1 ;;
+        *)      setsid -f handlr open "$file" >/dev/null 2>&1 ;;
+    esac
 }
 
 case "$cmd" in
@@ -76,6 +87,7 @@ case "$cmd" in
     export SP="$sp"
     rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
     format_cmd="awk -F: -v sp='$sp/' '{
+        gsub(/\\033\\[[0-9;]*m/, \"\", \$1);
         gsub(sp, \"\", \$1);
         n=split(\$1,a,\"/\");
         key=\$1\":\"\$3;
