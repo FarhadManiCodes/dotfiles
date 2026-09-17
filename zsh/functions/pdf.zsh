@@ -17,6 +17,9 @@ STUDY_LIBRARY="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
 rgbook() {
   local sp="${STUDY_LIBRARY}"
   local query="${*:-}"
+  # Exported for fzf's preview shell: {1} must sit outside our quotes, because
+  # fzf substitutes it as a single-quoted string.
+  local -x SP="$sp"
 
   # rga output: path:line:Page N:text → format to: path<TAB>filename:Page N:text
   local rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
@@ -34,7 +37,7 @@ rgbook() {
       --bind "start:reload:$reload_cmd" \
       --delimiter=$'\t' \
       --with-nth=2 \
-      --preview "rga --context 3 --no-heading {q} '$sp/{1}' 2>/dev/null | head -20" \
+      --preview 'rga --context 3 --no-heading {q} "$SP/"{1} 2>/dev/null | head -20' \
       --preview-window='hidden,right:50%' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-d,ctrl-o' \
@@ -83,9 +86,10 @@ fbook() {
   local search_path="${STUDY_LIBRARY}"
   local pattern="${*:-.}"
 
+  local -x SP="$search_path"
   local result=$(fd --type f -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
     sed "s|^$search_path/||" | \
-    fzf --preview "pdfinfo \"$search_path/{}\" 2>/dev/null || echo 'No info available'" \
+    fzf --preview 'pdfinfo "$SP/"{} 2>/dev/null || echo "No info available"' \
         --preview-window='hidden,right:40%' \
         --bind 'ctrl-p:toggle-preview' \
         --expect='ctrl-d,ctrl-o' \

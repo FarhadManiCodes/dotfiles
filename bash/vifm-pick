@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Unified fzf picker helper for vifm commands.
 # Usage: vifm-pick <fbook|rgbook|fdata|fnb>
-# Results written to /tmp/vifm-pick-{action,file,dir,page}; vifm reads and acts.
+#
+# vifm cannot read a function's output, so the choice comes back through
+# $XDG_RUNTIME_DIR/vifm-pick/{action,path}. Only navigation crosses back:
+# opening and copying happen HERE, with real argument lists, so vifm never
+# builds a shell command out of a filename. A filename may contain any byte
+# except / and NUL, and vifm's :!  commands are plain strings.
 #
 # MIRRORS the interactive shell finders — keep the search halves in sync:
 #   fbook, rgbook  <-> zsh/functions/pdf.zsh
@@ -9,39 +14,66 @@
 # Identical in both: the rga command, the awk formatter, the rga preview and the
 # fdata extension list. Only the fzf key handling and what happens to the
 # selection differ, and deliberately so: the zsh versions `cd`, which only works
-# in the interactive shell, while vifm cannot read a function's output and needs
-# these temp files.
+# in the interactive shell, while vifm needs the exchange files below.
+#
+# fzf substitutes {} and {1} as a SINGLE-QUOTED string, so they must sit outside
+# any quotes of ours. "$SP/"{} concatenates correctly; "$SP/{}" does not and
+# lets a backtick in a filename run during preview, before any key is pressed.
+
+# shellcheck disable=SC2016
+# Single quotes are deliberate in the --preview strings: $SP must reach fzf's
+# own preview shell unexpanded, and {} / {1} are fzf placeholders, not shell.
+
+set -u
 
 cmd="${1:-}"
-rm -f /tmp/vifm-pick-action /tmp/vifm-pick-file /tmp/vifm-pick-dir \
-      /tmp/vifm-pick-page   /tmp/vifm-pick-cd   /tmp/vifm-pick-cp
+xdir="$XDG_RUNTIME_DIR/vifm-pick"
+mkdir -p "$xdir"
+chmod 700 "$xdir"
+rm -f "$xdir"/action "$xdir"/path "$xdir"/cd "$xdir"/cp
 
-write_result() {
-    local abs="$1"
-    printf '%s' "$abs"              > /tmp/vifm-pick-file
-    printf '%s' "$(dirname "$abs")" > /tmp/vifm-pick-dir
+# reply <cd|goto|none> [path] — the only things vifm still acts on.
+reply() {
+    printf '%s' "$1" > "$xdir/action"
+    [[ $# -ge 2 ]] && printf '%s' "$2" > "$xdir/path"
+    return 0
+}
+
+# setsid detaches the viewer from vifm's term() window, which closes on exit.
+open_book() {
+    if [[ -n "${2:-}" ]]; then
+        setsid -f sioyek --page "$2" "$1" >/dev/null 2>&1
+    else
+        setsid -f sioyek "$1" >/dev/null 2>&1
+    fi
 }
 
 case "$cmd" in
 
   fbook)
     sp="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+    export SP="$sp"
     result=$(fd --type f -e pdf -e epub -e djvu . "$sp" 2>/dev/null \
         | sed "s|^$sp/||" \
         | fzf \
-            --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
-            --preview "pdfinfo \"$sp/{}\" 2>/dev/null || echo 'No info available'" \
+            --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+            --preview 'pdfinfo "$SP/"{} 2>/dev/null || echo "No info available"' \
             --preview-window=hidden,right:40% \
             --bind 'ctrl-p:toggle-preview' \
             --header='Enter: open | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
-    [[ -f /tmp/vifm-pick-cd ]] && printf 'cd'   > /tmp/vifm-pick-action \
-                                || printf 'open' > /tmp/vifm-pick-action
-    write_result "$sp/$result"
+    abs="$sp/$result"
+    if [[ -e "$xdir/cd" ]]; then
+        reply cd "$(dirname "$abs")"
+    else
+        reply none
+        open_book "$abs"
+    fi
     ;;
 
   rgbook)
     sp="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+    export SP="$sp"
     rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
     format_cmd="awk -F: -v sp='$sp/' '{
         gsub(sp, \"\", \$1);
@@ -56,18 +88,21 @@ case "$cmd" in
         --bind "start:reload:$reload_cmd" \
         --delimiter=$'\t' \
         --with-nth=2 \
-        --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
-        --preview "rga --context 3 --no-heading {q} '$sp/{1}' 2>/dev/null | head -20" \
+        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+        --preview 'rga --context 3 --no-heading {q} "$SP/"{1} 2>/dev/null | head -20' \
         --preview-window='hidden,right:50%' \
         --bind 'ctrl-p:toggle-preview' \
         --header='Enter: open at page | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
     relpath="${result%%$'\t'*}"
     page=$(grep -oP 'Page \K[0-9]+' <<< "$result" | head -1)
-    [[ -f /tmp/vifm-pick-cd ]] && printf 'cd'   > /tmp/vifm-pick-action \
-                                || printf 'open' > /tmp/vifm-pick-action
-    write_result "$sp/$relpath"
-    printf '%s' "$page" > /tmp/vifm-pick-page
+    abs="$sp/$relpath"
+    if [[ -e "$xdir/cd" ]]; then
+        reply cd "$(dirname "$abs")"
+    else
+        reply none
+        open_book "$abs" "$page"
+    fi
     ;;
 
   fdata)
@@ -83,35 +118,39 @@ case "$cmd" in
         --exclude .venv --exclude venv \
         2>/dev/null \
         | fzf \
-            --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
-            --bind "ctrl-v:execute-silent(touch /tmp/vifm-pick-cp)+accept" \
+            --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+            --bind "ctrl-v:execute-silent(touch '$xdir/cp')+accept" \
             --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
             --preview-window=hidden,right:40% \
             --bind 'ctrl-p:toggle-preview' \
             --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
     [[ -z "$result" ]] && exit 0
-    if [[ -f /tmp/vifm-pick-cd ]]; then
-        printf 'cd'   > /tmp/vifm-pick-action
-    elif [[ -f /tmp/vifm-pick-cp ]]; then
-        printf 'cp'   > /tmp/vifm-pick-action
+    abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
+    if [[ -e "$xdir/cd" ]]; then
+        reply cd "$(dirname "$abs")"
+    elif [[ -e "$xdir/cp" ]]; then
+        reply none
+        printf '%s' "$abs" | wl-copy
     else
-        printf 'goto' > /tmp/vifm-pick-action
+        reply goto "$abs"
     fi
-    write_result "$(realpath "$result" 2>/dev/null || echo "$result")"
     ;;
 
   fnb)
     result=$(fd --type f --extension ipynb 2>/dev/null \
         | fzf \
-            --bind "ctrl-d:execute-silent(touch /tmp/vifm-pick-cd)+accept" \
+            --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
             --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
             --preview-window=hidden,right:30% \
             --bind 'ctrl-p:toggle-preview' \
             --header='Enter: goto | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
-    [[ -f /tmp/vifm-pick-cd ]] && printf 'cd'   > /tmp/vifm-pick-action \
-                                || printf 'goto' > /tmp/vifm-pick-action
-    write_result "$(realpath "$result" 2>/dev/null || echo "$result")"
+    abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
+    if [[ -e "$xdir/cd" ]]; then
+        reply cd "$(dirname "$abs")"
+    else
+        reply goto "$abs"
+    fi
     ;;
 
   *)
@@ -120,4 +159,4 @@ case "$cmd" in
     ;;
 esac
 
-rm -f /tmp/vifm-pick-cd /tmp/vifm-pick-cp
+rm -f "$xdir/cd" "$xdir/cp"
