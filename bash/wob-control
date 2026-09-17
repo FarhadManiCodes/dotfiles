@@ -41,11 +41,19 @@ case "$1" in
         fi
         ;;
     led-sync)
-        wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED \
-            && brightnessctl --device "platform::mute" set 1 &>/dev/null \
-            || brightnessctl --device "platform::mute" set 0 &>/dev/null
-        wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED \
-            && brightnessctl --device "platform::micmute" set 1 &>/dev/null \
-            || brightnessctl --device "platform::micmute" set 0 &>/dev/null
+        # if/else, not `grep -q && set 1 || set 0`: in that form a failing
+        # `set 1` falls through to `set 0`, darkening the LED while muted --
+        # exactly the state this is meant to reflect. Matches volume-mute
+        # and mic-mute above.
+        if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then
+            brightnessctl --device "platform::mute" set 1 &>/dev/null
+        else
+            brightnessctl --device "platform::mute" set 0 &>/dev/null
+        fi
+        if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
+            brightnessctl --device "platform::micmute" set 1 &>/dev/null
+        else
+            brightnessctl --device "platform::micmute" set 0 &>/dev/null
+        fi
         ;;
 esac
