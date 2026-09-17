@@ -166,13 +166,31 @@ that produced `etc/`.
 **yt-dlp's token helper:** immediately after uv updates, `_sysup_bgutil` compares
 the installed Python plugin version with the runnable Node helper at
 `~/.local/share/bgutil-pot`. A mismatch fetches that exact upstream release, runs
-`npm ci` and the local TypeScript compiler in a staging directory, and verifies
-`generate_once.js --version` before replacing the live checkout. Matching versions
+`npm ci --ignore-scripts` and the local TypeScript compiler in a staging directory,
+then gates the swap on **generating a real token**, not just on
+`generate_once.js --version`. Matching versions
 need no fetch or build. Missing installations are skipped; local edits are preserved.
 Any update failure stops `sysup` with a nonzero result. The previous helper stays in
 `bgutil-pot.update.*/previous`; a failed rename restores it automatically. Backups
 are retained for manual recovery, not pruned. This closes the 2026-09-17 failure
 where uv updated the plugin to 2.0.0 but left the helper at 1.3.1.
+
+`--ignore-scripts` and the token gate arrived together on 2026-09-17 and depend on
+each other. `npm ci` otherwise runs the dependency tree's install scripts, which is
+arbitrary code execution at build time; two packages here declare them and neither
+is needed — `@swc/core` is a dev dependency the build never uses, and `canvas` is a
+hard dependency upstream but only an optional peer of `jsdom`, absent from the
+compiled output and off the token path. A scripts-free build was measured generating
+a real token, 23 MB smaller than the scripts-enabled one.
+
+The gate is what keeps that safe for future releases, because **`--version` is not
+evidence of a working build**: it reported `2.0.0` from a tree whose `canvas` native
+binary was absent entirely, so a build genuinely missing something it needed would
+have passed and been promoted over a working helper. A token generation exercises the
+path yt-dlp uses. Failure counts as a bad build only when `youtube.com` is reachable;
+when it is not, the result is reported as NOT CHECKED and the version-checked build is
+installed anyway — treating a dropped connection as a build failure would block `sysup`
+and strand the version mismatch it exists to fix.
 
 ### NVMe health — the one hardware fault nothing else would report
 

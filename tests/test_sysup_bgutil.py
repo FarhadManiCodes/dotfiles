@@ -30,12 +30,18 @@ class BgutilUpdateTests(unittest.TestCase):
             BGUTIL_HELPER=str(self.helper), BGUTIL_UPSTREAM=str(self.upstream),
             BGUTIL_TOOLS=str(self.root / "tools"), BGUTIL_LOG=str(self.log),
             BGUTIL_PLUGIN="2.0.0", BGUTIL_FAIL="", BGUTIL_BUILD_VERSION="2.0.0",
+            BGUTIL_NET="up",
             GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
             XDG_RUNTIME_DIR=str(self.root),
         )
         self.script(self.root / "tools/yt-dlp/bin/python", '''
 [ "$BGUTIL_FAIL" = metadata ] && exit 1
 printf '%s\n' "$BGUTIL_PLUGIN"
+''')
+        self.script(self.bin / "curl", '''
+printf 'curl %s\n' "$*" >> "$BGUTIL_LOG"
+[ "$BGUTIL_NET" = down ] && exit 7
+exit 0
 ''')
         self.script(self.bin / "uv", '''
 printf 'uv %s\n' "$*" >> "$BGUTIL_LOG"
@@ -53,7 +59,7 @@ exec {GIT} "$@"
 ''')
         self.script(self.bin / "npm", '''
 printf 'npm %s\n' "$*" >> "$BGUTIL_LOG"
-[ "$*" = 'ci --no-audit --no-fund' ] || exit 1
+[ "$*" = 'ci --ignore-scripts --no-audit --no-fund' ] || exit 1
 [ "$BGUTIL_FAIL" = npm ] && exit 1
 if [ "$BGUTIL_FAIL" = concurrent_edit ]; then
     printf 'user edit\n' >> "$BGUTIL_HELPER/README"
@@ -84,7 +90,14 @@ mkdir -p build
 if [ "$BGUTIL_FAIL" = validation ]; then
     printf 'process.exit(1);\n' > build/generate_once.js
 else
-    printf 'console.log("%s");\n' "$BGUTIL_BUILD_VERSION" > build/generate_once.js
+    # --version prints the version; a bare run stands in for token generation,
+    # which BGUTIL_FAIL=token makes fail while leaving --version working.
+    printf 'const v = "%s";\n' "$BGUTIL_BUILD_VERSION" > build/generate_once.js
+    cat >> build/generate_once.js <<'JS'
+if (process.argv.includes("--version")) { console.log(v); process.exit(0); }
+if (process.env.BGUTIL_FAIL === "token") { process.exit(1); }
+console.log('{"poToken":"stub"}');
+JS
 fi
 ''')
         self.init_repo(self.upstream)
@@ -160,6 +173,41 @@ fi
                 result = self.run_update()
                 self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                 self.assert_original_preserved()
+
+    def test_build_skips_install_scripts(self):
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("npm ci --ignore-scripts --no-audit --no-fund\n", self.calls())
+
+    def test_token_generation_is_the_gate_when_youtube_is_reachable(self):
+        # --version alone passed during the --ignore-scripts evaluation from a
+        # tree missing a native binary, so a build that compiles but cannot work
+        # must not be promoted over a working helper.
+        self.env["BGUTIL_FAIL"] = "token"
+        result = self.run_update()
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("cannot generate a token", result.stdout)
+        self.assert_original_preserved()
+
+    def test_unreachable_youtube_is_not_checked_rather_than_failed(self):
+        # A dropped connection must not read as a bad build, or sysup fails and
+        # leaves the version mismatch in place.
+        self.env["BGUTIL_FAIL"] = "token"
+        self.env["BGUTIL_NET"] = "down"
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("NOT CHECKED", result.stdout)
+        self.assertNotIn("verified:", result.stdout)
+        # Still installed, on the version check alone, with the backup kept.
+        self.assertEqual((self.helper / "README").read_text(), "new helper\n")
+        self.assertEqual(len(self.backups()), 1)
+
+    def test_successful_token_generation_is_reported(self):
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("verified: the new helper generated a token", result.stdout)
+        # The happy path must not consult the network probe at all.
+        self.assertNotIn("curl", self.calls())
 
     def test_wrong_built_version_is_not_installed(self):
         self.env["BGUTIL_BUILD_VERSION"] = "1.3.1"

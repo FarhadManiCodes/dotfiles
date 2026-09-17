@@ -347,7 +347,9 @@ System-level choices that aren't captured in any config file:
 - **yt-dlp's bgutil helper is a separate Node checkout**, not part of its uv tool
   environment. Recreate `~/.local/share/bgutil-pot` from the upstream release
   matching the installed `bgutil-ytdlp-pot-provider` Python package, then run
-  `npm ci` and `./node_modules/.bin/tsc` in `server/`. `yt-dlp/config` points to
+  `npm ci --ignore-scripts` and `./node_modules/.bin/tsc` in `server/` — the two
+  packages declaring install scripts are not needed, and a scripts-free build is
+  verified to generate a token. `yt-dlp/config` points to
   that location. Since 2026-09-17, `sysup` updates an existing checkout after uv,
   builds before replacing it, and retains the previous copy. It does not bootstrap
   absent installations. See the Zsh section of `docs/architecture.md` for behavior

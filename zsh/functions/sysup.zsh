@@ -203,9 +203,17 @@ _sysup_bgutil() (
     echo "!! bgutil: release fetch failed; current helper preserved"
     return 1
   }
+  # --ignore-scripts: npm ci otherwise runs the dependency tree's install
+  # scripts, which is arbitrary code execution at build time. Two packages here
+  # declare them and neither is needed -- @swc/core is a dev dependency the
+  # build never uses (it compiles with tsc), and canvas is a hard dependency
+  # upstream but only an optional peer of jsdom, absent from the compiled output
+  # and off the token path. Verified 2026-09-17: a scripts-free build generates
+  # a real token. The functional gate below is what keeps that claim honest for
+  # future releases, where a skipped script may turn out to matter.
   (
     cd "$stage/repo/server" &&
-      npm ci --no-audit --no-fund &&
+      npm ci --ignore-scripts --no-audit --no-fund &&
       ./node_modules/.bin/tsc
   ) || {
     echo "!! bgutil: build failed; current helper preserved"
@@ -219,6 +227,32 @@ _sysup_bgutil() (
     echo "!! bgutil: built version $built_version does not match $plugin_version"
     return 1
   fi
+
+  # --version proves the TypeScript compiled and the CLI parses, and nothing
+  # more. During the 2026-09-17 --ignore-scripts evaluation it reported 2.0.0
+  # from a tree whose canvas native binary was absent entirely -- so a build
+  # missing a dependency it genuinely needed would pass this gate and be
+  # promoted over a working helper. Generating a token exercises the path
+  # yt-dlp actually uses.
+  #
+  # A failure is evidence of a bad build only if the generator could have
+  # reached YouTube. When it could not, that is reported as NOT CHECKED: never
+  # as verified, and never as a build failure, which would otherwise let a
+  # dropped connection block sysup and strand a version mismatch. Reaching this
+  # point already implies paru downloaded successfully, so the unreachable
+  # branch is the rare case of losing the network mid-run.
+  if timeout 120s node "$stage/repo/server/build/generate_once.js" >/dev/null 2>&1; then
+    echo "    verified: the new helper generated a token"
+  elif timeout 10s curl -sf -o /dev/null --max-time 8 \
+      https://www.youtube.com/generate_204 2>/dev/null; then
+    echo "!! bgutil: the new helper cannot generate a token; current helper preserved"
+    return 1
+  else
+    echo "    !! token generation NOT CHECKED — could not reach youtube.com"
+    echo "       installing on the version check alone; verify when back online:"
+    echo "       node $helper_dir/server/build/generate_once.js"
+  fi
+
   # Do not discard edits made while the release was building.
   changes=$(git -C "$helper_dir" status --porcelain --untracked-files=all) || return 1
   if [[ -n $changes || -L $helper_dir ]]; then
