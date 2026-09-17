@@ -84,7 +84,10 @@ fi
 
 OPTIONS="▶/⏸  Play/Pause\n⏭  Next\n⏮  Prev\n🎯  Focus Player\n${RECORD_LABEL}"
 
-CHOICE=$(printf "$OPTIONS" | fuzzel --dmenu --prompt "Media > " --lines 5)
+# '%b' keeps the \n escapes above working while treating the menu as data: with
+# the string in the format position, a '%' in any label fuzzel is handed -- a
+# track title, a filename -- would be read as a conversion and eat the entry.
+CHOICE=$(printf '%b' "$OPTIONS" | fuzzel --dmenu --prompt "Media > " --lines 5)
 
 case "$CHOICE" in
     "▶/⏸  Play/Pause")                         playerctl_cmd play-pause ;;

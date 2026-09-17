@@ -15,7 +15,8 @@ WORLD=$(printf '\U000f01e7')
 NET=$(printf '\U000f059f')    # nf-md-web (globe)
 WIFI=$(printf '\U000f05a9')   # nf-md-wifi
 ETH=$(printf '\U000f0200')    # nf-md-ethernet
-choice=$(printf "${BAT_FULL} Battery\n${NET} Internet\n${CLOCK} Uptime\n${THERM} CPU Temp\n${CHIP} Memory\n${WORLD} Time" \
+choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s CPU Temp\n%s Memory\n%s Time' \
+    "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" \
     | fuzzel --dmenu --prompt "Status: " --width 30 --lines 6)
 [[ -z "$choice" ]] && exit 0
 
