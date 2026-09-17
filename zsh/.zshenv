@@ -63,12 +63,6 @@ export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 # Without this, only the tmux Prefix-C path produced it.
 export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-# Apptainer — keep cache + build scratch on DISK, not the RAM-backed /tmp (tmpfs).
-# CACHEDIR: persistent base-image/layer cache (reused across builds; clear with `apptainer cache clean`).
-# TMPDIR:   per-build scratch (ephemeral; auto-cleaned after a successful build).
-export APPTAINER_CACHEDIR="$XDG_CACHE_HOME/apptainer"
-export APPTAINER_TMPDIR="$XDG_CACHE_HOME/apptainer/tmp"
-
 # OpenBLAS — match worker count to this machine's 8 physical cores, not its 16
 # logical CPUs. nproc / 2 is a machine-specific approximation, not a topology query.
 # Applies to non-OpenMP OpenBLAS builds, including those bundled in numpy/scipy wheels.
