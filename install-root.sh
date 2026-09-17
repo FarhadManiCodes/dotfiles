@@ -13,6 +13,18 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Root from here down. Pin command lookup to system directories so nothing in
+# the invoking user's PATH -- ~/.local/bin, or a bin/ inside the checkout -- can
+# shadow install, cp or cmp for a privileged run. sudo's secure_path normally
+# does this already, but that is configured in /etc/sudoers, which this script
+# cannot read, and the script is also runnable as root directly.
+#
+# Defence in depth, not a safety net: install-root.sh lives in a user-writable
+# checkout, so anyone who can edit the PATH can edit this file. Read it before
+# running it under sudo.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/bin:/sbin
+export PATH
+
 # Resolve DOTFILES for the invoking user (HOME is /root under sudo).
 if [ -n "${SUDO_USER}" ]; then
   user_home="$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
@@ -83,7 +95,10 @@ if [ -d "${DOTFILES}/etc" ]; then
   # then correctly reports them as new unowned files. (Happened 2026-09-06.)
   find "${DOTFILES}/etc" -type f \
     ! -name README.md ! -name unowned.txt ! -name modified.txt | while read -r src; do
-    dest="/etc${src#${DOTFILES}/etc}"
+    # Quoted separately: unquoted, the prefix is a glob pattern, so a checkout
+    # path containing [ or * would strip the wrong thing and build a wrong
+    # destination -- in a script that then writes it as root.
+    dest="/etc${src#"${DOTFILES}"/etc}"
     if ! cmp -s "$src" "$dest" 2>/dev/null; then
       install -D -m 0644 -o root -g root "$src" "$dest"
       echo "  ${dest} installed"
