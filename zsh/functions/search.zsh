@@ -47,8 +47,11 @@ _rg_live() {
   _fzf_split "$result" key selection
   [[ -z "$selection" ]] && return 0
 
-  local file="${selection%%:*}"
-  local line="${${selection#*:}%%:*}"
+  # rg --color=always colours the path and line fields; strip SGR before
+  # splitting, or nvim gets a path that does not exist and a non-numeric line.
+  local plain=$(sed 's/\x1b\[[0-9;]*m//g' <<< "$selection")
+  local file="${plain%%:*}"
+  local line="${${plain#*:}%%:*}"
 
   case "$key" in
     ctrl-d)
@@ -209,7 +212,7 @@ fbranch() {
     fzf --ansi --preview 'git log --oneline --color=always {1} | head -20' \
         --preview-window='hidden,right:50%' \
         --bind 'ctrl-p:toggle-preview' | \
-    sed 's/^[* ]*//' | sed 's/remotes\/[^/]*\///')
+    sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ]*//' | sed 's/remotes\/[^/]*\///')
   [[ -n "$branch" ]] && git checkout "$branch"
 }
 
