@@ -793,3 +793,37 @@ first pass; none warranted a change once checked individually.
 **Recheck:** any of these five repos gets archived, a real bug or missing feature surfaces
 in daily use, or Arch drops the package from a repo — not merely because upstream stays
 quiet for another audit cycle.
+
+---
+
+## Three more warning-level journal lines — ACCEPTED (no observed symptom, 2026-09-17)
+
+Found in the same journal review as the ath11k regulatory item (`TODO.md` item 4), and
+checked individually since none were in `revisit.md` yet.
+
+- **`foot: input: stray button release event (compositor bug?)`** — emitted by the single
+  niri-spawned foot server (`project_footclient_single_server`), 6 times over ~17h uptime,
+  several ~10-15 min apart during active afternoon use. foot's own code is asking whether
+  niri sent a button release with no matching press. **User confirmed 2026-09-17: no observed
+  mouse/click/scroll issue in any terminal.** Worth watching precisely because it repeats
+  during real use and is self-flagged as a possible compositor bug, not generic protocol
+  noise — but not investigated further, since there is nothing to reproduce against.
+- **`kernel: warning: 'Socket Thread' uses wireless extensions ...`** — the kernel reacting to
+  a legacy WEXT ioctl from a thread literally named "Socket Thread", a known Qt Bearer
+  Management fingerprint (deprecated network-monitoring code Qt spawns under that exact
+  name). Likely `pcmanfm-qt` or another `qt6-base` consumer polling wifi state the old way.
+  Harmless: the warning is about future Wi-Fi 7 hardware, and this machine's WCN6855 is
+  Wi-Fi 6E, two generations before it would matter.
+- **`xdg-desktop-portal: Realtime error: Could not get pidns for pid 2 ...`** — a sandboxing/
+  container-detection probe in the portal daemon (comparing its pid namespace against `pid 2`/
+  kthreadd, a common Flatpak-detection pattern), failing because the kernel doesn't support
+  that ioctl here. No corresponding audio/realtime-scheduling symptom anywhere else in the
+  log; pipewire's actual realtime setup goes through `rtkit` and is unrelated.
+
+**Decision:** no action on any of the three. Not tested with the rigor the bluez/libinput
+entries above used (no A/B, no reproduction attempt) — this is "identified the source, no
+observed symptom", not "proven benign".
+
+**Recheck:** the foot line if an actual missed-click/scroll/selection problem is ever noticed
+in a terminal; the other two only if their described mechanism starts causing a visible
+failure (wifi misbehaving, realtime audio glitching).
