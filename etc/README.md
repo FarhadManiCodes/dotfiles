@@ -139,7 +139,7 @@ session behavior remains a separate decision; see `TODO.md`.
 | `systemd/system/iwd.service.d/override.conf` | 2s `ExecStartPre` buffer for the hardware to wake, plus `Restart=on-failure`. |
 | `systemd/system/iwd.service.d/nowait.conf` | Orders iwd after `dbus-broker` and clears the packaged `Before=`/`Wants=`. |
 | `systemd/system/nftables.service.d/override.conf` | `RemainAfterExit=yes`, so a `Type=oneshot` firewall reads as active rather than dead once it has loaded. |
-| `systemd/resolved.conf.d/10-llmnr.conf` | `LLMNR=no`. Unauthenticated name resolution on UDP 5355 that anyone on the network can answer for any name. The firewall cannot help: the poisoned packet is a reply to a query this host sent, so conntrack accepts it as established. **mDNS is deliberately left on** — it already covers LAN hostname resolution. A drop-in, so `resolved.conf` stays package-default. |
+| `systemd/resolved.conf.d/10-llmnr-and-mdns.conf` | `LLMNR=no`, `MulticastDNS=no`. Both are unauthenticated first-reply-wins name resolution, and both are responders, so leaving them on announces this host on every network it joins. The firewall cannot help: the poisoned packet is a reply to a query this host sent, so conntrack accepts it as established. Nothing consumed either — no cups daemon, no `nss-mdns`, `avahi-daemon` inactive and disabled. Joining a network is unaffected. A drop-in, so `resolved.conf` stays package-default. |
 | `systemd/journald.conf.d/size.conf` | Caps the journal at 200M on disk, 50M in RAM. |
 | `systemd/network/20-wired.network` | DHCP on `e*` with `RouteMetric=10`, so wired outranks wifi when both are up. |
 | `systemd/system/ly@.service.d/override.conf` | `SuccessExitStatus=15`, so ly exiting via SIGTERM is not logged as a failure. |
