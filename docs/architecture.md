@@ -701,6 +701,25 @@ arrival without needing anyone to watch the screen. Verify sysfs separately with
 the `cat` fails, and a negative control (a write to `$HOME`, which must fail with
 `Read-only file system`) is what proves the probe can detect anything at all.
 
+**`net-notify.service` followed the same day**, with one genuine divergence:
+`RestrictAddressFamilies=AF_UNIX AF_NETLINK`. `AF_UNIX` carries both buses — the *system* bus
+for `dbus-monitor`/`iwctl`/`networkctl` and the *session* bus for `notify-send` — while
+`AF_NETLINK` is what `ip monitor link` runs on inside `eth_monitor`. `enp1s0f0` is a real
+device here, so netlink is mandatory rather than defensive, and the two fail differently:
+losing `AF_UNIX` kills every notification, losing `AF_NETLINK` kills only the ethernet half,
+silently, while wifi keeps working. Proven by A/B — with netlink `ip monitor` ran to its
+timeout, without it the sandbox returned `Cannot open netlink socket: Address family not
+supported by protocol`. 9.4 → 3.3.
+
+Two probe notes from that unit, both of which would have produced confident wrong answers.
+`ss -f netlink -apn | grep pid=<pid>` shows **nothing** for a process that demonstrably holds
+netlink sockets; match the fd inode against `/proc/net/netlink` instead. And **`is-active` is
+not evidence for `net-notify`**: it runs six processes (4× bash, `dbus-monitor`, `ip monitor`),
+and if a monitor dies its pipeline reaches EOF, `wifi_monitor` returns and the script exits
+**0** — which `Restart=on-failure` does not restart and `OnFailure=` does not report. Count the
+six processes in the unit's `cgroup.procs`. That silent-exit weakness is pre-existing and not
+caused by sandboxing, but it is what makes a broken sandbox here look healthy.
+
 **Never order a user unit against `network-online.target`.** It does not exist in the user
 manager — `systemctl --user show network-online.target -p LoadState` reports `not-found` — and
 a user unit cannot order itself against a system unit, so `After=`/`Wants=network-online.target`
