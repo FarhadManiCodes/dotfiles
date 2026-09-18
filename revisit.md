@@ -1006,3 +1006,14 @@ and decided, and that is all this file needs to say.**
   came up at `0`).
 - **Probe note:** `nft list ruleset` needs root; unprivileged it fails with
   `Operation not permitted`, so an empty result is not evidence of an empty ruleset.
+- **Testing the firewall from another host: `nft add rule` gives a false pass.** `add`
+  appends to the end of the input chain, which is *after* the rate-limited
+  `pkttype host ... reject` — so a test connection is rejected before it reaches the new
+  accept, and the test looks like the firewall working when it has not been exercised at
+  all. Use `nft insert`, which prepends, and confirm placement with
+  `nft -a list chain inet filter input`. Equally important, run the positive control first:
+  reach the service *with* the rule in place, so that failure without it means the firewall
+  rather than AP client isolation or a wrong address. Done this way on 2026-09-18 and the
+  block was confirmed from off-machine, with the reject counter rising by one 60-byte packet
+  per SYN retry. Undo with `nft -f /etc/nftables.conf`, which is clean because the file opens
+  with `destroy table inet filter`.
