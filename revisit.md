@@ -979,3 +979,30 @@ rediscover this by breaking a cloud mount.
   oneshot needing only `ReadWritePaths=%h/.local/state/service-failures`. Low value — and note
   the irony that breaking the failure notifier would hide failures, so it deserves the same
   negative-control testing as the others.
+
+## Firewall review — the traps, not the posture (2026-09-18)
+
+Prompted by a "is the firewall best practice" question. Three findings were fixed
+(`69c8abd`, `f31ec68`, `fe119f3`); the ruleset itself was left alone. Only the reasoning
+that would otherwise be re-derived wrongly is recorded here. **The posture details — what
+is and is not defended — are deliberately kept out of this public repo; they were reviewed
+and decided, and that is all this file needs to say.**
+
+- **`forward` policy `accept` is inert, and is not there for containers.** `ip_forward = 0`
+  and there is no host bridge. Rootless podman's networks live in a user netns, so the host
+  forward chain never sees container traffic — `nft list ruleset` shows `inet filter` as the
+  only table. The old "so container networking works" claim in `etc/README.md` was wrong and
+  was corrected. Changing the policy to `drop` would be cosmetic.
+- **`rp_filter` needs no change, and the obvious probe says otherwise.** `conf/all` reads `0`,
+  which looks like it is off. The kernel takes the **max** of `all` and the interface, and
+  `wlan0` inherits `2` (loose) from `default`. Reading the `all` value alone produces a change
+  that is not needed.
+- **`conf/all` does not harden existing interfaces, and `conf/default` only seeds new ones.**
+  With forwarding off the kernel ORs `all` with `conf/<iface>` for `accept_redirects`, so one
+  interface left at `1` defeats an `all` of `0`. Setting `all`/`default` measurably did not
+  harden `wlan0`. Globs (`net.ipv4.conf.*.accept_redirects`) write every existing key instead,
+  and expand under both appliers — procps-ng `sysctl --system` (measured) and `systemd-sysctl`
+  at boot (`sysctl.d(5)`; confirmed afterwards by a cold boot, where a freshly created `wlan0`
+  came up at `0`).
+- **Probe note:** `nft list ruleset` needs root; unprivileged it fails with
+  `Operation not permitted`, so an empty result is not evidence of an empty ruleset.
