@@ -658,9 +658,33 @@ previously exited 0, unittest discovery exits 1 on an absent `tests/`, and bash 
 absent script — all three recorded as suite failures rather than skipped.
 
 **Still deliberately unasserted, and not a gap.** The journal query in
-`skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md`. Retention drops that window
-around 2026-10-21, and a test that fails when the journal rotates is the tmux-power mistake in a
-new costume. This note previously lived in the `TODO.md` section that was removed with the item.
+`skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md`. A test that fails when the
+journal rotates is the tmux-power mistake in a new costume. This note previously lived in the
+`TODO.md` section that was removed with the item.
+
+**Correction, 2026-09-18: that window is already gone, and the "around 2026-10-21" estimate
+was wrong.** `journalctl --since 2026-09-02 --until 2026-09-03` returns `-- No entries --`; the
+oldest surviving entry is `2026-09-03T00:16:03`. The date has been removed above rather than
+adjusted, because the estimate was not merely early — the mechanism assumed was not what
+happened.
+
+Ordinary rotation does not explain it. At the time of checking the journal held **189.6 MB
+against a 4 GB `SystemMaxUse` cap** (10% of a 953 GB filesystem, capped), and **25 files against
+the default `SystemMaxFiles=100`**, across 45 retained boots. Neither limit was close to being
+reached, and nothing in `bash/` vacuums the journal — the only `journalctl` reference in the
+whole directory is a notification body in `bash/service-failed-notify:34`.
+
+The likely cause, **not proven**: several `*.journal~` files dated 3–4 Sep sit in
+`/var/log/journal/<machine-id>/`, and the `~` suffix is journald marking a file corrupt and
+rotating it. The 2026-09-02 incident was itself a failed suspend/resume, so the loss is
+plausibly collateral from that night rather than a retention policy at all. Stated as a
+hypothesis because the originating journal is exactly what is missing.
+
+**What this changes:** nothing about the decision — the argument for not asserting on that
+window is now stronger, since the data vanished a month early for a reason the retention math
+never modelled. What it does change is any future estimate of journal coverage on this machine:
+do not derive a retention window from `SystemMaxUse` arithmetic alone, because the observed
+window was roughly 15 days when the size cap implied around ten months.
 
 ---
 
@@ -827,3 +851,53 @@ observed symptom", not "proven benign".
 **Recheck:** the foot line if an actual missed-click/scroll/selection problem is ever noticed
 in a terminal; the other two only if their described mechanism starts causing a visible
 failure (wifi misbehaving, realtime audio glitching).
+
+---
+
+## `GRUB_TIMEOUT=5` — ACCEPTED, keep the menu (2026-09-18)
+
+Found while looking for resource savings during a services/daemon audit. It is the single
+largest software-controllable chunk of boot time, and it is still not worth changing.
+
+- **Measured:** `systemd-analyze` reports `10.274s (firmware) + 6.256s (loader) + 847ms
+  (kernel) + 3.505s (initrd) + 4.255s (userspace) = 25.139s`, with `graphical.target` reached
+  3.985 s into userspace. That 6.256 s loader phase is `GRUB_TIMEOUT=5` in `/etc/default/grub`
+  with `GRUB_TIMEOUT_STYLE=menu`. Dropping it to 1–2 s would save roughly 4 s per boot.
+- **Why it stays:** that menu is the snapshot-recovery path. `grub-btrfsd` runs specifically to
+  populate it from snapper snapshots, so shortening the window trades recovery margin — at the
+  moment you most need it, under stress — for four seconds of an otherwise unattended boot.
+- **Userspace is not the problem, so do not go looking there.** 4.255 s total, and the slowest
+  user units are the `rclone@` mounts at ~850 ms each, already deliberately decoupled from
+  `graphical-session.target` so they cannot block the session. `man-db.service` (6.120 s) is
+  timer-driven and does not delay `graphical.target`. The remaining "slow" entries are device
+  units settling (rfkill, tpm, ttyS*), not services.
+- **Decision (user, 2026-09-18):** leave it at 5. Nothing changed.
+- **Recheck:** only if boot time becomes an actual complaint, in which case this is the first
+  and essentially only place with seconds available.
+
+## amdxdna NPU firmware missing — ACCEPTED, hardware deliberately unused (2026-09-18)
+
+Every boot logs three lines from the AMD NPU (Ryzen AI) kernel driver:
+
+```
+amdxdna 0000:65:00.1: [drm] *ERROR* aie2_init: failed to request_firmware amdnpu/1502_00/, ret -2
+amdxdna 0000:65:00.1: [drm] *ERROR* amdxdna_probe: Hardware init failed, ret -2
+amdxdna 0000:65:00.1: probe with driver amdxdna failed with error -2
+```
+
+- **Investigated:** `ret -2` is `ENOENT` — the driver asks for firmware under `amdnpu/1502_00/`
+  and nothing provides it. `pacman -Ql linux-firmware | grep amdnpu` is empty, so the installed
+  firmware package does not ship it.
+- **One correction to an assumption made in passing:** the relevant package is **not** in the
+  AUR. `xrt-plugin-amdxdna` is in **`extra`** — but it is the *userspace* runtime for AIE/FPGA
+  platforms, not the kernel firmware blob the driver is asking for, so it would not silence
+  this even if installed.
+- **Weak probe, stated rather than hidden:** `pacman -F amdnpu` returned nothing, but the file
+  database was not synced first (`pacman -Fy` needs root and was deliberately not run). So
+  "nothing in the repos ships this firmware" is *likely* but not established.
+- **Decision (user, 2026-09-18):** the NPU is not used and there is no intention to use it, so
+  nothing is being installed to satisfy a device that would then sit idle. The probe failure is
+  cosmetic: the driver gives up, the device stays unbound, and nothing else in the log or the
+  running system refers to it.
+- **Recheck:** only if NPU/AI acceleration is ever actually wanted, or if a `linux-firmware`
+  update starts shipping `amdnpu/` and the lines disappear on their own.
