@@ -25,10 +25,6 @@ case "$unit" in
         # shellcheck disable=SC2088  # literal tilde: this is display text, not a path
         body="~/Cloud/${remote} is unavailable. Often auth — check: rclone lsd ${remote}:"
         ;;
-    study-library-sync.service)
-        title="Study library sync failed"
-        body="The gdrive-full:FAU/Library sync did not complete."
-        ;;
     *)
         title="Service failed: ${unit}"
         body="journalctl --user -u ${unit} -e"

@@ -156,11 +156,6 @@ alias nano='vim'
 # ============================================================================
 alias zhist='sqlite3 ~/.local/share/zathura/bookmarks.sqlite "SELECT file FROM fileinfo" | fzf | xargs -r zathura'
 # ============================================================================
-# STUDY LIBRARY SYNC
-# ============================================================================
-alias syncbooks='systemctl --user start study-library-sync.service && journalctl --user -u study-library-sync.service -f'
-
-# ============================================================================
 # YT-DLP
 # ============================================================================
 # Lean audio download: bestaudio only (no fetch-then-discard), no subtitles,

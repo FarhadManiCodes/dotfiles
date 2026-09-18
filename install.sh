@@ -425,17 +425,14 @@ done
 systemctl --user daemon-reload
 
 # Enable explicitly rather than globbing (idempotent). A glob gets this wrong in
-# three ways: `enable rclone@.service` fails because a template cannot be
-# enabled, the instances we actually mount are never enabled, and
-# study-library-sync.service would be pulled into graphical-session.target even
-# though its timer is what should drive it.
+# two ways: `enable rclone@.service` fails because a template cannot be enabled,
+# and the instances we actually mount are never enabled.
 for unit in battery-watch mic-notify net-notify power-notify swayidle; do
   systemctl --user enable "${unit}.service" 2>/dev/null || true
 done
 for remote in gdrive Dropbox; do
   systemctl --user enable "rclone@${remote}.service" 2>/dev/null || true
 done
-systemctl --user enable study-library-sync.timer 2>/dev/null || true
 
 # shpool is socket-activated: enabling the socket is enough, and avoids keeping
 # the daemon running until a client actually needs it.

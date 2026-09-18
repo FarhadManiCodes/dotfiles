@@ -132,9 +132,10 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
 - Library browser (Mod+z): `~/.local/bin/book-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)
-- Library source: `~/.local/share/study-library`, the local mirror kept by `study-library-sync`
-  — **not** the rclone mount, so the picker and opening a book both work offline. There is no
-  cache file and no startup pre-warm any more: a full scan of the mirror is 9ms, so the
+- Library source: `~/.local/share/study-library`, a local mirror — **not** the rclone mount, so
+  the picker and opening a book both work offline. It is now a *static* copy: the
+  `study-library-sync` timer that refreshed it was removed 2026-09-18, so update it by hand.
+  There is no cache file and no startup pre-warm any more: a full scan of the mirror is 9ms, so the
   `~/.cache/book-resources.txt` machinery those needed was deleted on 2026-09-04 rather than
   fixed. It had truncated itself to 0 bytes that morning by running before the mount existed.
 - There is **no git pre-warm** at startup any more, deleted 2026-09-09. It existed so starship's

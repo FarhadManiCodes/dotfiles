@@ -27,10 +27,10 @@ into this repo, so editing the repo edits the running configuration — a reload
 needed, not a reinstall.
 
 **`install.sh` enables units from an explicit list, not a glob.** If you add a unit that should
-start at login, add it to that list. A glob is wrong three ways: it cannot enable a template
-(`rclone@.service`), it never enables the instances you actually want, and it would pull
-`study-library-sync.service` into `graphical-session.target` when its **timer** is what should
-drive it.
+start at login, add it to that list. A glob is wrong two ways: it cannot enable a template
+(`rclone@.service`), and it never enables the instances you actually want. A third reason
+applied until 2026-09-18 — a glob would have pulled the timer-driven
+`study-library-sync.service` into `graphical-session.target` — but that unit has been removed.
 
 ## Never order against `network-online.target`
 
@@ -45,8 +45,8 @@ Requires=network-online.target   →  "Unit network-online.target not found", ex
 ```
 
 A missing `Requires=` is reported; a missing `Wants=` is legal and silent by design. **The only
-remedy is not writing the line.** Both `rclone@.service` and `study-library-sync.service`
-carried it until 2026-09-04, one with a comment defending it.
+remedy is not writing the line.** Both `rclone@.service` and the since-removed
+`study-library-sync.service` carried it until 2026-09-04, one with a comment defending it.
 
 ### What works instead
 

@@ -664,8 +664,8 @@ light and do not follow the foot/foliate theme toggles.
 ### systemd user services & failure notification
 
 Units live in `systemd/user/`, symlinked by `install.sh`, which enables them from an **explicit
-list** (a glob can't enable the `rclone@` template and would wrongly enable the timer-driven
-`study-library-sync.service`).
+list** (a glob can't enable the `rclone@` template, and never enables the instances actually
+mounted).
 
 Failures are surfaced by `OnFailure=notify-failure@%n.service` → `bash/service-failed-notify`,
 which raises a mako notification *and* appends to
@@ -748,8 +748,9 @@ over D-Bus rather than a sysfs write.
 manager — `systemctl --user show network-online.target -p LoadState` reports `not-found` — and
 a user unit cannot order itself against a system unit, so `After=`/`Wants=network-online.target`
 is inert on *every* machine, not just this one where `systemd-networkd-wait-online` is masked.
-Both `rclone@.service` and `study-library-sync.service` carried it until 2026-09-04, the latter
-with a comment defending it as "correct on a machine that does reach the target"; it never was.
+Both `rclone@.service` and the since-removed `study-library-sync.service` carried it until
+2026-09-04, the latter with a comment defending it as "correct on a machine that does reach the
+target"; it never was.
 Nothing catches this: `systemd-analyze verify` reports a missing `Requires=` but a missing
 `Wants=` is legal and silent by design, so the only remedy is not writing the line.
 
@@ -821,12 +822,12 @@ upstreams = FAU=gdrive-full:FAU Documents=gdrive-full:Documents tmp-office=gdriv
 ```
 
 `combine` rather than mounting a subfolder, because it keeps every existing path valid — the
-niri startup indexer and `bash/book-resources` want `~/Cloud/gdrive/FAU/Library`,
-`study-library-sync` wants `gdrive:FAU/Library`, and `bash/gdocs-open` wants
-`gdrive:tmp-office`. All four still resolve; no script changed. What stops being reachable
-through the filesystem is everything not named in `upstreams` above — the other seven
-top-level Drive folders. They remain reachable through `gdrive-full:`, which is the point of
-the next paragraph.
+niri startup indexer and `bash/book-resources` want `~/Cloud/gdrive/FAU/Library`, and
+`bash/gdocs-open` wants `gdrive:tmp-office`. All still resolve; no script changed. (A fourth
+consumer, `study-library-sync`, wanted `gdrive:FAU/Library` until it was removed 2026-09-18.)
+What stops being reachable through the filesystem is everything not named in `upstreams` above
+— the other seven top-level Drive folders. They remain reachable through `gdrive-full:`, which
+is the point of the next paragraph.
 
 **Be honest about what that buys.** It shrinks the *filesystem* blast radius — an accidental
 `rm -rf`, or generic ransomware walking mounted paths, can no longer reach the folders above.

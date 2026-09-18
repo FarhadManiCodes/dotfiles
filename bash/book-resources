@@ -2,8 +2,8 @@
 
 # Library picker (Mod+z).
 #
-# Reads the LOCAL mirror that study-library-sync.service keeps, not the rclone
-# mount. Against the mount a full scan costs a network round trip whenever the
+# Reads the LOCAL mirror at ~/.local/share/study-library, not the rclone mount.
+# Against the mount a full scan costs a network round trip whenever the
 # 5m dir cache is cold, which is why this used to carry a cache file, a
 # 10-minute staleness check, a background refresh, and a `sleep 5` pre-warm
 # spawned from niri. On the 2026-09-04 13:34 boot that pre-warm ran 85s before
@@ -16,13 +16,14 @@
 # to cache, and all of that machinery is gone rather than guarded. It also means
 # the picker AND opening a book work with no network: the files are on disk.
 #
-# The cost is freshness. A book added to Drive from another device, or dropped
-# into ~/Cloud/gdrive/FAU/Library here, appears only after the next sync --
-# 2 minutes after login, or 06:00 daily. Accepted 2026-09-04.
+# The cost is freshness, and as of 2026-09-18 the mirror is no longer refreshed
+# automatically: study-library-sync.service/.timer were removed as unwanted, so
+# this is a static local copy. Update it by hand when needed, e.g.
+# `rclone sync gdrive-full:FAU/Library ~/.local/share/study-library --max-delete 5`.
 LIBRARY="$HOME/.local/share/study-library"
 
 [[ -d "$LIBRARY" ]] || {
-    notify-send "Book Resources" "Library missing — check study-library-sync.service"
+    notify-send "Book Resources" "Library missing — ~/.local/share/study-library not found"
     exit 1
 }
 
