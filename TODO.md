@@ -16,6 +16,7 @@ Off-machine backup remains deferred.
 | 3a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
+| 5. polkit agent + autostart entries | Needs user input | Decide whether a GUI auth prompt is ever wanted |
 
 ## 1. Off-machine backup
 
@@ -201,4 +202,44 @@ selection doesn't touch link-opening behavior.
 **Verified 2026-09-16 (user, interactive):** enabled the pref, confirmed Personal/Work cookie
 separation, confirmed both container tabs survive a full restart, confirmed Tridactyl hinting,
 tab open/close/switch behave normally with containers in use. No extension needed.
+
+## 5. polkit authentication agent and the XDG autostart entries
+
+Numbered 5 rather than reusing 4, which was the ath11k item closed the same day.
+
+Surfaced 2026-09-18 while sweeping every service's `systemd-analyze security` score. Not a
+fault — nothing is known to be broken — but it is the kind of thing that fails silently.
+
+**Problem:** `mate-polkit` ships
+`/etc/xdg/autostart/polkit-mate-authentication-agent-1.desktop`, which systemd generates as
+`app-polkit\x2dmate\x2dauthentication\x2dagent\x2d1@autostart.service`. It is **inactive**.
+That agent is what draws a password dialog when a GUI application asks polkit for
+authorization, so on this machine such a prompt probably never appears. The system
+`polkit.service` daemon itself is running normally; it is only the *agent* that is absent.
+
+**The user reports never having needed one**, which is plausible given that privileged work
+here happens through `sudo` in a terminal. So this may be correct as-is and the right outcome
+may be removal rather than repair.
+
+**Concrete test case, which is why this is worth five minutes:** `udisks2` is installed and
+vifm's `:media` USB mounting goes through it (see `docs/architecture.md`, and the `dosfstools`
+entry in `revisit.md`). Mounting a removable device as a non-root user is the most likely
+polkit consumer on this machine. If `:media` already mounts a USB stick without complaint,
+polkit's rules are permitting it outright and no agent is wanted; if it fails or hangs with no
+visible prompt, the missing agent is the reason.
+
+**Decisions needed:** whether any GUI polkit prompt is ever wanted. If not, whether to remove
+`mate-polkit` (check nothing else pulls it in first) or simply mask the generated unit.
+
+**Secondary, cosmetic:** the four XDG autostart entries are handled inconsistently.
+`at-spi-dbus-bus.service` and `xdg-user-dirs.service` are explicitly **masked**;
+`app-lxqt-desktop@autostart.service` (shipped by `pcmanfm-qt`) and the polkit-mate one are
+not, though both are inactive. Worth making deliberate in one direction once the question
+above is settled — an inactive unit costs nothing, so this is tidiness, not a fix.
+
+**Done when:** the polkit question is answered with a real test rather than an assumption, and
+all four autostart entries are either masked or deliberately left alone with the reason
+recorded. Route the outcome to `revisit.md` if it turns out nothing should change.
+
+**Feasibility:** small. The test is plugging in a USB stick and pressing `:media` in vifm.
 
