@@ -48,11 +48,20 @@ One line at (cold) boot. Bluetooth works fully — all A2DP endpoints register.
   on *stock* config **and** 5/5 with an explicit `PageTimeout` both passed, so the
   parameter is irrelevant. btmon shows the `Set Default System Configuration` MGMT command
   actually succeeds (`Status: Success`) when sent — bluez logs the failure spuriously
-  regardless. Controller is MediaTek MT7922 with quirky firmware (`HCI Enhanced Setup
+  regardless. The controller has quirky firmware (`HCI Enhanced Setup
   Synchronous Connection command advertised, but not supported`). `main.conf` is stock;
   `/etc/bluetooth` is mode 555. Matches upstream bluez issue #1905 (many machines, after a
   firmware bump, benign).
 - **Fix:** none (upstream bluez bug; no config affects the race).
+- **Correction, 2026-09-18: the controller is Qualcomm, not MediaTek MT7922.** This entry
+  previously named it MT7922. `btusb` is bound to USB `10ab:9309` (a USI module — the Bluetooth
+  half of the same WCN6855 combo as the QCNFA765 wifi), `bluetoothctl show` reports
+  `Manufacturer: 0x001d`, which is Qualcomm's Bluetooth SIG company ID, and there is **no
+  MediaTek device on PCI or USB at all**. The likely source of the error is that `lsmod` shows
+  `btmtk` loaded — but `btusb` pulls in every vendor helper (`btrtl`, `btmtk`, `btintel`,
+  `btbcm`) regardless of which chip is present, so a loaded `btmtk` is not evidence of MediaTek
+  hardware. Nothing else in this entry changes: the race, the A/B result and the acceptance all
+  stand, since none of them depended on the vendor.
 - **Recheck:** bluez update resolving #1905, or a BT controller firmware update.
 
 ---
@@ -901,3 +910,47 @@ amdxdna 0000:65:00.1: probe with driver amdxdna failed with error -2
   running system refers to it.
 - **Recheck:** only if NPU/AI acceleration is ever actually wanted, or if a `linux-firmware`
   update starts shipping `amdnpu/` and the lines disappear on their own.
+
+## ath11k regulatory-domain error — ACCEPTED, cosmetic (2026-09-18)
+
+Closed from `TODO.md` item 4, which was blocked on testing 5GHz. The router does have 5GHz;
+it was tested and the error is confirmed cosmetic.
+
+```
+ath11k_pci 0000:02:00.0: Failed to set the requested Country regulatory setting
+ath11k_pci 0000:02:00.0: failed to process regulatory info -22
+```
+
+- **5GHz works, and the error is unchanged by it.** Associated on channel 36 (5180 MHz) at
+  80 MHz width, −67 dBm, txpower 18 dBm against a 23 dBm regulatory ceiling for that band. The
+  two error lines still fire twice at boot exactly as before, so they plainly do not gate 5GHz.
+- **The regulatory state is correct where it is checkable.** `iw reg get` gives
+  `country DE: DFS-ETSI` with complete tables, and `iw phy phy0 info` advertises DFS channels
+  52–140 flagged `radar detection` plus 6 GHz channels at 23 dBm. That last part matters: the
+  one *real* WCN6855 regulatory bug reported upstream was 6 GHz silently vanishing, and it was
+  a driver-side bug fixed before kernel 6.8. This machine runs 7.2.6 and has 6 GHz.
+- **`no IR` on every 5GHz channel is normal and is not the symptom.** It means
+  *no-initiating-radiation*: no AP, IBSS, mesh or P2P-master on that channel. It does not stop
+  a client associating. Proven locally rather than argued — channel 36 is marked `no IR` and
+  the machine was connected on it at the time of writing.
+- **The earlier "only one BSS, no 5GHz under this SSID" observation is superseded.**
+  `iwctl station wlan0 get-bsses` now lists two (`…:41:fa` and `…:41:fb`).
+- **DFS deliberately not pursued.** The only thing a DFS association would add is exercising
+  the firmware's client-side radar/channel-switch handling, which is not visible in the channel
+  table. If that were broken it would show up immediately in ordinary use as a drop when the AP
+  vacates a radar channel — not a silent failure worth reconfiguring a router to hunt. Note it
+  if a DFS channel is ever used naturally; do not go looking.
+- **Working hypothesis retained, still unproven:** `board_id 0xff` means no board-specific
+  calibration table, so the firmware rejects a country-set it has no slot for, while
+  `cfg80211` — which is what actually governs this machine as a client — applies DE correctly.
+  Consistent with `iw reg get` reporting `phy#0 (self-managed)`.
+- **The genuinely broken WCN6855/QCNFA765 cases in the wild look nothing like this**, which is
+  the useful discriminator for next time: WMI command timeouts, `failed to flush transmit
+  queue`, wifi dying within 20 s of boot, or a whole band missing. None occur here.
+- **Probe note:** `iw dev wlan0 scan` needs root and fails with `Operation not permitted`, so
+  an empty result from it is not evidence of absence. `iw phy phy0 info` gives channel flags
+  unprivileged, and `iwctl station <dev> get-networks` gives iwd's existing scan results.
+- **Recheck:** only if wifi actually misbehaves, or a DFS channel is used and something drops.
+
+Reference: [OpenWrt on `no IR`](https://forum.openwrt.org/t/what-does-no-ir-radar-detection-mean/98443),
+[WCN6855 regulatory thread](https://www.spinics.net/lists/linux-wireless/msg254607.html).
