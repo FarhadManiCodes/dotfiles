@@ -51,9 +51,13 @@ root it degrades to `failed to calculate SHA256 checksum`, which means unreadabl
 and not altered.
 
 Tracking it makes this repo the source of truth, so a future `nftables` upgrade
-shipping a `.pacnew` cannot quietly replace the ruleset. The ruleset itself is
-default-drop with nothing listening, which is why it is safe in a public repo:
-it discloses only that the machine runs a restrictive firewall and serves nothing.
+shipping a `.pacnew` cannot quietly replace the ruleset. It is safe in a public
+repo because it is the stock Arch example unmodified — it discloses only that the
+machine default-drops input. It is not true that nothing listens: `ss -tulpn` on
+2026-09-18 found pg on `127.0.0.1:5432`, resolved's stubs on `127.0.0.53/.54:53`,
+and LLMNR/mDNS on `0.0.0.0` and `[::]`. The first two are loopback-only and the
+rest are dropped inbound, so the conclusion holds — but by the ruleset, not by an
+empty socket table.
 
 `/etc/pacman.conf` joined this class on 2026-09-05, and is a much smaller case:
 it was **byte-identical to the shipped default** until then (verified by diffing
@@ -130,11 +134,12 @@ session behavior remains a separate decision; see `TODO.md`.
 | Path | Why |
 |---|---|
 | `pacman.conf` | **Package-owned and modified** — see the exceptions section above. Differs from the shipped default in two lines only: `Color` and `VerbosePkgLists`. |
-| `nftables.conf` | The firewall. Default-drop input, `forward` accept so container networking works. No SSH rule — no sshd. |
+| `nftables.conf` | The firewall. The stock Arch example unmodified: default-drop input, `inet` so one ruleset covers v4 and v6. `forward` is accept but **inert** — `ip_forward=0` and no host bridge, and rootless podman's networks live in a user netns the host forward chain never sees. It is not there for containers. Verified 2026-09-18: `nft list ruleset` shows `inet filter` as the only table. No SSH rule — no sshd. |
 | `iwd/main.conf` | `EnableNetworkConfiguration=true` + `NameResolvingService=systemd`. **Without it iwd does not configure networking at all.** Credentials live in `/var/lib/iwd/*.psk` and are deliberately not here. |
 | `systemd/system/iwd.service.d/override.conf` | 2s `ExecStartPre` buffer for the hardware to wake, plus `Restart=on-failure`. |
 | `systemd/system/iwd.service.d/nowait.conf` | Orders iwd after `dbus-broker` and clears the packaged `Before=`/`Wants=`. |
 | `systemd/system/nftables.service.d/override.conf` | `RemainAfterExit=yes`, so a `Type=oneshot` firewall reads as active rather than dead once it has loaded. |
+| `systemd/resolved.conf.d/10-llmnr.conf` | `LLMNR=no`. Unauthenticated name resolution on UDP 5355 that anyone on the network can answer for any name. The firewall cannot help: the poisoned packet is a reply to a query this host sent, so conntrack accepts it as established. **mDNS is deliberately left on** — it already covers LAN hostname resolution. A drop-in, so `resolved.conf` stays package-default. |
 | `systemd/journald.conf.d/size.conf` | Caps the journal at 200M on disk, 50M in RAM. |
 | `systemd/network/20-wired.network` | DHCP on `e*` with `RouteMetric=10`, so wired outranks wifi when both are up. |
 | `systemd/system/ly@.service.d/override.conf` | `SuccessExitStatus=15`, so ly exiting via SIGTERM is not logged as a failure. |
