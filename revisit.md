@@ -954,3 +954,28 @@ ath11k_pci 0000:02:00.0: failed to process regulatory info -22
 
 Reference: [OpenWrt on `no IR`](https://forum.openwrt.org/t/what-does-no-ir-radar-detection-mean/98443),
 [WCN6855 regulatory thread](https://www.spinics.net/lists/linux-wireless/msg254607.html).
+
+## Sandboxing `rclone@.service` — NOT ATTEMPTED, wrong profile (2026-09-18)
+
+After the four notifier units were sandboxed, `rclone@.service` is the obvious next target and
+is the one unit that **cannot** take that profile. Recorded so the next audit does not
+rediscover this by breaking a cloud mount.
+
+- **`PrivateDevices=yes` is disqualifying on its own.** `man systemd.exec` states it "may not be
+  used for services which shall be able to install mount points in the main mount namespace",
+  and it "will disconnect propagation of mounts from the service to the host". rclone is a FUSE
+  mount whose entire job is making `~/Cloud/<remote>` visible to everything else.
+- **Three more directives invert too:** it needs `/dev/fuse` (not in the private `/dev`), real
+  `AF_INET`/`AF_INET6` (it is a cloud client), and write access under `$HOME` for
+  `~/Cloud/%i` and `~/.cache/rclone/%i` — so `ProtectHome=read-only` and `ProtectSystem=strict`
+  would both have to be relaxed with explicit `ReadWritePaths=`.
+- **The payoff is also smaller.** The notifier series was justified by `net-notify` parsing
+  attacker-broadcast SSIDs in bash. rclone is a maintained Go binary, not a shell script
+  handling hostile input.
+- **If it is ever attempted:** design a bespoke profile from a measured inventory, do not copy
+  `battery-watch.service`. `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality` and
+  `UMask=0077` are the parts that would transfer cheaply.
+- **Still easy, if someone wants the remaining one:** `notify-failure@.service` is a tiny
+  oneshot needing only `ReadWritePaths=%h/.local/state/service-failures`. Low value — and note
+  the irony that breaking the failure notifier would hide failures, so it deserves the same
+  negative-control testing as the others.
