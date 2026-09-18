@@ -1017,3 +1017,21 @@ and decided, and that is all this file needs to say.**
   block was confirmed from off-machine, with the reject counter rising by one 60-byte packet
   per SYN retry. Undo with `nft -f /etc/nftables.conf`, which is clean because the file opens
   with `destroy table inet filter`.
+
+---
+
+## Removed `mate-polkit` — DONE (2026-09-18)
+
+TODO item 5. Investigated and dry-run verified beforehand (`pacman -Rsp mate-polkit` printed
+only `mate-polkit-1.28.1-2`, no cascade), then run by the user.
+
+- **Confirmed after the fact:** `pacman -Q mate-polkit` now reports not installed; `polkit`
+  (`fprintd fwupd rtkit udisks2` still depend on it) is untouched; no orphaned packages
+  (`pacman -Qdt` empty); no leftover `.pacsave`/`.pacnew` under `/etc`.
+- **Nothing else needed cleaning up**, per the investigation already on record: the XDG
+  autostart entries this removed are `OnlyShowIn`-gated and were already structurally inert
+  under niri, so there was no separate masking step to perform.
+- **No GUI polkit agent was added, deliberately.** 69 of 245 installed polkit actions are
+  `implicit active: yes` (no prompt needed for an active local session); the rest are reached
+  only by CLI tools that already bring their own agent (`pkttyagent` ships with `polkit`
+  itself; `fwupdmgr` has `FuPolkitAgent` compiled in). No GUI app here requests authorization.
