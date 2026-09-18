@@ -720,6 +720,30 @@ and if a monitor dies its pipeline reaches EOF, `wifi_monitor` returns and the s
 six processes in the unit's `cgroup.procs`. That silent-exit weakness is pre-existing and not
 caused by sandboxing, but it is what makes a broken sandbox here look healthy.
 
+**`mic-notify` and `power-notify` completed the set**, both with real trigger-level proof:
+opening a capture stream produced `Microphone active`/`Microphone released`, and a genuine
+charger unplug/replug produced `Unplugged — 80%`/`Plugged in — 80%`. Only the address families
+differ across the four — `AF_UNIX` alone for `battery-watch` and `mic-notify`, plus
+`AF_NETLINK` for `net-notify` (`ip monitor`) and `power-notify` (`udevadm monitor`). Scores
+are 3.2/3.3. Note `power-notify`'s charging-complete branch is still untested: the TLP 80% cap
+means `BAT0` reads `Not charging`, so only the AC plug/unplug branch was exercised.
+
+`PrivateDevices=yes` is safe even for `power-notify`, which ends in
+`done < <(udevadm monitor …)`. Process substitution needs `/dev/fd`, and systemd's private
+`/dev` does provide `/dev/fd -> /proc/self/fd` — verified directly, because `man systemd.exec`
+lists only `/dev/null`, `/dev/zero`, `/dev/random` and the pty subsystem and never says so.
+
+**`swayidle` is deliberately NOT sandboxed, and should stay that way.** It spawns `swaylock`,
+which would inherit the unit's sandbox. `/etc/pam.d/swaylock` uses `pam_unix.so`, and for a
+non-root caller pam_unix shells out to `/usr/bin/unix_chkpwd`, which is **setuid-root**
+(`-rwsr-sr-x`). `NoNewPrivileges=yes` blocks setuid elevation, so hardening this unit would
+likely break password unlock — a net security *loss*. Do not "complete the set" here.
+
+One correction while that was investigated: `ProtectSystem=strict` was *not* the swayidle
+blocker. `brightnessctl` links `libsystemd`, and `/sys/class/backlight/amdgpu_bl1/brightness`
+is root-owned `644` and unwritable by this user, so brightness already goes through logind
+over D-Bus rather than a sysfs write.
+
 **Never order a user unit against `network-online.target`.** It does not exist in the user
 manager — `systemctl --user show network-online.target -p LoadState` reports `not-found` — and
 a user unit cannot order itself against a system unit, so `After=`/`Wants=network-online.target`

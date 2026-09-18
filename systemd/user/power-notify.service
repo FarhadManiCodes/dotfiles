@@ -8,5 +8,47 @@ ExecStart=%h/.local/bin/power-notify
 Restart=on-failure
 RestartSec=5
 
+# Sandboxing, same profile as battery-watch.service. Measured before writing
+# this: 2 processes (bash, udevadm monitor), no writes to disk, no device access
+# beyond /dev/null.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+# AF_NETLINK is mandatory here: `udevadm monitor --udev` receives kernel uevents
+# over a netlink socket, confirmed by matching its fd inode against
+# /proc/net/netlink (ss reports nothing for netlink and gives a false negative).
+# Without it this unit sees no power events at all. AF_UNIX carries notify-send.
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+# @system-service must permit fork/execve: the flush() path shells out to
+# notify-send and reads capacity via $(cat ...) on every event.
+SystemCallFilter=@system-service
+
+# PrivateDevices is safe despite this script reading process substitution:
+# `done < <(udevadm monitor ...)` needs /dev/fd, and systemd's private /dev does
+# provide /dev/fd -> /proc/self/fd. Verified, because man systemd.exec lists only
+# /dev/null, /dev/zero, /dev/random and the pty subsystem and does not say so.
+
+# Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with
+# no effective capabilities and NoNewPrivileges blocks acquiring any, so it would
+# be redundant -- same reasoning as DropCapability in containers/pg.container.
+
 [Install]
 WantedBy=graphical-session.target
