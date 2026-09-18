@@ -715,10 +715,16 @@ Two probe notes from that unit, both of which would have produced confident wron
 `ss -f netlink -apn | grep pid=<pid>` shows **nothing** for a process that demonstrably holds
 netlink sockets; match the fd inode against `/proc/net/netlink` instead. And **`is-active` is
 not evidence for `net-notify`**: it runs six processes (4× bash, `dbus-monitor`, `ip monitor`),
-and if a monitor dies its pipeline reaches EOF, `wifi_monitor` returns and the script exits
-**0** — which `Restart=on-failure` does not restart and `OnFailure=` does not report. Count the
-six processes in the unit's `cgroup.procs`. That silent-exit weakness is pre-existing and not
-caused by sandboxing, but it is what makes a broken sandbox here look healthy.
+so count them in the unit's `cgroup.procs` rather than trusting the unit state.
+
+That used to be the only defence, because if a monitor died the pipeline reached EOF, the
+script fell off the end with status **0**, and systemd read it as a clean finish — no restart,
+no `OnFailure=` notification. **Fixed 2026-09-18 in all three monitor scripts**
+(`bash/mic-notify`, `bash/net-notify`, `bash/power-notify`): each now ends in `exit 1`, since
+none of them has a normal exit path — their monitors run until killed. Verified by killing
+`pactl` and `udevadm` and watching the units report `Failed with result 'exit-code'`, trigger
+`OnFailure=`, and restart themselves. `Restart=on-failure` was always the correct policy; the
+bug was the exit status, not the restart setting.
 
 **`mic-notify` and `power-notify` completed the set**, both with real trigger-level proof:
 opening a capture stream produced `Microphone active`/`Microphone released`, and a genuine
@@ -732,6 +738,31 @@ means `BAT0` reads `Not charging`, so only the AC plug/unplug branch was exercis
 `done < <(udevadm monitor …)`. Process substitution needs `/dev/fd`, and systemd's private
 `/dev` does provide `/dev/fd -> /proc/self/fd` — verified directly, because `man systemd.exec`
 lists only `/dev/null`, `/dev/zero`, `/dev/random` and the pty subsystem and never says so.
+
+**`ProtectSystem=strict` mounts `$XDG_RUNTIME_DIR` read-only, and `mic-notify` needs
+`ReadWritePaths=%t` because of it.** This shipped broken on 2026-09-18 and was caught only by
+the next reboot. `/run/user/1000` appears in `/proc/self/mountinfo` as `ro,nosuid,nodev`, and
+`libpulse` creates/validates `/run/user/1000/pulse` before connecting, so `pactl subscribe`
+dies with `Failed to create secure directory (…): Read-only file system`. **D-Bus is not
+affected** — `connect()` to an existing socket works on a read-only mount; it is the `mkdir`
+that fails, which is why the other three units were fine.
+
+Three things made it invisible, and they generalise:
+
+1. `bash/mic-notify` pipes `pactl subscribe 2>/dev/null`, so the error never reached the journal.
+2. The unit then **exited 0**, so `Restart=on-failure` did not restart it and `OnFailure=` did
+   not report it: `inactive (dead)`, `Result=success`, `NRestarts=0`. This is the silent-exit
+   shape described above, here actually triggered — and it is why all three monitor scripts
+   now end in `exit 1`.
+3. **The original test passed for the wrong reason.** It ran hours into a boot where
+   `/run/user/1000/pulse` already existed, so the `mkdir` was never attempted. Only a fresh
+   `/run` tmpfs exposes it. When testing anything that touches a runtime directory, the
+   question is not "does it work now" but "does it work when the directory does not exist yet".
+
+Do not test that last point by deleting `/run/user/1000/pulse`: it holds pipewire-pulse's live
+`native` socket, and removing it breaks PulseAudio-protocol audio until
+`systemctl --user restart pipewire-pulse.socket` recreates it — restarting the *service* is not
+enough, because the socket belongs to the socket unit.
 
 **`swayidle` is deliberately NOT sandboxed, and should stay that way.** It spawns `swaylock`,
 which would inherit the unit's sandbox. `/etc/pam.d/swaylock` uses `pam_unix.so`, and for a

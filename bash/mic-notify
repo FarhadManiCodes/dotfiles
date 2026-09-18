@@ -6,7 +6,11 @@ MIC=$(printf '')
 MIC_OFF=$(printf '')
 prev_active=false
 
-pactl subscribe 2>/dev/null | while IFS= read -r line; do
+# pactl's stderr is deliberately NOT discarded. It used to be, and that hid the
+# real error on 2026-09-18 when the sandbox made $XDG_RUNTIME_DIR read-only:
+# "Failed to create secure directory (/run/user/1000/pulse)" never reached the
+# journal, so the unit looked like it had simply finished.
+pactl subscribe | while IFS= read -r line; do
     [[ "$line" == *"on source-output"* ]] || continue
     count=$(pactl list source-outputs short 2>/dev/null | wc -l)
     if [ "$count" -gt 0 ] && [ "$prev_active" = false ]; then
@@ -17,3 +21,9 @@ pactl subscribe 2>/dev/null | while IFS= read -r line; do
         notify-send -a "" -u normal "${MIC_OFF} Microphone released"
     fi
 done
+
+# There is no normal exit path: `pactl subscribe` runs until killed. Reaching
+# here means it died, so exit non-zero rather than reporting success. Without
+# this the script fell off the end with status 0, which systemd read as a clean
+# finish -- Restart=on-failure did not fire and OnFailure= did not notify.
+exit 1

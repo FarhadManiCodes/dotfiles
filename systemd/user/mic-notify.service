@@ -38,6 +38,21 @@ UMask=0077
 # pipewire daemon, it does not open /dev/snd itself.
 RestrictAddressFamilies=AF_UNIX
 
+# REQUIRED, and the reason is a real 2026-09-18 regression, not caution.
+# ProtectSystem=strict mounts $XDG_RUNTIME_DIR read-only (verified in
+# /proc/self/mountinfo: "ro,nosuid,nodev"), and libpulse creates/validates
+# /run/user/1000/pulse before connecting. Without this the unit dies at every
+# boot with "Failed to create secure directory (/run/user/1000/pulse):
+# Read-only file system", exits 0, and is therefore NOT restarted by
+# Restart=on-failure and NOT reported by OnFailure=.
+#
+# It is invisible twice over: the script pipes pactl's stderr to /dev/null, and
+# the first sandbox test passed only because it ran hours into a boot where the
+# directory already existed. A reboot is the only thing that exposes it.
+# D-Bus is not affected -- connect() to an existing socket works read-only; it
+# is the mkdir that fails.
+ReadWritePaths=%t
+
 # @system-service must permit fork/execve: the event loop runs
 # `pactl list source-outputs short | wc -l` on every source-output change.
 SystemCallFilter=@system-service

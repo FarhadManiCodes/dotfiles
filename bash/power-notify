@@ -59,3 +59,10 @@ while IFS= read -r line; do
         POWER_SUPPLY_CAPACITY=*)  cap=${line#POWER_SUPPLY_CAPACITY=} ;;
     esac
 done < <(udevadm monitor --subsystem-match=power_supply --udev --property)
+
+# There is no normal exit path: udevadm monitor runs until killed. Reaching here
+# means it died, so exit non-zero. Without this the script fell off the end with
+# status 0, which systemd reads as a clean finish -- Restart=on-failure would not
+# fire and OnFailure= would not notify. Same defect that hid the mic-notify
+# breakage on 2026-09-18.
+exit 1

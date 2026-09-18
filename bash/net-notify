@@ -28,7 +28,7 @@ wifi_monitor() {
     local in_station=false in_device=false
     dbus-monitor --system \
         "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
-        2>/dev/null | \
+        | \
     while IFS= read -r line; do
         if [[ "$line" == *"member=PropertiesChanged"* ]]; then
             in_station=false; in_device=false
@@ -74,3 +74,11 @@ eth_monitor() {
 
 eth_monitor &
 wifi_monitor
+
+# There is no normal exit path: wifi_monitor blocks on dbus-monitor until killed.
+# Reaching here means that monitor died, so exit non-zero. Without this the script
+# fell off the end with status 0, which systemd reads as a clean finish --
+# Restart=on-failure would not fire and OnFailure= would not notify, leaving the
+# service silently dead. Same defect that hid the mic-notify breakage on
+# 2026-09-18. dbus-monitor's stderr is deliberately not discarded, for the same reason.
+exit 1
