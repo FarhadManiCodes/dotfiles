@@ -17,6 +17,7 @@
 /etc/sysctl.d/99-performance.conf
 /etc/systemd/journald.conf.d/size.conf
 /etc/systemd/logind.conf.d/10-lid-and-power.conf
+/etc/systemd/resolved.conf.d/10-llmnr.conf
 /etc/systemd/zram-generator.conf
 /etc/iwd/main.conf
 /etc/modprobe.d/disable-sp5100-watchdog.conf
