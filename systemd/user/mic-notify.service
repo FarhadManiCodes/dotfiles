@@ -8,5 +8,43 @@ ExecStart=%h/.local/bin/mic-notify
 Restart=on-failure
 RestartSec=5
 
+# Sandboxing, same profile as battery-watch.service. Measured before writing
+# this: 3 processes (2x bash, pactl subscribe), one socket, no writes to disk,
+# no device access beyond /dev/null.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+# AF_UNIX only, and verified rather than assumed: pactl's single socket was
+# checked against /proc/net/netlink and is NOT netlink -- it reaches
+# pipewire-pulse over a unix socket, the same family notify-send uses.
+# PrivateDevices is safe despite the audio subject matter: pactl talks to the
+# pipewire daemon, it does not open /dev/snd itself.
+RestrictAddressFamilies=AF_UNIX
+
+# @system-service must permit fork/execve: the event loop runs
+# `pactl list source-outputs short | wc -l` on every source-output change.
+SystemCallFilter=@system-service
+
+# Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with
+# no effective capabilities and NoNewPrivileges blocks acquiring any, so it would
+# be redundant -- same reasoning as DropCapability in containers/pg.container.
+
 [Install]
 WantedBy=graphical-session.target
