@@ -241,20 +241,35 @@ that ships `pkttyagent`, which is what makes the CLI path work at all.
 So the gap is limited to a **GUI** application requesting authorization, which this workflow
 does not do.
 
-**Next step:** `sudo pacman -Rs mate-polkit`, and **read the transaction list before
-confirming**. `gtk3` and `gettext` should survive (plenty else needs them, including
-`xdg-desktop-portal-gtk`), but verify rather than assume — the `poppler` entry in `revisit.md`
-records what a `pacman -Rns` cascade cost last time, unnoticed for two months.
+**Next step:** `sudo pacman -Rs mate-polkit`. The transaction is already verified —
+`pacman -Rsp mate-polkit` (dry run, no root needed) prints exactly `mate-polkit-1.28.1-2` and
+nothing else, so there is no cascade: `gtk3`, `gettext` and `polkit` all stay, being required
+by other packages. The `poppler` entry in `revisit.md` is why that was checked rather than
+assumed.
 
-**Secondary, cosmetic:** the four XDG autostart entries are handled inconsistently.
-`at-spi-dbus-bus.service` and `xdg-user-dirs.service` are explicitly **masked**;
-`app-lxqt-desktop@autostart.service` (shipped by `pcmanfm-qt`) is not, though it is inactive.
-Removing `mate-polkit` settles its entry by deletion; decide the `pcmanfm-qt` one deliberately.
-An inactive unit costs nothing, so this is tidiness, not a fix.
+**On `-Rs` vs `-Rns`, since it looks like a safety choice and isn't:** `-n` only controls
+whether config files are deleted or kept as `.pacsave`; it cannot cause a cascade — that is
+`-s`, which both forms share. Here it makes no difference at all, because `mate-polkit` has
+`Backup Files : None`. The one real reason to prefer `-Rs` is that it can be dry-run:
+`--nosave` and `--print` are mutually exclusive, so `-Rnsp` is rejected outright.
 
-**Done when:** `mate-polkit` is gone with the transaction reviewed, nothing that previously
-worked has broken, and the `lxqt-desktop` autostart entry is either masked or left alone with
-the reason recorded. Route the outcome to `revisit.md`.
+**Nothing else needs cleaning up afterwards — checked, and the earlier "inconsistent autostart
+masking" concern was wrong.** Three of the four XDG autostart entries carry `OnlyShowIn`
+(`LXQt`, `MATE`, `GNOME;Unity`), which systemd's generator turns into
+`ExecCondition=systemd-xdg-autostart-condition`. With `XDG_CURRENT_DESKTOP=niri` those
+conditions fail, so those units are **structurally inert whether masked or not** — masking
+them would add nothing. Only `xdg-user-dirs.desktop` has no `OnlyShowIn`, which is exactly why
+*its* mask is load-bearing. Removing `mate-polkit` deletes its `.desktop` and the generated
+unit with it, leaving nothing behind.
 
-**Feasibility:** small — one package removal, and the investigation behind it is already done.
+**None of the six masked units should be unmasked.** Five are `preset: enabled`
+(`systemd-homed`, `systemd-homed-activate`, `systemd-networkd-wait-online`,
+`at-spi-dbus-bus`, `xdg-user-dirs`), so the mask is the only thing keeping them off when
+presets are reapplied; `dbus-org.freedesktop.home1` is the homed D-Bus alias. Also checked and
+clean: no orphaned packages (`pacman -Qdt`), no `.pacsave`/`.pacnew` leftovers under `/etc`.
+
+**Done when:** `mate-polkit` is gone and nothing that previously worked has broken. Route the
+outcome to `revisit.md`.
+
+**Feasibility:** small — one package removal; the investigation behind it is finished.
 
