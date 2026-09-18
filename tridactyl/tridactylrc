@@ -45,6 +45,17 @@ set newtab about:blank
 blacklistadd https://drive.google.com/*
 blacklistadd https://docs.google.com/*
 
+" Sensitive sites (TODO.md 3a, 2026-09-18): avoid shortcut interference on
+" banking and password-manager pages. Content script still runs; a few keys
+" stay bound (Ctrl+o, Shift+Insert, Shift+Escape) — that's blacklistadd, not
+" the more thorough seturl superignore.
+" Sparkasse branch/city wildcarded deliberately, not named literally, so this
+" public repo doesn't disclose it; still matches the actual site, since
+" Sparkassen are decentralized with one domain per branch.
+blacklistadd https://www.sparkasse-*.de/*
+blacklistadd https://app.n26.com/*
+blacklistadd https://passwords.google.com/*
+
 " ===== Browser behaviour =====
 " Reader mode — useful for articles and papers
 bind gr reader

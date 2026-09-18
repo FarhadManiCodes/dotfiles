@@ -3,7 +3,8 @@
 Open work and decisions that need the user. Planning clarified 2026-09-11; renumbered again on
 2026-09-16 when the test runner was delivered and closed. Item 4, the ath11k regulatory-domain
 error, was closed to `revisit.md` on 2026-09-18 once 5GHz was tested and the error confirmed
-cosmetic. Accepted findings remain in `revisit.md`; the runner's dropped follow-on scope is
+cosmetic. Item 5, removing `mate-polkit`, was run by the user and closed to `revisit.md` the
+same day. Accepted findings remain in `revisit.md`; the runner's dropped follow-on scope is
 recorded there.
 
 Suggested order: agree the editor + agent layout first. Browser work needs specific use cases.
@@ -13,10 +14,9 @@ Off-machine backup remains deferred.
 |---|---|---|
 | 1. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
 | 2. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
-| 3a. Sensitive-site Tridactyl rules | Needs user input | Domains and desired disable behavior |
+| 3a. Sensitive-site Tridactyl rules | Applied; pending user verification | Reload Tridactyl, check each site's login flow |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
-| 5. Remove `mate-polkit` | Investigated; ready to run | `sudo pacman -Rs mate-polkit`, review the transaction |
 
 ## 1. Off-machine backup
 
@@ -150,16 +150,18 @@ preferences remain documented there and tracked Tridactyl settings in `tridactyl
 
 ### 3a. Sensitive-site Tridactyl rules
 
-**Problem:** banking and password-manager sites were intended to have site-specific disable
-rules, but their domains and desired behavior have not been supplied.
+**Decided 2026-09-18.** Domains and mode supplied by the user: `blacklistadd` (avoid shortcut
+interference; content script still runs, a few keys stay bound) on the user's Sparkasse branch
+(wildcarded in `tridactylrc` as `https://www.sparkasse-*.de/*` rather than named literally,
+since this repo is public), `https://app.n26.com/*` and `https://passwords.google.com/*`.
+Added to `tridactylrc`, live via the existing symlink — no separate login-redirect domain was
+reported for any of the three.
 
-**Decisions needed:** exact domains, including relevant login redirects, and whether the goal
-is avoiding shortcut interference or more thoroughly disabling Tridactyl's page behavior.
+**Next step (user, interactive):** reload Tridactyl config and check each site's login flow —
+forms, redirects and (for the Google entry) password-manager interaction — then confirm
+ordinary sites remain unaffected.
 
-**Next steps:** choose narrowly scoped URL rules, apply the selected mode, reload, and check
-forms, redirects and password-manager interaction. Confirm ordinary sites remain unaffected.
-
-**Done when:** the agreed behavior holds across each intended site's login flow.
+**Done when:** the agreed behavior is confirmed across each site's login flow.
 
 **Feasibility:** small once the domains and behavior are chosen. The mechanism already exists:
 `blacklistadd` entries cover `drive.google.com` and `docs.google.com`.
@@ -202,74 +204,3 @@ selection doesn't touch link-opening behavior.
 **Verified 2026-09-16 (user, interactive):** enabled the pref, confirmed Personal/Work cookie
 separation, confirmed both container tabs survive a full restart, confirmed Tridactyl hinting,
 tab open/close/switch behave normally with containers in use. No extension needed.
-
-## 5. Remove `mate-polkit` (keep `polkit`)
-
-Numbered 5 rather than reusing 4, which was the ath11k item closed the same day. Surfaced
-2026-09-18 while sweeping every service's `systemd-analyze security` score, then investigated
-the same day — the open question is answered, only the removal is left.
-
-**⚠ Remove `mate-polkit`, never `polkit`.** These are different packages and conflating them
-would be expensive:
-
-| Package | Size | Required By | Verdict |
-|---|---|---|---|
-| `polkit` | 2.0 MB | `fprintd fwupd mate-polkit rtkit udisks2` | **keep — load-bearing** |
-| `mate-polkit` | 271 KB | *None* (explicitly installed) | removable |
-
-Removing `polkit` would cascade into fingerprint unlock (`fprintd`), BIOS updates (`fwupd`),
-pipewire's realtime scheduling (`rtkit`) and USB mounting (`udisks2`). It is also the package
-that ships `pkttyagent`, which is what makes the CLI path work at all.
-
-**Why no GUI agent is needed** — this was the open question, now settled by measurement:
-
-- Of 245 installed polkit actions, **69 are `implicit active: yes`**, authorized outright for
-  an active local session with no prompt. `org.freedesktop.udisks2.filesystem-mount` is one of
-  them, which is why vifm `:media` has always just worked. (`filesystem-mount-system`, for an
-  internal device, is `auth_admin_keep` and would need an agent.)
-- The remaining 176 (`auth_admin_keep` ×163, `auth_admin` ×12, `auth_self_keep` ×1) do need an
-  agent, but the tools that reach them here are CLI and **bring their own**. `pkttyagent` ships
-  with `polkit` itself, and `fwupdmgr` — the documented BIOS/firmware path, and the single
-  biggest consumer since every `org.freedesktop.fwupd.*` action is `auth_admin_keep` — has
-  agent support compiled in (`FuPolkitAgent`, `FU_IS_POLKIT_AGENT`, `pkttyagent` all appear in
-  the binary).
-- **Caveat on that last point:** read out of the binary with `strings`, which proves the
-  capability exists, not that it fires on every path. Not worth poking a firmware tool to
-  confirm. `net.reactivated.fprint.device.enroll` (`auth_self_keep`) is the other real
-  consumer, relevant if a fingerprint ever needs re-enrolling — also CLI.
-
-So the gap is limited to a **GUI** application requesting authorization, which this workflow
-does not do.
-
-**Next step:** `sudo pacman -Rs mate-polkit`. The transaction is already verified —
-`pacman -Rsp mate-polkit` (dry run, no root needed) prints exactly `mate-polkit-1.28.1-2` and
-nothing else, so there is no cascade: `gtk3`, `gettext` and `polkit` all stay, being required
-by other packages. The `poppler` entry in `revisit.md` is why that was checked rather than
-assumed.
-
-**On `-Rs` vs `-Rns`, since it looks like a safety choice and isn't:** `-n` only controls
-whether config files are deleted or kept as `.pacsave`; it cannot cause a cascade — that is
-`-s`, which both forms share. Here it makes no difference at all, because `mate-polkit` has
-`Backup Files : None`. The one real reason to prefer `-Rs` is that it can be dry-run:
-`--nosave` and `--print` are mutually exclusive, so `-Rnsp` is rejected outright.
-
-**Nothing else needs cleaning up afterwards — checked, and the earlier "inconsistent autostart
-masking" concern was wrong.** Three of the four XDG autostart entries carry `OnlyShowIn`
-(`LXQt`, `MATE`, `GNOME;Unity`), which systemd's generator turns into
-`ExecCondition=systemd-xdg-autostart-condition`. With `XDG_CURRENT_DESKTOP=niri` those
-conditions fail, so those units are **structurally inert whether masked or not** — masking
-them would add nothing. Only `xdg-user-dirs.desktop` has no `OnlyShowIn`, which is exactly why
-*its* mask is load-bearing. Removing `mate-polkit` deletes its `.desktop` and the generated
-unit with it, leaving nothing behind.
-
-**None of the six masked units should be unmasked.** Five are `preset: enabled`
-(`systemd-homed`, `systemd-homed-activate`, `systemd-networkd-wait-online`,
-`at-spi-dbus-bus`, `xdg-user-dirs`), so the mask is the only thing keeping them off when
-presets are reapplied; `dbus-org.freedesktop.home1` is the homed D-Bus alias. Also checked and
-clean: no orphaned packages (`pacman -Qdt`), no `.pacsave`/`.pacnew` leftovers under `/etc`.
-
-**Done when:** `mate-polkit` is gone and nothing that previously worked has broken. Route the
-outcome to `revisit.md`.
-
-**Feasibility:** small — one package removal; the investigation behind it is finished.
-
