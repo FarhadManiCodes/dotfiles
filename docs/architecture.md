@@ -675,6 +675,75 @@ always exits 0, so a failing notifier can't loop.
 
 Check remotely with `systemctl --user --failed`.
 
+**`battery-watch.service` is the first sandboxed unit** (2026-09-18), and is the pattern for
+the other notifiers if they follow. Its profile was written from a measured inventory rather
+than a template: `/proc/<pid>/fd` showed `/dev/null`, the journald sockets and one session
+D-Bus socket, and nothing else — no network sockets, no writes to disk. Everything else is
+denied, which took it from 9.4 UNSAFE to 3.2 OK on `systemd-analyze security --user`.
+
+Two directives are load-bearing rather than boilerplate. `RestrictAddressFamilies=AF_UNIX`
+must keep `AF_UNIX`, because the whole notification path is the session bus at
+`$XDG_RUNTIME_DIR/bus`; an empty set silences the service without failing it, which is the
+worst outcome for a battery warning. `SystemCallFilter=@system-service` must stay permissive
+enough for `fork`/`execve`, because `-d 5` shells out to `notify-send`. `CapabilityBoundingSet=`
+is deliberately absent: a user service has no effective capabilities and `NoNewPrivileges`
+blocks acquiring any, the same reasoning `containers/pg.container` uses for `DropCapability`.
+
+**Do not use `batsignal -o` to test this.** It looks like the obvious harness ("check battery
+once and exit") and it is not: it hangs instead of exiting, **with or without the sandbox** —
+verified by A/B against an unsandboxed control, which timed out identically. It also rejects
+`-d` above `-c` outright (`Critical level must be greater than danger`), so a lazily-chosen
+threshold fails for a reason that has nothing to do with sandboxing. Test the *mechanism*
+instead: a transient `systemd-run --user` carrying the same properties, running
+`sh -c 'notify-send …'`, proves fork + exec + D-Bus survive, and `makoctl list` confirms
+arrival without needing anyone to watch the screen. Verify sysfs separately with
+`--pipe` so the read's exit code actually propagates — `echo "$(cat …)"` returns 0 even when
+the `cat` fails, and a negative control (a write to `$HOME`, which must fail with
+`Read-only file system`) is what proves the probe can detect anything at all.
+
+**`net-notify.service` followed the same day**, with one genuine divergence:
+`RestrictAddressFamilies=AF_UNIX AF_NETLINK`. `AF_UNIX` carries both buses — the *system* bus
+for `dbus-monitor`/`iwctl`/`networkctl` and the *session* bus for `notify-send` — while
+`AF_NETLINK` is what `ip monitor link` runs on inside `eth_monitor`. `enp1s0f0` is a real
+device here, so netlink is mandatory rather than defensive, and the two fail differently:
+losing `AF_UNIX` kills every notification, losing `AF_NETLINK` kills only the ethernet half,
+silently, while wifi keeps working. Proven by A/B — with netlink `ip monitor` ran to its
+timeout, without it the sandbox returned `Cannot open netlink socket: Address family not
+supported by protocol`. 9.4 → 3.3.
+
+Two probe notes from that unit, both of which would have produced confident wrong answers.
+`ss -f netlink -apn | grep pid=<pid>` shows **nothing** for a process that demonstrably holds
+netlink sockets; match the fd inode against `/proc/net/netlink` instead. And **`is-active` is
+not evidence for `net-notify`**: it runs six processes (4× bash, `dbus-monitor`, `ip monitor`),
+and if a monitor dies its pipeline reaches EOF, `wifi_monitor` returns and the script exits
+**0** — which `Restart=on-failure` does not restart and `OnFailure=` does not report. Count the
+six processes in the unit's `cgroup.procs`. That silent-exit weakness is pre-existing and not
+caused by sandboxing, but it is what makes a broken sandbox here look healthy.
+
+**`mic-notify` and `power-notify` completed the set**, both with real trigger-level proof:
+opening a capture stream produced `Microphone active`/`Microphone released`, and a genuine
+charger unplug/replug produced `Unplugged — 80%`/`Plugged in — 80%`. Only the address families
+differ across the four — `AF_UNIX` alone for `battery-watch` and `mic-notify`, plus
+`AF_NETLINK` for `net-notify` (`ip monitor`) and `power-notify` (`udevadm monitor`). Scores
+are 3.2/3.3. Note `power-notify`'s charging-complete branch is still untested: the TLP 80% cap
+means `BAT0` reads `Not charging`, so only the AC plug/unplug branch was exercised.
+
+`PrivateDevices=yes` is safe even for `power-notify`, which ends in
+`done < <(udevadm monitor …)`. Process substitution needs `/dev/fd`, and systemd's private
+`/dev` does provide `/dev/fd -> /proc/self/fd` — verified directly, because `man systemd.exec`
+lists only `/dev/null`, `/dev/zero`, `/dev/random` and the pty subsystem and never says so.
+
+**`swayidle` is deliberately NOT sandboxed, and should stay that way.** It spawns `swaylock`,
+which would inherit the unit's sandbox. `/etc/pam.d/swaylock` uses `pam_unix.so`, and for a
+non-root caller pam_unix shells out to `/usr/bin/unix_chkpwd`, which is **setuid-root**
+(`-rwsr-sr-x`). `NoNewPrivileges=yes` blocks setuid elevation, so hardening this unit would
+likely break password unlock — a net security *loss*. Do not "complete the set" here.
+
+One correction while that was investigated: `ProtectSystem=strict` was *not* the swayidle
+blocker. `brightnessctl` links `libsystemd`, and `/sys/class/backlight/amdgpu_bl1/brightness`
+is root-owned `644` and unwritable by this user, so brightness already goes through logind
+over D-Bus rather than a sysfs write.
+
 **Never order a user unit against `network-online.target`.** It does not exist in the user
 manager — `systemctl --user show network-online.target -p LoadState` reports `not-found` — and
 a user unit cannot order itself against a system unit, so `After=`/`Wants=network-online.target`

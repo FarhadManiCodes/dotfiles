@@ -8,5 +8,47 @@ ExecStart=%h/.local/bin/net-notify
 Restart=on-failure
 RestartSec=5
 
+# Sandboxing, same profile as battery-watch.service except the address families.
+# This unit is the reason the series exists: it parses SSIDs broadcast by nearby
+# access points, so hostile input reaches a bash script. The sandbox does not make
+# that parsing safe -- it decides what a parse bug could reach.
+# Measured before writing this: 6 processes (4x bash, dbus-monitor, ip monitor),
+# no writes to disk, no device access beyond /dev/null.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+# BOTH families are load-bearing, and they fail differently:
+#   AF_UNIX    -- system bus (dbus-monitor, iwctl, networkctl) AND session bus
+#                 (notify-send). Losing it kills every notification.
+#   AF_NETLINK -- `ip monitor link` in eth_monitor. enp1s0f0 is a real device on
+#                 this machine, so this is mandatory, not defensive. Losing it
+#                 kills only the ethernet half, silently, while wifi keeps working.
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+# @system-service must permit fork/execve: this unit shells out constantly
+# (sed, awk, grep, head, iwctl, networkctl, notify-send) and forks eth_monitor.
+SystemCallFilter=@system-service
+
+# Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with
+# no effective capabilities and NoNewPrivileges blocks acquiring any, so it would
+# be redundant -- same reasoning as DropCapability in containers/pg.container.
+
 [Install]
 WantedBy=graphical-session.target
