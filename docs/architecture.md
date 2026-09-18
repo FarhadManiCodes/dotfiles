@@ -675,6 +675,32 @@ always exits 0, so a failing notifier can't loop.
 
 Check remotely with `systemctl --user --failed`.
 
+**`battery-watch.service` is the first sandboxed unit** (2026-09-18), and is the pattern for
+the other notifiers if they follow. Its profile was written from a measured inventory rather
+than a template: `/proc/<pid>/fd` showed `/dev/null`, the journald sockets and one session
+D-Bus socket, and nothing else — no network sockets, no writes to disk. Everything else is
+denied, which took it from 9.4 UNSAFE to 3.2 OK on `systemd-analyze security --user`.
+
+Two directives are load-bearing rather than boilerplate. `RestrictAddressFamilies=AF_UNIX`
+must keep `AF_UNIX`, because the whole notification path is the session bus at
+`$XDG_RUNTIME_DIR/bus`; an empty set silences the service without failing it, which is the
+worst outcome for a battery warning. `SystemCallFilter=@system-service` must stay permissive
+enough for `fork`/`execve`, because `-d 5` shells out to `notify-send`. `CapabilityBoundingSet=`
+is deliberately absent: a user service has no effective capabilities and `NoNewPrivileges`
+blocks acquiring any, the same reasoning `containers/pg.container` uses for `DropCapability`.
+
+**Do not use `batsignal -o` to test this.** It looks like the obvious harness ("check battery
+once and exit") and it is not: it hangs instead of exiting, **with or without the sandbox** —
+verified by A/B against an unsandboxed control, which timed out identically. It also rejects
+`-d` above `-c` outright (`Critical level must be greater than danger`), so a lazily-chosen
+threshold fails for a reason that has nothing to do with sandboxing. Test the *mechanism*
+instead: a transient `systemd-run --user` carrying the same properties, running
+`sh -c 'notify-send …'`, proves fork + exec + D-Bus survive, and `makoctl list` confirms
+arrival without needing anyone to watch the screen. Verify sysfs separately with
+`--pipe` so the read's exit code actually propagates — `echo "$(cat …)"` returns 0 even when
+the `cat` fails, and a negative control (a write to `$HOME`, which must fail with
+`Read-only file system`) is what proves the probe can detect anything at all.
+
 **Never order a user unit against `network-online.target`.** It does not exist in the user
 manager — `systemctl --user show network-online.target -p LoadState` reports `not-found` — and
 a user unit cannot order itself against a system unit, so `After=`/`Wants=network-online.target`

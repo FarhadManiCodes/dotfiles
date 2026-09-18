@@ -8,5 +8,43 @@ ExecStart=%h/.local/bin/battery-watch
 Restart=on-failure
 RestartSec=5
 
+# Sandboxing. batsignal reads two sysfs files, talks to mako over the session
+# D-Bus, and at the -d threshold forks notify-send. Everything else is denied.
+# Verified against /proc/<pid>/fd before writing this: no network sockets, no
+# writes to disk, no device access beyond /dev/null.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectProc=invisible
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+# AF_UNIX is load-bearing, not boilerplate: the notification path is the session
+# D-Bus socket at $XDG_RUNTIME_DIR/bus. An empty set silences the service without
+# failing it -- the worst failure mode for a battery warning.
+RestrictAddressFamilies=AF_UNIX
+
+# @system-service must stay permissive enough for fork/execve, because -d 5
+# shells out to notify-send. A tighter set breaks only the danger path, which is
+# the least-exercised one and fires when the battery is already nearly flat.
+SystemCallFilter=@system-service
+
+# Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with
+# no effective capabilities and NoNewPrivileges blocks acquiring any, so it would
+# be redundant -- same reasoning as DropCapability in containers/pg.container.
+
 [Install]
 WantedBy=graphical-session.target
