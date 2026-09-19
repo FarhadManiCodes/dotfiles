@@ -9,8 +9,8 @@ point and then forgotten. It also preserves selected modified package-owned conf
 already caught `fix-wifi.sh`, `sysctl/99-performance.conf`, the zsh plugin list
 and `zram/zram-generator.conf` before this sweep found the rest.
 
-Found by diffing `find /etc -type f` against every path in `pacman -Ql`
-(2026-09-04): 183 unowned files, of which these were the hand-written ones.
+Found by diffing `find /etc -type f` against every path in `pacman -Ql`; these are the
+hand-written survivors of that sweep.
 
 ## Both sweeps now run automatically
 
@@ -22,9 +22,8 @@ one to overwrite. User-unit verification is batched in user-manager scope.
 
 `bash/config-drift` runs them after every `sysup` and diffs each against a tracked baseline:
 `etc/unowned.txt` (44 paths) and `etc/modified.txt` (24). A path not in its baseline is a
-finding; accepting one means adding the line in a commit that says why. The counts move on their
-own — unowned was 183 on 2026-09-04 and 172 two days later — so only the diff carries
-information.
+finding; accepting one means adding the line in a commit that says why. Both counts drift on
+their own, so only the diff against baseline carries information.
 
 The 131 files under `/etc/ca-certificates/{extracted,trust-source}/` are excluded rather than
 listed: `update-ca-trust` rewrites them wholesale, and a baseline that churns on every
@@ -92,42 +91,12 @@ and review the country setting when using the machine elsewhere. The effective d
 rules also depend on driver/firmware and other regulatory inputs; tracking this file is
 not a guarantee of specific channels or transmit power.
 
-## PAM package comparison (2026-09-06)
+## PAM
 
-Read-only comparison used `util-linux-2.42.3-1-x86_64.pkg.tar.zst` from the local
-pacman cache and `ly-1.4.1-1-x86_64.pkg.tar.zst` downloaded from the
-[Arch Linux Archive](https://archive.archlinux.org/packages/l/ly/ly-1.4.1-1-x86_64.pkg.tar.zst).
-Each extracted PAM original matched its installed package's `%BACKUP%` MD5 record
-in `/var/lib/pacman/local/`: `b42499bb09b7d6d649080f46f32fd0aa` for login and
-`0d62d3512df8976f6dc0f2430e39e532` for Ly. This verifies the compared file against
-the installed backup record; it is not an archive signature verification.
-
-- `/etc/pam.d/login`: only the blank line following `#%PAM-1.0` was removed.
-  Every nonblank line is identical; no authentication policy difference.
-- `/etc/pam.d/ly`: the live file consists of the header and four `include
-  system-login` rules (`auth`, `account`, `password`, `session`). The package uses
-  `include login` and adds optional GNOME Keyring and KWallet rules, an optional
-  elogind session rule, and `-session optional pam_systemd.so class=greeter`
-  before the session include.
-
-The installed `system-local-login`, `system-login` and `system-auth` files belong
-to `pambase 20260616-1` and are reported unmodified. The normal include path is
-`login` → `system-local-login` → `system-login`. Including the latter directly
-skips the wrappers, but it still supplies `pam_nologin.so`, the common auth stack,
-and `-session optional pam_systemd.so`. Do not describe the live Ly file as
-removing systemd integration or all nologin checks.
-
-GNOME Keyring, KWallet and elogind PAM modules were absent on inspection;
-`pam_systemd.so` was present. Removing its explicit `class=greeter` call is a
-real stack difference whose runtime effect was not tested. A leading `-` on a
-PAM rule suppresses missing-module logging; it does not disable the rule (see
-[Linux-PAM configuration semantics](https://man7.org/linux/man-pages/man5/pam.d.5.html)).
-The reason and date of the local changes were not established.
-
-No live configuration or installation mapping changed. Both paths remain in
-`etc/modified.txt`: the baseline reflects byte differences, including whitespace.
-Agreed 2026-09-06: leave live PAM unchanged. Tracking Ly or changing its greeter
-session behavior remains a separate decision; see `TODO.md`.
+`/etc/pam.d/login` and `/etc/pam.d/ly` both differ from their package defaults and are left
+untracked and unchanged — accepted findings, full comparison and the one open caveat (Ly's
+dropped `class=greeter` registration) in `revisit.md`. Both stay in `etc/modified.txt`'s
+baseline.
 
 ## What each file is for
 
@@ -228,28 +197,14 @@ edited `linux.preset` would survive those updates:
 `/usr/share/libalpm/scripts/mkinitcpio` moves a modified preset aside to `.pacsave` on kernel
 removal and moves it back on install, deleting only one that is byte-identical to the template.
 
-A cosmetic consequence recorded after the systemd-hook migration was that
-`systemd-vconsole-setup` ran early enough to hit `fbcon: Deferring console take-over`
-and logged `'/dev/tty1' has no font support, skipping`. These are historical boot
-observations, not a fresh check that the font is or is not applied today.
-
-The existing `FONT=default8x16` setting is now preserved in tracked `etc/vconsole.conf`
-(decided 2026-09-06). Its purpose is reproducibility of the console preference. The
-current installed `sd-vconsole` hook warns and uses defaults when this file is absent
-or empty; the missing-file error recorded in November 2025 does not establish a
-current build failure. The file's timestamp does not establish its author or origin.
+The existing `FONT=default8x16` setting is preserved in tracked `etc/vconsole.conf` for
+rebuild reproducibility. The installed `sd-vconsole` hook warns and falls back to defaults
+if the file is absent or empty.
 
 The reasoning behind each — why the subvolumes are split the way they are, why btrfs is in the
 initramfs — belongs in `docs/architecture.md`, and is there. The files themselves are a record of one
 machine's hardware, and copying them onto different hardware ranges from useless to
 unbootable.
-
-**The original fstab-specific note follows.** Every line mounts by UUID, and
-those UUIDs belong to this specific NVMe. Copying this file onto a rebuilt machine would point
-every mount at a filesystem that does not exist there: it would not boot, and `install-root.sh`
-would have done it silently. The layout it encodes — which subvolumes exist, where each mounts,
-and why `@docker`/`@pkg`/`@postgres` are separate — is already in `docs/architecture.md`, the part
-worth keeping. The file itself is a record of one disk, not a config.
 
 The same test applies to anything hardware-specific: if installing it on different hardware
 would break that machine, document the decision instead of tracking the file.
@@ -287,13 +242,10 @@ would break that machine, document the decision instead of tracking the file.
 `snapper/configs/home` sets `ALLOW_USERS="farhad"` but `SYNC_ACL="no"`, so those users are
 never applied as ACLs on the `.snapshots` directory. The permission is **declared and not
 granted**: the directory stays `root:users`, `farhad` is not in `users`, and `ls` prints
-nothing rather than refusing.
+nothing rather than refusing — not cosmetic, since that reads as "zero snapshots" and is
+exactly what nearly got `snapper-timeline.timer` disabled, the only thing snapshotting `~`.
 
-That is not cosmetic. On 2026-09-03 it produced an apparently empty directory, which read as
-"600 timeline runs, zero snapshots" and nearly led to `snapper-timeline.timer` being disabled
-— the only thing snapshotting `~`.
-
-**`SYNC_ACL` stays `"no"`, decided 2026-09-04.** Setting it to `"yes"` would make
+**`SYNC_ACL` stays `"no"`.** Setting it to `"yes"` would make
 `snapper -c home list` work without sudo and remove the trap at its source, but a snapshot
 directory holds complete historical copies of `/home`, including files whose permissions have
 been tightened since. Requiring sudo keeps reading them a deliberate act rather than something
@@ -306,13 +258,8 @@ nothing on a permission failure, which is indistinguishable from an empty direct
 ## Never `systemctl restart systemd-logind` on a live session
 
 logind owns session and seat tracking, so restarting it under a running Wayland session can
-leave the compositor orphaned. That happened on 2026-09-04 while reverting `logind.conf` to
-the package default: the session became unusable and needed a forced restart. The end state
-was correct and nothing was damaged — but the transition cost a session.
+leave the compositor orphaned and force a session-ending restart, even though the end state
+(the new config active) is correct — the transition is the part that costs a session.
 
 **Reboot instead.** logind config changes are not urgent; they apply at the next boot, and no
 setting here is worth ending a session over.
-
-The general lesson is worth more than the specific one: checking that the *end state* will be
-correct is not the same as asking what the *transition* does to a running system. Both forced
-restarts on 2026-09-04 came from that gap.

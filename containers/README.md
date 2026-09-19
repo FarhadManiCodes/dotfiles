@@ -15,14 +15,14 @@ entirely user-scoped:
 | `containers/pg.container` | `~/.config/containers/systemd/pg.container` |
 | `containers/data.network` | `~/.config/containers/systemd/data.network` |
 
-## Why the migration off Docker happened
+## Why rootless podman, not Docker
 
-**Migrated 2026-09-02.** Docker put the user in the `docker` group, which is passwordless
-root: `docker run -v /:/host` reads `/etc/shadow` with no prompt. That was *demonstrated*, not
-theorised, before the change. It meant any code already running as the user — an AUR `build()`
-during `sysup`, a PyPI package behind a `uv tool`, an AI CLI agent — could escalate silently.
-Rootless podman has no such path: **no root daemon, no root socket, no group**, and every
-process (`conmon`, `rootlessport`, all `postgres` backends) runs as `farhad`.
+Docker puts the user in the `docker` group, which is passwordless root: `docker run
+-v /:/host` reads `/etc/shadow` with no prompt — demonstrated, not theorised. It meant any
+code already running as the user — an AUR `build()` during `sysup`, a PyPI package behind a
+`uv tool`, an AI CLI agent — could escalate silently. Rootless podman has no such path: **no
+root daemon, no root socket, no group**, and every process (`conmon`, `rootlessport`, all
+`postgres` backends) runs as `farhad`.
 
 `UserNS=keep-id:uid=999,gid=999` maps the image's `postgres` user onto `farhad`, so
 `/var/lib/postgres` is owned by `farhad` — **cleaner than the Docker setup**, where it belonged
@@ -189,7 +189,7 @@ correctly here (delegation and live accounting both verified) and podman reports
 `runc` cannot be removed while it is the only `oci-runtime` provider — `pacman -Rsp runc`
 refuses, since podman requires one.
 
-**Pinned since 2026-09-09**, in `containers.conf` under `[engine]`. Until then the decision
+**Pinned in `containers.conf` under `[engine]`.** Until the pin was added, the decision
 above was enforced by nothing but crun's absence: crun declares `Provides: oci-runtime` and
 podman declares `Depends On: oci-runtime`, so either satisfies podman, and podman's shipped
 config documents `#runtime = "crun"` as its default. Anything installing crun would have moved

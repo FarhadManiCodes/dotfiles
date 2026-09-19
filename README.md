@@ -8,9 +8,7 @@ Agent guidance: [AGENTS.md](AGENTS.md), with scoped instructions for
 [Niri](niri/AGENTS.md) and [Neovim](nvim/AGENTS.md). Detailed references live in
 [architecture](docs/architecture.md) and [system notes](docs/system-notes.md).
 The [Codex migration notes](docs/codex-migration.md) explain coexistence with the
-retained Claude configuration and the separate user-wide skill setup. The
-[Omarchy comparison](docs/omarchy-comparison.md) is closed, and records what was taken
-from that distribution, what was declined and why, and where this repo is ahead.
+retained Claude configuration and the separate user-wide skill setup.
 
 ## Stack
 

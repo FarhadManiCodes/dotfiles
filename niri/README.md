@@ -1,9 +1,6 @@
 # Niri configuration reference
 
-Extracted from `niri/CLAUDE.md` on 2026-09-06, which became a thin `AGENTS.md`
-import on 2026-09-09; this file is now the only copy of what it holds. Paths in backticks are
-relative to `niri/` unless stated otherwise. Historical examples and measurements
-are retained; verify current state before acting.
+Paths in backticks are relative to `niri/` unless stated otherwise.
 
 ## Repository Overview
 
@@ -94,13 +91,6 @@ journalctl --user -u niri
 
 ## Key Configuration Patterns
 
-### Monitor Setup
-When configuring outputs, note that:
-- Position coordinates are in logical pixels
-- Portrait monitors need `transform "90"` or `transform "270"`
-- The laptop display (`eDP-1`) is the anchor at position (0,0)
-- External monitors are positioned relative to it
-
 ### Keybinding Syntax
 ```kdl
 Mod+Key { action; }
@@ -120,7 +110,7 @@ window-rule {
 }
 ```
 
-Multiple `match` nodes within a single `window-rule` are **OR** conditions — the rule applies if any one of them matches. Within a single `match` node, multiple properties are **AND** conditions.
+Match nodes within one `window-rule` are OR'd; properties within one `match` are AND'd.
 
 Use `/-` prefix to comment out entire nodes (KDL syntax).
 
@@ -132,19 +122,11 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
 - Library browser (Mod+z): `~/.local/bin/book-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)
-- Library source: `~/.local/share/study-library`, a local mirror — **not** the rclone mount, so
-  the picker and opening a book both work offline. It is now a *static* copy: the
-  `study-library-sync` timer that refreshed it was removed 2026-09-18, so update it by hand.
-  There is no cache file and no startup pre-warm any more: a full scan of the mirror is 9ms, so the
-  `~/.cache/book-resources.txt` machinery those needed was deleted on 2026-09-04 rather than
-  fixed. It had truncated itself to 0 bytes that morning by running before the mount existed.
-- There is **no git pre-warm** at startup any more, deleted 2026-09-09. It existed so starship's
-  first prompt did not race the boot storm, and it warmed the fsmonitor daemon as much as the
-  page cache. `core.fsmonitor` is off everywhere now, and the first boot after that change
-  produced no starship warning at all — while `~/.cache/starship/` held one from that same
-  morning, with fsmonitor still on. The pre-warm only ever *raced* the contention rather than
-  removing it, which is what made the warning intermittent. If it returns, the log to check is
-  `~/.cache/starship/` (written only when starship warns), and this is a `git revert` away.
+- Library source: `~/.local/share/study-library`, a static local mirror (not the rclone mount,
+  so the picker and opening a book both work offline) — update by hand, there is no sync timer
+  or cache file any more. Reasoning in `docs/architecture.md`.
+- No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for
+  are in `docs/architecture.md`.
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`
 
 ## Configuration Documentation
