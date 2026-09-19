@@ -5,6 +5,18 @@
 : "${DOTFILES:=${HOME}/dotfiles}"
 : "${XDG_DATA_HOME:=${HOME}/.local/share}"
 
+# Symlink every file matching one or more globs into a directory (created if
+# missing). The destination is the last argument. A glob with no matches
+# stays literal, hence the existence check.
+link_glob() {
+  local dest=${*: -1}
+  mkdir -p "$dest"
+  for file in "${@:1:$#-1}"; do
+    [ -e "$file" ] || continue
+    ln -sf "$file" "$dest/"
+  done
+}
+
 echo "🚀 Installing dotfiles..."
 
 # =========== vim ===============
@@ -41,9 +53,7 @@ ln -sf "${DOTFILES}/zsh/helpers.zsh"           "${XDG_CONFIG_HOME}/zsh/helpers.z
 ln -sf "${DOTFILES}/zsh/generate-completions.sh" "${XDG_CONFIG_HOME}/zsh/generate-completions.sh"
 ln -sf "${DOTFILES}/zsh/update-plugins.sh"    "${XDG_CONFIG_HOME}/zsh/update-plugins.sh"
 
-for file in "${DOTFILES}/zsh/functions/"*.zsh; do
-  ln -sf "$file" "${XDG_CONFIG_HOME}/zsh/functions/"
-done
+link_glob "${DOTFILES}/zsh/functions/"*.zsh "${XDG_CONFIG_HOME}/zsh/functions"
 
 # Completions — generate if tools are available
 mkdir -p "${XDG_CONFIG_HOME}/zsh/completions"
@@ -57,11 +67,7 @@ echo "Zsh configured"
 echo "🖥️  Setting up Tmux..."
 mkdir -p "$XDG_CONFIG_HOME/tmux"
 ln -sf "${DOTFILES}/tmux/tmux.conf" "${XDG_CONFIG_HOME}/tmux/tmux.conf"
-mkdir -p "$XDG_CONFIG_HOME/tmux/layouts"
-
-for file in "${DOTFILES}/tmux/layouts/"*.sh; do
-  ln -sf "$file" "${XDG_CONFIG_HOME}/tmux/layouts/"
-done
+link_glob "${DOTFILES}/tmux/layouts/"*.sh "${XDG_CONFIG_HOME}/tmux/layouts"
 echo "✅ Tmux configured"
 
 # ============ nvim ==============================
@@ -79,9 +85,7 @@ echo "🐍 Setting up ipython..."
 mkdir -p "${XDG_CONFIG_HOME}/ipython/profile_default/startup"
 ln -sf "${DOTFILES}/ipython/profile_default/ipython_config.py" \
        "${XDG_CONFIG_HOME}/ipython/profile_default/ipython_config.py"
-for f in "${DOTFILES}"/ipython/profile_default/startup/*.py; do
-  ln -sf "$f" "${XDG_CONFIG_HOME}/ipython/profile_default/startup/$(basename "$f")"
-done
+link_glob "${DOTFILES}"/ipython/profile_default/startup/*.py "${XDG_CONFIG_HOME}/ipython/profile_default/startup"
 echo "✅ ipython configured"
 
 # ============ single-file app configs ==============================
@@ -177,10 +181,7 @@ echo "pcmanfm-qt configured"
 
 # ============ foliate ==============================
 echo "Setting up Foliate..."
-mkdir -p "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes"
-for file in "${DOTFILES}/foliate/themes/"*.json; do
-    ln -sf "$file" "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes/"
-done
+link_glob "${DOTFILES}/foliate/themes/"*.json "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes"
 dconf load /com/github/johnfactotum/Foliate/ < "${DOTFILES}/foliate/settings.dconf"
 echo "Foliate configured"
 
@@ -204,10 +205,7 @@ echo "XDG user dirs configured"
 
 # ============ desktop files ==============================
 echo "Setting up desktop files..."
-mkdir -p "${HOME}/.local/share/applications"
-for file in "${DOTFILES}/applications/"*.desktop; do
-    ln -sf "$file" "${HOME}/.local/share/applications/"
-done
+link_glob "${DOTFILES}/applications/"*.desktop "${HOME}/.local/share/applications"
 update-desktop-database "${HOME}/.local/share/applications/"
 echo "Desktop files configured"
 
@@ -237,10 +235,7 @@ mkdir -p "${HOME}/Audio/Recordings"
 
 # ============ helper scripts ==============================
 echo "🛠️  Installing helper scripts..."
-mkdir -p "${HOME}/.local/bin"
-for file in "${DOTFILES}/bash/"*; do
-  ln -sf "$file" "${HOME}/.local/bin/"
-done
+link_glob "${DOTFILES}/bash/"* "${HOME}/.local/bin"
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================
@@ -258,43 +253,41 @@ mkdir -p "${XDG_CONFIG_HOME}/containers/systemd"
 for conf in containers.conf storage.conf; do
   ln -sf "${DOTFILES}/containers/${conf}" "${XDG_CONFIG_HOME}/containers/${conf}"
 done
-for file in "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.network; do
-  [ -e "$file" ] || continue
-  ln -sf "$file" "${XDG_CONFIG_HOME}/containers/systemd/"
-done
+link_glob "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.network "${XDG_CONFIG_HOME}/containers/systemd"
 
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
-mkdir -p "${HOME}/.config/systemd/user"
-for file in "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer "${DOTFILES}/systemd/user/"*.socket; do
-  [ -e "$file" ] || continue
-  ln -sf "$file" "${HOME}/.config/systemd/user/"
-done
+link_glob "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer "${DOTFILES}/systemd/user/"*.socket "${HOME}/.config/systemd/user"
 systemctl --user daemon-reload
 
 # Enable explicitly rather than globbing (idempotent). A glob gets this wrong in
 # two ways: `enable rclone@.service` fails because a template cannot be enabled,
 # and the instances we actually mount are never enabled.
-for unit in battery-watch mic-notify net-notify power-notify swayidle; do
-  systemctl --user enable "${unit}.service" 2>/dev/null || true
+units_to_enable=(
+  battery-watch.service
+  mic-notify.service
+  net-notify.service
+  power-notify.service
+  swayidle.service
+  rclone@gdrive.service
+  rclone@Dropbox.service
+  # shpool is socket-activated: enabling the socket is enough, and avoids
+  # keeping the daemon running until a client actually needs it.
+  shpool.socket
+  # The *user* podman socket, which docker-compose reaches via DOCKER_HOST
+  # (see environment.d/defaults.conf). Without this a fresh install has
+  # DOCKER_HOST pointing at a socket nothing ever creates, and compose fails
+  # with no obvious cause. Never enable the system-wide podman.socket
+  # instead — that one is root-owned.
+  podman.socket
+  # ssh-agent, so a passphrase-protected key is typed once an hour rather
+  # than every push. Socket-activated: enabling the socket is enough, the
+  # service starts on first use.
+  ssh-agent.socket
+)
+for unit in "${units_to_enable[@]}"; do
+  systemctl --user enable "$unit" 2>/dev/null || true
 done
-for remote in gdrive Dropbox; do
-  systemctl --user enable "rclone@${remote}.service" 2>/dev/null || true
-done
-
-# shpool is socket-activated: enabling the socket is enough, and avoids keeping
-# the daemon running until a client actually needs it.
-systemctl --user enable shpool.socket 2>/dev/null || true
-
-# The *user* podman socket, which docker-compose reaches via DOCKER_HOST (see
-# environment.d/defaults.conf). Without this a fresh install has DOCKER_HOST pointing at a
-# socket nothing ever creates, and compose fails with no obvious cause. Never enable the
-# system-wide podman.socket instead — that one is root-owned.
-systemctl --user enable podman.socket 2>/dev/null || true
-
-# ssh-agent, so a passphrase-protected key is typed once an hour rather than every push.
-# Socket-activated: enabling the socket is enough, the service starts on first use.
-systemctl --user enable ssh-agent.socket 2>/dev/null || true
 echo "✅ Systemd user services installed and enabled"
 
 # ---------------------------------------------------------------- agent skills ----
