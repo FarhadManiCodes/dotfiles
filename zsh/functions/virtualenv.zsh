@@ -6,29 +6,39 @@
 # CENTRAL_VENVS is exported from zsh/.zshenv, NOT here -- this file is sourced
 # from .zshrc, so anything defined here exists only in interactive shells. See
 # the comment there for why that mattered.
-export DEFAULT_PYTHON="3.13"
+#
+# This file's own `_VENV_` globals are unexported: implementation, not a knob.
+typeset -g _VENV_DEFAULT_PYTHON="3.13"
 
 # Creating the directory does stay here: .zshenv runs on every zsh invocation
 # and should not touch the filesystem for an interactive-only tool. Guarded on
 # the variable being non-empty so a `zsh -f` (no rcs) cannot mkdir "".
 [[ -n "$CENTRAL_VENVS" && ! -d "$CENTRAL_VENVS" ]] && mkdir -p "$CENTRAL_VENVS"
 
-# Check if uv is installed
-if ! command -v uv >/dev/null 2>&1; then
-  echo "⚠️  uv not found! Virtual environment functions will not work."
-  echo "📦 Install with: curl -LsSf https://astral.sh/uv/install.sh | sh"
-fi
+# Both hard dependencies; fzf is optional and reported by _select_env instead.
+for _venv_tool in uv direnv; do
+  command -v "$_venv_tool" >/dev/null 2>&1 ||
+    echo "⚠️  $_venv_tool not found! Virtual environment functions will not work."
+done
+unset _venv_tool
 
 # =============================================================================
 # VALIDATION HELPERS
 # =============================================================================
 
-TEMPLATES=("basic" "ds" "de" "ml" "none")
+# The shared lint set is appended to each template rather than repeated in it.
+# "none" has no list of its own -- it installs requirements.txt if there is one.
+typeset -gA _VENV_TEMPLATE_PACKAGES=(
+  basic "requests pytest"
+  ds    "ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly"
+  de    "ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow"
+  ml    "ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly"
+)
+typeset -ga _VENV_LINT_PACKAGES=(black flake8 pylint mypy)
+typeset -ga _VENV_TEMPLATES=("${(ok)_VENV_TEMPLATE_PACKAGES[@]}" none)
 
-_is_template() {
-  local arg="$1"
-  [[ " ${TEMPLATES[*]} " == *" ${arg} "* ]]
-}
+# (Ie) is an exact-element match; a substring test would accept a partial name.
+_is_template() { (( ${_VENV_TEMPLATES[(Ie)$1]} )); }
 
 # Match a Python version number: 3.9, 3.12, 3.12.1 (any major, so 3.15+ keeps working)
 _is_version() {
@@ -41,11 +51,17 @@ _is_local_name() {
   [[ "$name" == "local" || "$name" == "." ]]
 }
 
+# A name must be one path component: "../x", "a/b" and ".." all make _env_path
+# resolve OUTSIDE $CENTRAL_VENVS, and vr runs `rm -rf` on whatever it returns.
+_is_valid_name() {
+  [[ -n "$1" && "$1" != *"/"* && "$1" != ".." ]]
+}
+
 # =============================================================================
 # CORE HELPER FUNCTIONS
 # =============================================================================
 
-_env_path() { 
+_env_path() {
   local name="$1"
   if _is_local_name "$name"; then
     echo ".venv"
@@ -56,30 +72,42 @@ _env_path() {
 
 _env_exists() {
   local name="$1"
+  _is_valid_name "$name" || return 1
   [[ -d "$(_env_path "$name")" ]]
 }
 
-# Human-readable size of a dir ("?" if it can't be read)
-_dir_size() { du -sh "$1" 2>/dev/null | cut -f1 || echo "?"; }
+# Human-readable size of a dir, "?" if unreadable. The fallback must apply to the
+# captured value: `du | cut` exits 0 even when du fails, so a `||` never fires.
+_dir_size() { local size=$(du -sh "$1" 2>/dev/null | cut -f1); echo "${size:-?}"; }
 
 # Bare Python version (e.g. 3.13.1) for a venv's python binary
-_py_ver() { "$1" --version 2>/dev/null | awk '{print $2}'; }
+_py_ver() { local ver=$("$1" --version 2>/dev/null | awk '{print $2}'); echo "${ver:-?}"; }
 
 # _get_envrc_env [file] — name of the env an .envrc points to ("local" or central name)
 _get_envrc_env() {
   local file="${1:-.envrc}"
   [[ -f "$file" ]] || return 1
+  local content="$(<"$file")"
 
   # Local .venv — _create_envrc writes `source .venv/bin/activate` (./ optional)
-  if grep -qE 'source (\./)?\.venv/bin/activate' "$file" 2>/dev/null; then
+  if [[ "$content" == *"source "(|./)".venv/bin/activate"* ]]; then
     echo "local"
     return 0
   fi
 
-  # Centralized — pull the env name out of the activate path. Must use
-  # $CENTRAL_VENVS itself, not a hardcoded name, or this breaks silently if
-  # it's ever relocated.
-  grep -o 'source.*activate' "$file" 2>/dev/null | sed -n "s|.*${CENTRAL_VENVS}/\([^/]*\)/.*|\1|p"
+  # Centralized — the name is the path component after $CENTRAL_VENVS, read from
+  # the variable so relocating it can't break this silently. Glob, not a sed
+  # regex: the "." in the path would be a regex wildcard.
+  if [[ -n "$CENTRAL_VENVS" && "$content" == *"source ${CENTRAL_VENVS}/"* ]]; then
+    local rest="${content#*source ${CENTRAL_VENVS}/}"
+    echo "${rest%%/*}"
+  fi
+}
+
+# Sets the CALLER's $name (zsh locals are dynamically scoped), defaulting to local.
+_prompt_name() {
+  read "name?Environment name (Enter for local): "
+  [[ -z "$name" ]] && name="local"
 }
 
 _reload_direnv() {
@@ -133,7 +161,7 @@ _select_env() {
 _create_envrc() {
   local env_name="$1"
   local venv_path="$(_env_path "$env_name")"
-  
+
   # Safety check for existing custom .envrc
   if [[ -f ".envrc" ]]; then
     # If it doesn't contain our signature, it might be a manual file
@@ -142,13 +170,13 @@ _create_envrc() {
         echo "   It might contain custom variables."
         read "reply?Overwrite? [y/N]: "
         [[ ! "$reply" =~ ^[Yy]$ ]] && echo "❌ Skipped .envrc creation" && return 0
-        
+
         # Create backup
         cp .envrc ".envrc.bak.$(date +%s)"
         echo "💾 Backed up old .envrc"
     fi
   fi
-  
+
   cat > .envrc << EOF
 # Auto-generated - Virtual Environment: $env_name
 source $venv_path/bin/activate
@@ -162,58 +190,43 @@ EOF
 # `python --version` fork. Used by the interactive picker, which only needs names.
 _list_environments() {
   local fast="$1"
-  if [[ ! -d "$CENTRAL_VENVS" || -z "$(ls -A "$CENTRAL_VENVS" 2>/dev/null)" ]]; then
-    echo "   (no environments found)"
-    return
-  fi
+  # (N-/): no match yields nothing, and only directories match, following
+  # symlinks as the old `[[ -d ]]` test did. The -d guard keeps an unset
+  # CENTRAL_VENVS from globbing "/*".
+  local -a envs
+  [[ -d "$CENTRAL_VENVS" ]] && envs=("$CENTRAL_VENVS"/*(N-/))
+  (( ${#envs} )) || { echo "   (no environments found)"; return; }
 
-  for env_dir in "$CENTRAL_VENVS"/*; do
-    [[ ! -d "$env_dir" ]] && continue
-    local name=$(basename "$env_dir")
-    if [[ -n "$fast" ]]; then
-      echo "   🐍 $name"
-      continue
-    fi
-    echo "   🐍 $name ($(_dir_size "$env_dir")) [Py $(_py_ver "$env_dir/bin/python")]"
+  local env_dir
+  for env_dir in "${envs[@]}"; do
+    [[ -n "$fast" ]] && { echo "   🐍 ${env_dir:t}"; continue; }
+    echo "   🐍 ${env_dir:t} ($(_dir_size "$env_dir")) [Py $(_py_ver "$env_dir/bin/python")]"
   done
 }
 
 _install_template() {
-  local template="$1"
+  local template="${1:-none}"
   local python_path="$VIRTUAL_ENV/bin/python"
 
-  case "$template" in
-    ""|"none")
-      if [[ -f "requirements.txt" ]]; then
-        echo "📦 Installing from requirements.txt..."
-        uv pip install -r requirements.txt --python "$python_path"
-      else
-        echo "📝 Empty environment created"
-      fi
-      ;;
-    "basic")
-      echo "⚡ Installing basic development packages..."
-      uv pip install requests black flake8 pytest pylint mypy --python "$python_path"
-      ;;
-    "ds")
-      echo "📊 Installing data science packages..."
-      uv pip install ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy --python "$python_path"
-      ;;
-    "de")
-      echo "🔧 Installing data engineering packages..."
-      uv pip install ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow black flake8 pylint mypy --python "$python_path"
-      ;;
-    "ml")
-      echo "🤖 Installing ML packages..."
-      uv pip install ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly black flake8 pylint mypy --python "$python_path"
-      echo "💡 For PyTorch/TensorFlow, run 'uv pip install torch' manually."
-      ;;
-    *)
-      echo "❌ Unknown template: $template"
-      echo "💡 Available: basic, ds, de, ml, none"
-      return 1
-      ;;
-  esac
+  if [[ "$template" == "none" ]]; then
+    [[ -f "requirements.txt" ]] || { echo "📝 Empty environment created"; return; }
+    echo "📦 Installing from requirements.txt..."
+    uv pip install -r requirements.txt --python "$python_path"
+    return
+  fi
+
+  # ${+assoc[key]} distinguishes an unknown template from one with no packages.
+  if (( ! ${+_VENV_TEMPLATE_PACKAGES[$template]} )); then
+    echo "❌ Unknown template: $template"
+    echo "💡 Available: ${_VENV_TEMPLATES[*]}"
+    return 1
+  fi
+
+  echo "📦 Installing $template packages..."
+  uv pip install ${=_VENV_TEMPLATE_PACKAGES[$template]} "${_VENV_LINT_PACKAGES[@]}" \
+    --python "$python_path"
+  [[ "$template" == "ml" ]] &&
+    echo "💡 For PyTorch/TensorFlow, run 'uv pip install torch' manually."
 }
 
 # =============================================================================
@@ -224,29 +237,33 @@ _install_template() {
 # Usage: vc [name] [template] [version]
 vc() {
   local name template version
-  
+
   # Parse arguments with smart detection
   if [[ $# -eq 0 ]]; then
     # No arguments - prompt for name
-    read "name?Environment name (Enter for local): "
-    [[ -z "$name" ]] && name="local"
+    _prompt_name
     template="none"
-    version="$DEFAULT_PYTHON"
-    
+    version="$_VENV_DEFAULT_PYTHON"
+
   elif [[ $# -eq 1 ]]; then
     if _is_template "$1"; then
       # Single template argument - prompt for name
       template="$1"
-      read "name?Environment name (Enter for local): "
-      [[ -z "$name" ]] && name="local"
-      version="$DEFAULT_PYTHON"
+      _prompt_name
+      version="$_VENV_DEFAULT_PYTHON"
+    elif _is_version "$1"; then
+      # Single version - prompt for name. Without this branch a bare `vc 3.12`
+      # created an environment literally NAMED "3.12", on the default Python.
+      version="$1"
+      template="none"
+      _prompt_name
     else
       # Single name argument
       name="$1"
       template="none"
-      version="$DEFAULT_PYTHON"
+      version="$_VENV_DEFAULT_PYTHON"
     fi
-    
+
   elif [[ $# -eq 2 ]]; then
     if _is_template "$1" && ! _is_version "$2"; then
       echo "❌ Error: Wrong argument order"
@@ -256,8 +273,7 @@ vc() {
       # Template + version - prompt for name
       template="$1"
       version="$2"
-      read "name?Environment name (Enter for local): "
-      [[ -z "$name" ]] && name="local"
+      _prompt_name
     elif _is_version "$2"; then
       # Name + version, no template
       name="$1"
@@ -267,35 +283,30 @@ vc() {
       # Name + template
       name="$1"
       template="$2"
-      version="$DEFAULT_PYTHON"
+      version="$_VENV_DEFAULT_PYTHON"
     fi
-    
+
   elif [[ $# -eq 3 ]]; then
     # Full specification: name template version
     name="$1"
     template="$2"
     version="$3"
-    
+
   else
-    echo "Usage: vc [name] [template] [version]"
-    echo "Templates: basic, ds, de, ml, none"
-    echo "Examples:"
-    echo "  vc                      # Prompts for name"
-    echo "  vc myproject            # Quick create with defaults"
-    echo "  vc myproject ds         # With template"
-    echo "  vc myproject ds 3.12    # Full control"
-    echo "  vc ds                   # Prompts for name with template"
-    echo "  vc local ds             # Local .venv with template"
+    # Examples live in `vh` only, so there is one copy to keep correct.
+    echo "Usage: vc [name] [template] [version]   (run 'vh' for examples)"
+    echo "Templates: ${_VENV_TEMPLATES[*]}"
     return 1
   fi
-  
-  # Validate: name cannot be a template name
-  if _is_template "$name"; then
-    echo "❌ Error: Cannot use template name '$name' as environment name"
-    echo "💡 Choose a different name"
+
+  # A template name would shadow the detection above; a slashed one escapes
+  # $CENTRAL_VENVS.
+  if _is_template "$name" || ! _is_valid_name "$name"; then
+    echo "❌ Error: Invalid environment name '$name'"
+    echo "💡 Use a plain name with no '/', and not a template name"
     return 1
   fi
-  
+
   # Check if environment already exists
   if _env_exists "$name" && ! _is_local_name "$name"; then
     echo "❌ Error: Environment '$name' already exists at $(_env_path "$name")"
@@ -305,7 +316,7 @@ vc() {
     echo "   - Choose a different name"
     return 1
   fi
-  
+
   # Check for existing local .venv
   if _is_local_name "$name" && [[ -d ".venv" ]]; then
     echo "⚠️  Warning: .venv already exists in this directory"
@@ -316,31 +327,31 @@ vc() {
     fi
     rm -rf .venv
   fi
-  
+
   local venv_path="$(_env_path "$name")"
   local display_name="$name"
   _is_local_name "$name" && display_name=".venv (local)"
-  
+
   echo "🐍 Creating virtual environment: $display_name"
   echo "   Location: $venv_path"
   echo "   Python: $version"
   echo "   Template: $template"
   echo ""
-  
+
   # Create virtual environment with uv
   uv venv "$venv_path" --python "$version" || {
     echo "❌ Failed to create environment"
     echo "💡 Check that Python $version is available"
     return 1
   }
-  
+
   # Create .envrc for direnv
   _create_envrc "$name"
-  
+
   # Activate and install template
   source "$venv_path/bin/activate"
   _install_template "$template"
-  
+
   echo ""
   echo "✅ Environment '$display_name' created!"
   _is_local_name "$name" || echo "💡 Use 'va $name' to activate in other directories"
@@ -379,26 +390,26 @@ va() {
     _list_environments
     return 1
   fi
-  
+
   # Smart .envrc handling
   if [[ -f ".envrc" ]]; then
     local current_env=$(_get_envrc_env)
     echo "📄 Found existing .envrc"
     [[ -n "$current_env" ]] && echo "🔗 Currently points to: $current_env"
     echo "🎯 You want to use: $selected"
-    
-    [[ "$current_env" == "$selected" ]] && { 
+
+    [[ "$current_env" == "$selected" ]] && {
       echo "✅ Already configured correctly"
       _reload_direnv
       return 0
     }
-    
+
     echo ""
     echo "1) Override .envrc (make $selected project default)"
     echo "2) Session only (manual activation)"
     echo "3) Cancel"
     read "choice?Choice [1-3]: "
-    
+
     case "$choice" in
       1) echo "🔄 Updating .envrc..."; _create_envrc "$selected" ;;
       2) source "$(_env_path "$selected")/bin/activate"; echo "✅ Session activated: $selected" ;;
@@ -413,7 +424,7 @@ va() {
 # Project environment management
 vp() {
   local current_env=$(_get_envrc_env)
-  
+
   if [[ -n "$current_env" ]]; then
     echo "📋 Found .envrc pointing to: $current_env"
     if _env_exists "$current_env"; then
@@ -432,7 +443,7 @@ vp() {
     return 0
   fi
 
-  local project_name=$(basename "$PWD")
+  local project_name="${PWD:t}"
 
   if _env_exists "$project_name"; then
     echo "🎯 Found environment: $project_name"
@@ -443,54 +454,50 @@ vp() {
   fi
 }
 
-# Deactivate environment
-vd() { 
-  [[ -n "$VIRTUAL_ENV" ]] && { 
-    deactivate
-    echo "✅ Environment deactivated"
-  } || echo "ℹ️  No active environment"
+# Deactivate environment. Early return, not `[[ ]] && { } || echo`: that form
+# also runs the || branch whenever the last command in the block fails.
+vd() {
+  [[ -n "$VIRTUAL_ENV" ]] || { echo "ℹ️  No active environment"; return; }
+  deactivate
+  echo "✅ Environment deactivated"
 }
 
 # Forget project (remove .envrc)
-vf() { 
-  [[ -f ".envrc" ]] && { 
-    rm ".envrc"
-    echo "🗑️  Removed .envrc"
-  } || echo "ℹ️  No .envrc found"
+vf() {
+  [[ -f ".envrc" ]] || { echo "ℹ️  No .envrc found"; return; }
+  rm ".envrc"
+  echo "🗑️  Removed .envrc"
 }
 
 # Sync from requirements.txt
 vs() {
-  [[ -z "$VIRTUAL_ENV" ]] && { 
-    echo "❌ No active environment. Activate first."
-    return 1
-  }
-  
-  if [[ -f "requirements.txt" ]]; then
-    echo "📦 Installing requirements..."
-    uv pip install -r requirements.txt --python "$VIRTUAL_ENV/bin/python"
-  else
-    echo "❌ No requirements.txt found"
-  fi
+  [[ -n "$VIRTUAL_ENV" ]] || { echo "❌ No active environment. Activate first."; return 1; }
+  [[ -f "requirements.txt" ]] || { echo "❌ No requirements.txt found"; return 1; }
+
+  # `uv pip sync`, not `install -r`: this makes the environment MATCH the file,
+  # which is what "sync" means and what `install -r` never did. Anything not
+  # listed is uninstalled, per-venv tools like ipykernel included.
+  echo "📦 Syncing to requirements.txt (removes anything not listed)..."
+  uv pip sync requirements.txt --python "$VIRTUAL_ENV/bin/python"
 }
 
 # Remove environment
 vr() {
   local env_name="$1"
-  
-  [[ -z "$env_name" ]] && { 
+
+  [[ -z "$env_name" ]] && {
     echo "Usage: vr <environment_name>"
     echo ""
     echo "Available environments:"
     _list_environments
     return 1
   }
-  
+
   if ! _env_exists "$env_name"; then
     echo "❌ Environment '$env_name' not found"
     return 1
   fi
-  
+
   local venv_path="$(_env_path "$env_name")"
   local size=$(_dir_size "$venv_path")
 
@@ -498,19 +505,19 @@ vr() {
   echo "   Location: $venv_path"
   echo "   Size: $size"
   read "REPLY?⚠️  Cannot be undone! Continue? [y/N]: "
-  
-  [[ $REPLY =~ ^[Yy]$ ]] || { 
+
+  [[ $REPLY =~ ^[Yy]$ ]] || {
     echo "❌ Cancelled"
     return 0
   }
-  
+
   # Deactivate only if the active venv IS this one -- exact basename match,
   # not substring (removing "myapp" must not deactivate "myapp2").
-  [[ -n "$VIRTUAL_ENV" && "$(basename "$VIRTUAL_ENV")" == "$(basename "$venv_path")" ]] && {
+  [[ -n "$VIRTUAL_ENV" && "${VIRTUAL_ENV:t}" == "${venv_path:t}" ]] && {
     deactivate
     echo "✅ Deactivated"
   }
-  
+
   rm -rf "$venv_path"
   echo "✅ Environment '$env_name' removed"
 }
@@ -519,10 +526,10 @@ vr() {
 vl() {
   echo "🐍 Virtual Environments (uv managed)"
   echo "==================================="
-  
+
   # Show active environment
   if [[ -n "$VIRTUAL_ENV" ]]; then
-    local current=$(basename "$VIRTUAL_ENV")
+    local current="${VIRTUAL_ENV:t}"
     if [[ "$current" == ".venv" ]]; then
       current="local (.venv)"
     fi
@@ -531,16 +538,16 @@ vl() {
   else
     echo "⚪ No environment active"
   fi
-  
+
   # Show centralized environments
   echo ""
   echo "📁 Centralized environments ($CENTRAL_VENVS):"
   _list_environments
-  
+
   # Show current directory info
   local current_env=$(_get_envrc_env)
   echo ""
-  echo "📂 Current directory: $(basename "$PWD")"
+  echo "📂 Current directory: ${PWD:t}"
   if [[ -n "$current_env" ]]; then
     if [[ "$current_env" == "local" ]]; then
       echo "   📄 .envrc → local (.venv)"
@@ -550,7 +557,7 @@ vl() {
   else
     echo "   ❌ No .envrc (not direnv-managed)"
   fi
-  
+
   # Show local .venv if exists
   if [[ -d ".venv" ]]; then
     echo "   🏠 Local .venv: $(_dir_size .venv) [Py $(_py_ver .venv/bin/python)]"
@@ -565,9 +572,9 @@ vl() {
 check_envrc_health() {
   echo "🔍 Checking .envrc files..."
   local issues=0
-  
+
   while IFS= read -r -d '' envrc_file; do
-    local dir=$(dirname "$envrc_file")
+    local dir="${envrc_file:h}"
     local env_name=$(_get_envrc_env "$envrc_file")
 
     if [[ "$env_name" == "local" ]]; then
@@ -589,26 +596,30 @@ check_envrc_health() {
       ((issues++))
     fi
   done < <(find . -name ".envrc" -type f -print0 2>/dev/null)
-  
+
   ((issues == 0)) && echo "✅ All .envrc files healthy" || echo "⚠️  Found $issues issue(s)"
 }
 
 # Show Python/uv/direnv info
 show_python_info() {
+  # Same dead-`||` trap as _dir_size, hence the captured value.
+  local pip_ver=$(pip --version 2>/dev/null | cut -d' ' -f2)
+
   echo ""
   echo "🐍 Python Environment Info"
   echo "=========================="
   echo "System Python: $(python --version 2>/dev/null || echo "Not found")"
-  echo "System Pip: $(pip --version 2>/dev/null | cut -d' ' -f2 || echo "Not found")"
+  echo "System Pip: ${pip_ver:-Not found}"
   echo "uv: $(uv --version 2>/dev/null || echo "Not found")"
   echo "Direnv: $(direnv version 2>/dev/null || echo "Not found")"
-  
+
   if [[ -n "$VIRTUAL_ENV" ]]; then
     echo ""
     echo "Active Environment:"
-    echo "   Name: $(basename "$VIRTUAL_ENV")"
+    echo "   Name: ${VIRTUAL_ENV:t}"
     echo "   Python: $("$VIRTUAL_ENV/bin/python" --version)"
-    echo "   Packages: $(uv pip list 2>/dev/null | wc -l)"
+    # freeze format: the default table's two header lines were counted as packages.
+    echo "   Packages: $(uv pip list --format freeze --python "$VIRTUAL_ENV/bin/python" 2>/dev/null | wc -l)"
     echo "   Location: $VIRTUAL_ENV"
   else
     echo ""
@@ -617,14 +628,10 @@ show_python_info() {
   echo ""
 }
 
-# =============================================================================
-# ALIASES
-# =============================================================================
-
-alias check-envrc='check_envrc_health'
-alias python-info='show_python_info'
-
-alias vh='cat << "EOF"
+# Help. A function, not an alias with a quoted heredoc, so paths, defaults and
+# package lists come from the variables instead of being duplicated here.
+vh() {
+  cat <<EOF
 🐍 Direnv + uv Virtual Environment Manager
 ==========================================
 
@@ -638,34 +645,34 @@ CORE COMMANDS:
   vc myproject ds 3.12             - Full control
   vc ds                            - Prompts for name, template=ds
   vc ds 3.14                       - Prompts for name, ds + Python 3.14
+  vc 3.14                          - Prompts for name, Python 3.14
   vc local                         - Create local .venv
   vc local ds                      - Local .venv with template
-  
+
   va [name]                        - Activate (interactive with fzf)
   va local                         - Activate local .venv
   vp                               - Auto-setup project environment
   vd                               - Deactivate
   vl                               - List centralized environments
   vr <name>                        - Delete environment (shows size)
-  vs                               - Sync from requirements.txt
+  vs                               - Sync to requirements.txt (removes extras)
   vf                               - Remove .envrc
 
 UTILITIES:
   check-envrc                      - Health check .envrc files
   python-info                      - Show Python/uv/direnv info
 
-TEMPLATES:
-  basic - requests, black, flake8, pytest, pylint, mypy
-  ds    - Data science (pandas, jupyter, numpy, matplotlib, etc)
-  de    - Data engineering (polars, duckdb, sqlalchemy, etc)
-  ml    - Machine learning (scikit-learn, plotly, etc)
+TEMPLATES (each also installs ${_VENV_LINT_PACKAGES[*]}):
+$(for t in "${(ok)_VENV_TEMPLATE_PACKAGES[@]}"; do
+    printf '  %-5s - %s\n' "$t" "${_VENV_TEMPLATE_PACKAGES[$t]}"
+  done)
   none  - Empty (installs from requirements.txt if present)
 
 PYTHON VERSIONS:
-  3.9, 3.10, 3.11, 3.12, 3.13 (default), 3.14+ (regex matched)
+  Any major.minor[.patch], e.g. 3.9 - 3.14. Default: $_VENV_DEFAULT_PYTHON
 
 LOCATIONS:
-  Centralized: ~/.central_venvs/
+  Centralized: $CENTRAL_VENVS
   Local: ./.venv
 
 WORKFLOW:
@@ -673,4 +680,12 @@ WORKFLOW:
   vc myapp ds              # Creates centralized + .envrc
   # direnv auto-activates!
   uv pip install pandas    # Fast installs with uv
-EOF'
+EOF
+}
+
+# =============================================================================
+# ALIASES
+# =============================================================================
+
+alias check-envrc='check_envrc_health'
+alias python-info='show_python_info'

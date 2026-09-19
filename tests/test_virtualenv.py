@@ -1,7 +1,11 @@
-"""Regression tests for the three substantive bugs found in a 2026-09-19 review
-of virtualenv.zsh: exact-match checks that used to be substrings, and a hardcoded
-path that used to be a variable. vl()'s local-venv check shares vr()'s fix and
-needs no separate test.
+"""Regression tests for the substantive bugs found in the 2026-09-19 reviews of
+virtualenv.zsh: exact-match checks that used to be substrings, a hardcoded path
+that used to be a variable, argument shapes that used to be misparsed, and names
+that used to resolve outside $CENTRAL_VENVS.
+
+Fixes sharing another's code path need no test of their own: vl()'s local-venv
+check is vr()'s basename comparison, and vc()'s rejection of "a/b" is the same
+_is_valid_name predicate that stops vr() deleting outside $CENTRAL_VENVS.
 
     python3 -B -m unittest discover -s tests -v
 """
@@ -34,6 +38,10 @@ class VirtualenvTests(unittest.TestCase):
             capture_output=True, text=True, timeout=10,
         )
 
+    def stub(self, name, body):
+        (self.bin / name).write_text(body)
+        (self.bin / name).chmod(0o755)
+
     def test_vr_does_not_deactivate_an_unrelated_environment(self):
         # "myapp" is a substring of "myapp2" -- removing the former must not
         # tear down an active session of the latter.
@@ -46,29 +54,57 @@ class VirtualenvTests(unittest.TestCase):
         self.assertFalse((self.central / "myapp").exists())
         self.assertTrue((self.central / "myapp2").exists())
 
-    def test_get_envrc_env_follows_a_relocated_central_venvs(self):
+    def test_get_envrc_env_reads_central_and_local_activate_lines(self):
         # CENTRAL_VENVS here deliberately does not end in ".central_venvs".
         envrc = self.root / ".envrc"
-        envrc.write_text(f"source {self.central}/myapp/bin/activate\n")
-        result = self.run_zsh(f'_get_envrc_env "{envrc}"')
-        self.assertEqual(result.stdout.strip(), "myapp", result.stderr)
+        for body, expected in (
+            (f"source {self.central}/myapp/bin/activate", "myapp"),
+            ("source .venv/bin/activate", "local"),
+            ("source ./.venv/bin/activate", "local"),
+            ("layout python", ""),
+        ):
+            envrc.write_text(body + "\n")
+            result = self.run_zsh(f'_get_envrc_env "{envrc}"')
+            self.assertEqual(result.stdout.strip(), expected, f"{body}: {result.stderr}")
 
-    def test_name_plus_version_is_not_treated_as_a_template(self):
-        (self.bin / "uv").write_text(
-            '#!/bin/sh\n'
-            'printf "%s\\n" "$*" >> "$UV_LOG"\n'
-            '[ "$1" = venv ] && mkdir -p "$2/bin" && : > "$2/bin/activate"\n'
-        )
-        (self.bin / "uv").chmod(0o755)
-        (self.bin / "direnv").write_text("#!/bin/sh\nexit 0\n")
-        (self.bin / "direnv").chmod(0o755)
+    def stub_uv_and_direnv(self):
+        """A uv that logs its arguments and fakes a venv, and a no-op direnv."""
+        self.stub("uv",
+                  '#!/bin/sh\n'
+                  'printf "%s\\n" "$*" >> "$UV_LOG"\n'
+                  '[ "$1" = venv ] && mkdir -p "$2/bin" && : > "$2/bin/activate"\n')
+        self.stub("direnv", "#!/bin/sh\nexit 0\n")
         self.env["UV_LOG"] = str(self.root / "uv.log")
         project = self.root / "project"
         project.mkdir()
+        return project
+
+    def test_name_plus_version_is_not_treated_as_a_template(self):
+        project = self.stub_uv_and_direnv()
         result = self.run_zsh("vc myapp 3.12", cwd=project)
         self.assertNotIn("Unknown template", result.stdout, result.stdout)
         log = (self.root / "uv.log").read_text()
         self.assertIn(f"venv {self.central}/myapp --python 3.12", log)
+
+    def test_a_lone_version_is_a_version_not_an_environment_name(self):
+        # `vc 3.12` used to create an env literally NAMED "3.12", on the default
+        # Python. It has to prompt for a name and honour 3.12 as the version.
+        project = self.stub_uv_and_direnv()
+        result = self.run_zsh("vc 3.12", cwd=project, stdin="proj\n")
+        log = (self.root / "uv.log").read_text()
+        self.assertIn(f"venv {self.central}/proj --python 3.12", log, result.stdout)
+        self.assertFalse((self.central / "3.12").exists())
+
+    def test_vr_refuses_a_name_that_escapes_central_venvs(self):
+        # _env_path builds "$CENTRAL_VENVS/$name", so "../decoy" pointed vr's
+        # `rm -rf` at a sibling of the central directory.
+        self.central.mkdir()
+        decoy = self.root / "decoy"
+        decoy.mkdir()
+        (decoy / "keep").write_text("precious")
+        result = self.run_zsh("vr ../decoy", stdin="y\n")
+        self.assertTrue((decoy / "keep").exists(), result.stdout + result.stderr)
+        self.assertIn("not found", result.stdout)
 
 
 if __name__ == "__main__":
