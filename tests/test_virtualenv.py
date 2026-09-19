@@ -55,6 +55,18 @@ class VirtualenvTests(unittest.TestCase):
         self.assertFalse((self.central / "myapp").exists())
         self.assertTrue((self.central / "myapp2").exists())
 
+    def test_vr_deactivates_only_the_same_local_environment(self):
+        other = self.root / "other/.venv"
+        other.mkdir(parents=True)
+        for active, expected in ((other, False), (self.root / ".venv", True)):
+            (self.root / ".venv").mkdir()
+            self.env["VIRTUAL_ENV"] = str(active)
+            result = self.run_zsh('deactivate() { echo DEACTIVATED; }; vr local',
+                                  cwd=self.root, stdin="y\n")
+            self.assertEqual("DEACTIVATED" in result.stdout, expected, result.stdout)
+            self.assertFalse((self.root / ".venv").exists())
+            self.assertTrue(other.exists())
+
     def test_get_envrc_env_reads_central_and_local_activate_lines(self):
         # CENTRAL_VENVS here deliberately does not end in ".central_venvs".
         envrc = self.root / ".envrc"

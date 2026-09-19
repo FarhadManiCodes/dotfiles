@@ -504,9 +504,8 @@ vr() {
     return 0
   }
 
-  # Deactivate only if the active venv IS this one -- exact basename match,
-  # not substring (removing "myapp" must not deactivate "myapp2").
-  [[ -n "$VIRTUAL_ENV" && "${VIRTUAL_ENV:t}" == "${venv_path:t}" ]] && {
+  # Compare resolved paths: unrelated projects can both have a .venv.
+  [[ -n "$VIRTUAL_ENV" && "${VIRTUAL_ENV:A}" == "${venv_path:A}" ]] && {
     deactivate
     echo "✅ Deactivated"
   }
