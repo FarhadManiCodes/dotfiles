@@ -632,8 +632,23 @@ EOF
 }
 
 # =============================================================================
-# ALIASES
+# ALIASES AND COMPLETION
 # =============================================================================
 
 alias check-envrc='check_envrc_health'
 alias python-info='show_python_info'
+
+# compdef only exists once compinit has run (.zshrc does that before sourcing
+# these functions), and this file is also sourced by non-interactive shells.
+if (( $+functions[compdef] )); then
+  _venv_envs() {
+    local -a names
+    [[ -d "$CENTRAL_VENVS" ]] && names=("$CENTRAL_VENVS"/*(N-/:t))
+    [[ -d .venv ]] && names+=(local)
+    _describe -t environments environment names
+  }
+  # vc takes its arguments in any order, so a template is valid at any position.
+  _venv_create() { _describe -t templates template _VENV_TEMPLATES; }
+  compdef _venv_envs va vr
+  compdef _venv_create vc
+fi
