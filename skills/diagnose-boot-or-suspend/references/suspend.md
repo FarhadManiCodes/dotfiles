@@ -34,14 +34,11 @@ than testing by hand.
 `references/incident-2026-09-02.md` carries a healthy cycle and a failed one verbatim, with the
 per-boot counts. Read it before interpreting a cycle you have not seen before.
 
-The two things most easily got wrong, both recorded there:
+The two things most easily got wrong, both recorded there in full:
 
-- **A stage fails by substitution, not only by absence.** The freeze line is not missing from a
-  failed cycle; it is replaced by `Failed to freeze unit 'user.slice': Connection timed out`.
-  Diagnosing by "which line is missing" misses it entirely.
-- **The freeze failure does not stop the sequence.** systemd logs it and attempts the suspend
-  anyway; the abort lands one line later, from the kernel, as `Device or resource busy`. One
-  cycle can contain two distinct failures of which only the second stops anything.
+- The freeze line is *replaced*, not dropped, on failure.
+- The freeze failure itself isn't what aborts the suspend — the kernel's `Device or resource
+  busy` one line later is.
 
 ## Is anything wedged right now?
 
@@ -85,10 +82,9 @@ process name instead of on the state. That is an instance of the second rule in
 
 ## The retry loop
 
-With the lid shut, logind retries a failed suspend indefinitely. Each attempt takes roughly
-100 s — that is the *duration of one failed attempt*, not a delay between them; the journal
-records it as `Consumed … CPU time over 1min 41.743s wall clock time`. The retry begins
-immediately after.
+With the lid shut, logind retries a failed suspend indefinitely, immediately after each one
+fails. The ~100 s the journal shows per cycle (fixture has the exact numbers) is the failed
+attempt's own duration, not a gap between retries.
 
 This is why one wedged process costs a whole night rather than one failed suspend, and why every
 retry also re-runs whatever else is hooked into the sleep path. On 2026-09-02 that included the

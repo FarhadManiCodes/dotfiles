@@ -1,9 +1,8 @@
 # Converting a PDF that is not a library paper
 
 Read after choosing the conversion path in `SKILL.md`. This path skips figure descriptions and
-citation verification. PDF input still uses the configured OCR backend: default `maas` mode
-needs `ZHIPU_API_KEY` and network access, while `selfhosted` mode runs locally. Markdown input
-skips OCR and needs neither.
+citation verification; same OCR-backend rules as the table there (`maas` needs
+`ZHIPU_API_KEY` + network, `selfhosted` is local, markdown input skips OCR).
 
 ## Markdown out of a PDF
 
@@ -61,7 +60,5 @@ Re-chunks the saved `refinery.md` only. Instant, no OCR, no network — for tuni
 
 ## When the OCR itself is wrong
 
-The parse checkpoint at `<stem>.refinery/parse_cache/` is keyed on the PDF hash and the parse
-config, so a re-run reuses it and will keep reproducing the same bad output. `--force-parse` is
-the only thing that bypasses it, and it costs the full ~10-minute OCR pass. That is the one
-situation where it is the right flag.
+Same checkpoint as in `SKILL.md` — if the OCR itself was wrong, a plain re-run just reproduces
+it. `--force-parse` is the only way past that, at the cost of the full ~10-minute pass.

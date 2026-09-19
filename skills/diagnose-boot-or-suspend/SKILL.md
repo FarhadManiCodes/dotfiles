@@ -91,11 +91,9 @@ systemctl --user show network-online.target -p LoadState     # LoadState=not-fou
 ```
 
 A missing `Requires=` would be reported by `systemd-analyze verify`; a missing `Wants=` is legal
-and silent by design, so nothing catches this. The mechanism that *does* work for a unit
-starting before the network is `Restart=` with a `StartLimitIntervalSec`/`StartLimitBurst`
-window wide enough for the backoff to fit inside. Measured once here: on a boot where wifi took
-103 s, `rclone@gdrive` failed its first attempt on DNS and the retry had the mount serving 4.6 s
-after the network became usable — as early as any ordering could have managed.
+and silent by design, so nothing catches this. The fix is `Restart=` with a
+`StartLimitIntervalSec`/`StartLimitBurst` window wide enough for the backoff to fit inside —
+mechanism and measurements in the `systemd-user-units` skill.
 
 **Failed user units leave a persistent record, not just a notification.**
 
