@@ -434,19 +434,39 @@ vf() {
 
 # Sync from requirements.txt
 vs() {
+  local prune=0
+  case "$#:$1" in
+    0:) ;;
+    1:--prune) prune=1 ;;
+    *) echo "Usage: vs [--prune]"; return 1 ;;
+  esac
   [[ -n "$VIRTUAL_ENV" ]] || { echo "❌ No active environment. Activate first."; return 1; }
   [[ -f "requirements.txt" ]] || { echo "❌ No requirements.txt found"; return 1; }
+  [[ -d "$VIRTUAL_ENV" ]] || { echo "❌ Active environment is missing."; return 1; }
 
-  # Pruning is only safe where one project owns the environment. A central venv is
-  # shared by several project directories by design, so syncing it to one
-  # project's requirements.txt would uninstall the others' dependencies -- there,
-  # only ever add. Same ".venv" test as vl uses.
-  if [[ "${VIRTUAL_ENV:t}" == ".venv" ]]; then
+  # Compare resolved locations, not basenames: every project's local environment
+  # has the same name. Central environments take precedence, even if named .venv
+  # or reached through a project's .venv symlink. An external .venv symlink is
+  # not evidence that this project owns its target.
+  local active="${VIRTUAL_ENV:A}" project_env="${PWD:A}/.venv"
+  local central="${CENTRAL_VENVS:A}"
+  if [[ -n "$CENTRAL_VENVS" && "$active" == "$central/"* ]]; then
+    if (( prune )); then
+      echo "❌ Refusing to prune a shared environment. Use 'vs' to install requirements."
+      return 1
+    fi
+  elif [[ "$active" != "$project_env" || -L .venv ]]; then
+    echo "❌ Active environment does not belong to this project: $VIRTUAL_ENV"
+    echo "💡 Activate this project's .venv or a shared central environment first."
+    return 1
+  fi
+
+  if (( prune )); then
     echo "📦 Syncing ./.venv to requirements.txt (removes anything not listed)..."
-    uv pip sync requirements.txt --python "$VIRTUAL_ENV/bin/python"
+    uv pip sync requirements.txt --python "$active/bin/python"
   else
-    echo "📦 Installing requirements into ${VIRTUAL_ENV:t} (shared env, nothing removed)..."
-    uv pip install -r requirements.txt --python "$VIRTUAL_ENV/bin/python"
+    echo "📦 Installing requirements into $active (nothing removed)..."
+    uv pip install -r requirements.txt --python "$active/bin/python"
   fi
 }
 
@@ -624,7 +644,8 @@ OTHER COMMANDS:
   vd           - Deactivate
   vl           - List centralized environments
   vr <name>    - Delete environment (shows size, asks first)
-  vs           - Apply requirements.txt: prunes ./.venv, only adds to a central env
+  vs           - Install requirements.txt without removing unlisted packages
+  vs --prune   - Also remove unlisted packages; only for this project's own .venv
   vf           - Remove .envrc
   check-envrc  - Health check .envrc files
   python-info  - Show Python/uv/direnv info

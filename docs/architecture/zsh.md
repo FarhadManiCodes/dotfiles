@@ -29,6 +29,7 @@
 | `vc [name] [template]` | Create venv |
 | `va [name]` | Activate venv — bare `va` picks from central venvs plus a `./.venv` (listed as `local`); `va local` activates for the session only, `va <central-name>` writes an `.envrc` so direnv takes over |
 | `vl` | List venvs |
+| `vs [--prune]` | Install requirements into this project's `.venv` or a central environment; `--prune` removes unlisted packages only from this project's non-symlinked `.venv`. Other environments are rejected. |
 | `fnb` | Find + open Jupyter notebook |
 | `fdata` | Find data/model files |
 | `gci` | Interactive commit |

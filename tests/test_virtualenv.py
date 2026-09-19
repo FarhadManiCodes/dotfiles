@@ -87,7 +87,7 @@ class VirtualenvTests(unittest.TestCase):
         self.stub("uv",
                   '#!/bin/sh\n'
                   'printf "%s\\n" "$*" >> "$UV_LOG"\n'
-                  '[ "$1" = venv ] && mkdir -p "$2/bin" && : > "$2/bin/activate"\n')
+                  'if [ "$1" = venv ]; then mkdir -p "$2/bin" && : > "$2/bin/activate"; fi\n')
         self.stub("direnv", "#!/bin/sh\nexit 0\n")
         self.env["UV_LOG"] = str(self.root / "uv.log")
         project = self.root / "project"
@@ -113,19 +113,63 @@ class VirtualenvTests(unittest.TestCase):
                 self.assertIn(f"venv {self.central}/{expected}", log.read_text(),
                               result.stdout + result.stderr)
 
-    def test_vs_prunes_a_local_venv_but_only_adds_to_a_shared_one(self):
+    def test_vs_pruning_requires_explicit_opt_in_and_project_ownership(self):
         # A central env is shared by several project directories, so syncing it to
         # one project's requirements.txt would uninstall the others' dependencies.
         project = self.stub_uv_and_direnv()
         (project / "requirements.txt").write_text("pandas\n")
         log = self.root / "uv.log"
-        for venv, expected in ((project / ".venv", "pip sync"),
-                               (self.central / "shared", "pip install -r")):
-            with self.subTest(venv=venv.name):
+        for venv, command, expected in (
+            (project / ".venv", "vs", "pip install -r"),
+            (project / ".venv", "vs --prune", "pip sync"),
+            (self.central / "shared", "vs", "pip install -r"),
+            (self.central / ".venv", "vs", "pip install -r"),
+            (self.central / "shared", "vs --prune", None),
+            (self.central / ".venv", "vs --prune", None),
+            (self.root / "other-project/.venv", "vs", None),
+            (self.root / "other-project/.venv", "vs --prune", None),
+            (project / ".venv", "vs --unknown", None),
+        ):
+            with self.subTest(venv=venv, command=command):
+                venv.mkdir(parents=True, exist_ok=True)
                 log.write_text("")
                 self.env["VIRTUAL_ENV"] = str(venv)
-                self.run_zsh("vs", cwd=project)
-                self.assertTrue(log.read_text().startswith(expected), log.read_text())
+                result = self.run_zsh(command, cwd=project)
+                if expected is None:
+                    self.assertNotEqual(result.returncode, 0, result.stdout)
+                    self.assertEqual(log.read_text(), "", result.stdout)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertTrue(log.read_text().startswith(expected), log.read_text())
+                    self.assertIn(f"--python {venv}/bin/python", log.read_text())
+
+    def test_vs_does_not_prune_through_a_local_symlink(self):
+        project = self.stub_uv_and_direnv()
+        (project / "requirements.txt").write_text("pandas\n")
+        log = self.root / "uv.log"
+        for target in (self.central / ".venv", self.root / "other/.venv"):
+            target.mkdir(parents=True)
+            link = project / ".venv"
+            link.symlink_to(target)
+            self.env["VIRTUAL_ENV"] = str(link)
+            log.write_text("")
+            result = self.run_zsh("vs --prune", cwd=project)
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertEqual(log.read_text(), "", result.stdout)
+            link.unlink()
+
+    def test_vs_accepts_a_project_reached_through_a_symlink(self):
+        project = self.stub_uv_and_direnv()
+        (project / "requirements.txt").write_text("pandas\n")
+        (project / ".venv").mkdir()
+        alias = self.root / "project-alias"
+        alias.symlink_to(project)
+        self.env["VIRTUAL_ENV"] = str(alias / ".venv")
+        result = self.run_zsh(f'cd "{alias}"; vs --prune')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        log = (self.root / "uv.log").read_text()
+        self.assertTrue(log.startswith("pip sync"), result.stdout + result.stderr)
+        self.assertIn(f"--python {project}/.venv/bin/python", log)
 
     def test_vr_refuses_a_name_that_escapes_central_venvs(self):
         # _env_path builds "$CENTRAL_VENVS/$name", so "../decoy" pointed vr's
