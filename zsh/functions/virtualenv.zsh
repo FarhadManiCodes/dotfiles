@@ -564,7 +564,10 @@ check_envrc_health() {
       echo "❌ $dir/.envrc → $target (missing)"
       ((issues++))
     fi
-  done < <(find . -name ".envrc" -type f -print0 2>/dev/null)
+  # -xdev is the fix: ~/Cloud/* are fuse.rclone mounts, and walking those over the
+  # network is why an unbounded find from $HOME never finished. Depth 5 reaches
+  # every real project .envrc while leaving vendored ones in ~/.cargo, ~/.local out.
+  done < <(find . -maxdepth 5 -xdev -name ".envrc" -type f -print0 2>/dev/null)
 
   ((issues == 0)) && echo "✅ All .envrc files healthy" || echo "⚠️  Found $issues issue(s)"
 }
