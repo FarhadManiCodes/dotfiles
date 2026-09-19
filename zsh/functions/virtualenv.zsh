@@ -76,8 +76,10 @@ _get_envrc_env() {
     return 0
   fi
 
-  # Centralized — pull the env name out of the activate path
-  grep -o 'source.*activate' "$file" 2>/dev/null | sed -n 's|.*/.central_venvs/\([^/]*\)/.*|\1|p'
+  # Centralized — pull the env name out of the activate path. Must use
+  # $CENTRAL_VENVS itself, not a hardcoded name, or this breaks silently if
+  # it's ever relocated.
+  grep -o 'source.*activate' "$file" 2>/dev/null | sed -n "s|.*${CENTRAL_VENVS}/\([^/]*\)/.*|\1|p"
 }
 
 _reload_direnv() {
@@ -246,19 +248,21 @@ vc() {
     fi
     
   elif [[ $# -eq 2 ]]; then
-    # Check for invalid: template + non-version
     if _is_template "$1" && ! _is_version "$2"; then
       echo "❌ Error: Wrong argument order"
       echo "💡 Did you mean: vc $2 $1"
       return 1
-    fi
-    
-    if _is_template "$1" && _is_version "$2"; then
+    elif _is_template "$1"; then
       # Template + version - prompt for name
       template="$1"
       version="$2"
       read "name?Environment name (Enter for local): "
       [[ -z "$name" ]] && name="local"
+    elif _is_version "$2"; then
+      # Name + version, no template
+      name="$1"
+      template="none"
+      version="$2"
     else
       # Name + template
       name="$1"
@@ -500,8 +504,9 @@ vr() {
     return 0
   }
   
-  # Deactivate if active
-  [[ -n "$VIRTUAL_ENV" && "$VIRTUAL_ENV" == *"$env_name"* ]] && { 
+  # Deactivate only if the active venv IS this one -- exact basename match,
+  # not substring (removing "myapp" must not deactivate "myapp2").
+  [[ -n "$VIRTUAL_ENV" && "$(basename "$VIRTUAL_ENV")" == "$(basename "$venv_path")" ]] && {
     deactivate
     echo "✅ Deactivated"
   }
@@ -518,7 +523,7 @@ vl() {
   # Show active environment
   if [[ -n "$VIRTUAL_ENV" ]]; then
     local current=$(basename "$VIRTUAL_ENV")
-    if [[ "$VIRTUAL_ENV" == *".venv"* ]]; then
+    if [[ "$current" == ".venv" ]]; then
       current="local (.venv)"
     fi
     local managed=$([[ -f ".envrc" ]] && echo "direnv" || echo "manual")
