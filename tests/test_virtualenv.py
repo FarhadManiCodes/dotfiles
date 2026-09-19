@@ -71,6 +71,14 @@ class VirtualenvTests(unittest.TestCase):
             # Any line that really activates counts, however it gets there.
             (". .venv/bin/activate", "local"),
             ('eval "source .venv/bin/activate"', "local"),
+            ('source ".venv/bin/activate"', "local"),
+            (f'source "{self.central}/myapp/bin/activate"', "myapp"),
+            ('echo "Remember to source .venv/bin/activate"', ""),
+            ('source /another-project/.venv/bin/activate', ""),
+            ('source ../other/.venv/bin/activate', ""),
+            ('source .venv/bin/activate.backup', ""),
+            (f'echo "source {self.central}/myapp/bin/activate"', ""),
+            (f'source {self.central}/myapp/../other/bin/activate', ""),
             # A path that only appears in a comment is not configuration, whether
             # the comment is the whole line or trails real code.
             ("# source .venv/bin/activate\nlayout python", ""),

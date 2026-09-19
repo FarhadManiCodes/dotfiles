@@ -90,22 +90,26 @@ _get_envrc_env() {
   local file="${1:-.envrc}"
   [[ -f "$file" ]] || return 1
 
-  # Drop each line's comment, then look for the path in what is left to run.
-  # Slurping the file counted a path that appeared only in a comment; anchoring on
-  # `source` would miss `eval` or `.`. Central before local, since an env may be
-  # named ".venv" and match both; its name is the component after $CENTRAL_VENVS,
-  # from the variable so relocating it can't break this. Local matches any activate
-  # under a .venv, so a hand-written .envrc that computes the path still counts.
+  # Tokenize without executing. Recognize direct activation and a single eval
+  # wrapper; unfamiliar shell code stays unknown. The dirname form below is the
+  # supported handwritten project-relative path, not any arbitrary .venv path.
   local line rest
+  local -a words
   for line in ${(f)"$(<"$file")"}; do
     line=${line%%\#*}
-    [[ -n "$line" ]] || continue
-    if [[ -n "$CENTRAL_VENVS" && "$line" == *"${CENTRAL_VENVS}/"* ]]; then
-      rest="${line#*${CENTRAL_VENVS}/}"
-      echo "${rest%%/*}"
+    words=(${(z)line})
+    [[ ${words[1]} == eval && $#words == 2 ]] && words=(${(z)${(Q)words[2]}})
+    [[ $#words == 2 && ( ${words[1]} == source || ${words[1]} == . ) ]] || continue
+    rest=${(Q)words[2]}
+    if [[ -n "$CENTRAL_VENVS" && "$rest" == "$CENTRAL_VENVS/"*/bin/activate ]]; then
+      rest="${${rest#$CENTRAL_VENVS/}%/bin/activate}"
+      _is_valid_name "$rest" || continue
+      echo "$rest"
       return 0
     fi
-    [[ "$line" == *".venv/bin/activate"* ]] && { echo "local"; return 0; }
+    case "$rest" in
+      .venv/bin/activate|./.venv/bin/activate|'$(dirname "${BASH_SOURCE[0]:-$0}")/.venv/bin/activate') echo "local"; return 0 ;;
+    esac
   done
   return 1
 }
