@@ -99,6 +99,20 @@ class VirtualenvTests(unittest.TestCase):
                 self.assertIn(f"venv {self.central}/{expected}", log.read_text(),
                               result.stdout + result.stderr)
 
+    def test_vs_prunes_a_local_venv_but_only_adds_to_a_shared_one(self):
+        # A central env is shared by several project directories, so syncing it to
+        # one project's requirements.txt would uninstall the others' dependencies.
+        project = self.stub_uv_and_direnv()
+        (project / "requirements.txt").write_text("pandas\n")
+        log = self.root / "uv.log"
+        for venv, expected in ((project / ".venv", "pip sync"),
+                               (self.central / "shared", "pip install -r")):
+            with self.subTest(venv=venv.name):
+                log.write_text("")
+                self.env["VIRTUAL_ENV"] = str(venv)
+                self.run_zsh("vs", cwd=project)
+                self.assertTrue(log.read_text().startswith(expected), log.read_text())
+
     def test_vr_refuses_a_name_that_escapes_central_venvs(self):
         # _env_path builds "$CENTRAL_VENVS/$name", so "../decoy" pointed vr's
         # `rm -rf` at a sibling of the central directory.

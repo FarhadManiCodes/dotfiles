@@ -433,11 +433,17 @@ vs() {
   [[ -n "$VIRTUAL_ENV" ]] || { echo "❌ No active environment. Activate first."; return 1; }
   [[ -f "requirements.txt" ]] || { echo "❌ No requirements.txt found"; return 1; }
 
-  # `uv pip sync`, not `install -r`: this makes the environment MATCH the file,
-  # which is what "sync" means and what `install -r` never did. Anything not
-  # listed is uninstalled, per-venv tools like ipykernel included.
-  echo "📦 Syncing to requirements.txt (removes anything not listed)..."
-  uv pip sync requirements.txt --python "$VIRTUAL_ENV/bin/python"
+  # Pruning is only safe where one project owns the environment. A central venv is
+  # shared by several project directories by design, so syncing it to one
+  # project's requirements.txt would uninstall the others' dependencies -- there,
+  # only ever add. Same ".venv" test as vl uses.
+  if [[ "${VIRTUAL_ENV:t}" == ".venv" ]]; then
+    echo "📦 Syncing ./.venv to requirements.txt (removes anything not listed)..."
+    uv pip sync requirements.txt --python "$VIRTUAL_ENV/bin/python"
+  else
+    echo "📦 Installing requirements into ${VIRTUAL_ENV:t} (shared env, nothing removed)..."
+    uv pip install -r requirements.txt --python "$VIRTUAL_ENV/bin/python"
+  fi
 }
 
 # Remove environment
@@ -611,7 +617,7 @@ OTHER COMMANDS:
   vd           - Deactivate
   vl           - List centralized environments
   vr <name>    - Delete environment (shows size, asks first)
-  vs           - Sync to requirements.txt (removes anything unlisted)
+  vs           - Apply requirements.txt: prunes ./.venv, only adds to a central env
   vf           - Remove .envrc
   check-envrc  - Health check .envrc files
   python-info  - Show Python/uv/direnv info
