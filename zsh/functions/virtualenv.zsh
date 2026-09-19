@@ -89,23 +89,25 @@ _py_ver() { local ver=$("$1" --version 2>/dev/null | awk '{print $2}'); echo "${
 _get_envrc_env() {
   local file="${1:-.envrc}"
   [[ -f "$file" ]] || return 1
-  local content="$(<"$file")"
 
-  # Centralized — the name is the path component after $CENTRAL_VENVS, read from
-  # the variable so relocating it can't break this silently. Glob, not a sed
-  # regex: the "." in the path would be a regex wildcard. Tested BEFORE local,
-  # because a central env may legally be named ".venv" and would then also match
-  # the local pattern below.
-  if [[ -n "$CENTRAL_VENVS" && "$content" == *"source ${CENTRAL_VENVS}/"* ]]; then
-    local rest="${content#*source ${CENTRAL_VENVS}/}"
-    echo "${rest%%/*}"
-    return 0
-  fi
-
-  # Local — any activate path under a .venv, not only the literal line
-  # _create_envrc writes, so a hand-written .envrc that computes the path (via
-  # $(dirname $0), say) is recognised instead of reported as unparseable.
-  [[ "$content" == *".venv/bin/activate"* ]] && echo "local"
+  # Drop each line's comment, then look for the path in what is left to run.
+  # Slurping the file counted a path that appeared only in a comment; anchoring on
+  # `source` would miss `eval` or `.`. Central before local, since an env may be
+  # named ".venv" and match both; its name is the component after $CENTRAL_VENVS,
+  # from the variable so relocating it can't break this. Local matches any activate
+  # under a .venv, so a hand-written .envrc that computes the path still counts.
+  local line rest
+  for line in ${(f)"$(<"$file")"}; do
+    line=${line%%\#*}
+    [[ -n "$line" ]] || continue
+    if [[ -n "$CENTRAL_VENVS" && "$line" == *"${CENTRAL_VENVS}/"* ]]; then
+      rest="${line#*${CENTRAL_VENVS}/}"
+      echo "${rest%%/*}"
+      return 0
+    fi
+    [[ "$line" == *".venv/bin/activate"* ]] && { echo "local"; return 0; }
+  done
+  return 1
 }
 
 # Sets the CALLER's $name (zsh locals are dynamically scoped), defaulting to local.

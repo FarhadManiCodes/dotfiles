@@ -68,6 +68,14 @@ class VirtualenvTests(unittest.TestCase):
             # A central env named ".venv" also matches the local pattern, so the
             # central test has to win.
             (f"source {self.central}/.venv/bin/activate", ".venv"),
+            # Any line that really activates counts, however it gets there.
+            (". .venv/bin/activate", "local"),
+            ('eval "source .venv/bin/activate"', "local"),
+            # A path that only appears in a comment is not configuration, whether
+            # the comment is the whole line or trails real code.
+            ("# source .venv/bin/activate\nlayout python", ""),
+            (f"# old: source {self.central}/analysis/bin/activate\nlayout python", ""),
+            ("export FOO=1 # was: source .venv/bin/activate\nlayout python", ""),
             ("layout python", ""),
         ):
             envrc.write_text(body + "\n")
