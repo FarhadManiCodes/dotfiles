@@ -72,7 +72,6 @@ pre)
         exit 0
     fi
 
-    # Abort only connections with requests actually outstanding.
     aborted=""
     for conn in /sys/fs/fuse/connections/*; do
         [ -f "$conn/waiting" ] || continue

@@ -47,7 +47,7 @@ ok()   { printf '   \033[32mok\033[0m  %s\n' "$1"; }
 skip() { printf '   \033[34m--\033[0m  %s\n' "$1"; skipped=$((skipped+1)); }
 warn() { printf '   \033[33m!!\033[0m  %s\n' "$1"; issues=$((issues+1)); }
 
-# ---------------------------------------------------------------- .pacnew ----
+# -------------------------------------------------------------------------
 hdr "Pending .pacnew"
 if ! command -v pacdiff >/dev/null 2>&1; then
   warn "pacdiff not installed (pacman-contrib)"
@@ -552,7 +552,7 @@ fi
 
 ((sbad)) || ok "expected config links match; no dangling links found in scanned paths"
 
-# ------------------------------------------------------- plugin staleness ----
+# -------------------------------------------------------------------------
 hdr "Plugins behind upstream"
 stale=0
 plugin_count=0
@@ -601,7 +601,7 @@ else
   warn "nvim: lazy-lock.json missing — pinned plugins not checked"
 fi
 
-# ------------------------------------------------------ systemd unit files ----
+# -------------------------------------------------------------------------
 hdr "systemd user units verify"
 units=("$df_dir"/systemd/user/*.{service,timer})
 if ((${#units[@]} == 0)); then
