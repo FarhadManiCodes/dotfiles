@@ -91,19 +91,21 @@ _get_envrc_env() {
   [[ -f "$file" ]] || return 1
   local content="$(<"$file")"
 
-  # Local .venv — _create_envrc writes `source .venv/bin/activate` (./ optional)
-  if [[ "$content" == *"source "(|./)".venv/bin/activate"* ]]; then
-    echo "local"
-    return 0
-  fi
-
   # Centralized — the name is the path component after $CENTRAL_VENVS, read from
   # the variable so relocating it can't break this silently. Glob, not a sed
-  # regex: the "." in the path would be a regex wildcard.
+  # regex: the "." in the path would be a regex wildcard. Tested BEFORE local,
+  # because a central env may legally be named ".venv" and would then also match
+  # the local pattern below.
   if [[ -n "$CENTRAL_VENVS" && "$content" == *"source ${CENTRAL_VENVS}/"* ]]; then
     local rest="${content#*source ${CENTRAL_VENVS}/}"
     echo "${rest%%/*}"
+    return 0
   fi
+
+  # Local — any activate path under a .venv, not only the literal line
+  # _create_envrc writes, so a hand-written .envrc that computes the path (via
+  # $(dirname $0), say) is recognised instead of reported as unparseable.
+  [[ "$content" == *".venv/bin/activate"* ]] && echo "local"
 }
 
 # Sets the CALLER's $name (zsh locals are dynamically scoped), defaulting to local.

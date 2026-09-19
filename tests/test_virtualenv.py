@@ -62,6 +62,12 @@ class VirtualenvTests(unittest.TestCase):
             (f"source {self.central}/myapp/bin/activate", "myapp"),
             ("source .venv/bin/activate", "local"),
             ("source ./.venv/bin/activate", "local"),
+            # Hand-written .envrc that computes the path: healthy, so it must not
+            # be reported as unparseable.
+            ('source "$(dirname "${BASH_SOURCE[0]:-$0}")/.venv/bin/activate"', "local"),
+            # A central env named ".venv" also matches the local pattern, so the
+            # central test has to win.
+            (f"source {self.central}/.venv/bin/activate", ".venv"),
             ("layout python", ""),
         ):
             envrc.write_text(body + "\n")
