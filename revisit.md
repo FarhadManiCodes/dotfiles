@@ -660,3 +660,15 @@ then run by the user.
   `implicit active: yes` (no prompt needed for a local session); the rest are reached only
   by CLI tools with their own agent (`pkttyagent`, `fwupdmgr`'s `FuPolkitAgent`). No GUI
   app here requests authorization.
+
+---
+
+## `virtualenv.zsh`: `_env_exists` tests only `-d` — ACCEPTED (2026-09-19)
+
+A half-created central venv (directory present, no `bin/activate`) passes `_env_exists`,
+so `vl` lists it as `(0) [Py ?]`.
+
+- **Fix:** none. Requiring `bin/activate` would make exactly those broken envs
+  un-removable by `vr`, which checks existence first — worse than the cosmetic listing.
+  A real fix needs a distinct "incomplete" state, more code than the symptom is worth.
+- **Recheck:** if a half-created env ever causes more than a misleading `vl` line.
