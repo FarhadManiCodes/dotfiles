@@ -124,9 +124,9 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 - Library browser (Mod+z): `~/.local/bin/book-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)
 - Library source: `~/.local/share/study-library`, a static local mirror (not the rclone mount,
   so the picker and opening a book both work offline) — update by hand, there is no sync timer
-  or cache file any more. Reasoning in `docs/architecture.md`.
+  or cache file any more. Reasoning in `docs/architecture/rclone.md`.
 - No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for
-  are in `docs/architecture.md`.
+  are in `docs/architecture/git.md`.
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`
 
 ## Configuration Documentation

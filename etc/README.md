@@ -202,7 +202,7 @@ rebuild reproducibility. The installed `sd-vconsole` hook warns and falls back t
 if the file is absent or empty.
 
 The reasoning behind each — why the subvolumes are split the way they are, why btrfs is in the
-initramfs — belongs in `docs/architecture.md`, and is there. The files themselves are a record of one
+initramfs — belongs in `docs/architecture/btrfs.md`, and is there. The files themselves are a record of one
 machine's hardware, and copying them onto different hardware ranges from useless to
 unbootable.
 

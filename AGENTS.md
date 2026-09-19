@@ -2,7 +2,7 @@
 
 Personal Arch Linux + Niri/Wayland configuration for data engineering and scientific
 computing. `CLAUDE.md` imports this file, so this is the single source of agent guardrails.
-Read `README.md` for the directory map, an application's section in `docs/architecture.md`
+Read `README.md` for the directory map, the app's file under `docs/architecture/`
 before changing it, and `docs/system-notes.md`, `TODO.md` and `revisit.md` before package,
 system or audit work — those hold operational constraints, not background. Do not reopen
 accepted findings without new evidence; TODO items need the user. Read `niri/AGENTS.md`

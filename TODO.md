@@ -23,7 +23,7 @@ Off-machine backup remains deferred.
 **Deferred by the user 2026-09-07.** Revisit later; no implementation now.
 
 **Problem:** snapshots share the data's filesystem. They protect against mistakes, but cannot
-recover a lost or failed disk. See `docs/architecture.md`, "btrfs subvolume layout".
+recover a lost or failed disk. See `docs/architecture/btrfs.md`.
 
 **Deliverable when reopened:** recover irreplaceable data after losing the laptop, using
 credentials available independently of it, with a demonstrated restore.
@@ -56,8 +56,8 @@ required feature scope. The parts that transfer:
 - **`--one-file-system` is load-bearing on this machine.** `~/Cloud/gdrive` and
   `~/Cloud/Dropbox` are FUSE mounts under `$HOME`; without it a backup walks into them and
   pulls the whole Drive down through FUSE. What one stray `du` on an rclone mount already cost
-  is recorded in the sleep-hook section of `docs/architecture.md`. Verify intended coverage:
-  needed data across filesystem boundaries requires an explicit plan.
+  is recorded in `docs/architecture/niri.md`, "Sleep hooks". Verify intended coverage: needed
+  data across filesystem boundaries requires an explicit plan.
 - **State the threat model before the feature**, the way the rclone `combine` note already
   does: this defends against disk death, theft and deletion found late. It does **not** defend
   against malware running as this user, because the machine holds credentials that can delete
@@ -70,7 +70,7 @@ required feature scope. The parts that transfer:
   timers, and **pause must not be a unit condition** — a `ConditionPathExists`-gated unit never
   runs while paused, so it can never notice the pause expiring.
 
-Interacts with the NVMe health check now in `sysclean` (`docs/architecture.md`) — a
+Interacts with the NVMe health check now in `sysclean` (`docs/architecture/sysclean.md`) — a
 disk-health warning is only actionable if there is somewhere to restore from, which is why its
 warning path points here.
 

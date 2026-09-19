@@ -240,7 +240,7 @@ without that the ten results arrive buried under 54 identical headers. The insta
 one provenance line naming the date, country and that the order is measured.
 
 `sysup` checks the file before every update and offers to run this when it finds a problem —
-see `docs/architecture.md`.
+see `docs/architecture/mirrorlist.md`.
 
 **If a re-rank goes wrong**, the previous list is one command away:
 
@@ -352,8 +352,8 @@ System-level choices that aren't captured in any config file:
   verified to generate a token. `yt-dlp/config` points to
   that location. Since 2026-09-17, `sysup` updates an existing checkout after uv,
   builds before replacing it, and retains the previous copy. It does not bootstrap
-  absent installations. See the Zsh section of `docs/architecture.md` for behavior
-  on failure and backup locations.
+  absent installations. See `docs/architecture/zsh.md` for behavior on failure and
+  backup locations.
 - **`shellcheck-bin` (AUR), not repo `shellcheck`**: same upstream version, but the repo
   package is dynamically linked against the Haskell runtime (`ghc-libs` + ~53 `haskell-*`
   packages, ~190 MiB). `shellcheck-bin` is the official upstream static binary (sourced from

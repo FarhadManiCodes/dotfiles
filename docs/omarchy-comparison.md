@@ -124,7 +124,7 @@ codepoint is default-text. The general lesson is in `docs/system-notes.md` under
 So a later comparison does not regress toward Omarchy.
 
 **`unblock-fuse` is correct where their `unmount-fuse` is not.** Same failure, three defects,
-each already documented in `docs/architecture.md` as a tested finding: their `post` hook backgrounds a
+each already documented in `docs/architecture/niri.md` as a tested finding: their `post` hook backgrounds a
 subshell, which `systemd-suspend.service` (`Type=oneshot`, `KillMode=control-group`) SIGTERMs
 mid-`sleep`, so the gvfs restart their comment promises almost certainly never happens; their
 `pre` hook lazy-unmounts with `fusermount3 -uz`, which detaches the mountpoint but does **not**
@@ -246,7 +246,7 @@ built, with the reason in `revisit.md`, "Test runner follow-on scope".
 Also found here but unrelated to Omarchy: 62 accumulated `git fsmonitor--daemon` processes
 holding 326 MB, noticed while measuring the oomd cgroup. Resolved 2026-09-09 by turning
 `core.fsmonitor` off — the count was one daemon per repository, not a leak, and 59 of them
-watched plugin clones. See `docs/architecture.md`; the `TODO.md` item is closed and removed.
+watched plugin clones. See `docs/architecture/git.md`; the `TODO.md` item is closed and removed.
 
 ---
 
