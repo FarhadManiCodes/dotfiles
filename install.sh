@@ -71,190 +71,102 @@ rm -rf "${XDG_CONFIG_HOME}/nvim"
 ln -snf "${DOTFILES}/nvim" "${XDG_CONFIG_HOME}/nvim"
 echo "Neovim configured"
 
-# ============ ptpython ==============================
-echo "🐍 Setting up ptpython..."
-mkdir -p "${HOME}/.config/ptpython"
-ln -sf "${DOTFILES}/ptpython/config.py" "${HOME}/.config/ptpython/config.py"
-echo "✅ ptpython configured"
-
 # ============ ipython ==============================
 # IPYTHONDIR is set to ~/.config/ipython in zsh/.zshenv, so the profile lives
 # here rather than in ~/.ipython. history.sqlite is deliberately not tracked --
 # it is state, and it is the only other thing in the profile.
 echo "🐍 Setting up ipython..."
-mkdir -p "${HOME}/.config/ipython/profile_default/startup"
+mkdir -p "${XDG_CONFIG_HOME}/ipython/profile_default/startup"
 ln -sf "${DOTFILES}/ipython/profile_default/ipython_config.py" \
-       "${HOME}/.config/ipython/profile_default/ipython_config.py"
+       "${XDG_CONFIG_HOME}/ipython/profile_default/ipython_config.py"
 for f in "${DOTFILES}"/ipython/profile_default/startup/*.py; do
-  ln -sf "$f" "${HOME}/.config/ipython/profile_default/startup/$(basename "$f")"
+  ln -sf "$f" "${XDG_CONFIG_HOME}/ipython/profile_default/startup/$(basename "$f")"
 done
 echo "✅ ipython configured"
 
-# ============ niri ==============================
-echo "Setting up Niri..."
-mkdir -p "${XDG_CONFIG_HOME}/niri"
-ln -sf "${DOTFILES}/niri/config.kdl" "${XDG_CONFIG_HOME}/niri/config.kdl"
-echo "Niri configured"
+# ============ single-file app configs ==============================
+# Everything below has one file (or a small fixed set) at the same relative
+# path in the repo and under XDG_CONFIG_HOME — nothing here needs anything
+# beyond mkdir + ln, so it is a data list instead of one stanza per app.
+# Apps that need extra logic (a template, a glob, a non-default target) keep
+# their own section below this loop.
+echo "Setting up single-file app configs..."
+simple_configs=(
+  ptpython/config.py
+  niri/config.kdl
+  environment.d/defaults.conf
+  environment.d/wayland.conf
+  paru/paru.conf
+  # NOTE: /etc/pam.d/swaylock (fingerprint + password unlock) is root-owned
+  # and installed separately by install-root.sh.
+  swaylock/config
+  glow/glow.yml
+  mpv/mpv.conf
+  yt-dlp/config
+  cmus/rc
+  direnv/direnvrc
+  uv/uv.toml
+  gh/config.yml
+  # ripgrep-all is not configured here: rga writes its own config.jsonc (and
+  # schema) on first run, and every adapter we want is enabled by default.
+  #
+  # neocmakelsp: the trailing "-" in its [format] args is load-bearing --
+  # gersemi with no file operand exits 0 printing nothing, which neocmakelsp
+  # applies as a successful empty format and blanks the buffer. See the
+  # comments in the file itself.
+  neocmakelsp/config.toml
+  mako/config
+  vifm/vifmrc
+  vifm/colors/catppuccin-mocha.vifm
+  vifm/colors/zenburn-rich.vifm
+  tridactyl/tridactylrc
+  fuzzel/fuzzel.ini
+  bat/config
+  btop/btop.conf
+  starship.toml
+  foot/foot.ini
+  git/config
+  git/ignore
+  lazygit/config.yml
+  zathura/zathurarc
+  sioyek/prefs_user.config
+  sioyek/keys_user.config
+  vimb/config
+  clangd/config.yaml
+  spotify-player/theme.toml
+  handlr/handlr.toml
+  ccache/ccache.conf
+  # GTK appearance is not configured here: the xdg-desktop-portal Settings
+  # interface overrides gtk-{3,4}.0/settings.ini for every key it serves
+  # (font-name, gtk-theme, icon-theme, cursor-theme). Use dconf instead.
+  wob/wob.ini
+  latexmk/latexmkrc
+  mimeapps.list
+  papis/config
+)
+for rel in "${simple_configs[@]}"; do
+  mkdir -p "${XDG_CONFIG_HOME}/$(dirname "$rel")"
+  ln -sf "${DOTFILES}/${rel}" "${XDG_CONFIG_HOME}/${rel}"
+  echo "  $rel"
+done
+echo "Single-file app configs installed"
 
-
-# ============ environment.d ==============================
-echo "Setting up environment.d..."
-mkdir -p "${XDG_CONFIG_HOME}/environment.d"
-ln -sf "${DOTFILES}/environment.d/defaults.conf" "${XDG_CONFIG_HOME}/environment.d/defaults.conf"
-ln -sf "${DOTFILES}/environment.d/wayland.conf" "${XDG_CONFIG_HOME}/environment.d/wayland.conf"
-echo "environment.d configured"
-
-# ============ paru ==============================
-echo "Setting up paru..."
-mkdir -p "${XDG_CONFIG_HOME}/paru"
-ln -sf "${DOTFILES}/paru/paru.conf" "${XDG_CONFIG_HOME}/paru/paru.conf"
-echo "paru configured"
-
-# ============ swaylock ==============================
-echo "Setting up Swaylock..."
-mkdir -p "${XDG_CONFIG_HOME}/swaylock"
-ln -sf "${DOTFILES}/swaylock/config" "${XDG_CONFIG_HOME}/swaylock/config"
-# NOTE: /etc/pam.d/swaylock (fingerprint + password unlock) is root-owned and
-# installed separately by install-root.sh — see the closing note below.
-echo "Swaylock configured"
-
-# ============ glow ==============================
-echo "Setting up Glow..."
-mkdir -p "${XDG_CONFIG_HOME}/glow"
-ln -sf "${DOTFILES}/glow/glow.yml" "${XDG_CONFIG_HOME}/glow/glow.yml"
-echo "Glow configured"
-
-# ============ mpv ==============================
-echo "Setting up Mpv..."
-mkdir -p "${XDG_CONFIG_HOME}/mpv"
-ln -sf "${DOTFILES}/mpv/mpv.conf" "${XDG_CONFIG_HOME}/mpv/mpv.conf"
-echo "Mpv configured"
-
-# ============ yt-dlp ==============================
-echo "Setting up yt-dlp..."
-mkdir -p "${XDG_CONFIG_HOME}/yt-dlp"
-ln -sf "${DOTFILES}/yt-dlp/config" "${XDG_CONFIG_HOME}/yt-dlp/config"
-echo "yt-dlp configured"
-
-# ============ cmus ==============================
-echo "Setting up cmus..."
-mkdir -p "${XDG_CONFIG_HOME}/cmus"
-ln -sf "${DOTFILES}/cmus/rc" "${XDG_CONFIG_HOME}/cmus/rc"
-echo "cmus configured"
-
-# ============ direnv ==============================
-echo "Setting up Direnv..."
-mkdir -p "${XDG_CONFIG_HOME}/direnv"
-ln -sf "${DOTFILES}/direnv/direnvrc" "${XDG_CONFIG_HOME}/direnv/direnvrc"
-echo "Direnv configured"
-
-# ============ uv ==============================
-echo "Setting up uv..."
-mkdir -p "${XDG_CONFIG_HOME}/uv"
-ln -sf "${DOTFILES}/uv/uv.toml" "${XDG_CONFIG_HOME}/uv/uv.toml"
-echo "uv configured"
-
-# ============ gh ==============================
-echo "Setting up GitHub CLI..."
-mkdir -p "${XDG_CONFIG_HOME}/gh"
-ln -sf "${DOTFILES}/gh/config.yml" "${XDG_CONFIG_HOME}/gh/config.yml"
-echo "GitHub CLI configured"
-
-# ripgrep-all is not configured here: rga writes its own config.jsonc (and
-# schema) on first run, and every adapter we want is enabled by default.
-
-# ============ neocmakelsp ==============================
-# The trailing "-" in its [format] args is load-bearing: gersemi with no file
-# operand exits 0 printing nothing, which neocmakelsp applies as a successful
-# empty format and blanks the buffer. See the comments in the file itself.
-echo "Setting up neocmakelsp..."
-mkdir -p "${XDG_CONFIG_HOME}/neocmakelsp"
-ln -sf "${DOTFILES}/neocmakelsp/config.toml" "${XDG_CONFIG_HOME}/neocmakelsp/config.toml"
-echo "neocmakelsp configured"
-
-# ============ mako ==============================
-echo "Setting up mako..."
-mkdir -p "${XDG_CONFIG_HOME}/mako"
-ln -sf "${DOTFILES}/mako/config" "${XDG_CONFIG_HOME}/mako/config"
-echo "mako configured"
-
-# ============ vifm ==============================
-echo "Setting up vifm..."
-mkdir -p "${XDG_CONFIG_HOME}/vifm"
-ln -sf "${DOTFILES}/vifm/vifmrc" "${XDG_CONFIG_HOME}/vifm/vifmrc"
-mkdir -p "${XDG_CONFIG_HOME}/vifm/colors"
-ln -sf "${DOTFILES}/vifm/colors/catppuccin-mocha.vifm" "${XDG_CONFIG_HOME}/vifm/colors/catppuccin-mocha.vifm"
-ln -sf "${DOTFILES}/vifm/colors/zenburn-rich.vifm" "${XDG_CONFIG_HOME}/vifm/colors/zenburn-rich.vifm"
-echo "vifm configured"
-
-# ============ tridactyl ==============================
-echo "Setting up tridactyl..."
-mkdir -p "${XDG_CONFIG_HOME}/tridactyl"
-ln -sf "${DOTFILES}/tridactyl/tridactylrc" "${XDG_CONFIG_HOME}/tridactyl/tridactylrc"
-echo "tridactyl configured"
-
-# ============ fuzzel ==============================
-echo "Setting up Fuzzel..."
-mkdir -p "${XDG_CONFIG_HOME}/fuzzel"
-ln -sf "${DOTFILES}/fuzzel/fuzzel.ini" "${XDG_CONFIG_HOME}/fuzzel/fuzzel.ini"
-echo "Fuzzel configured"
-
-# ============ bat ==============================
-echo "Setting up Bat..."
-mkdir -p "${XDG_CONFIG_HOME}/bat"
-ln -sf "${DOTFILES}/bat/config" "${XDG_CONFIG_HOME}/bat/config"
-echo "Bat configured"
-
-# ============ btop ==============================
-echo "Setting up Btop..."
-mkdir -p "${XDG_CONFIG_HOME}/btop"
-ln -sf "${DOTFILES}/btop/btop.conf" "${XDG_CONFIG_HOME}/btop/btop.conf"
-echo "Btop configured"
-
-# ============ starship ==============================
-echo "Setting up Starship..."
-ln -sf "${DOTFILES}/starship.toml" "${XDG_CONFIG_HOME}/starship.toml"
-echo "Starship configured"
-
-# ============ foot terminal ==============================
-echo "🦶 Setting up foot terminal..."
-mkdir -p "${XDG_CONFIG_HOME}/foot"
-ln -sf "${DOTFILES}/foot/foot.ini" "${XDG_CONFIG_HOME}/foot/foot.ini"
-echo "✅ foot configured"
-
-# ============ git ==============================
-echo "Setting up Git..."
-mkdir -p "${XDG_CONFIG_HOME}/git"
-ln -sf "${DOTFILES}/git/config" "${XDG_CONFIG_HOME}/git/config"
-ln -sf "${DOTFILES}/git/ignore" "${XDG_CONFIG_HOME}/git/ignore"
+# git/config.local is per-machine identity, never overwritten once created.
 if [[ ! -f "${XDG_CONFIG_HOME}/git/config.local" ]]; then
     cat > "${XDG_CONFIG_HOME}/git/config.local" << 'GITLOCAL'
 [user]
     name = Your Name
     email = you@example.com
 GITLOCAL
-    echo "  Created config.local template -- fill in your name and email"
+    echo "Created git/config.local template -- fill in your name and email"
 fi
-echo "Git configured"
 
-# ============ lazygit ======================================
-echo "Setting up lazygit..."
-mkdir -p "${XDG_CONFIG_HOME}/lazygit"
-ln -sf "${DOTFILES}/lazygit/config.yml" "${XDG_CONFIG_HOME}/lazygit/config.yml"
-echo "Lazygit configured"
-
-# ============ zathura ==============================
-echo "Setting up Zathura..."
-mkdir -p "${XDG_CONFIG_HOME}/zathura"
-ln -sf "${DOTFILES}/zathura/zathurarc" "${XDG_CONFIG_HOME}/zathura/zathurarc"
-echo "Zathura configured"
-
-# ============ sioyek ==============================
-echo "Setting up Sioyek..."
-mkdir -p "${XDG_CONFIG_HOME}/sioyek"
-ln -sf "${DOTFILES}/sioyek/prefs_user.config" "${XDG_CONFIG_HOME}/sioyek/prefs_user.config"
-ln -sf "${DOTFILES}/sioyek/keys_user.config"  "${XDG_CONFIG_HOME}/sioyek/keys_user.config"
-echo "Sioyek configured"
+# spotify-player/app.toml holds a per-machine client_id, never overwritten
+# once created (unlike theme.toml above, which is a plain symlink).
+if [[ ! -f "${XDG_CONFIG_HOME}/spotify-player/app.toml" ]]; then
+    cp "${DOTFILES}/spotify-player/app.toml" "${XDG_CONFIG_HOME}/spotify-player/app.toml"
+    echo "Created spotify-player/app.toml template -- fill in your client_id"
+fi
 
 # ============ pcmanfm-qt ==============================
 echo "Setting up pcmanfm-qt..."
@@ -271,58 +183,6 @@ for file in "${DOTFILES}/foliate/themes/"*.json; do
 done
 dconf load /com/github/johnfactotum/Foliate/ < "${DOTFILES}/foliate/settings.dconf"
 echo "Foliate configured"
-
-# ============ vimb ==============================
-echo "Setting up vimb..."
-mkdir -p "${XDG_CONFIG_HOME}/vimb"
-ln -sf "${DOTFILES}/vimb/config" "${XDG_CONFIG_HOME}/vimb/config"
-echo "vimb configured"
-
-# ============ clangd ==============================
-echo "Setting up Clangd..."
-mkdir -p "${XDG_CONFIG_HOME}/clangd"
-ln -sf "${DOTFILES}/clangd/config.yaml" "${XDG_CONFIG_HOME}/clangd/config.yaml"
-echo "Clangd configured"
-
-# ============ spotify-player ==============================
-echo "Setting up spotify-player..."
-mkdir -p "${XDG_CONFIG_HOME}/spotify-player"
-ln -sf "${DOTFILES}/spotify-player/theme.toml" "${XDG_CONFIG_HOME}/spotify-player/theme.toml"
-if [[ ! -f "${XDG_CONFIG_HOME}/spotify-player/app.toml" ]]; then
-    cp "${DOTFILES}/spotify-player/app.toml" "${XDG_CONFIG_HOME}/spotify-player/app.toml"
-    echo "  Created app.toml template -- fill in your client_id"
-fi
-echo "spotify-player configured"
-
-# ============ handlr ==============================
-echo "Setting up Handlr..."
-mkdir -p "${XDG_CONFIG_HOME}/handlr"
-ln -sf "${DOTFILES}/handlr/handlr.toml" "${XDG_CONFIG_HOME}/handlr/handlr.toml"
-echo "Handlr configured"
-
-# ============ ccache ==============================
-echo "Setting up Ccache..."
-mkdir -p "${XDG_CONFIG_HOME}/ccache"
-ln -sf "${DOTFILES}/ccache/ccache.conf" "${XDG_CONFIG_HOME}/ccache/ccache.conf"
-echo "Ccache configured"
-
-# GTK appearance is not configured here: the xdg-desktop-portal Settings
-# interface overrides gtk-{3,4}.0/settings.ini for every key it serves
-# (font-name, gtk-theme, icon-theme, cursor-theme). Use dconf instead.
-
-# ============ wob ==============================
-echo "Setting up wob..."
-mkdir -p "${XDG_CONFIG_HOME}/wob"
-ln -sf "${DOTFILES}/wob/wob.ini" "${XDG_CONFIG_HOME}/wob/wob.ini"
-echo "wob configured"
-
-
-# ============ latexmk ==============================
-echo "Setting up latexmk..."
-mkdir -p "${XDG_CONFIG_HOME}/latexmk"
-ln -sf "${DOTFILES}/latexmk/latexmkrc" "${XDG_CONFIG_HOME}/latexmk/latexmkrc"
-echo "latexmk configured"
-
 
 # ============ xdg user dirs ==============================
 echo "Setting up XDG user dirs..."
@@ -341,12 +201,6 @@ ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
 )
 systemctl --user mask xdg-user-dirs.service >/dev/null 2>&1
 echo "XDG user dirs configured"
-
-
-# ============ mimeapps ==============================
-echo "Setting up MIME associations..."
-ln -sf "${DOTFILES}/mimeapps.list" "${XDG_CONFIG_HOME}/mimeapps.list"
-echo "MIME associations configured"
 
 # ============ desktop files ==============================
 echo "Setting up desktop files..."
@@ -388,12 +242,6 @@ for file in "${DOTFILES}/bash/"*; do
   ln -sf "$file" "${HOME}/.local/bin/"
 done
 echo "✅ Helper scripts installed"
-
-# ============ papis ==============================
-echo "Setting up papis..."
-mkdir -p "${XDG_CONFIG_HOME}/papis"
-ln -sf "${DOTFILES}/papis/config" "${XDG_CONFIG_HOME}/papis/config"
-echo "papis configured"
 
 # ============ ssh client config ===================================
 # ~/.ssh must stay 0700 or ssh refuses to use it.
