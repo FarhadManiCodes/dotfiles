@@ -71,126 +71,58 @@ One line at (cold) boot. Bluetooth works fully — all A2DP endpoints register.
 Priced during the nvim audit and rejected. Recorded because each is the kind of thing an
 audit will keep suggesting.
 
-- **marksman** (markdown LSP) — **declined on cost/benefit.** 21 MiB plus
-  `dotnet-runtime-9.0` at 70 MiB, i.e. a .NET runtime on the machine, and its entire value
-  is the *link graph between files*. Measured: **2** markdown links between `.md` files in
-  all of dotfiles, **1** papis note, **0** wiki-links, **0** cross-links. Same shape as
-  preferring `shellcheck-bin` over the Haskell-linked repo build. It is not a linter — link
-  integrity only, nothing about prose.
-- **CMake LSP** — **reversed on evidence, 2026-08-13: `neocmakelsp` is going in.** The
-  original "declined" rested on two things that did not survive checking. First, the need is
-  real: **27 of 37** CMake files are authored (SciCpp's `chapters/*/` tree, toy-pde-solver's
-  `src`+`tests`, three playground projects) — the count only looked inflated because the
-  *largest* files on disk are vendored spack/git ones. Second, the cost is near zero:
-  `neocmakelsp` needs only `cmake` at runtime and builds with the **rust already installed**
-  for paru. Upstream is alive — v0.11.0 on 2026-07-25, pushed daily, 424 stars — whereas
-  `cmake-language-server` was **last pushed 2025-02-11, 18 months idle**, which is what
-  "unmaintained" was guessing at. Ignore `neocmakelsp-bin` (0.6.22, April 2024, dead).
-  Invocation is `neocmakelsp stdio`; config is `init_options` plus its own
-  `.neocmake.toml`/`$XDG_CONFIG_HOME/neocmakelsp/config.toml`. Formatting is **external** —
-  `[format] program = "gersemi"`, so `python-gersemi` (extra) is required for `<leader>cf`.
-- **`taplo`** (TOML) — **tried and REMOVED, 2026-08-13.** Installed, configured and
-  verified working, then dropped once its real coverage was measured rather than assumed.
-  The pitch was "it catches config that silently does nothing", the failure class this audit
-  kept finding by hand. Measured, that holds for **`uv.toml` only**: `uv` accepts a misspelt
-  `concurent-downloads` with exit 0 and no warning, and taplo flags it. It does **not** hold
-  for the case actually used to justify it — **ruff refuses to start** on an unknown key
-  (`Failed to parse pyproject.toml`), so there taplo is merely *earlier*, not new
-  information. And coverage is patchy anyway: a misspelt `addoptss` under
-  `[tool.pytest.ini_options]` produced **0 diagnostics**, because the pyproject schema does
-  not reach into every tool's sub-table, and `handlr.toml` / `spotify-player/*.toml` /
-  `icons/settings.toml` matched no rule at all. Verdict: insurance that fires perhaps twice a
-  year, against 12 MiB plus a tracked config, an install.sh entry and a `--config` flag in
-  `cmd`. Not worth carrying. Superseded detail, for anyone reconsidering: Not AUR-only as first
-  recorded: **`taplo-cli` 0.10.0 is in `extra`**, 11.9 MiB, upstream healthy. Serves 12
-  authored TOML files of which **7 are `pyproject.toml`** (papis-ask, paper-refinery,
-  mathunicode, cv-generator, yts), where SchemaStore validation is the draw — the same thing
-  `yamlls` already gives YAML. Nothing shadows it: the `toml` parser gives highlighting, but
-  there is no validation today. Invocation `taplo lsp stdio`; **verify `taplo lsp --help`
-  first**, since upstream warns the LSP is not in every build.
-- **`harper-ls`** (grammar) — **measured and REJECTED, 2026-08-13. Installed, scored,
-  uninstalled.** Not because it handles LaTeX badly — **it handles math better than Neovim
-  does** — but because its dictionary is worse at this subject matter. On the real
-  `main.tex` it flagged **34** where Neovim's spell flags **5** (all genuine unknown names),
-  and it mis-suggests on domain vocabulary: `vorticity -> voracity`,
-  `incompressible -> compressible`, `Kalman` unrecognised. All clean under Neovim's, because
-  the tracked 466-word list knows them; adopting harper would mean porting that list to its
-  `userDictPath` *and* accepting a weaker dictionary, for 112 MiB. With `SpellCheck = false`
-  it still flagged 10 on that file via compound-word linters.
+- **marksman** (markdown LSP) — **declined on cost/benefit.** 21 MiB plus a 70 MiB .NET
+  runtime, for a link graph between files. Measured: 2 markdown links, 1 papis note, 0
+  wiki-links, 0 cross-links across the whole repo. Not a prose linter — link integrity only.
+- **CMake LSP** — **reversed on evidence, 2026-08-13: `neocmakelsp` went in.** 27 of 37
+  CMake files are authored, not vendored, and the package needs only `cmake` at runtime plus
+  the rust already installed for paru; `cmake-language-server` was 18 months idle, which is
+  what "unmaintained" was guessing at. `neocmakelsp stdio`; formatting is external via
+  `gersemi` (`python-gersemi`).
+- **`taplo`** (TOML) — **tried and REMOVED, 2026-08-13.** Installed and verified working,
+  then dropped: its pitch ("catches config that silently does nothing") only held for
+  `uv.toml` — ruff already refuses to start on a bad `pyproject.toml` key, and taplo missed
+  a misspelt `addoptss` under `[tool.pytest.ini_options]` and every non-schema TOML file
+  entirely. Insurance firing maybe twice a year against 12 MiB and an install.sh entry.
+- **`harper-ls`** (grammar) — **measured and REJECTED, 2026-08-13.** Handles LaTeX math
+  better than Neovim's spellcheck, but its dictionary is worse for this vocabulary: 34 false
+  flags on the real `main.tex` vs Neovim's 5, including `vorticity → voracity` and `Kalman`
+  unrecognised. Neovim's tracked 466-word list already knows them; porting it and accepting
+  a weaker dictionary isn't worth 112 MiB for what harper adds (repeated words, indefinite
+  articles). If revisited, re-score with `~/learning/playground/harper-vs-spell` rather than
+  re-deriving the comparison.
+- **`g:rcsv_max_columns`** — deliberately unset; no CSV has been slow. Set only against an
+  actual symptom. (`g:rcsv_align_mode`, which the config used to set, was never a real
+  option.)
+- **`queries/zsh/textobjects.scm`** — **done 2026-08-13.** Upstream's zsh query defined
+  neither `@block` nor `@parameter.outer`; added both (`;; extends` first line is
+  load-bearing). Bracket/class text-objects stay no-ops: shell has no class.
 
-  **The genuine trade, worth keeping in mind if this is ever revisited:** neither parses
-  LaTeX perfectly, and they fail on *opposite* constructs. Neovim leaks out of
-  `\begin{align}` (flagged `Cx` in `y &= Cx + Du`) and out of `\texttt{}`; harper leaks out
-  of `\begin{verbatim}` (flagged `recieve` in a code block). In practice the math leak is
-  rare — zero occurrences in the real `main.tex` — while harper's vocabulary noise is
-  pervasive. **This could flip** if the writing shifts to heavy `align`/`gather` with
-  single-letter matrix names; try adding those tokens to the wordlist first. What harper
-  genuinely adds and Neovim cannot: repeated words (`this this`) and indefinite articles
-  (`a apple`) — real but small. Sentence capitalisation is *not* one, Neovim already catches
-  it via `spellcapcheck`. Re-score with `~/learning/playground/harper-vs-spell` (fixtures,
-  both configs, scoring table) rather than re-deriving any of this.
-
-  Superseded first impression: Not the narrow tool first
-  assumed: it ships dedicated `harper-tex` and `harper-typst` crates, and `backend.rs`
-  dispatches `"typst"` and `"tex"|"latex"` to them, so it could *replace* Neovim's spell
-  rather than merely duplicate it. `harper` 2.7.0 is in `extra`; 112 MiB but with **no
-  runtime deps beyond glibc** — unlike marksman, which is smaller only until you count its
-  70 MiB .NET runtime. Two questions settle it, both cheap on a real `.tex`: does it avoid
-  flagging `\mathbf`/`\frac` (our treesitter route leaked those **648×** on the papis
-  corpus), and how much of the 453-word list would need porting to its `userDictPath`? Win
-  the first with a manageable second and it replaces the spell setup; otherwise skip it,
-  since grammar alone was not judged worth the size.
-- **`g:rcsv_max_columns`** — the one real knob for wide-CSV performance (default 30, caps
-  rainbow highlighting). Deliberately **unset**: no CSV has been slow. Set it only against
-  an actual symptom, and note that `g:rcsv_align_mode` — which the config used to set — was
-  never an option at all.
-- **A local `queries/zsh/textobjects.scm`** — **done 2026-08-13**, no longer deferred.
-  Upstream's zsh query defines neither `@block` nor `@parameter.outer`, so `ab`/`ib` and `aa`
-  were no-ops in shell files. Added both, same approach as `queries/sql/textobjects.scm`.
-  The `;; extends` first line is load-bearing — without it the file replaces upstream's query
-  rather than adding to it. `ac`/`ic` and `]] [[ ][ []` stay no-ops deliberately: shell has
-  no class.
-
-**jupytext is installed per-venv, when notebooks are actually needed** — not as a uv tool
-and not system-wide, matching how jupyter is handled here generally. So `.ipynb` opening as
-raw JSON is the **expected** state most of the time, not a fault: the spec resolves the CLI
-venv-first and only arms the plugin when one exists, precisely because its read path
-truncates notebooks when the binary is missing. `uv pip install jupytext` in the project
-venv, then `:restart`. `:checkhealth jupytext` reports which binary it found, or warns that
-notebooks will open as JSON.
-
-**Confirmed 2026-09-09.** The user verified notebooks open as markdown in a venv that has
-jupytext, and `TODO.md` §9 — which had raised the absence as an open question against the
-superseded uv-tool plan — was closed against this entry rather than actioned. The health
-warning is permanent by design; it should not be re-raised as a finding at the next audit.
+**jupytext stays per-venv**, installed only when a project needs notebooks, matching how
+jupyter is handled generally — `.ipynb` opening as raw JSON is expected without it, not a
+fault. `uv pip install jupytext` in the venv, then `:restart`. Confirmed working 2026-09-09;
+the health warning is permanent by design and should not be re-raised as a finding.
 
 ---
 
 ## No system `blas` provider — ACCEPTED (2026-08-14)
 
-`pacman -Qi blas` finds nothing, and `-lblas` / `-llapack` do not resolve. This is
-deliberate, not a gap, and an audit will keep proposing a fix for it.
+`pacman -Qi blas` finds nothing, and `-lblas`/`-llapack` don't resolve. Deliberate, not a
+gap — an audit will keep proposing a fix for it.
 
-- **Investigated:** the AUR adapter `blas-aocl-gcc` — 16 symlinks, 0 bytes of code — was the
-  only package putting AOCL in that slot. It is **orphaned** (`Maintainer: null`; last
-  touched 2024-03-04, flagged out-of-date 2026-08-10), and AOCL 5.3.0 moved its trees to
-  `MT/`,
-  dangling all 13 of its hardcoded paths; `ldconfig` then pruned the four `.so.3` links.
-  Removed 2026-08-14. AOCL itself (`aocl-gcc`, maintained, 3 maintainers) is untouched and
-  is still this machine's BLAS — projects link it explicitly through CMake's native
-  `BLA_VENDOR=AOCL_mt`, which is *better* than the symlinks were (it supplies the `-fopenmp`
-  libflame needs, and picks MT/ST + LP64/ILP64 instead of hardcoding one combination).
-- **Why nothing was installed in its place:** no installed package declares a `blas`
-  dependency — checked across every entry in the local database. `blas-openblas` (official,
-  `extra`) would fill the slot, but it would only ever serve a hypothetical future consumer,
-  and would not be used by any project here.
-- **Accepted risk:** if some package ever *does* pull in `blas`, pacman resolves it to
-  netlib reference BLAS, which is roughly an order of magnitude slower than AOCL. It will
-  appear in the transaction list, so the cost is visible at install time, not silent.
-- **Do not:** reinstall `blas-aocl-gcc`, or fork it. AOCL ships no `libblas.so` at all, so
-  `-lblas` was always the adapter's invention rather than something AMD supports.
-- **Recheck:** if `blas-aocl` is ever adopted on the AUR and updated for the `MT/` layout,
-  or if a wanted package starts depending on `blas`.
+- **Investigated:** the AUR adapter `blas-aocl-gcc` (16 symlinks, 0 bytes of code) was the
+  only package filling that slot. It was orphaned and dangling after AOCL 5.3.0 moved its
+  trees to `MT/`; removed 2026-08-14. AOCL itself (maintained) is untouched and still this
+  machine's BLAS — projects link it via CMake's `BLA_VENDOR=AOCL_mt`, which is *better*
+  than the symlinks were (supplies `-fopenmp`, picks MT/ST + LP64/ILP64 correctly).
+- **Why nothing replaced it:** no installed package declares a `blas` dependency.
+  `blas-openblas` would fill the slot but would only ever serve a hypothetical consumer.
+- **Accepted risk:** if a package ever does pull in `blas`, pacman resolves to netlib
+  reference BLAS (~10x slower than AOCL) — visible in the transaction list, not silent.
+- **Do not:** reinstall or fork `blas-aocl-gcc`. AOCL ships no `libblas.so` at all; `-lblas`
+  was always the adapter's invention.
+- **Recheck:** if `blas-aocl` is ever revived on the AUR for the `MT/` layout, or a wanted
+  package starts depending on `blas`.
 
 ## AOCL `.pc` files hardcode a nonexistent prefix — ACCEPTED (upstream packaging bug)
 
@@ -207,33 +139,29 @@ deliberate, not a gap, and an audit will keep proposing a fix for it.
 
 ## `sysup` executes unpinned code from 40 upstreams — ACCEPTED (priced 2026-09-05)
 
-Measured while comparing against Omarchy. `sysup` refreshes four plugin ecosystems; three of
-them pull and run whatever upstream pushed since the last run.
+Measured while comparing against Omarchy. `sysup` refreshes four plugin ecosystems; three
+pull and run whatever upstream pushed since the last run.
 
 | Ecosystem | Repos | On disk | Pinned |
 |---|---|---|---|
 | `~/.local/share/nvim/lazy` | 37 | 126M | **yes** — `nvim/lazy-lock.json` |
-| `~/.vim/plugged` | 14 | 7.4M | no — `vim +PlugUpdate` |
-| `~/.config/zsh/plugins` | 3 | 4.5M | no — `git pull --ff-only` |
-| `~/.config/tmux/plugins` | 3 | 2.6M | no — `tpm update_plugins all` |
+| `~/.vim/plugged` | 14 | 7.4M | no |
+| `~/.config/zsh/plugins` | 3 | 4.5M | no |
+| `~/.config/tmux/plugins` | 3 | 2.6M | no |
 
-57 repositories, **40 distinct GitHub owners**, ~140 MB executed at shell, editor and tmux
-startup. This is the same risk class `containers/README.md` enumerates to justify the move off Docker —
-"an AUR `build()` during `sysup`, a PyPI package behind a `uv tool`, an AI CLI agent" — with
-the plugin pull left off that list.
+57 repos, 40 distinct GitHub owners, ~140 MB executed at shell/editor/tmux startup — the
+same risk class `containers/README.md` cites to justify the move off Docker, with the
+plugin pull left off that list.
 
-- **Investigated:** the split is an accident of which ecosystems ship lockfiles, not a
-  decision. lazy.nvim pins because lazy.nvim has a lockfile; tpm, vim-plug and the zsh
-  updater have none.
-- **Accepted:** pinning the other three means adopting a lockfile mechanism three more times
-  for 20 packages that are mostly completions and syntax highlighting — and it would need the
-  same follow-on work `config-drift` already documents for nvim, where "behind upstream" stops
-  being a meaningful signal and lockfile *age* has to be checked instead. The cost lands on
-  every future update; the benefit is against a supply-chain compromise of a named upstream.
-- **Do not:** conclude the ecosystems are inconsistent and "fix" it by unpinning nvim. The
-  lockfile is also the rollback path (`Lazy! restore`), which the other three lack entirely.
-- **Recheck:** if tpm or vim-plug grows a lockfile, or if any of the 40 owners is ever
-  compromised.
+- **The split is an accident of which ecosystems ship lockfiles**, not a decision — tpm,
+  vim-plug and the zsh updater simply have none.
+- **Accepted:** pinning the other three means adopting a lockfile mechanism three more
+  times for ~20 packages that are mostly completions and syntax highlighting, plus the
+  same "lockfile age" follow-on work `config-drift` already does for nvim. Cost lands on
+  every future update; benefit is against a supply-chain compromise of a named upstream.
+- **Do not** "fix" the inconsistency by unpinning nvim — the lockfile is also the rollback
+  path (`Lazy! restore`), which the other three lack entirely.
+- **Recheck:** if tpm or vim-plug grows a lockfile, or one of the 40 owners is compromised.
 
 ## Firefox: portal Inhibit rejected on exit — ACCEPTED (portal backend limitation)
 
@@ -287,751 +215,448 @@ Reference: [kernel writeback guidance](https://docs.kernel.org/admin-guide/sysct
 
 ## `thinking_budget=0` for capture-ocr — REJECTED (measured, 2026-09-08)
 
-The review of `bash/capture-ocr` suggested disabling thinking on `gemini-2.5-flash`, since
-transcription plausibly does not need it. Measured with 15 API calls; the claim's *premise*
-held and its *conclusion* did not.
+Disabling thinking on `gemini-2.5-flash` was proposed as a free speedup. Measured with 15
+API calls: the premise held, the conclusion didn't.
 
-- **Thinking is not incidental here.** One call on a matrix-dense Kalman crop spent
-  **1846 thinking tokens for 1046 tokens of output** — 55% of the request. Across three
-  fixtures (real math crop, real prose crop, synthetic German), `thinking_budget=0` cut
-  total tokens **5937 → 2994, a 50% reduction**, and the setting demonstrably took effect
-  (`thoughts_token_count` was 0 in every B call).
-- **Rejected on accuracy, per a rule fixed before running.** The same-config repeats were
-  byte-identical (A-vs-A similarity 1.0000 on two fixtures), so the noise floor is ~zero and
-  every difference is attributable. `budget=0` broke prompt rule 3 on the German fixture,
-  emitting `$\text{sigma\_1} \ge \text{sigma\_2}$` where the current config correctly
-  produces `$\sigma_1 \ge \sigma_2$` — literal text instead of the LaTeX the prompt asks for.
-  It also completed words the crop had cut off ("has to kno" → "has to know"), i.e. supplied
-  text that was not visible. Both are fidelity losses on an OCR tool.
-- **Not uniformly worse.** `budget=0` preserved italic emphasis (`*singular values*`) that
-  the current config drops, which prompt rule 4 arguably wants. The differences run both
-  ways; that is why the pre-registered rule, not a post-hoc reading, decided it.
-- **Latency is the weak half of the evidence.** Medians fell 12.1→10.7 s, 4.6→2.3 s and
-  3.4→1.4 s, but the largest within-config spread was 1.42 s, so the big fixture's 1.4 s
-  gain sits inside the noise. n=2 per cell detects only large effects. Token counts are
-  near-deterministic and are the trustworthy number here; the latency figures are indicative.
-- **Fix:** none. Keep the current config (dynamic thinking, no `thinking_config`).
-- **`thinking_level` is not available on this model.** `MINIMAL`/`LOW`/`MEDIUM`/`HIGH` exist
-  in the SDK but the API rejects them: `400 INVALID_ARGUMENT, Thinking level is not supported
-  for this model`. It is a Gemini 3 surface; on `gemini-2.5-flash` the only knob is the
-  integer `thinking_budget`. Recheck when the model is upgraded.
-- **`max_output_tokens` is deliberately not set.** Thinking counts against it (verified: with
-  a 256 cap the model spent 243 tokens thinking, leaving 13 to answer), so a cap must cover
-  think + output. Measured worst case is a **full page at 3577 + 1958 = 5535 tokens**, and
-  thinking on one fixed crop varied 1846 → 2727 across runs (+48%), so nothing below 8192
-  is safe. A cap that low guards only against a runaway never observed here, while adding a
-  real truncation failure mode. The truncation *detection* it exposed was a genuine bug and
-  is fixed separately.
-- **`thinking_budget=512` was then settled too, and also rejected (9 calls, 2026-09-08).**
-  Once the priority was named as hallucination rather than cost, thinking became the thing
-  protecting against it. Scored against a synthetic fixture with **exact** ground truth —
-  a coined term, two deliberate typos, a misspelled famous name, a 7-digit decimal, a DOI,
-  three reference numbers, and a line cut mid-word — over three runs each:
-
-  | config | hallucinations | thinking | latency |
-  |---|---|---|---|
-  | **dynamic (current)** | **0 / 30** | 635 | 4.9 s |
-  | `thinking_budget=512` | 2 / 30 | 414 | 3.5 s |
-  | `thinking_budget=0` | 3 / 30 | 0 | 1.7 s |
-
-  Monotonic: less thinking, more invention. Every failure was silently *correcting* the
-  source — `Kalmann`→`Kalman` (2/3 at 512, 1/3 at 0), `symetric`→`symmetric` and `teh`→`the`
-  (1/3 each at 0). All numeric content survived in every configuration, and no configuration
-  completed the truncated word, so the earlier n=1 claim that `budget=512` invents cut-off
-  words **did not replicate** and is withdrawn.
-- **Fix:** none. `capture-ocr` keeps dynamic thinking, which is the least-hallucinating
-  configuration measured.
-- **Recheck:** when `gemini-2.5-flash` is superseded — every number here is model-specific.
+- **Thinking is not incidental.** One Kalman-crop call spent 1846 thinking tokens for 1046
+  output tokens (55% of the request); `thinking_budget=0` cut total tokens 5937→2994 (50%)
+  across three fixtures.
+- **Rejected on accuracy, per a rule fixed before running** (same-config repeats were
+  byte-identical, so the noise floor is ~zero). `budget=0` broke the LaTeX rule on the
+  German fixture (`sigma_1` instead of `\sigma_1`) and completed a word the crop had cut
+  off. It did preserve italic emphasis the current config drops — the differences run both
+  ways, which is why the pre-registered rule decided it, not a post-hoc reading.
+- Latency gains (12.1→10.7s, 4.6→2.3s, 3.4→1.4s) mostly sit inside the run-to-run noise
+  (up to 1.42s); the token counts are the trustworthy number here.
+- **`thinking_level` doesn't exist on this model** — the API rejects `MINIMAL`/`LOW`/etc.
+  (`400 INVALID_ARGUMENT`); it's a Gemini 3 surface. Only `thinking_budget` applies here.
+- **`max_output_tokens` is deliberately unset**, because thinking counts against it (a 256
+  cap left only 13 tokens to answer) and the measured worst case is 5535 tokens — nothing
+  below 8192 would be safe.
+- **`thinking_budget=512` was separately measured and also rejected** (9 calls): dynamic
+  thinking hallucinated 0/30 against a ground-truth fixture, `budget=512` hallucinated
+  2/30, `budget=0` hallucinated 3/30 — monotonic, less thinking means more silent
+  "correction" of the source (`Kalmann`→`Kalman`, `teh`→`the`).
+- **Fix:** none. Keep dynamic thinking — the least-hallucinating configuration measured.
+- **Recheck:** when `gemini-2.5-flash` is superseded; every number here is model-specific.
 
 ## gemini-3.5-flash-lite for capture-ocr — REJECTED (measured, 2026-09-08)
 
-Checked because `gemini-3.5-flash-lite` is priced **identically** to the `gemini-2.5-flash`
-this tool runs — $0.30 in / $2.50 out — so a newer model looked like a free upgrade. 40 API
-calls across four fixtures (real math crop, real prose crop, synthetic German, full page).
+Priced identically to the `gemini-2.5-flash` this tool runs, so it looked like a free
+upgrade. 40 API calls across four fixtures.
 
-Everything except reliability favoured it:
-
-- **2.6x faster** (17.8 s vs 46.7 s over four fixtures) and **2.3x cheaper in practice**
-  ($0.0102 vs $0.0237), despite the identical list price — it does **zero thinking**, and
-  thinking is billed as output. It also preserved italic emphasis that 2.5-flash drops.
-- **But it never repeats itself.** Seven runs of the same image at `temperature=0.0` gave
-  **seven distinct outputs** (sha256), on both hard fixtures. Word count swung 209-363 on the
-  math crop (**42% of maximum**) and 981-1204 on the full page.
-- **The variation is content loss, not reformatting.** Checking for ten content elements
-  visible in the crop, the equation system, the "state variables" definition and the
-  "n-vector" passage were **absent in 4 of 7 runs**. One run silently dropped ~21 lines
-  including the whole system (12); the surrounding text read naturally, with no marker.
-- `gemini-2.5-flash` over the same fixtures returned **byte-identical output in 4 of 5 runs**
-  with constant word counts (490, 1039); the single outlier differed only in how it formatted
-  equation (12), which it still labelled.
-
-Silent omission is the one failure an OCR tool cannot have: unlike truncation there is no
-`finish_reason` or token-count signal, so nothing downstream can detect it and the only check
-is re-reading the source — the work the tool exists to avoid.
-
-- **Decision:** keep `gemini-2.5-flash`. Reliability outweighs 2.6x speed and 2.3x cost here.
-- **Also measured:** `gemini-2.5-flash-lite` is 16x cheaper and *was* reproducible, but it is
-  out of scope by preference and additionally invented words the crop had cut off.
-- **Two caveats on the method.** An earlier "perfectly deterministic" reading of 2.5-flash was
-  n=2; at n=5 it is 4/5, so it is highly but not perfectly reproducible. And two markers
-  (`transition matrix`, `gaussian`) read as absent from every 2.5-flash run alike — a constant
-  transcription choice, not variation, and they do not affect the comparison.
+- **Faster and cheaper** (2.6x, 2.3x in practice — it does zero thinking) but **never
+  repeats itself**: seven runs of the same image at temperature 0 gave seven distinct
+  outputs, word count swinging 42% of maximum on the hardest fixture.
+- **The variation is content loss, not reformatting** — a full equation system was absent
+  in 4 of 7 runs, dropped silently with no marker, while `gemini-2.5-flash` was
+  byte-identical in 4 of 5 runs on the same fixtures.
+- Silent omission is the one failure an OCR tool can't have: there's no `finish_reason` or
+  token signal for it, so nothing downstream can detect it.
+- **Decision:** keep `gemini-2.5-flash`. Reliability outweighs the speed/cost win.
 - **Recheck:** when a newer flash-lite reaches general availability, re-run the repeat test
-  first; speed and price were never the deciding variables.
+  first — speed and price were never the deciding variable.
 
 ## gemini-3.8-flash for capture-ocr — REJECTED on cost (measured, 2026-09-08)
 
-Checked because the tool is also used on lecture video — pausing a control-theory
-YouTube lecture and OCR'ing the blackboard — and **every earlier model decision was made
-on clean PDF pages**, which does not transfer to a compressed video frame. 16 API calls:
-two real lecture frames (chalk handwriting, speaker occlusion, and in one frame a MATLAB
-window, so handwriting and rendered text in the same image), plus the hallucination
-fixture, the Kalman crop and the German fixture.
-
-**Handwriting was not the problem.** Both models transcribed chalk derivations
-essentially perfectly — "Popov-Belevitch-Hautus", `ctrb`, `randn(n,1)`, λ, ∈ ℂ, ℝⁿ and
-all three numbered points — and both scored full content-marker coverage on every run
-(13/13 and 8/8). That was the open question and it is answered for both.
-
-Where they differ on the frames:
+Checked for lecture-video frames (chalk handwriting, compressed, sometimes mixed with
+rendered text) since every earlier decision was made on clean PDF pages. 16 API calls.
+Handwriting was not the problem — both models transcribed chalk derivations essentially
+perfectly. Where they differed:
 
 | | 2.5-flash (kept) | 3.8-flash |
 |---|---|---|
 | Image tokens, same frame | 466 | **1286** |
-| LQR weighting matrix `Q` | **2×2 — two diagonal entries lost** | 4×4, correct |
-| MATLAB line cut at the pane edge | **invented `(M*L) 0];`** | `(...`, faithful |
-| `rank[(A−λI) B]` LaTeX | malformed `[[A-λI) … ]]` | proper `bmatrix` |
-| burned-in subtitle, incl. its "igen" typo | **transcribed faithfully** | omitted |
-| `u=force` label | captured | dropped |
+| LQR weighting matrix `Q` | 2×2 — two entries lost | 4×4, correct |
+| MATLAB line cut at pane edge | invented `(M*L) 0];` | faithful `(...` |
+| burned-in subtitle | transcribed faithfully | omitted |
 
-- **Rejected on cost, not quality.** Measured **2.0–2.6×** at introductory pricing and
-  **3.9–5.1× once that ends on 2027-01-01**. Two factors compound: 3.8-flash tokenises
-  the *same image* at 1286 prompt tokens against 466, and thinks more (1189 vs 617 on the
-  identical fixture; 2564→4570 across two runs of one crop, a 78% swing). A rate-only
-  estimate of 1.5× was wrong and is withdrawn.
-- **No regression on the criterion that decided everything else:** 3.8-flash also scores
-  **0/30** on the ten-trap hallucination fixture, preserving `zernathic`, `symetric`,
-  `teh`, `Kalmann`, the DOI and every number. It matched on the German fixture too.
-- **Be fair about how bad 2.5-flash actually was.** One real content error (the `Q`
-  entries, the messiest handwritten element in the frame, and self-detecting since a
-  4-state cart-pendulum cannot have a 2×2 `Q`), plus one invention that happened to
-  produce *correct* MATLAB. Everything else on both frames was right, and it captured two
-  things 3.8-flash dropped.
-- **A tempting generalisation that the data does not support.** "Which model invents
-  cut-off text" **flips by content type**: on the video frame 2.5-flash invented and
-  3.8-flash was faithful; on the paper crop 3.8-flash completed and 2.5-flash was literal;
-  on the hallucination fixture neither did. Neither model is reliably more literal.
-- **Decision:** keep `gemini-2.5-flash`. 2–5× for one corrected matrix is not worth it.
-- **Recheck:** the 2027-01-01 price change, or if lecture-frame capture becomes frequent
-  enough that the `Q`-matrix class of error starts costing real time. `gemini-3.5-flash`
-  needs no test — it is *more* expensive than 3.8-flash while two generations older.
-- **Method caveat:** an intermediate marker check reported 3.8-flash missing content it
-  had transcribed, because the pattern demanded `lqr(` where the model wrote `\text{lqr}(`.
-  Verified before reporting; all runs were complete. Anything scored by regex against
-  LaTeX output needs that check.
+- **Rejected on cost, not quality:** 2.0–2.6× at introductory pricing, 3.9–5.1× after
+  2027-01-01 — 3.8-flash tokenises the same image at 1286 vs 466 and thinks more.
+- No regression on hallucination: both score 0/30 on the ten-trap fixture.
+- Net: one real content error (self-detecting — a 4-state system can't have a 2×2 `Q`)
+  against one thing 3.8-flash omitted. Neither model is reliably more literal; "which model
+  invents cut-off text" flips by content type across the fixtures tested.
+- **Decision:** keep `gemini-2.5-flash`. 2–5× for one corrected matrix isn't worth it.
+- **Recheck:** the 2027-01-01 price change, or if the `Q`-matrix class of error starts
+  costing real time. `gemini-3.5-flash` needs no test — more expensive than 3.8-flash
+  while two generations older.
+- **Method note:** a regex marker check misreported 3.8-flash as missing content it had
+  written as `\text{lqr}(` instead of `lqr(` — verified before reporting; watch for this
+  when scoring LaTeX output by regex.
 
 ## foot `[text-bindings]` for Shift+Enter — REJECTED as unnecessary (measured, 2026-09-08)
 
-- **Investigated:** comparison finding 16 proposed three lines — two `[text-bindings]`
-  entries in `foot/foot.ini` and `extended-keys-format csi-u` in `tmux.conf` — on the
-  grounds that "Shift+Return sends the same bytes as Return and no application can tell
-  them apart". That conclusion was read off Omarchy's config, never probed here.
-- **Why it does not transfer:** foot 1.28.0 implements the Kitty keyboard protocol
-  (`foot-ctlseqs.7` documents the full `CSI > flags u` push/pop/query set), so an
-  application negotiates disambiguation at runtime and gets `CSI 13;2u` with no config.
-  `man tmux` states tmux "will always request extended keys itself if the terminal
-  supports them", and `tmux/tmux.conf:95` already declares `foot*:extkeys`. Omarchy needs
-  the static form because they support many terminals; this machine has one, and it
-  already speaks the protocol.
-- **Evidence:** user-confirmed 2026-09-08 that Shift+Enter inserts a newline in Claude
-  Code **both inside and outside tmux**. So both hops carry it and neither setting is
-  needed. Nothing was changed in `foot.ini` or `tmux.conf`.
-- **Do not adopt the `[text-bindings]` form later.** It is a static, unconditional remap:
-  it fires whether or not the application asked for disambiguation and never reverts, so
-  a program that today gets a plain newline would instead receive `\e[13;2u`. The
-  protocol path is negotiated per application and pops back on exit.
-- **Not a defect anywhere:** IPython, ptpython and psql never request the distinction and
-  bind nothing to it, so "no difference" there is correct behaviour, not a symptom. Only
-  Claude Code and codex are meaningful tests of this.
-- **What did come out of it:** the one real gap was in Neovim, and it was narrower than
-  first argued — `completion.lua:106` sets `preselect = false`, so `<CR>` on an open but
-  unselected menu already inserts a newline. Only a *selected* item makes `<CR>` accept.
-  Bound `<S-CR>` to cancel-then-newline in the nvim submodule (`43a82ee`), replacing
-  `<C-e>` then `<CR>`.
-- **Method note:** `cat -v` is the wrong probe for this. It never sends the mode request,
-  so it reports "Shift+Enter is identical to Enter" — confidently, about a question no
-  application asks. Same shape as the `fc-match` artifact that withdrew finding 15.
-- **Recheck:** only if foot is replaced by a terminal without Kitty-protocol support, or
-  a tool that needs the distinction stops receiving it.
+- **Proposed:** static `[text-bindings]` remaps in `foot.ini`/`tmux.conf`, on the claim
+  (read off Omarchy's config, never probed here) that Shift+Enter is indistinguishable
+  from Enter.
+- **Why it doesn't transfer:** foot 1.28.0 implements the Kitty keyboard protocol, so an
+  application negotiates disambiguation at runtime with no config needed; tmux already
+  requests extended keys itself and `tmux.conf:95` declares `foot*:extkeys`. Omarchy needs
+  the static form to support many terminals; this machine has one, and it already speaks
+  the protocol.
+- **Evidence:** confirmed 2026-09-08 that Shift+Enter inserts a newline in Claude Code both
+  inside and outside tmux. Nothing changed in `foot.ini` or `tmux.conf`.
+- **Do not adopt `[text-bindings]` later** — it's a static, unconditional remap that fires
+  whether or not the application asked for disambiguation, breaking any program that
+  expects a plain newline.
+- **The one real gap found was narrower, in Neovim:** `completion.lua:106`'s
+  `preselect = false` means `<CR>` on an unselected completion menu already inserts a
+  newline; only a *selected* item accepts. Bound `<S-CR>` to cancel-then-newline in the
+  nvim submodule (`43a82ee`).
+- **Method note:** `cat -v` never sends the mode request, so it falsely reports "identical
+  to Enter" — same shape as the `fc-match` artifact that withdrew finding 15.
+- **Recheck:** only if foot loses Kitty-protocol support, or a tool needing the distinction
+  stops receiving it.
 
 ## Omarchy's `dirmngr.conf` keyservers — DECLINED (measured, 2026-09-08)
 
-- **Proposed:** copy Omarchy's `default/gpg/dirmngr.conf` — five `hkps://` keyservers plus
-  `connect-quick-timeout 4` — on the theory that `paru`'s `gpg --recv-keys` for AUR source
-  packages inherits dirmngr's defaults and is where a `sysup` can stall with nothing to say.
-- **It is not a security feature, which is the part that decides it.** `makepkg` verifies an
-  AUR source signature against a key whose **fingerprint** the PKGBUILD pins in
-  `validpgpkeys`. A keyserver is only the delivery mechanism for a key already named by
-  fingerprint, so a hostile or merely wrong keyserver cannot substitute another key — the
-  fingerprint check fails. Five keyservers buy availability, not integrity.
-- **The strongest argument for it, recorded because it is real:** if a key cannot be fetched
-  at all, the temptation is `--skippgpcheck`. Availability that stops you disabling a check is
-  indirectly security-relevant. It only pays off if the failure happens.
-- **Evidence that it does not happen here:** zero key-import failures in the whole pacman log,
-  2025-11-20 to 2026-09-08 — no "unknown public key", no "keyserver receive failed". The only
-  gpg lines are routine keyring-package updates.
-- **The dirmngr failures that do exist are the wrong keyring and the wrong failure.** Two
-  bursts, 2026-08-07 12:55 and 2026-08-17 11:19, each inside one minute, all
-  `can't connect to 'archlinux.org': host not found`. They belong to
-  `dirmngr@etc-pacman.d-gnupg` — pacman's keyring, which has its own
-  `keyserver-options timeout=10` and is untouched by this file. And `connect-quick-timeout`
-  shortens a connect that *hangs*; DNS failure returns immediately, so there is nothing to
-  shorten. More keyservers with no DNS is more instant failures.
-- **Omarchy states no reason** — no comment in the file, nothing in their docs, and they ship
-  the identical file twice (`default/gpg/` and `etc/gnupg/`). Inferring from shape only: a
-  distribution across many users and networks carries a support burden from keyserver
-  flakiness that one machine on a stable connection does not.
-- **Also note gnupg's built-in default is already `hkps://keyserver.ubuntu.com`** — Omarchy's
-  own first line. The choice is four extra keyservers, not "some versus none".
-- **Declined; nothing changed.** No `dirmngr.conf` exists here, in `/etc/gnupg` or `~/.gnupg`.
-  Config defending a condition this machine does not have — the same test that rejected
-  `vm.page-cluster` and downgraded the free-space precheck.
+- **Proposed:** copy Omarchy's five-keyserver `dirmngr.conf` so `paru`'s AUR-source GPG
+  fetches don't stall silently.
+- **Not a security feature, which decides it.** `makepkg` verifies AUR signatures by
+  fingerprint, pinned in the PKGBUILD — a keyserver only delivers a key already named by
+  fingerprint, so more keyservers buy availability, not integrity.
+- **The real argument for it:** an unfetchable key tempts `--skippgpcheck`; availability
+  that prevents disabling a check is indirectly worth something, but only if the failure
+  happens.
+- **It doesn't happen here:** zero key-import failures in the pacman log, 2025-11-20 to
+  2026-09-08. The dirmngr failures that *do* exist belong to a different keyring entirely
+  (pacman's own `dirmngr@etc-pacman.d-gnupg`) and are DNS failures —
+  `connect-quick-timeout` only shortens a hang, not a DNS lookup, so more keyservers just
+  means more instant failures.
+- **Omarchy states no reason**, and gnupg's built-in default is already
+  `hkps://keyserver.ubuntu.com` — the real choice is four extra keyservers, not "some vs.
+  none".
+- **Declined; nothing changed.** Same test that rejected `vm.page-cluster`: config
+  defending a condition this machine doesn't have.
 - **Recheck:** a `sysup` actually stalls on a key fetch, or a key import fails.
 
 ## Omarchy's Firefox picture-in-picture rule — DECLINED (verified, 2026-09-08)
 
-- **What PiP is:** Firefox pops a playing video into a small floating window that stays on
-  top, so it keeps playing while you work in another window.
-- **Ours:** one rule matching `firefox$` + title `^Picture-in-Picture$` with `open-floating
-  true`, so size and position are whatever niri chooses.
-- **Theirs (Hyprland):** fixed 600x338, top-right with a 40 px margin, no border, and
-  `pin = true` so the window follows across workspaces.
-- **`pin` is the half that makes PiP worth having, and niri has no equivalent.** The point of
-  popping a video out is to keep watching *while working elsewhere*, and on niri "elsewhere" is
-  another workspace. Without pin the window stays on the workspace it was opened on, so the
-  geometry rules would be styling a window that is not on screen.
-- **Verified 2026-09-08 against niri 26.04 (8ed0da4)**, by inserting each key into the real PiP
-  rule and running `niri validate`: `sticky`, `pinned`, `always-on-top`,
-  `show-on-all-workspaces` and `follow-workspace-switch` are all **rejected**. Control:
-  the unmodified config validates, and `block-out-from "screen-capture"` is **accepted** — so
-  the probe would have found a pin key had one existed.
-- **Declined; nothing changed.** Revisit if niri gains a pin/sticky window rule, or if PiP
-  starts landing somewhere annoying.
+Ours: one rule opening Firefox's PiP window floating, size/position left to niri. Theirs
+(Hyprland): fixed geometry plus `pin = true` so it follows across workspaces.
+
+- **`pin` is the half that makes PiP worth having, and niri has no equivalent** — the
+  point of popping a video out is watching while working *elsewhere*, and without pin the
+  window just sits on the workspace it opened on.
+- **Verified 2026-09-08** against niri 26.04: `sticky`, `pinned`, `always-on-top`,
+  `show-on-all-workspaces` and `follow-workspace-switch` are all rejected by
+  `niri validate` (control: `block-out-from "screen-capture"` is accepted, so the probe
+  would have caught a pin key had one existed).
+- **Declined; nothing changed. Recheck** if niri gains a pin/sticky rule, or PiP starts
+  landing somewhere annoying.
 
 ## `/etc/pam.d/ly` differs from the package — ACCEPTED, and not tracked (2026-09-08)
 
-- **What it is:** Ly is the TUI display manager that logs this machine in and starts niri.
-  `/etc/pam.d/ly` is its PAM stack. Confirmed running: `ly@tty2.service` is active, and the
-  live session reports `Service=ly`, `Type=wayland`, `seat0`.
-- **The difference** (recorded 2026-09-06 against `ly 1.4.1-1`): the live file is four lines,
-  each `include system-login`, where the package includes `login` and adds optional GNOME
-  Keyring, KWallet and elogind hooks plus an explicit `pam_systemd.so class=greeter`.
-- **Why it is accepted:** `system-login` still provides `pam_nologin.so` and `pam_systemd.so`,
-  so the security-relevant behaviour is intact — read directly from
-  `/etc/pam.d/system-login`. The removed hooks are for software that is not installed. And it
-  demonstrably works: `loginctl` shows a properly registered session.
-- **The caveat, stated rather than buried:** `pam_systemd.so` *is* installed, so dropping the
-  explicit `class=greeter` registration is not merely deleting a hook for absent software.
-  `system-login`'s generic `-session optional pam_systemd.so` still runs, so the session is
-  registered but not as a greeter class. Static comparison cannot establish the runtime
-  effect of that, and no symptom prompts a test.
-- **Not tracked, deliberately.** Nobody knows *why* the file was simplified — it predates this
-  repo — so tracking would freeze an undecided state into a repo meant to rebuild any machine.
-- **Restoring the package default was considered and rejected.** The fwupd item the same day
-  showed that returning to a default can remove a modified file entirely, which is attractive.
-  It does not transfer here: fwupd was a preference with an instant undo, this is the path that
-  lets you log in, and the payoff would be one fewer line in a baseline. "Differs from the
-  package" is not a defect.
-- **Recheck:** a `.pacnew` arrives for it, login behaviour changes, or a reason to want
-  greeter-class session registration appears.
+Ly (the display manager that starts niri) ships a PAM stack including GNOME
+Keyring/KWallet/elogind hooks and an explicit `pam_systemd.so class=greeter`; the live
+`/etc/pam.d/ly` is four lines of plain `include system-login`.
+
+- **Accepted:** `system-login` still provides `pam_nologin.so` and `pam_systemd.so`, so
+  the security-relevant behaviour is intact, and login demonstrably works (`loginctl`
+  shows a properly registered session).
+- **Caveat stated, not buried:** dropping `class=greeter` means the session registers via
+  `system-login`'s generic `pam_systemd.so` line, not as a greeter class — a real runtime
+  difference static comparison can't fully settle, and no symptom prompts testing it.
+- **Not tracked, deliberately** — nobody knows why the file was simplified (predates this
+  repo), and tracking would freeze an undecided state into a rebuild-any-machine repo.
+  Restoring the package default was considered and rejected: unlike the same-day fwupd
+  item, this is the login path, not a preference with an instant undo.
+- **Recheck:** a `.pacnew` arrives for it, login behaviour changes, or greeter-class
+  registration is ever wanted.
 
 ## Probe note — a template unit is not a missing unit
 
-`systemctl is-enabled ly.service` returned `not-found`, which read as "Ly is not what logs this
-machine in". Wrong: `ly` ships `ly@.service`, a **template**, and the running instance is
-`ly@tty2.service`. The same shape as the typo'd `journalctl -u` already in `docs/system-notes.md` — a
-missing unit and a wrongly-named one are byte-identical in the output. Check
-`systemctl list-unit-files 'name*'` before concluding a unit does not exist.
+`systemctl is-enabled ly.service` returned `not-found`, read as "Ly isn't what logs this
+machine in" — wrong: `ly` ships the template `ly@.service`, running as `ly@tty2.service`.
+A missing unit and a wrongly-named one look identical. Check
+`systemctl list-unit-files 'name*'` before concluding a unit doesn't exist.
 
 ---
 
-## Repo-wide documentation sweep — ACCEPTED (the reference docs are not bloated)
+## Repo-wide documentation sweep — ACCEPTED (2026-09-09)
 
-Run 2026-09-09 across all 28 markdown files outside `nvim/` (5,508 lines), after the
-always-loaded agent files were collapsed. Recorded because the result is a **negative** one,
-and without it the same three probes get re-run and re-derive the same nothing.
-
-**Cross-file duplication — clean.** Comparing substantive prose lines (>45 chars, non-list)
-between every pair of files, the total overlap is **5 lines** (`docs/architecture.md` ↔
-`docs/system-notes.md`, both extraction headers) plus 3 between `TODO.md` and
-`skills/local-postgres/SKILL.md`, which is the `psql` example item 12 discusses.
-
-```bash
-# substantive-line overlap between every pair of docs
-python3 -c "$(cat <<'PY'
-import glob,itertools,re
-f=[x for x in glob.glob('**/*.md',recursive=True) if not x.startswith('nvim/')]
-n=lambda p:{re.sub(r'\s+',' ',l).strip() for l in open(p) if len(l)>45 and not l.lstrip().startswith(('|','#','-','*','`'))}
-S={x:n(x) for x in f}
-[print(len(S[a]&S[b]),a,b) for a,b in itertools.combinations(f,2) if len(S[a]&S[b])>=3]
-PY
-)"
-```
-
-**Path citations — clean.** Every repo-relative path in backticks, resolved against the repo
-root *and* the citing file's own directory. The 78 that do not resolve are all legitimate:
-Omarchy-repo paths (`install/`, `default/`, `themed/`), system paths (`mkinitcpio.conf`,
-`logind.conf`), deliberately-deleted files (`fix-wifi.sh`, `zsh/archive/`), untracked-by-design
-files (`rclone.conf`, `git/config.local`), and runtime artifacts (`chunks.json`,
-`.venv/bin/python`). **The probe is not blind** — the same check found nine genuinely broken
-`CLAUDE.md` pointers the day before, which were fixed.
-
-**Claims — verified by sample.** `go` absent, `rust`/`qpdf`/`shellcheck-bin` present, no
-`blas` provider and no `/usr/lib/libblas.so`, `zram0` exactly 20,955,443,200 bytes, 7 fstab
-subvolumes, 37 lazy plugins, btop pinned to `tokyo-night`, `postgresql-libs` explicitly
-installed, no `userContent.css`. All hold. One stale number found and fixed:
-`agent-skills.md` said `bash/` has 35 scripts; it has 38.
-
-**What this does not cover.** The claim check is a *sample*, not exhaustive — measurements
-with dates (benchmark figures, journal counts, package sizes) were not re-run, and several
-cannot be without root or without the original journal window. `nvim/` was excluded and is a
-separate pass. The bloat that was found was concentrated in one closed document
-(`agent-skills.md`, 965 → 216) rather than spread across the references.
-
-### Second pass, 2026-09-09 — the files the first pass had not read
-
-The first pass ran the three probes over every file but only *read* a handful. This covers the
-rest, and again found nothing to fix.
-
-**`skills/` (860 lines) is mechanically clean.** `bash/check-skills` asserts frontmatter shape,
-`references/*.md` existence and `bash/*` tool existence and executability — but **not external
-commands**, so those were checked separately: `grim`, `slurp`, `psql`, `podman`, `papis`,
-`refinery`, `uv`, `snapper`, `btrfs`, `niri`, `rclone`, `magick` all resolve.
-
-Two apparent failures were the probe's fault, and are worth recording as instances of the
-second rule: `pask` reported missing because `command -v` was run from **bash** and `pask` is a
-**zsh function**; `papis-ask` reported missing because it is not a binary at all — it appears
-only as a trigger word in a skill description, and the command is `papis ask`.
-
-**App README claims verify.** `bash/sioyek` is 3 lines, the real 46 MiB binary is at
-`~/.local/share/sioyek/sioyek`, `~/.local/bin/mutool` is byte-identical to the sioyek build
-artifact, and `vifm/vifmrc:149` does use it. Podman runs `runc` with `criu` absent, graphroot
-`/var/lib/docker`, `pg.service` active, `DefaultDependencies=false` inside `[Quadlet]` and not
-`[Unit]`. `niri validate` passes against the tracked `config.kdl`.
+Full pass over every markdown file outside `nvim/`: cross-file duplication, path-citation
+validity and a sample of claims. Nothing to fix. One stale number was found and corrected
+(`agent-skills.md` said `bash/` has 35 scripts; it has 38). Don't re-run the same
+duplication/path-citation/claim probes expecting a different answer without a reason to
+think something has drifted since.
 
 ---
 
 ## Tmux identity scope — ACCEPTED (2026-09-11)
 
-The normal remote workflow was checked from the laptop: a pane in the locally started tmux
-server connected successfully to the Debian Google Cloud VM, advertised `tmux-256color`, and
-rendered colour correctly. The local status identity appropriately stayed hidden because it
-describes the tmux server's startup context, not the destination of an individual pane.
+Checked from the laptop: a pane in the local tmux server reaches the Debian Cloud VM fine,
+advertising `tmux-256color` with correct colour. The local status identity stays hidden
+correctly — it describes the server's startup context, not an individual pane's
+destination.
 
-For persistent work on the VM, a separate plugin-free server configuration now displays
-`user@hostname`; it was installed and visually confirmed on the VM. The VM does not need the
-laptop's desktop-oriented tmux configuration. Testing `bash/tmux-identity` from a tmux server
-started after an inbound SSH login to the laptop would exercise a supported edge case, but it
-does not represent the chosen workflow and no longer warrants an open real-use TODO. Its four
-branches remain appropriate regression-test scope for the planned test runner.
+For persistent VM work, a separate plugin-free server config displays `user@hostname`,
+installed and confirmed on the VM. Testing `bash/tmux-identity` from an inbound-SSH tmux
+server would exercise a supported edge case but isn't the chosen workflow, so it's not an
+open TODO — its four branches remain fair regression-test scope if one is ever written.
 
 ---
 
 ## Test runner follow-on scope — DROPPED by the user (2026-09-16)
 
-`bash/run-tests` was delivered and `TODO.md`'s test-runner item was closed and removed the same
-day. One command now runs the unittest suite and `check-skills`, reports each, continues past a
-failure so one broken suite cannot hide the rest, and exits nonzero if any failed. `install.sh`
-symlinks it to `~/.local/bin/run-tests`.
+`bash/run-tests` was delivered. Three planned increments were dropped with the item and
+should **not** be re-raised as gaps: invariant greps (no sudo in `install.sh`, no user unit
+ordered against `network-online.target`, explicit background hex in `bash/tmux-theme`), a
+fake-`tmux` test of `bash/tmux-identity`'s branches, and a process-state test of
+`bash/lock-once`. All three conventions still hold; per `docs/omarchy-comparison.md`, write
+a test for a concrete regression, not to match a count.
 
-**Three planned increments were dropped with the item, and should not be re-raised as gaps.**
-The invariant greps (`install.sh` never executes sudo; no active user unit orders against
-`network-online.target`; `bash/tmux-theme` uses explicit background hex), a fake-`tmux` test of
-`bash/tmux-identity`'s four local/SSH branches, and a controlled-process-state test of
-`bash/lock-once`. All three conventions currently hold, and the standing position in
-`docs/omarchy-comparison.md` — add tests for a concrete failure worth preventing, never to match
-a count — is the argument for not writing them absent a real regression. This supersedes the
-closing sentence of the tmux identity entry above, which reserved those four branches as scope
-for the then-planned runner.
+Still deliberately unasserted, and not a gap: the journal query in
+`skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md` — a test that fails when
+the journal rotates is the tmux-power mistake in a new costume.
 
-**Two things building it found.** `install.sh` symlinks every `bash/` file into `~/.local/bin`,
-so resolving a checkout with `dirname "$0"` lands on `~/.local` — verified against a symlinked
-probe, and the reason both `run-tests` and `check-skills` now resolve through `realpath` rather
-than the former `${DOTFILES:-$HOME/dotfiles}` guess. Separately, the first version of the new
-empty-`skills/` guard was ordered ahead of the failure branch, so a skill with broken
-frontmatter reported "no skills asserted" and hid the real defect; it was caught by running the
-guard against a deliberately broken fixture, not by reading it.
+## 2026-09-02 incident's journal window is gone — corruption, not retention (2026-09-18)
 
-**Missing input is no longer a silent pass.** An absent or empty `skills/` exits 1 where it
-previously exited 0, unittest discovery exits 1 on an absent `tests/`, and bash exits 127 on an
-absent script — all three recorded as suite failures rather than skipped.
-
-**Still deliberately unasserted, and not a gap.** The journal query in
-`skills/diagnose-boot-or-suspend/references/incident-2026-09-02.md`. A test that fails when the
-journal rotates is the tmux-power mistake in a new costume. This note previously lived in the
-`TODO.md` section that was removed with the item.
-
-**Correction, 2026-09-18: that window is already gone, and the "around 2026-10-21" estimate
-was wrong.** `journalctl --since 2026-09-02 --until 2026-09-03` returns `-- No entries --`; the
-oldest surviving entry is `2026-09-03T00:16:03`. The date has been removed above rather than
-adjusted, because the estimate was not merely early — the mechanism assumed was not what
-happened.
-
-Ordinary rotation does not explain it. At the time of checking the journal held **189.6 MB
-against a 4 GB `SystemMaxUse` cap** (10% of a 953 GB filesystem, capped), and **25 files against
-the default `SystemMaxFiles=100`**, across 45 retained boots. Neither limit was close to being
-reached, and nothing in `bash/` vacuums the journal — the only `journalctl` reference in the
-whole directory is a notification body in `bash/service-failed-notify:34`.
-
-The likely cause, **not proven**: several `*.journal~` files dated 3–4 Sep sit in
-`/var/log/journal/<machine-id>/`, and the `~` suffix is journald marking a file corrupt and
-rotating it. The 2026-09-02 incident was itself a failed suspend/resume, so the loss is
-plausibly collateral from that night rather than a retention policy at all. Stated as a
-hypothesis because the originating journal is exactly what is missing.
-
-**What this changes:** nothing about the decision — the argument for not asserting on that
-window is now stronger, since the data vanished a month early for a reason the retention math
-never modelled. What it does change is any future estimate of journal coverage on this machine:
-do not derive a retention window from `SystemMaxUse` arithmetic alone, because the observed
-window was roughly 15 days when the size cap implied around ten months.
+`journalctl --since 2026-09-02 --until 2026-09-03` returns nothing; the oldest surviving
+entry is `2026-09-03T00:16:03`. Not ordinary rotation — the journal held 189.6 MB against a
+4 GB cap and 25 files against a 100-file limit, neither close to being reached. Several
+`*.journal~` files dated 3–4 Sep suggest journald marked one corrupt and rotated it,
+plausibly collateral from that night's failed suspend/resume (unproven). **Do not derive a
+retention window from `SystemMaxUse` arithmetic alone** — the real window here was ~15 days
+against a cap implying roughly ten months.
 
 ---
 
 ## mupdf instead of poppler for rga — REJECTED (tested, 2026-09-17)
 
-`poppler` was removed on 2026-07-10 as collateral: `pacman -Rns cups cups-pdf gsfonts`
-cascaded through `cups-filters`, which depended on it. That took `pdftotext` and
-`pdfinfo` with it. `rga`'s only PDF adapter is poppler, so `rgbook` returned nothing for
-two months, and `fbook`'s `pdfinfo` preview silently said "No info available" — invisible
-because that preview window is hidden by default. The printing removal itself was
-deliberate and stays so; only the casualty was unnoticed.
+`poppler` was removed 2026-07-10 as collateral of an unrelated `pacman -Rns` cascade,
+silently breaking `rgbook` (poppler is rga's only PDF adapter) and `fbook`'s hidden-by-
+default `pdfinfo` preview for two months. Printing removal stays deliberate; only the
+casualty was unnoticed.
 
-Since `mutool` is already here for sioyek, replacing poppler with it was tested rather
+`mutool` is already installed for sioyek, so replacing poppler with it was tested rather
 than assumed:
 
-- **It can do the extraction.** `mutool draw -q -F txt` yields 514 KB and 282 form-feed
-  page breaks on a sample book — form feeds being exactly what rga's `postprocpagebreaks`
-  adapter needs to produce the `Page N` labels `rgbook` depends on. A standalone wrapper
-  worked.
-- **Wiring it into rga does not.** rga has no mupdf adapter, so it needs a custom adapter
-  plus a wrapper script: rga feeds the file on **stdin** (`pdftotext -` reads stdin;
-  mutool needs a seekable file *and* a `.pdf` extension to pick its handler), and the
-  chain into `postprocpagebreaks` kept recursing. Four iterations did not produce a
-  working end-to-end result.
-- **The deciding argument is not the fiddliness.** The custom adapter lives in
-  `~/.config/ripgrep-all/config.jsonc`, which is **deliberately untracked** — see the
-  2026-09-04 sweep note in `docs/architecture.md`, "Tracking it would pin something
-  upstream owns". That trades a packaged dependency for a hand-rolled one this repo's own
-  tooling cannot see, and `config-drift` would never know it had gone.
-- **And it is incomplete anyway.** mupdf does not replace `pdfinfo`, so `fbook`'s preview
-  would stay broken unless `bash/vifm-pick` and `zsh/functions/pdf.zsh` both moved to
-  `mutool info`.
+- **Extraction works standalone** — `mutool draw -q -F txt` produces the form-feed page
+  breaks rga's `postprocpagebreaks` adapter needs.
+- **Wiring it into rga doesn't.** rga has no mupdf adapter; a custom one plus wrapper is
+  needed because rga feeds the file on stdin while mutool needs a seekable file with a
+  `.pdf` extension. Four iterations didn't produce a working end-to-end result.
+- **The deciding argument isn't the fiddliness** — the custom adapter would live in
+  `~/.config/ripgrep-all/config.jsonc`, deliberately untracked, trading a packaged
+  dependency for a hand-rolled one `config-drift` can't see.
+- **And it's incomplete anyway** — mupdf doesn't replace `pdfinfo`, so `fbook`'s preview
+  would stay broken without also moving `bash/vifm-pick` and `zsh/functions/pdf.zsh`.
 
-**Decision:** keep `poppler`. It is not an extra dependency — it was present until an
-accident removed it, so reinstalling restores the state the code was written against.
-**Recheck** only if poppler ever pulls in something unwanted; the mupdf route is then a
-real fallback, but as a tracked script in `bash/`, not a stray adapter in an untracked
-config.
+**Decision:** keep `poppler` — reinstalling restores the state the code was written
+against, it isn't a new dependency. **Recheck** only if poppler ever pulls in something
+unwanted.
 
 ---
 
 ## `setsid -f handlr open` — CHECKED AND CLEAN (false alarm, 2026-09-17)
 
-Briefly recorded as broken while diagnosing the pickers: `setsid -f handlr open <pdf>`
-appeared to launch nothing, which would have meant vifm's `filetype * setsid -f handlr
-open %f` catch-all was dead. **It was the probe.** The test ran `pkill -x sioyek`
-immediately before each launch, and sioyek is single-instance, so the relaunch raced a
-shutting-down instance. Re-tested three ways side by side — `handlr open`,
-`setsid -f handlr open`, `setsid -f sioyek` — all three launch correctly. `handlr get
-application/pdf` returns `sioyek.desktop` and `mimeapps.list` is right. Nothing to fix;
-recorded so it is not re-investigated.
+Briefly looked broken while diagnosing the pickers — `setsid -f handlr open <pdf>` seemed
+to launch nothing. **It was the probe:** the test killed sioyek immediately before each
+launch, and sioyek is single-instance, so the relaunch raced a shutting-down instance.
+Re-tested three ways side by side; all launch correctly. Nothing to fix; recorded so it
+isn't re-investigated.
 
 ---
 
 ## PID-1 scope protection for `sysup`'s paru run — DECLINED (measured, 2026-09-17)
 
 Omarchy wraps its package transaction in a PID-1-owned system scope so a user-manager
-teardown cannot take the upgrade with it. The concern is real in shape: `paru -Syu` runs in
-the interactive shell, which sits at
-`/user.slice/user-1000.slice/user@1000.service/app.slice/app-niri-foot-*.scope`, so paru and
-its elevated pacman descendant are both under `user@1000.service`.
+teardown can't take the upgrade with it. Real concern in shape — `paru -Syu` and its
+elevated pacman descendant both run under `user@1000.service`.
 
-**The trigger has never fired here.** `/var/log/pacman.log` since 2025-11-20: **848
-transactions started, 848 completed, gap of zero**, and zero occurrences of "transaction
-failed", "interrupted", "could not commit" or "unable to lock". `user@1000.service` reports
-`NRestarts=0`, and systemd has been upgraded three times (261 → 261.1 → 261.2 → 261.3)
-without restarting the user manager.
-
-**There is no unprivileged version of the protection.** Both halves were tested:
-
-- `systemd-run --system --scope` fails with *"Access denied … requires interactive
-  authentication"*. Adopting it means sysup prompts for root **before** paru runs, reversing
-  a property the function documents as deliberate — an unprivileged `sleep:idle` block
-  inhibitor is enough, no sudo needed, "despite the equivalent upstream script reaching for
-  pkexec".
-- `systemd-run --user --scope` lands at
-  `/user.slice/user-1000.slice/user@1000.service/app.slice/run-p*.scope` — inside the very
-  cgroup it would need to escape. Useless for this purpose.
-
-And paru must stay unprivileged for AUR builds, so the scope would need `--uid` plus a
-preserved tty (paru prompts), cwd and environment, with `SudoLoop` managing its own sudo
-lifetime inside the wrapper — all of it around the single most important command here.
-
-**Detection already exists, so this is a prevention gap, not a blind spot.**
-`check_pacman_transaction` in `bash/config-drift` warns "pacman transaction has no
-completion record", and `sysup` calls it after every paru run with a byte-precise
-`--pacman-since` boundary. An interrupted transaction is reported on the spot.
-
-Same shape as finding 20, `systemd-oomd`: Omarchy's prerequisites are met and their
-reasoning is sound for their setup, but this machine's cgroup topology makes it the wrong
-trade.
-
-**Reopen if** `user@1000.service` ever reports `NRestarts > 0`, or a started/completed gap
-appears in `pacman.log` — not merely because an update feels slow or a session misbehaves.
+- **The trigger has never fired here:** `pacman.log` since 2025-11-20 shows 848
+  transactions started, 848 completed, zero gap, and no interrupted/failed/lock-error
+  lines. `user@1000.service` has `NRestarts=0` through three systemd upgrades.
+- **No unprivileged version exists.** `systemd-run --system --scope` requires interactive
+  root auth (reversing sysup's deliberate no-sudo-before-paru property); `--user --scope`
+  lands inside the very cgroup it would need to escape. paru must also stay unprivileged
+  for AUR builds, so the scope would need `--uid` plus preserved tty/cwd/env around the
+  single most important command here.
+- **Detection already exists** — `check_pacman_transaction` in `bash/config-drift` warns
+  on a missing completion record, and `sysup` calls it after every paru run with a
+  byte-precise boundary. This is a prevention gap, not a blind spot. Same shape as the
+  `systemd-oomd` finding: Omarchy's reasoning is sound for their setup, wrong for this
+  cgroup topology.
+- **Reopen if** `user@1000.service` ever reports `NRestarts > 0`, or a started/completed
+  gap appears in `pacman.log`.
 
 ---
 
 ## Package maintenance sweep: snap-pac, dosfstools, batsignal, brightnessctl, wlsunset — ACCEPTED (2026-09-17)
 
-From a pass over all 183 explicitly-installed (non-dependency) packages, checking local
-build dates and upstream (GitHub/AUR/sourcehut) activity. These five looked stale on a
-first pass; none warranted a change once checked individually.
+From a pass over all 183 explicitly-installed packages, checking build dates and upstream
+activity. These five looked stale; none warranted a change once checked individually.
 
-- **snap-pac** — upstream (`wesbarnett/snap-pac`) has had zero commits since 2022-01,
-  no release since 3.0.1 (2021). Accepted anyway: the package is only three pacman hooks
-  (`/usr/share/libalpm/hooks/{05-snap-pac-pre,10-snap-pac-removal,zz-snap-pac-post}.hook`)
-  wrapping `snapper create`. Its whole dependency surface is the pacman hook format and the
-  `snapper` CLI, both stable, so there is little left for a quiet upstream to break.
-- **dosfstools** — installed 2025-12-05, no in-repo note of why. Traced instead of guessed:
-  `pacman -Qi` shows it `Optional For: grub, libblockdev-fs, udisks2` (all installed), and
-  `/boot` (the EFI System Partition, `/etc/fstab`) is `vfat` with `fs_passno=2`, which needs
-  `fsck.fat` from this package to be checkable. Not cruft — backs the bootloader and the
-  udisks2-based USB mounting `docs/architecture.md` already documents (vifm `:media`).
-- **batsignal** — upstream (`electrickite/batsignal`) quiet since 2024-06, no formal GitHub
-  releases. The obvious same-footprint alternative, `poweralertd` (kennylevinsen, same author
-  as `wlsunset`), is actually worse on every axis checked: less recent upstream activity
-  (last push 2024-04 vs batsignal's 2024-06), far less used (17 vs 233 GitHub stars), and it
-  requires `upower` running as an extra daemon. batsignal depends only on `glibc` and
-  `libnotify` and reads `/sys/class/power_supply` directly. Kept.
-- **brightnessctl** — upstream (`Hummer12007/brightnessctl`) last pushed 2024-12, tag still
-  0.5.1 (2020), matching the installed version. It is the de facto standard for sysfs
-  backlight control on Wayland; `light` is not meaningfully better maintained and would just
-  be a config rewrite (`niri/config.kdl:249`, wob-backed brightness slider) for no gain.
-- **wlsunset** — upstream moved to `git.sr.ht/~kennylevinsen/wlsunset` (not `emersion`, a
-  wrong initial guess corrected during the check); quiet but alive, installed 0.4.0 matches
-  latest tag. `gammastep` is more actively developed but adds features (auto location, a
-  status indicator) beyond the fixed-lat/long usage in `niri/config.kdl:79` — more moving
-  parts for a job already done correctly.
+- **snap-pac** — upstream quiet since 2022, but it's only three pacman hooks wrapping
+  `snapper create`; its whole dependency surface (hook format + `snapper` CLI) is stable.
+- **dosfstools** — traced, not guessed: `/boot` is `vfat` with `fs_passno=2`, needing
+  `fsck.fat` from this package, and it's `Optional For: grub, libblockdev-fs, udisks2`.
+  Backs the bootloader and the USB mounting already in `docs/architecture/usb-media.md`.
+- **batsignal** — quiet since 2024-06, but the obvious alternative `poweralertd` is worse
+  on every axis checked (less active upstream, 17 vs 233 stars, needs `upower` as an extra
+  daemon). Kept.
+- **brightnessctl** — last pushed 2024-12 but the de facto Wayland standard; `light` isn't
+  meaningfully better maintained and would just be a config rewrite for no gain.
+- **wlsunset** — upstream moved to sourcehut (not `emersion`, corrected during the check),
+  quiet but alive, version matches latest tag. `gammastep` adds features not needed here.
 
-**Recheck:** any of these five repos gets archived, a real bug or missing feature surfaces
-in daily use, or Arch drops the package from a repo — not merely because upstream stays
-quiet for another audit cycle.
+**Recheck:** any of these five repos gets archived, a real bug surfaces in daily use, or
+Arch drops the package — not merely because upstream stays quiet another cycle.
 
 ---
 
 ## Three more warning-level journal lines — ACCEPTED (no observed symptom, 2026-09-17)
 
-Found in the same journal review as the ath11k regulatory item (`TODO.md` item 4), and
-checked individually since none were in `revisit.md` yet.
+Found alongside the ath11k regulatory item, checked individually.
 
-- **`foot: input: stray button release event (compositor bug?)`** — emitted by the single
-  niri-spawned foot server (`project_footclient_single_server`), 6 times over ~17h uptime,
-  several ~10-15 min apart during active afternoon use. foot's own code is asking whether
-  niri sent a button release with no matching press. **User confirmed 2026-09-17: no observed
-  mouse/click/scroll issue in any terminal.** Worth watching precisely because it repeats
-  during real use and is self-flagged as a possible compositor bug, not generic protocol
-  noise — but not investigated further, since there is nothing to reproduce against.
-- **`kernel: warning: 'Socket Thread' uses wireless extensions ...`** — the kernel reacting to
-  a legacy WEXT ioctl from a thread literally named "Socket Thread", a known Qt Bearer
-  Management fingerprint (deprecated network-monitoring code Qt spawns under that exact
-  name). Likely `pcmanfm-qt` or another `qt6-base` consumer polling wifi state the old way.
-  Harmless: the warning is about future Wi-Fi 7 hardware, and this machine's WCN6855 is
-  Wi-Fi 6E, two generations before it would matter.
-- **`xdg-desktop-portal: Realtime error: Could not get pidns for pid 2 ...`** — a sandboxing/
-  container-detection probe in the portal daemon (comparing its pid namespace against `pid 2`/
-  kthreadd, a common Flatpak-detection pattern), failing because the kernel doesn't support
-  that ioctl here. No corresponding audio/realtime-scheduling symptom anywhere else in the
-  log; pipewire's actual realtime setup goes through `rtkit` and is unrelated.
+- **`foot: input: stray button release event (compositor bug?)`** — 6 times over ~17h
+  uptime on the single niri-spawned foot server. User confirmed 2026-09-17: no observed
+  mouse/click/scroll issue. Self-flagged as a possible compositor bug, so worth watching,
+  but nothing to reproduce against.
+- **`kernel: warning: 'Socket Thread' uses wireless extensions`** — a known Qt Bearer
+  Management fingerprint (deprecated wifi-polling code), harmless: it's a Wi-Fi 7 warning
+  and this machine's WCN6855 is Wi-Fi 6E.
+- **`xdg-desktop-portal: Realtime error: Could not get pidns for pid 2`** — a Flatpak-
+  detection probe failing because the kernel doesn't support that ioctl here. No
+  corresponding realtime-audio symptom; pipewire's actual realtime setup goes through
+  `rtkit` and is unrelated.
 
-**Decision:** no action on any of the three. Not tested with the rigor the bluez/libinput
-entries above used (no A/B, no reproduction attempt) — this is "identified the source, no
-observed symptom", not "proven benign".
-
-**Recheck:** the foot line if an actual missed-click/scroll/selection problem is ever noticed
-in a terminal; the other two only if their described mechanism starts causing a visible
-failure (wifi misbehaving, realtime audio glitching).
+**Decision:** no action. Identified the source with no observed symptom — not proven
+benign the way the bluez/libinput entries above were (no A/B, no reproduction).
+**Recheck:** the foot line if a real click/scroll problem appears; the other two only if
+their mechanism starts causing a visible failure.
 
 ---
 
 ## `GRUB_TIMEOUT=5` — ACCEPTED, keep the menu (2026-09-18)
 
-Found while looking for resource savings during a services/daemon audit. It is the single
-largest software-controllable chunk of boot time, and it is still not worth changing.
+Found during a services/daemon audit: the single largest software-controllable chunk of
+boot time, and still not worth changing.
 
-- **Measured:** `systemd-analyze` reports `10.274s (firmware) + 6.256s (loader) + 847ms
-  (kernel) + 3.505s (initrd) + 4.255s (userspace) = 25.139s`, with `graphical.target` reached
-  3.985 s into userspace. That 6.256 s loader phase is `GRUB_TIMEOUT=5` in `/etc/default/grub`
-  with `GRUB_TIMEOUT_STYLE=menu`. Dropping it to 1–2 s would save roughly 4 s per boot.
-- **Why it stays:** that menu is the snapshot-recovery path. `grub-btrfsd` runs specifically to
-  populate it from snapper snapshots, so shortening the window trades recovery margin — at the
-  moment you most need it, under stress — for four seconds of an otherwise unattended boot.
-- **Userspace is not the problem, so do not go looking there.** 4.255 s total, and the slowest
-  user units are the `rclone@` mounts at ~850 ms each, already deliberately decoupled from
-  `graphical-session.target` so they cannot block the session. `man-db.service` (6.120 s) is
-  timer-driven and does not delay `graphical.target`. The remaining "slow" entries are device
-  units settling (rfkill, tpm, ttyS*), not services.
-- **Decision (user, 2026-09-18):** leave it at 5. Nothing changed.
-- **Recheck:** only if boot time becomes an actual complaint, in which case this is the first
-  and essentially only place with seconds available.
+- **Measured:** `systemd-analyze` reports 10.274s firmware + 6.256s loader + 847ms kernel
+  + 3.505s initrd + 4.255s userspace = 25.139s. The 6.256s loader phase is
+  `GRUB_TIMEOUT=5`; dropping it to 1–2s would save ~4s per boot.
+- **Why it stays:** that menu is the snapshot-recovery path — `grub-btrfsd` populates it
+  from snapper snapshots, so shortening the window trades recovery margin (at the moment
+  you most need it) for four seconds of an unattended boot.
+- **Userspace isn't the problem.** 4.255s total; the slowest units (`rclone@` mounts,
+  ~850ms each) are already decoupled from `graphical-session.target`, and `man-db.service`
+  is timer-driven. The rest is device units settling, not services.
+- **Decision (user, 2026-09-18):** leave it at 5. **Recheck** only if boot time becomes an
+  actual complaint — this is the one place with seconds available.
 
 ## amdxdna NPU firmware missing — ACCEPTED, hardware deliberately unused (2026-09-18)
 
-Every boot logs three lines from the AMD NPU (Ryzen AI) kernel driver:
+Every boot logs three `amdxdna` driver errors (`ret -2` = ENOENT) for firmware under
+`amdnpu/1502_00/` that `linux-firmware` doesn't ship.
 
-```
-amdxdna 0000:65:00.1: [drm] *ERROR* aie2_init: failed to request_firmware amdnpu/1502_00/, ret -2
-amdxdna 0000:65:00.1: [drm] *ERROR* amdxdna_probe: Hardware init failed, ret -2
-amdxdna 0000:65:00.1: probe with driver amdxdna failed with error -2
-```
-
-- **Investigated:** `ret -2` is `ENOENT` — the driver asks for firmware under `amdnpu/1502_00/`
-  and nothing provides it. `pacman -Ql linux-firmware | grep amdnpu` is empty, so the installed
-  firmware package does not ship it.
-- **One correction to an assumption made in passing:** the relevant package is **not** in the
-  AUR. `xrt-plugin-amdxdna` is in **`extra`** — but it is the *userspace* runtime for AIE/FPGA
-  platforms, not the kernel firmware blob the driver is asking for, so it would not silence
-  this even if installed.
-- **Weak probe, stated rather than hidden:** `pacman -F amdnpu` returned nothing, but the file
-  database was not synced first (`pacman -Fy` needs root and was deliberately not run). So
-  "nothing in the repos ships this firmware" is *likely* but not established.
-- **Decision (user, 2026-09-18):** the NPU is not used and there is no intention to use it, so
-  nothing is being installed to satisfy a device that would then sit idle. The probe failure is
-  cosmetic: the driver gives up, the device stays unbound, and nothing else in the log or the
-  running system refers to it.
-- **Recheck:** only if NPU/AI acceleration is ever actually wanted, or if a `linux-firmware`
-  update starts shipping `amdnpu/` and the lines disappear on their own.
+- **Not fixable by installing `xrt-plugin-amdxdna`** (in `extra`) — that's the userspace
+  AIE/FPGA runtime, not the kernel firmware blob the driver wants.
+- **Weak probe, stated rather than hidden:** `pacman -F amdnpu` returned nothing, but the
+  file database wasn't synced first, so "nothing in the repos ships this" is likely, not
+  established.
+- **Decision (user, 2026-09-18):** the NPU isn't used and won't be, so nothing is being
+  installed to satisfy an idle device. The driver gives up cleanly; nothing else refers to
+  it.
+- **Recheck:** if NPU acceleration is ever wanted, or a `linux-firmware` update starts
+  shipping `amdnpu/` and the lines disappear on their own.
 
 ## ath11k regulatory-domain error — ACCEPTED, cosmetic (2026-09-18)
 
-Closed from `TODO.md` item 4, which was blocked on testing 5GHz. The router does have 5GHz;
-it was tested and the error is confirmed cosmetic.
+Closed from `TODO.md` item 4. Two boot-time errors (`Failed to set the requested Country
+regulatory setting`, `failed to process regulatory info -22`) were blocked on testing
+5GHz; the router has 5GHz, it was tested, and the error is confirmed cosmetic.
 
-```
-ath11k_pci 0000:02:00.0: Failed to set the requested Country regulatory setting
-ath11k_pci 0000:02:00.0: failed to process regulatory info -22
-```
-
-- **5GHz works, and the error is unchanged by it.** Associated on channel 36 (5180 MHz) at
-  80 MHz width, −67 dBm, txpower 18 dBm against a 23 dBm regulatory ceiling for that band. The
-  two error lines still fire twice at boot exactly as before, so they plainly do not gate 5GHz.
-- **The regulatory state is correct where it is checkable.** `iw reg get` gives
-  `country DE: DFS-ETSI` with complete tables, and `iw phy phy0 info` advertises DFS channels
-  52–140 flagged `radar detection` plus 6 GHz channels at 23 dBm. That last part matters: the
-  one *real* WCN6855 regulatory bug reported upstream was 6 GHz silently vanishing, and it was
-  a driver-side bug fixed before kernel 6.8. This machine runs 7.2.6 and has 6 GHz.
-- **`no IR` on every 5GHz channel is normal and is not the symptom.** It means
-  *no-initiating-radiation*: no AP, IBSS, mesh or P2P-master on that channel. It does not stop
-  a client associating. Proven locally rather than argued — channel 36 is marked `no IR` and
-  the machine was connected on it at the time of writing.
-- **The earlier "only one BSS, no 5GHz under this SSID" observation is superseded.**
-  `iwctl station wlan0 get-bsses` now lists two (`…:41:fa` and `…:41:fb`).
-- **DFS deliberately not pursued.** The only thing a DFS association would add is exercising
-  the firmware's client-side radar/channel-switch handling, which is not visible in the channel
-  table. If that were broken it would show up immediately in ordinary use as a drop when the AP
-  vacates a radar channel — not a silent failure worth reconfiguring a router to hunt. Note it
-  if a DFS channel is ever used naturally; do not go looking.
-- **Working hypothesis retained, still unproven:** `board_id 0xff` means no board-specific
-  calibration table, so the firmware rejects a country-set it has no slot for, while
-  `cfg80211` — which is what actually governs this machine as a client — applies DE correctly.
-  Consistent with `iw reg get` reporting `phy#0 (self-managed)`.
-- **The genuinely broken WCN6855/QCNFA765 cases in the wild look nothing like this**, which is
-  the useful discriminator for next time: WMI command timeouts, `failed to flush transmit
-  queue`, wifi dying within 20 s of boot, or a whole band missing. None occur here.
-- **Probe note:** `iw dev wlan0 scan` needs root and fails with `Operation not permitted`, so
-  an empty result from it is not evidence of absence. `iw phy phy0 info` gives channel flags
-  unprivileged, and `iwctl station <dev> get-networks` gives iwd's existing scan results.
-- **Recheck:** only if wifi actually misbehaves, or a DFS channel is used and something drops.
+- **5GHz works, unchanged by the error.** Associated on channel 36 at 80 MHz width,
+  −67 dBm, 18 dBm txpower against a 23 dBm ceiling. The error fires twice at boot exactly
+  as before, so it plainly doesn't gate 5GHz.
+- **Regulatory state is correct where checkable:** `iw reg get` gives `country DE:
+  DFS-ETSI` with complete tables, including 6 GHz at 23 dBm — the one *real* WCN6855
+  regulatory bug upstream (6 GHz silently vanishing) was fixed before kernel 6.8; this
+  machine runs 7.2.6.
+- **`no IR` on every 5GHz channel is normal, not the symptom** — it means no-initiating-
+  radiation (no AP/IBSS/mesh on that channel), not "can't associate". Proven locally:
+  channel 36 was marked `no IR` while the machine was connected on it.
+- **DFS deliberately not pursued** — the only thing it would exercise (radar/channel-switch
+  handling) would show up immediately in ordinary use as a drop if broken. Note it if a DFS
+  channel is ever used naturally; don't go looking for one.
+- **Working hypothesis, unproven:** `board_id 0xff` means no board-specific calibration
+  table, so firmware rejects a country-set it has no slot for, while `cfg80211` (which
+  actually governs this machine as a client) applies DE correctly.
+- **Discriminator for next time:** genuinely broken WCN6855/QCNFA765 cases look like WMI
+  timeouts, transmit-queue flush failures, wifi dying within 20s of boot, or a whole band
+  missing. None occur here.
+- **Probe note:** `iw dev wlan0 scan` needs root and fails `Operation not permitted` — an
+  empty result isn't evidence of absence. `iw phy phy0 info` works unprivileged.
+- **Recheck:** only if wifi actually misbehaves, or a DFS channel drops something.
 
 Reference: [OpenWrt on `no IR`](https://forum.openwrt.org/t/what-does-no-ir-radar-detection-mean/98443),
 [WCN6855 regulatory thread](https://www.spinics.net/lists/linux-wireless/msg254607.html).
 
 ## Sandboxing `rclone@.service` — NOT ATTEMPTED, wrong profile (2026-09-18)
 
-After the four notifier units were sandboxed, `rclone@.service` is the obvious next target and
-is the one unit that **cannot** take that profile. Recorded so the next audit does not
-rediscover this by breaking a cloud mount.
+The obvious next target after four notifier units were sandboxed, and the one unit that
+**can't** take that profile. Recorded so the next audit doesn't rediscover this by
+breaking a cloud mount.
 
-- **`PrivateDevices=yes` is disqualifying on its own.** `man systemd.exec` states it "may not be
-  used for services which shall be able to install mount points in the main mount namespace",
-  and it "will disconnect propagation of mounts from the service to the host". rclone is a FUSE
-  mount whose entire job is making `~/Cloud/<remote>` visible to everything else.
-- **Three more directives invert too:** it needs `/dev/fuse` (not in the private `/dev`), real
-  `AF_INET`/`AF_INET6` (it is a cloud client), and write access under `$HOME` for
-  `~/Cloud/%i` and `~/.cache/rclone/%i` — so `ProtectHome=read-only` and `ProtectSystem=strict`
-  would both have to be relaxed with explicit `ReadWritePaths=`.
-- **The payoff is also smaller.** The notifier series was justified by `net-notify` parsing
-  attacker-broadcast SSIDs in bash. rclone is a maintained Go binary, not a shell script
-  handling hostile input.
-- **If it is ever attempted:** design a bespoke profile from a measured inventory, do not copy
-  `battery-watch.service`. `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality` and
-  `UMask=0077` are the parts that would transfer cheaply.
-- **Still easy, if someone wants the remaining one:** `notify-failure@.service` is a tiny
-  oneshot needing only `ReadWritePaths=%h/.local/state/service-failures`. Low value — and note
-  the irony that breaking the failure notifier would hide failures, so it deserves the same
-  negative-control testing as the others.
+- **`PrivateDevices=yes` is disqualifying on its own** — it disconnects mount propagation
+  to the host, and rclone's entire job is making `~/Cloud/<remote>` visible externally via
+  FUSE.
+- **Three more directives invert too:** needs `/dev/fuse`, real `AF_INET`/`AF_INET6`, and
+  write access under `$HOME` — so `ProtectHome`/`ProtectSystem` would both need relaxing.
+- **Payoff is smaller too:** the notifier series guarded `net-notify` parsing
+  attacker-broadcast SSIDs in bash; rclone is a maintained Go binary, not hostile-input
+  shell code.
+- **If ever attempted:** design a bespoke profile from a measured inventory, don't copy
+  `battery-watch.service`. `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality`,
+  `UMask=0077` would transfer cheaply.
+- **Still easy, low value:** `notify-failure@.service` only needs
+  `ReadWritePaths=%h/.local/state/service-failures` — though breaking the failure notifier
+  would ironically hide failures, so it deserves the same negative-control testing.
 
 ## Firewall review — the traps, not the posture (2026-09-18)
 
 Prompted by a "is the firewall best practice" question. Three findings were fixed
 (`69c8abd`, `f31ec68`, `fe119f3`); the ruleset itself was left alone. Only the reasoning
-that would otherwise be re-derived wrongly is recorded here. **The posture details — what
-is and is not defended — are deliberately kept out of this public repo; they were reviewed
-and decided, and that is all this file needs to say.**
+that would otherwise get re-derived wrongly is recorded — posture details are deliberately
+kept out of this public repo.
 
-- **`forward` policy `accept` is inert, and is not there for containers.** `ip_forward = 0`
-  and there is no host bridge. Rootless podman's networks live in a user netns, so the host
-  forward chain never sees container traffic — `nft list ruleset` shows `inet filter` as the
-  only table. The old "so container networking works" claim in `etc/README.md` was wrong and
-  was corrected. Changing the policy to `drop` would be cosmetic.
-- **`rp_filter` needs no change, and the obvious probe says otherwise.** `conf/all` reads `0`,
-  which looks like it is off. The kernel takes the **max** of `all` and the interface, and
-  `wlan0` inherits `2` (loose) from `default`. Reading the `all` value alone produces a change
-  that is not needed.
-- **`conf/all` does not harden existing interfaces, and `conf/default` only seeds new ones.**
-  With forwarding off the kernel ORs `all` with `conf/<iface>` for `accept_redirects`, so one
-  interface left at `1` defeats an `all` of `0`. Setting `all`/`default` measurably did not
-  harden `wlan0`. Globs (`net.ipv4.conf.*.accept_redirects`) write every existing key instead,
-  and expand under both appliers — procps-ng `sysctl --system` (measured) and `systemd-sysctl`
-  at boot (`sysctl.d(5)`; confirmed afterwards by a cold boot, where a freshly created `wlan0`
-  came up at `0`).
-- **Probe note:** `nft list ruleset` needs root; unprivileged it fails with
-  `Operation not permitted`, so an empty result is not evidence of an empty ruleset.
-- **Testing the firewall from another host: `nft add rule` gives a false pass.** `add`
-  appends to the end of the input chain, which is *after* the rate-limited
-  `pkttype host ... reject` — so a test connection is rejected before it reaches the new
-  accept, and the test looks like the firewall working when it has not been exercised at
-  all. Use `nft insert`, which prepends, and confirm placement with
-  `nft -a list chain inet filter input`. Equally important, run the positive control first:
-  reach the service *with* the rule in place, so that failure without it means the firewall
-  rather than AP client isolation or a wrong address. Done this way on 2026-09-18 and the
-  block was confirmed from off-machine, with the reject counter rising by one 60-byte packet
-  per SYN retry. Undo with `nft -f /etc/nftables.conf`, which is clean because the file opens
-  with `destroy table inet filter`.
+- **`forward` policy `accept` is inert, not there for containers.** `ip_forward = 0` and
+  no host bridge; rootless podman's networks live in a user netns so the host forward
+  chain never sees container traffic. The old "so container networking works" claim in
+  `etc/README.md` was wrong and corrected.
+- **`rp_filter` needs no change, though the obvious probe says otherwise.** `conf/all`
+  reads `0`, but the kernel takes the max of `all` and the interface, and `wlan0` inherits
+  `2` from `default`.
+- **`conf/all` doesn't harden existing interfaces; `conf/default` only seeds new ones.**
+  With forwarding off, the kernel ORs `all` with `conf/<iface>`, so one interface left at
+  `1` defeats an `all` of `0`. Confirmed by a cold boot: a freshly created `wlan0` came up
+  at `0` under `systemd-sysctl`.
+- **Probe note:** `nft list ruleset` needs root; unprivileged it fails silently, so an
+  empty result isn't evidence of an empty ruleset.
+- **Testing from another host: `nft add rule` gives a false pass.** `add` appends to the
+  end of the input chain, *after* the rate-limited reject rule, so a test connection is
+  rejected before reaching the new accept — looking like the firewall works when it was
+  never exercised. Use `nft insert` (prepends), confirm placement with `nft -a list chain
+  inet filter input`, and always run the positive control first (reach the service *with*
+  the rule) so a failure means the firewall, not AP isolation or a wrong address. Confirmed
+  2026-09-18 from off-machine, reject counter rising per SYN retry. Undo with
+  `nft -f /etc/nftables.conf` (clean — the file opens with `destroy table inet filter`).
 
 ---
 
 ## Removed `mate-polkit` — DONE (2026-09-18)
 
-TODO item 5. Investigated and dry-run verified beforehand (`pacman -Rsp mate-polkit` printed
-only `mate-polkit-1.28.1-2`, no cascade), then run by the user.
+TODO item 5. Dry-run verified beforehand (`pacman -Rsp mate-polkit` showed no cascade),
+then run by the user.
 
-- **Confirmed after the fact:** `pacman -Q mate-polkit` now reports not installed; `polkit`
-  (`fprintd fwupd rtkit udisks2` still depend on it) is untouched; no orphaned packages
-  (`pacman -Qdt` empty); no leftover `.pacsave`/`.pacnew` under `/etc`.
-- **Nothing else needed cleaning up**, per the investigation already on record: the XDG
-  autostart entries this removed are `OnlyShowIn`-gated and were already structurally inert
-  under niri, so there was no separate masking step to perform.
-- **No GUI polkit agent was added, deliberately.** 69 of 245 installed polkit actions are
-  `implicit active: yes` (no prompt needed for an active local session); the rest are reached
-  only by CLI tools that already bring their own agent (`pkttyagent` ships with `polkit`
-  itself; `fwupdmgr` has `FuPolkitAgent` compiled in). No GUI app here requests authorization.
+- **Confirmed after the fact:** package gone, `polkit` (still needed by `fprintd fwupd
+  rtkit udisks2`) untouched, no orphans, no leftover `.pacsave`/`.pacnew`.
+- **Nothing else to clean up** — the XDG autostart entries it removed were already
+  `OnlyShowIn`-gated and structurally inert under niri.
+- **No GUI polkit agent added, deliberately.** 69 of 245 polkit actions are
+  `implicit active: yes` (no prompt needed for a local session); the rest are reached only
+  by CLI tools with their own agent (`pkttyagent`, `fwupdmgr`'s `FuPolkitAgent`). No GUI
+  app here requests authorization.
