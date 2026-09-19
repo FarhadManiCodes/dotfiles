@@ -27,14 +27,12 @@ sorted unique lines, `CLAUDE.md` (995 lines) held exactly 2 lines absent from
 absent from `niri/AGENTS.md` + `niri/README.md` — each file's own title and subtitle.
 Both are now thin entry points whose body is an `@AGENTS.md` import, so the guardrails
 have one copy and cannot drift. `AGENTS.md` was tightened from 90 to 67 lines in the
-same pass, since it became the file loaded into every session.
-
-**`nvim/CLAUDE.md` was done on 2026-09-09**, in the submodule's own repository. It measured
-645 lines with exactly 2 unique — its title and subtitle — against `nvim/AGENTS.md` +
-`nvim/README.md` + `nvim/docs/architecture.md`, the same total duplication as the root and
-`niri/` files, so it too became an `@AGENTS.md` import. All three instruction files are now
-thin entry points and the temporary duplication this migration introduced is fully retired.
-Historical command examples are documentation, not authorization to run them.
+same pass, since it became the file loaded into every session. The same held for
+`nvim/CLAUDE.md` (645 lines, same 2-line pattern against `nvim/AGENTS.md` +
+`nvim/README.md` + `nvim/docs/architecture.md`), done the same day in the submodule's own
+repository. All three instruction files are now thin entry points and the temporary
+duplication this migration introduced is fully retired. Historical command examples are
+documentation, not authorization to run them.
 
 The root file explicitly routes work to nested instructions. Codex's startup
 discovery follows the root-to-working-directory chain; do not assume a session

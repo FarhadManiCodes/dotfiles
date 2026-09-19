@@ -657,9 +657,9 @@ removed in the 2026-07-27 audit — they had silently set nothing, and a commit 
 Sans 11` never took effect (GTK apps render in `Adwaita Sans 11`, GTK's own default).
 
 To change GTK appearance: `gsettings set org.gnome.desktop.interface font-name '<font>'`
-(same for `gtk-theme`, `icon-theme`, `cursor-theme`, `color-scheme`). Editing a `settings.ini`
-does nothing on this session. `color-scheme` stays `default` on purpose — GTK apps are always
-light and do not follow the foot/foliate theme toggles.
+(same for `gtk-theme`, `icon-theme`, `cursor-theme`, `color-scheme`). `color-scheme` stays
+`default` on purpose — GTK apps are always light and do not follow the foot/foliate theme
+toggles.
 
 ### systemd user services & failure notification
 
@@ -937,10 +937,9 @@ Consequences worth knowing before "tidying" anything here:
 
 ### Containers — rootless podman, and Postgres as a Quadlet unit
 
-**Migrated off Docker 2026-09-02**, because the `docker` group is passwordless root:
-`docker run -v /:/host` reads `/etc/shadow` with no prompt — demonstrated, not theorised.
-Rootless podman has **no root daemon, no root socket, no group**. Full reasoning, measurements
-and post-mortems in **`containers/README.md`**; the rules are here.
+**Migrated off Docker 2026-09-02** — the `docker` group is passwordless root (proof and full
+reasoning in **`containers/README.md`**). Rootless podman has **no root daemon, no root
+socket, no group**; the rules are here, the post-mortems there.
 
 Four tracked files, all installed by `install.sh` with **no sudo**:
 

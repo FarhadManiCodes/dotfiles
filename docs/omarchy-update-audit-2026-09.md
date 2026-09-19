@@ -8,7 +8,7 @@ The first reviewed Omarchy range ended at `31bd80da` (2026-09-11). A later remot
 
 ### Harden privileged configuration drift checks
 
-**Done 2026-09-17.** Extended `bash/config-drift` with a "Root configs are root-owned and unwritable by others" section, separate from the existing content comparison because the two answer different questions: a 0666 `sysctl.d` drop-in, or a `pam.d` entry replaced by a symlink into `$HOME`, compares byte-identical and is still a way in. `stat` needs only search permission on the parents, so ownership and mode are answerable even where the content check has to skip. Every branch is covered by `tests/test_config_drift.py::test_privileged_root_config_checks` against fixtures — symlink, wrong owner, group/world-writable, absent, directory-instead-of-file, missing `+x`, and a non-root parent — with `/etc/nftables.conf` as the positive control for the clean path, because a permission check never seen to fail is indistinguishable from one that cannot. The requirements were:
+**Done 2026-09-17.** Extended `bash/config-drift` with a "Root configs are root-owned and unwritable by others" section, separate from the existing content comparison because the two answer different questions: a 0666 `sysctl.d` drop-in, or a `pam.d` entry replaced by a symlink into `$HOME`, compares byte-identical and is still a way in. `stat` needs only search permission on the parents, so ownership and mode are answerable even where the content check has to skip. Every branch is covered by `tests/test_config_drift.py::test_privileged_root_config_checks`, one fixture per requirement below, with `/etc/nftables.conf` as the positive control for the clean path, because a permission check never seen to fail is indistinguishable from one that cannot. The requirements were:
 
 - Require regular files rather than symbolic links.
 - Verify expected `root:root` ownership.
@@ -28,7 +28,7 @@ This is defense in depth, not protection against a maliciously modified `install
 
 ### Harden the Vifm picker exchange
 
-**Done 2026-09-17.** Replaced the predictable `/tmp/vifm-pick-*` protocol shared by `bash/vifm-pick` and `vifm/vifmrc`. The injection was demonstrated, not assumed — a file named `data"; touch PWNED; echo ".csv` executed `touch PWNED`, and the old construction was re-run as a positive control so the test was not blind. Opening and copying moved into the helper with argument lists; only `cd`/`goto` return to vifm, through `$XDG_RUNTIME_DIR/vifm-pick/` at mode 0700. A fixed directory name was chosen over a unique one: the parent is already 0700 and single-user, so uniqueness buys concurrency safety rather than security, at the cost of a much longer `vifmrc`. The original requirements were:
+**Done 2026-09-17.** Replaced the predictable `/tmp/vifm-pick-*` protocol shared by `bash/vifm-pick` and `vifm/vifmrc`. The injection was demonstrated, not assumed — a file named `data"; touch PWNED; echo ".csv` executed `touch PWNED`, and the old construction was re-run as a positive control so the test was not blind. Only `cd`/`goto` return to vifm, through `$XDG_RUNTIME_DIR/vifm-pick/` at mode 0700 — opening and copying happen in the helper, per the argument-array requirement below. A fixed directory name was chosen over a unique one: the parent is already 0700 and single-user, so uniqueness buys concurrency safety rather than security, at the cost of a much longer `vifmrc`. The original requirements were:
 
 - Create a unique private exchange directory below `$XDG_RUNTIME_DIR`, mode `0700`.
 - Pass that exact directory explicitly between Vifm and the helper.
@@ -52,9 +52,7 @@ The later Omarchy screen-recording fix confirms this rule but adds no separate r
 
 `require_clean_target` now runs before the `rm -rf` and refuses unless the root resolves and holds a `CMakeLists.txt`, `BUILD_DIR` is exactly `$PROJECT_ROOT/build`, that path is not a symlink, and the current directory is inside the tree being cleaned — which is what catches the foreign-cache case. `compile_commands.json` removal is constrained to the same validated root. Only the destructive path is guarded: every other subcommand builds or reads, where a wrong answer is a confusing error rather than data loss.
 
-Covered by `tests/test_tmux_cpp_tools.py` — foreign cache refused with the victim's build directory intact, ordinary project and subdirectory invocation still allowed, symlinked `build` refused, missing `CMakeLists.txt` refused. The original requirement was:
-
-- Before recursive deletion, resolve and prove that `PROJECT_ROOT` is a valid project directory and `BUILD_DIR` is exactly its intended `build` child. Refuse deletion if that invariant cannot be established. Keep removal of `compile_commands.json` constrained to the same validated project root.
+Covered by `tests/test_tmux_cpp_tools.py` — foreign cache refused with the victim's build directory intact, ordinary project and subdirectory invocation still allowed, symlinked `build` refused, missing `CMakeLists.txt` refused.
 
 ### Protect package transactions from user-session teardown
 
