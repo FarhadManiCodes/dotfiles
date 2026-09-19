@@ -1,4 +1,4 @@
-"""Run isolated checker sections against temporary files and stubbed system tools.
+"""Run isolated checker functions against temporary files and stubbed system tools.
 
     python3 -B -m unittest discover -s tests -v
 
@@ -11,24 +11,17 @@ import tempfile
 import unittest
 
 
-SCRIPT = (Path(__file__).resolve().parents[1] / "bash/config-drift").read_text()
-
-
-def section(start, end):
-    return SCRIPT.split(start, 1)[1].split(end, 1)[0]
-
+SOURCE = Path(__file__).resolve().parents[1] / "bash/config-drift"
 
 PREAMBLE = r'''
-set -uo pipefail
-export LC_ALL=C
-shopt -s nullglob
-issues=0
-skipped=0
-verbose=1
+source "$CONFIG_DRIFT"
 hdr() { :; }
 ok() { printf 'OK %s\n' "$1"; }
 warn() { printf 'WARN %s\n' "$1"; issues=$((issues+1)); }
 skip() { printf 'SKIP %s\n' "$1"; skipped=$((skipped+1)); }
+issues=0
+skipped=0
+verbose=1
 '''
 
 
@@ -37,7 +30,8 @@ class ConfigDriftTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="config-drift-test-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.env = dict(os.environ, df_dir=str(self.root), XDG_CONFIG_HOME=str(self.root / "live"))
+        self.config_drift = SOURCE
+        self.env = dict(os.environ, DOTFILES=str(self.root), XDG_CONFIG_HOME=str(self.root / "live"))
 
     def write(self, name, content):
         path = self.root / name
@@ -45,16 +39,22 @@ class ConfigDriftTests(unittest.TestCase):
         path.write_text(content)
         return path
 
-    def run_section(self, code, setup=""):
+    def patched_pacman_log_path(self):
+        """A copy of the real script with the hard-coded pacman.log path redirected
+        to the fixture root; used only by tests exercising check_last_pacman_transaction."""
+        text = SOURCE.read_text().replace('plog=/var/log/pacman.log', 'plog="$df_dir/pacman.log"')
+        return self.write('config-drift-patched', text)
+
+    def run_check(self, call, setup=""):
         result = subprocess.run(
-            ["bash", "-c", PREAMBLE + setup + "\n" + code + '\nprintf "COUNTS %s %s\\n" "$issues" "$skipped"\n'],
-            env=self.env, capture_output=True, text=True, timeout=10, check=True,
+            ["bash", "-c", PREAMBLE + setup + "\n" + call + '\nprintf "COUNTS %s %s\\n" "$issues" "$skipped"\n'],
+            env=dict(self.env, CONFIG_DRIFT=str(self.config_drift)),
+            capture_output=True, text=True, timeout=10, check=True,
         )
         self.assertEqual(result.stderr, "")
         return result.stdout
 
     def test_spotify(self):
-        code = section('hdr "Spotify config matches the template"', '# ------------------------------------------------ /etc against its baselines')
         base = 'client_id = "SECRET_TEMPLATE"\nblank = ""\nnumber = 1\n[device]\nvolume = 70\nclient_id = "nested"\n'
         cases = [
             (base.replace("SECRET_TEMPLATE", "SECRET_LIVE"), None),
@@ -77,7 +77,7 @@ class ConfigDriftTests(unittest.TestCase):
                     live.unlink(missing_ok=True)
                 else:
                     self.write('live/spotify-player/app.toml', value)
-                output = self.run_section(code)
+                output = self.run_check('check_spotify_config')
                 self.assertNotIn('SECRET', output)
                 self.assertIn('COUNTS 0 0' if expected is None else 'COUNTS 1 0', output)
                 if expected:
@@ -90,14 +90,13 @@ class ConfigDriftTests(unittest.TestCase):
                 template.unlink()
             else:
                 template.write_text(value)
-            output = self.run_section(code)
+            output = self.run_check('check_spotify_config')
             self.assertIn('not compared: template', output)
             self.assertIn('COUNTS 1 0', output)
-        output = self.run_section(code, 'python3() { return 127; }')
+        output = self.run_check('check_spotify_config', 'python3() { return 127; }')
         self.assertIn('not compared: Python check failed', output)
 
     def test_toml_nested_order_and_types(self):
-        code = section('hdr "Spotify config matches the template"', '# ------------------------------------------------ /etc against its baselines')
         cases = [
             ('x = {a=1, b={c=2, d=3}}', 'x = {b={d=3, c=2}, a=1}', False),
             ('x = [nan, 2]', 'x = [nan, 2]', False),
@@ -109,28 +108,25 @@ class ConfigDriftTests(unittest.TestCase):
             with self.subTest(template=template, live=live):
                 self.write('spotify-player/app.toml', template)
                 self.write('live/spotify-player/app.toml', live)
-                self.assertIn(f'COUNTS {int(differs)} 0', self.run_section(code))
+                self.assertIn(f'COUNTS {int(differs)} 0', self.run_check('check_spotify_config'))
 
     def test_last_transaction_only_and_incomplete_transaction(self):
-        code = section('# Standalone: inspect the last transaction. sysup supplies a device:inode:bytes\n', '# ------------------------------------------------- root configs installed')
-        # Redirect the hard-coded log path to a fixture; retain the real parser.
-        code = code.replace('plog=/var/log/pacman.log', 'plog="$df_dir/pacman.log"')
+        self.config_drift = self.patched_pacman_log_path()
         old = '[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n'
         new = '[new] [ALPM] transaction started\n[new] [ALPM] transaction completed\n'
         self.write('pacman.log', old + new)
-        output = self.run_section(code)
+        output = self.run_check('check_last_pacman_transaction')
         self.assertIn('clean (new)', output)
         self.assertNotIn('ERROR old', output)
         self.write('pacman.log', '[new] [ALPM] transaction started\n')
-        self.assertIn('no completion record', self.run_section(code))
+        self.assertIn('no completion record', self.run_check('check_last_pacman_transaction'))
         self.write('pacman.log', new + '[new] [ALPM-SCRIPTLET] ==> Building image\n')
-        self.assertIn('never reported success', self.run_section(code))
+        self.assertIn('never reported success', self.run_check('check_last_pacman_transaction'))
         (self.root / 'pacman.log').unlink()
-        self.assertIn('not readable', self.run_section(code))
+        self.assertIn('not readable', self.run_check('check_last_pacman_transaction'))
 
     def test_update_transaction_window(self):
-        code = section('# Standalone: inspect the last transaction. sysup supplies a device:inode:bytes\n', '# ------------------------------------------------- root configs installed')
-        code = code.replace('plog=/var/log/pacman.log', 'plog="$df_dir/pacman.log"')
+        self.config_drift = self.patched_pacman_log_path()
         old = '[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n'
         log = self.write('pacman.log', old)
         st = log.stat()
@@ -145,21 +141,21 @@ class ConfigDriftTests(unittest.TestCase):
         ]:
             with self.subTest(expected=expected):
                 log.write_text(old + first + good)
-                output = self.run_section(code, setup)
+                output = self.run_check('check_last_pacman_transaction', setup)
                 self.assertIn(expected, output)
                 self.assertIn('clean (last)', output)
                 self.assertNotIn('ERROR old', output)
         log.write_text(old)
-        self.assertIn('not readable', self.run_section(code, setup + '\ntail() { return 1; }'))
-        self.assertIn('no new ALPM transaction', self.run_section(code, setup))
+        self.assertIn('not readable', self.run_check('check_last_pacman_transaction', setup + '\ntail() { return 1; }'))
+        self.assertIn('no new ALPM transaction', self.run_check('check_last_pacman_transaction', setup))
         log.write_text('')
-        self.assertIn('coverage incomplete', self.run_section(code, setup))
+        self.assertIn('coverage incomplete', self.run_check('check_last_pacman_transaction', setup))
         log.rename(self.root / 'rotated.log')
         self.write('pacman.log', old + good)
-        self.assertIn('coverage incomplete', self.run_section(code, setup))
-        self.assertIn('boundary unavailable', self.run_section(code, 'pacman_since=unavailable'))
+        self.assertIn('coverage incomplete', self.run_check('check_last_pacman_transaction', setup))
+        self.assertIn('boundary unavailable', self.run_check('check_last_pacman_transaction', 'pacman_since=unavailable'))
         log.unlink()
-        self.assertIn('coverage incomplete', self.run_section(code, setup))
+        self.assertIn('coverage incomplete', self.run_check('check_last_pacman_transaction', setup))
 
     def test_sysup_boundary_and_failure_reporting(self):
         source = (Path(__file__).resolve().parents[1] / 'zsh/functions/sysup.zsh').read_text()
@@ -190,7 +186,6 @@ class ConfigDriftTests(unittest.TestCase):
                 self.assertEqual('LATER_STEPS' in result.stdout, status == 0)
 
     def test_expected_links(self):
-        code = section('hdr "Symlink integrity"', 'hdr "Plugins behind upstream"')
         self.env['HOME'] = str(self.root / 'home')
         live = self.root / 'live'
         live.mkdir()
@@ -198,32 +193,31 @@ class ConfigDriftTests(unittest.TestCase):
         link = live / 'starship.toml'
         self.write('tracked', 'starship.toml\n')
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('missing expected symlink', self.run_section(code, setup))
+        self.assertIn('missing expected symlink', self.run_check('check_symlink_integrity', setup))
         link.write_text('config')
-        self.assertIn('detached (not a symlink)', self.run_section(code, setup))
+        self.assertIn('detached (not a symlink)', self.run_check('check_symlink_integrity', setup))
         link.unlink()
         wrong = self.write('other.toml', 'config')
         link.symlink_to(wrong)
-        self.assertIn('wrong symlink target', self.run_section(code, setup))
+        self.assertIn('wrong symlink target', self.run_check('check_symlink_integrity', setup))
         link.unlink()
         link.symlink_to('../starship.toml')
-        self.assertIn('COUNTS 0 0', self.run_section(code, setup))
+        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
         # Valid links unrelated to the installer may point outside the repo.
         external = self.write('home/external', 'external')
         (live / 'unmanaged').symlink_to(external)
-        self.assertIn('COUNTS 0 0', self.run_section(code, setup))
+        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
         target.unlink()
-        output = self.run_section(code, setup)
+        output = self.run_check('check_symlink_integrity', setup)
         self.assertIn('expected repo source unavailable', output)
         self.assertNotIn('expected config links match', output)
         target.write_text('config')
         link.unlink()
         link.symlink_to('absent')
-        self.assertEqual(self.run_section(code, setup).count('dangling symlink:'), 1)
-        self.assertIn('cannot list tracked files', self.run_section(code, 'git() { return 1; }'))
+        self.assertEqual(self.run_check('check_symlink_integrity', setup).count('dangling symlink:'), 1)
+        self.assertIn('cannot list tracked files', self.run_check('check_symlink_integrity', 'git() { return 1; }'))
 
     def test_directory_and_special_link_mappings(self):
-        code = section('hdr "Symlink integrity"', 'hdr "Plugins behind upstream"')
         self.env['HOME'] = str(self.root / 'home')
         mappings = {
             'nvim': 'live/nvim',
@@ -248,17 +242,16 @@ class ConfigDriftTests(unittest.TestCase):
             link.symlink_to(source)
         self.write('tracked', '\n'.join(mappings))
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('COUNTS 0 0', self.run_section(code, setup))
+        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
         link = self.root / 'live/nvim'
         link.unlink()
         link.symlink_to(self.root / 'vim')
-        self.assertIn('wrong symlink target', self.run_section(code, setup))
+        self.assertIn('wrong symlink target', self.run_check('check_symlink_integrity', setup))
         link.unlink()
         link.mkdir()
-        self.assertIn('detached (not a symlink)', self.run_section(code, setup))
+        self.assertIn('detached (not a symlink)', self.run_check('check_symlink_integrity', setup))
 
     def test_optional_and_copy_link_exceptions(self):
-        code = section('hdr "Symlink integrity"', 'hdr "Plugins behind upstream"')
         self.env['HOME'] = str(self.root / 'home')
         (self.root / 'live').mkdir()
         names = ['spotify-player/app.toml', 'etc/vconsole.conf', 'pam/swaylock',
@@ -269,97 +262,92 @@ class ConfigDriftTests(unittest.TestCase):
         self.write('live/spotify-player/app.toml', 'local copy')
         self.write('tracked', '\n'.join(names))
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('COUNTS 0 0', self.run_section(code, setup))
+        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
         self.write('home/.mozilla/firefox/profiles.ini', '[Install123]\nDefault=example.default\n')
-        self.assertIn('missing expected symlink', self.run_section(code, setup))
+        self.assertIn('missing expected symlink', self.run_check('check_symlink_integrity', setup))
         dest = self.root / 'home/.mozilla/firefox/example.default/chrome/userChrome.css'
         dest.parent.mkdir(parents=True)
         dest.symlink_to(self.root / 'firefox/userChrome.css')
-        self.assertIn('COUNTS 0 0', self.run_section(code, setup))
+        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
 
     def test_root_comparison_status(self):
-        code = 'check_root() {' + section('check_root() {', '# README.md documents')
-        code += '\ncheck_root "$df_dir/source" "$df_dir/destination"\n'
+        call = 'check_root "$df_dir/source" "$df_dir/destination"'
         self.write('source', 'same')
         self.write('destination', 'same')
-        self.assertIn('COUNTS 0 0', self.run_section(code, 'drift=0'))
+        self.assertIn('COUNTS 0 0', self.run_check(call, 'drift=0'))
         self.write('destination', 'different')
-        output = self.run_section(code, 'drift=0')
+        output = self.run_check(call, 'drift=0')
         self.assertIn('review both before syncing', output)
         self.assertNotIn('copy it back', output)
-        output = self.run_section(code, 'drift=0\ncmp() { return 2; }')
+        output = self.run_check(call, 'drift=0\ncmp() { return 2; }')
         self.assertIn('comparison failed', output)
         self.assertNotIn('differs from', output)
         (self.root / 'source').unlink()
-        self.assertIn('unreadable or missing', self.run_section(code, 'drift=0'))
+        self.assertIn('unreadable or missing', self.run_check(call, 'drift=0'))
 
     def test_privileged_root_config_checks(self):
         # Every branch is exercised against a fixture, because a permission check
         # that has never been seen to fail is indistinguishable from one that
         # cannot fail. /etc/nftables.conf is the positive control for the clean
         # path: root:root 0644 under root-owned parents.
-        code = 'check_parents() {' + section('check_parents() {', 'while IFS= read -r src; do')
         setup = 'priv=0\ndeclare -A parent_seen=()'
 
-        def run(snippet):
-            return self.run_section(code + snippet, setup)
+        def run(call):
+            return self.run_check(call, setup)
 
-        self.assertIn('COUNTS 0 0', run('\ncheck_privileged /etc/nftables.conf\n'))
+        self.assertIn('COUNTS 0 0', run('check_privileged /etc/nftables.conf'))
 
         target = self.write('real', 'x')
         link = self.root / 'link'
         link.symlink_to(target)
-        self.assertIn('is a symlink', run(f'\ncheck_privileged "{link}"\n'))
+        self.assertIn('is a symlink', run(f'check_privileged "{link}"'))
 
         conf = self.write('conf', 'x')
-        self.assertIn('not root:root', run(f'\ncheck_privileged "{conf}"\n'))
+        self.assertIn('not root:root', run(f'check_privileged "{conf}"'))
 
         conf.chmod(0o666)
-        self.assertIn('writable by group or others', run(f'\ncheck_privileged "{conf}"\n'))
+        self.assertIn('writable by group or others', run(f'check_privileged "{conf}"'))
 
         # Absent state is reported as not checked and counted as a skip, never
         # as a pass.
-        missing = run(f'\ncheck_privileged "{self.root}/absent"\n')
+        missing = run(f'check_privileged "{self.root}/absent"')
         self.assertIn('metadata unreadable', missing)
         self.assertIn('COUNTS 0 1', missing)
 
         adir = self.root / 'adir'
         adir.mkdir()
-        self.assertIn('not a regular file', run(f'\ncheck_privileged "{adir}"\n'))
+        self.assertIn('not a regular file', run(f'check_privileged "{adir}"'))
 
         conf.chmod(0o644)
-        self.assertIn('not executable', run(f'\ncheck_privileged "{conf}" exec\n'))
-        self.assertNotIn('not executable', run(f'\ncheck_privileged "{conf}"\n'))
+        self.assertIn('not executable', run(f'check_privileged "{conf}" exec'))
+        self.assertNotIn('not executable', run(f'check_privileged "{conf}"'))
 
         # A root-owned file under a directory someone else can write is not
         # protected, so the parents are walked separately.
-        self.assertIn('its contents can be replaced', run(f'\ncheck_parents "{conf}"\n'))
+        self.assertIn('its contents can be replaced', run(f'check_parents "{conf}"'))
 
     def test_baseline_differences_and_partial_scan(self):
-        code = 'check_baseline() {' + section('check_baseline() {', '# Keep producer exit statuses')
+        call = 'check_baseline test "$df_dir/baseline" "$observed" "$complete"'
         self.write('baseline', '# comment\n/etc/b\n/etc/a\n/etc/a\n')
-        run = code + '\ncheck_baseline test "$df_dir/baseline" "$observed" "$complete"\n'
-        output = self.run_section(run, "etc_base=0; observed=$'/etc/c\\n/etc/a'; complete=1")
+        output = self.run_check(call, "etc_base=0; observed=$'/etc/c\\n/etc/a'; complete=1")
         self.assertIn('+ /etc/c', output)
         self.assertIn('- /etc/b', output)
-        output = self.run_section(run, "etc_base=0; observed=$'/etc/c\\n/etc/a'; complete=0")
+        output = self.run_check(call, "etc_base=0; observed=$'/etc/c\\n/etc/a'; complete=0")
         self.assertIn('+ /etc/c', output)
         self.assertNotIn('- /etc/b', output)
         self.write('baseline', '')
-        output = self.run_section(run, "etc_base=0; observed=''; complete=1")
+        output = self.run_check(call, "etc_base=0; observed=''; complete=1")
         self.assertIn('COUNTS 0 0', output)
         (self.root / 'baseline').unlink()
-        self.assertIn('baseline not compared', self.run_section(run, "etc_base=0; observed=''; complete=1"))
+        self.assertIn('baseline not compared', self.run_check(call, "etc_base=0; observed=''; complete=1"))
 
     def test_failed_pacman_inventory(self):
-        code = section('hdr "/etc against its baselines"', '# ------------------------------------------------------ symlink integrity')
-        output = self.run_section(code, 'pacman() { return 1; }; find() { printf "/etc/example\\n"; }')
+        output = self.run_check('check_etc_baselines', 'pacman() { return 1; }; find() { printf "/etc/example\\n"; }')
         self.assertIn('unowned files not compared', output)
         self.assertIn('modified files not compared', output)
         self.assertNotIn('OK', output)
 
     def test_pacman_backup_header_and_continuation_paths(self):
-        code = section('hdr "/etc against its baselines"', '# ------------------------------------------------------ symlink integrity')
         self.write('etc/unowned.txt', '')
         self.write('etc/modified.txt', '/etc/one\n/etc/two\n')
         stub = r'''
@@ -372,24 +360,22 @@ pacman() {
   fi
 }
 '''
-        output = self.run_section(code, stub)
+        output = self.run_check('check_etc_baselines', stub)
         self.assertIn('COUNTS 0 0', output)
         self.assertNotIn('Backup Files', output)
 
     def test_pacdiff_failure_is_not_empty_success(self):
-        code = section('hdr "Pending .pacnew"', '# ------------------------------------------------- last pacman transaction')
-        self.assertIn('none pending', self.run_section(code, 'pacdiff() { return 0; }'))
-        output = self.run_section(code, 'pacdiff() { return 1; }')
+        self.assertIn('none pending', self.run_check('check_pacnew', 'pacdiff() { return 0; }'))
+        output = self.run_check('check_pacnew', 'pacdiff() { return 1; }')
         self.assertIn('pacdiff failed', output)
         self.assertNotIn('none pending', output)
 
     def test_user_units_batched_and_status_checked(self):
-        code = section('hdr "systemd user units verify"', '# ------------------------------------------------------------------ summary')
         self.write('systemd/user/a.service', '[Service]\nExecStart=/bin/true\n')
         self.write('systemd/user/b.timer', '[Timer]\nOnBootSec=1\n')
         stub = 'systemd-analyze() { [[ $1 == --user && $2 == verify && $# == 4 ]]; }'
-        self.assertIn('2 user unit files verify clean', self.run_section(code, stub))
-        output = self.run_section(code, 'systemd-analyze() { return 1; }')
+        self.assertIn('2 user unit files verify clean', self.run_check('check_systemd_units', stub))
+        output = self.run_check('check_systemd_units', 'systemd-analyze() { return 1; }')
         self.assertIn('verification needs attention (exit 1)', output)
         self.assertNotIn('verify clean', output)
 
