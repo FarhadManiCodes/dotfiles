@@ -40,10 +40,21 @@ class ConfigDriftTests(unittest.TestCase):
         return path
 
     def patched_pacman_log_path(self):
-        """A copy of the real script with the hard-coded pacman.log path redirected
-        to the fixture root; used only by tests exercising check_last_pacman_transaction."""
-        text = SOURCE.read_text().replace('plog=/var/log/pacman.log', 'plog="$df_dir/pacman.log"')
-        return self.write('config-drift-patched', text)
+        """A copy of the real entry script plus its config-drift.d/ checks, with the
+        hard-coded pacman.log path in pacman-transaction.sh redirected to the fixture
+        root; used only by tests exercising check_last_pacman_transaction. The entry
+        file itself needs no patching, but still locates config-drift.d/ relative to
+        its own path, so a full sibling directory has to exist alongside it."""
+        entry = self.write('config-drift-patched', SOURCE.read_text())
+        checks_dir = self.root / 'config-drift.d'
+        checks_dir.mkdir(exist_ok=True)
+        for real in (SOURCE.parent / 'config-drift.d').glob('*.sh'):
+            if real.name == 'pacman-transaction.sh':
+                text = real.read_text().replace('plog=/var/log/pacman.log', 'plog="$df_dir/pacman.log"')
+                (checks_dir / real.name).write_text(text)
+            else:
+                (checks_dir / real.name).symlink_to(real)
+        return entry
 
     def run_check(self, call, setup=""):
         result = subprocess.run(
