@@ -190,7 +190,7 @@ class ConfigDriftTests(unittest.TestCase):
                 self.assertEqual('LATER_STEPS' in result.stdout, status == 0)
 
     def test_expected_links(self):
-        code = section('hdr "Symlink integrity"', '# ------------------------------------------------------- plugin staleness')
+        code = section('hdr "Symlink integrity"', 'hdr "Plugins behind upstream"')
         self.env['HOME'] = str(self.root / 'home')
         live = self.root / 'live'
         live.mkdir()
@@ -223,7 +223,7 @@ class ConfigDriftTests(unittest.TestCase):
         self.assertIn('cannot list tracked files', self.run_section(code, 'git() { return 1; }'))
 
     def test_directory_and_special_link_mappings(self):
-        code = section('hdr "Symlink integrity"', '# ------------------------------------------------------- plugin staleness')
+        code = section('hdr "Symlink integrity"', 'hdr "Plugins behind upstream"')
         self.env['HOME'] = str(self.root / 'home')
         mappings = {
             'nvim': 'live/nvim',
@@ -258,7 +258,7 @@ class ConfigDriftTests(unittest.TestCase):
         self.assertIn('detached (not a symlink)', self.run_section(code, setup))
 
     def test_optional_and_copy_link_exceptions(self):
-        code = section('hdr "Symlink integrity"', '# ------------------------------------------------------- plugin staleness')
+        code = section('hdr "Symlink integrity"', 'hdr "Plugins behind upstream"')
         self.env['HOME'] = str(self.root / 'home')
         (self.root / 'live').mkdir()
         names = ['spotify-player/app.toml', 'etc/vconsole.conf', 'pam/swaylock',
