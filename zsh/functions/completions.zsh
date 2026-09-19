@@ -21,9 +21,13 @@ _handlr() {
       handlr -- "${(@)words}" 2>/dev/null
   )}")
   candidates=(${candidates:#})
+  if [[ ${words[2]} != open ]]; then
+    _describe -t values values candidates
+    return
+  fi
 
   # clap escapes a colon inside a value, so an unescaped one marks a described
-  # candidate: a flag or a subcommand. Everything else is a path.
+  # candidate. Only open gets file completion; other commands also offer MIME types.
   flags=(${(M)candidates:#*[^\\]:*})
 
   (( $#flags < $#candidates )) && _files
