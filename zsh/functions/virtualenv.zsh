@@ -53,8 +53,10 @@ _is_local_name() {
 
 # A name must be one path component: "../x", "a/b" and ".." all make _env_path
 # resolve OUTSIDE $CENTRAL_VENVS, and vr runs `rm -rf` on whatever it returns.
+# Whitespace is out too -- _select_env returns the second word of its listing,
+# so a picked "my app" came back as "my".
 _is_valid_name() {
-  [[ -n "$1" && "$1" != *"/"* && "$1" != ".." ]]
+  [[ -n "$1" && "$1" != *[/[:space:]]* && "$1" != ".." ]]
 }
 
 # =============================================================================
@@ -236,84 +238,41 @@ _install_template() {
 # Create virtual environment
 # Usage: vc [name] [template] [version]
 vc() {
-  local name template version
+  local name template version arg
 
-  # Parse arguments with smart detection
-  if [[ $# -eq 0 ]]; then
-    # No arguments - prompt for name
-    _prompt_name
-    template="none"
-    version="$_VENV_DEFAULT_PYTHON"
-
-  elif [[ $# -eq 1 ]]; then
-    if _is_template "$1"; then
-      # Single template argument - prompt for name
-      template="$1"
-      _prompt_name
-      version="$_VENV_DEFAULT_PYTHON"
-    elif _is_version "$1"; then
-      # Single version - prompt for name. Without this branch a bare `vc 3.12`
-      # created an environment literally NAMED "3.12", on the default Python.
-      version="$1"
-      template="none"
-      _prompt_name
+  # Classify each argument by what it looks like, not by its position. The
+  # positional ladder this replaces needed one branch per argument shape, and
+  # both misparse bugs it had came from shapes it did not cover. Order is now
+  # free: `vc ds myapp` and `vc myapp ds` mean the same thing.
+  for arg in "$@"; do
+    if _is_version "$arg"; then
+      version="$arg"
+    elif _is_template "$arg"; then
+      template="$arg"
+    elif [[ -z "$name" ]]; then
+      name="$arg"
     else
-      # Single name argument
-      name="$1"
-      template="none"
-      version="$_VENV_DEFAULT_PYTHON"
-    fi
-
-  elif [[ $# -eq 2 ]]; then
-    if _is_template "$1" && ! _is_version "$2"; then
-      echo "❌ Error: Wrong argument order"
-      echo "💡 Did you mean: vc $2 $1"
+      echo "❌ Unexpected argument: $arg"
+      echo "Usage: vc [name] [template] [version]   (run 'vh' for examples)"
       return 1
-    elif _is_template "$1"; then
-      # Template + version - prompt for name
-      template="$1"
-      version="$2"
-      _prompt_name
-    elif _is_version "$2"; then
-      # Name + version, no template
-      name="$1"
-      template="none"
-      version="$2"
-    else
-      # Name + template
-      name="$1"
-      template="$2"
-      version="$_VENV_DEFAULT_PYTHON"
     fi
+  done
+  : ${template:=none} ${version:=$_VENV_DEFAULT_PYTHON}
+  [[ -z "$name" ]] && _prompt_name
 
-  elif [[ $# -eq 3 ]]; then
-    # Full specification: name template version
-    name="$1"
-    template="$2"
-    version="$3"
-
-  else
-    # Examples live in `vh` only, so there is one copy to keep correct.
-    echo "Usage: vc [name] [template] [version]   (run 'vh' for examples)"
-    echo "Templates: ${_VENV_TEMPLATES[*]}"
-    return 1
-  fi
-
-  # A template name would shadow the detection above; a slashed one escapes
-  # $CENTRAL_VENVS.
+  # Only reachable from the prompt now, since a template-shaped argument becomes
+  # $template above. A slashed or spaced name would escape $CENTRAL_VENVS or
+  # break the picker's name parsing.
   if _is_template "$name" || ! _is_valid_name "$name"; then
     echo "❌ Error: Invalid environment name '$name'"
-    echo "💡 Use a plain name with no '/', and not a template name"
+    echo "💡 Use a plain name, no spaces or '/', and not a template name"
     return 1
   fi
 
   # Check if environment already exists
   if _env_exists "$name" && ! _is_local_name "$name"; then
     echo "❌ Error: Environment '$name' already exists at $(_env_path "$name")"
-    echo "💡 Options:"
-    echo "   - Use 'va $name' to activate it"
-    echo "   - Use 'vr $name' to remove it first"
-    echo "   - Choose a different name"
+    echo "💡 Activate it with 'va $name', remove it with 'vr $name', or rename"
     return 1
   fi
 
@@ -573,26 +532,30 @@ check_envrc_health() {
   echo "🔍 Checking .envrc files..."
   local issues=0
 
+  local envrc_file dir env_name target found
   while IFS= read -r -d '' envrc_file; do
-    local dir="${envrc_file:h}"
-    local env_name=$(_get_envrc_env "$envrc_file")
+    dir="${envrc_file:h}"
+    env_name=$(_get_envrc_env "$envrc_file")
+    found=""
 
+    # A local env is checked against $dir, not the working directory, so this
+    # cannot go through _env_exists (which resolves "local" to ./.venv).
     if [[ "$env_name" == "local" ]]; then
-      if [[ -d "$dir/.venv" ]]; then
-        echo "✅ $dir/.envrc → local .venv"
-      else
-        echo "❌ $dir/.envrc → local .venv (missing)"
-        ((issues++))
-      fi
+      target="local .venv"
+      [[ -d "$dir/.venv" ]] && found=1
     elif [[ -n "$env_name" ]]; then
-      if _env_exists "$env_name"; then
-        echo "✅ $dir/.envrc → $env_name"
-      else
-        echo "❌ $dir/.envrc → $env_name (missing)"
-        ((issues++))
-      fi
+      target="$env_name"
+      _env_exists "$env_name" && found=1
     else
       echo "⚠️  $dir/.envrc (unrecognized format)"
+      ((issues++))
+      continue
+    fi
+
+    if [[ -n "$found" ]]; then
+      echo "✅ $dir/.envrc → $target"
+    else
+      echo "❌ $dir/.envrc → $target (missing)"
       ((issues++))
     fi
   done < <(find . -name ".envrc" -type f -print0 2>/dev/null)
@@ -635,32 +598,23 @@ vh() {
 🐍 Direnv + uv Virtual Environment Manager
 ==========================================
 
-SIGNATURE:
-  vc [name] [template] [version]
+CREATE:
+  vc [name] [template] [version]   - Any order; anything omitted is prompted
+                                     for or defaulted. "local" or "." means
+                                     ./.venv instead of a central env.
+  e.g. vc | vc myproject | vc myproject ds 3.12 | vc ds | vc 3.14 | vc local ds
 
-CORE COMMANDS:
-  vc                               - Prompts for name
-  vc myproject                     - Quick create (defaults)
-  vc myproject ds                  - With template
-  vc myproject ds 3.12             - Full control
-  vc ds                            - Prompts for name, template=ds
-  vc ds 3.14                       - Prompts for name, ds + Python 3.14
-  vc 3.14                          - Prompts for name, Python 3.14
-  vc local                         - Create local .venv
-  vc local ds                      - Local .venv with template
-
-  va [name]                        - Activate (interactive with fzf)
-  va local                         - Activate local .venv
-  vp                               - Auto-setup project environment
-  vd                               - Deactivate
-  vl                               - List centralized environments
-  vr <name>                        - Delete environment (shows size)
-  vs                               - Sync to requirements.txt (removes extras)
-  vf                               - Remove .envrc
-
-UTILITIES:
-  check-envrc                      - Health check .envrc files
-  python-info                      - Show Python/uv/direnv info
+OTHER COMMANDS:
+  va [name]    - Activate: writes an .envrc (bare va picks with fzf)
+  va local     - Activate ./.venv for this session only
+  vp           - Auto-setup project environment
+  vd           - Deactivate
+  vl           - List centralized environments
+  vr <name>    - Delete environment (shows size, asks first)
+  vs           - Sync to requirements.txt (removes anything unlisted)
+  vf           - Remove .envrc
+  check-envrc  - Health check .envrc files
+  python-info  - Show Python/uv/direnv info
 
 TEMPLATES (each also installs ${_VENV_LINT_PACKAGES[*]}):
 $(for t in "${(ok)_VENV_TEMPLATE_PACKAGES[@]}"; do
@@ -672,14 +626,8 @@ PYTHON VERSIONS:
   Any major.minor[.patch], e.g. 3.9 - 3.14. Default: $_VENV_DEFAULT_PYTHON
 
 LOCATIONS:
-  Centralized: $CENTRAL_VENVS
-  Local: ./.venv
-
-WORKFLOW:
-  cd ~/projects/myapp
-  vc myapp ds              # Creates centralized + .envrc
-  # direnv auto-activates!
-  uv pip install pandas    # Fast installs with uv
+  Centralized: $CENTRAL_VENVS   Local: ./.venv
+  direnv auto-activates whichever the project's .envrc names.
 EOF
 }
 

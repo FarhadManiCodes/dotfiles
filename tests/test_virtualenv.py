@@ -11,6 +11,7 @@ _is_valid_name predicate that stops vr() deleting outside $CENTRAL_VENVS.
 """
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -79,21 +80,24 @@ class VirtualenvTests(unittest.TestCase):
         project.mkdir()
         return project
 
-    def test_name_plus_version_is_not_treated_as_a_template(self):
+    def test_arguments_are_classified_by_type_not_position(self):
+        """The positional ladder this replaced needed a branch per argument shape
+        and misparsed two of them: "name version" silently used the default
+        Python, and a lone version became the environment NAME."""
         project = self.stub_uv_and_direnv()
-        result = self.run_zsh("vc myapp 3.12", cwd=project)
-        self.assertNotIn("Unknown template", result.stdout, result.stdout)
-        log = (self.root / "uv.log").read_text()
-        self.assertIn(f"venv {self.central}/myapp --python 3.12", log)
-
-    def test_a_lone_version_is_a_version_not_an_environment_name(self):
-        # `vc 3.12` used to create an env literally NAMED "3.12", on the default
-        # Python. It has to prompt for a name and honour 3.12 as the version.
-        project = self.stub_uv_and_direnv()
-        result = self.run_zsh("vc 3.12", cwd=project, stdin="proj\n")
-        log = (self.root / "uv.log").read_text()
-        self.assertIn(f"venv {self.central}/proj --python 3.12", log, result.stdout)
-        self.assertFalse((self.central / "3.12").exists())
+        log = self.root / "uv.log"
+        for args, stdin, expected in (
+            ("myapp 3.12", "", "myapp --python 3.12"),
+            ("3.12", "proj\n", "proj --python 3.12"),
+            ("ds myapp", "", "myapp --python 3.13"),   # order is free now
+        ):
+            with self.subTest(args=args):
+                shutil.rmtree(self.central, ignore_errors=True)
+                log.write_text("")
+                result = self.run_zsh(f"vc {args}", cwd=project, stdin=stdin)
+                self.assertNotIn("Unknown template", result.stdout)
+                self.assertIn(f"venv {self.central}/{expected}", log.read_text(),
+                              result.stdout + result.stderr)
 
     def test_vr_refuses_a_name_that_escapes_central_venvs(self):
         # _env_path builds "$CENTRAL_VENVS/$name", so "../decoy" pointed vr's
