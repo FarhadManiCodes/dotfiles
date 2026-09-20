@@ -33,4 +33,4 @@ re-ranking, and before `paru` is the moment it's worth doing. Never automatic �
 times every healthy candidate (~50 mirrors, ~15s) — so the check asks and Enter declines;
 with no terminal it prints the command instead, so a scripted `sysup` can't block on a
 prompt nobody will answer. The work itself is `bash/mirrorlist-rank`, the only thing that
-should ever write that file — procedure and recovery in `docs/system-notes.md`.
+should ever write that file — procedure and recovery in [mirrorlist-rank](mirrorlist-rank.md).

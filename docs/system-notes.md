@@ -1,9 +1,7 @@
 # System conventions, maintenance, and package decisions
 
-Extracted from the existing Claude guidance on 2026-09-06. Paths in backticks
-are relative to the dotfiles root unless stated otherwise. Historical measurements
-and examples are retained as recorded; verify current state before acting.
-Claude originals remain intact during migration. Keep corresponding guidance in sync.
+Paths in backticks are relative to the dotfiles root unless stated otherwise. Historical
+measurements and examples are retained as recorded; verify current state before acting.
 
 ## Repository Overview
 
@@ -68,7 +66,7 @@ blacklists). Each was a rebuild hazard of exactly the kind that already caught `
 
 `etc/nftables.conf` and `etc/pacman.conf` are examples of exceptions: both **are** package-owned and
 modified, so the sweep above could not see them — ownership is what that test checks, not
-content. `pacman -Qii` detects readable backup-file content changes; `-Qkk` also checks metadata. Tracking them makes this repo the source of
+content (see `-Qii`/`-Qkk` above). Tracking them makes this repo the source of
 truth, so an upgrade shipping a `.pacnew` cannot quietly replace the ruleset. `pacman.conf`
 joined on 2026-09-05 and differs from the shipped default in **two lines only** — `Color` and
 `VerbosePkgLists`, the latter having no CLI equivalent — kept minimal so a `.pacnew` diff shows
@@ -159,114 +157,15 @@ mirrorlist-rank --install    # install them, keeping a .bak
 mirrorlist-rank -n 5 -c AT   # five fastest Austrian mirrors
 ```
 
-**Candidates are filtered before anything is timed.** They come from
-`archlinux.org/mirrors/status/json/` rather than the mirrorlist generator, so the filter is
-stated here rather than inherited: https, IPv4, active, no more than 24 h behind, and
-`completion_pct >= 0.98` — at most two failures out of the 96 checks Arch runs per mirror per
-day. A mirror that would later trip `sysup`'s validity check should never have been ranked into
-the list to begin with. For `DE` on 2026-09-09 that leaves **49 candidates of 54**; requiring a
-perfect record (`--min-completion 1`) leaves 44. The generator's own `use_mirror_status=on`
-turns out to mean only "active and under 24 h behind" — it returned exactly those 54 — and
-offers no way to exclude a mirror that keeps failing checks.
-
-**https only, IPv4 required**, both measured rather than assumed. Of 152 active `DE` mirrors,
-58 offer https, 53 are http-only and 41 rsync — so insisting on https still leaves far more
-than the ten needed. Packages and databases are signed, so http is not a tampering risk for
-*content*; https is about not advertising which packages this machine downloads, and about
-middleboxes. Of those 58, 50 are dual-stack, 8 are IPv4-only and **none is IPv6-only**, and
-this machine has no global IPv6 address (a `curl -6` fetch fails outright), so requiring IPv4
-excludes nothing and stays correct if IPv6 arrives later.
-
-Note the two thresholds differ on purpose: **select at 0.98, warn at 0.95.** Being fussy about
-what goes *into* the list is free, while warning about a list already in place should mean
-something is actually wrong.
-
-Arch's own `score` and `duration_avg` are deliberately *not* used as filters. They are timed
-from Arch's infrastructure, and speed from this machine is the one thing that has to be
-measured here.
-
-**Every surviving candidate is timed, not just enough to fill the list.** Which mirrors are
-fastest from this connection is precisely what Arch's health data cannot say, so picking the
-best 10 means measuring all 49.
-
-**Ranking is a measurement, not a lookup.** `rankmirrors` downloads from every candidate — 54
-for `DE` on 2026-09-09 — and orders them by speed observed *from this machine*, so the answer
-is specific to here, this connection and this moment. It takes minutes, which is why nothing
-runs it automatically. `use_mirror_status=on` asks Arch to drop mirrors it already knows are
-out of sync, so only healthy candidates are timed.
-
-What each test actually fetches is `<mirror>/core/os/x86_64/core.db`, about 126 KB, with a 10 s
-per-mirror timeout — responsiveness on a small file rather than sustained bandwidth, which is
-the right question for a package mirror but worth knowing before reading much into the order.
-The script passes `-r core` so the repo is named rather than guessed from URL shape, and `-w`
-so a mirror that fails to answer during the test is dropped instead of merely ranked last.
-
-**One pass, and twenty entries — because the ranking is noise-dominated and cannot be fixed
-by averaging.** This was measured, and the measurement went against the intuition:
-
-- Two single-pass runs twenty minutes apart shared 6 of their top 10.
-- Median-of-3 was then implemented, and two consecutive median-of-3 runs also shared **6 of
-  their top 10**. Averaging bought nothing.
-- The arithmetic explains it. Ten repeated fetches from one mirror spread over **54 ms**
-  (median 0.167 s), while adjacent ranks differ by about **3 ms**. Averaging cuts noise by
-  √n, so separating neighbours needs on the order of **300 passes**.
-
-So the boundary of the list is not determinable, and the answer is to stop trying to resolve
-it: take **20** entries instead of 10 and let the cut-off fall somewhere that does not matter.
-pacman uses the first working server and descends only on failure, so the extra ten are free
-while the top is healthy, and the whole top forty is within a factor of two anyway. A single
-pass over ~50 mirrors takes about 15 s.
-
-`--passes N` remains and takes the median (not the mean — one stalled fetch moves a mean far
-more than the middle value). Its benefit is narrow: it stops a single fluke evicting a good
-mirror. With 20 slots that eviction is inconsequential, which is why it is not the default.
-
-Rejected: timing `extra.db` (8.9 MB) rather than `core.db` (129 KB) would make throughput
-dominate the latency jitter and give a sharp ranking — at ~450 MB pulled off other people's
-mirrors per pass, to reorder a set within 25 ms of itself.
-
-**The timing is sequential, and must stay that way.** `rankmirrors -p` exists and its own help
-says it "may be inaccurate": parallel downloads share one connection, so they measure
-contention with each other rather than each mirror. Do not add it to make a run faster.
-
-A dry run also **says whether it would change anything**: it compares the ranked set against
-the live list and reports what would be added and dropped, or that the set is identical and a
-re-rank would only reorder it. That is the question worth answering before spending minutes on
-a measurement, and it is why the plain form is worth running on its own.
-
-Output is filtered to `Server` lines before ranking. Arch's generator prefixes every mirror
-with its own `## <Country>` line and `rankmirrors` passes comments through verbatim, so
-without that the ten results arrive buried under 54 identical headers. The installed file gets
-one provenance line naming the date, country and that the order is measured.
-
-`sysup` checks the file before every update and offers to run this when it finds a problem —
-see `docs/architecture/mirrorlist.md`.
-
-**If a re-rank goes wrong**, the previous list is one command away:
+Candidate filtering (https/IPv4/completion thresholds), why ranking is one sequential pass
+over ~50 mirrors keeping 20 slots rather than averaging, and the safe-write mechanics (staging
+file, `.bak` made first, why never `sudo tee`) are in
+[mirrorlist-rank](architecture/mirrorlist-rank.md). `-c DE` is the default and the one thing to
+change if this machine moves. Rollback if a re-rank goes wrong:
 
 ```bash
 sudo mv /etc/pacman.d/mirrorlist.bak /etc/pacman.d/mirrorlist
 ```
-
-The script exists rather than a three-line pipeline because of four things, each verified
-2026-09-09:
-
-- **Never pipe into `sudo tee`.** `rankmirrors … | sudo tee /etc/pacman.d/mirrorlist` truncates
-  the target when the shell *builds* the pipeline, before `curl` or `rankmirrors` has produced
-  a byte. A failed fetch leaves an empty mirrorlist and pacman with nowhere to go. Demonstrated
-  on a scratch file: a failing producer left it at 0 bytes. The script stages to a temp file and
-  refuses to install a list that came back empty.
-- **The `.bak` is the recovery, so it is made first.** Of the 763 files in
-  `/var/cache/pacman/pkg` none is a `pacman-mirrorlist` package, so there is nothing to extract
-  offline and an unbacked overwrite cannot be undone.
-- **A `.bak` beside the live file is inert.** `/etc/pacman.conf` `Include`s the literal path,
-  not a glob, so the spare file is never read as extra mirrors.
-- **A package upgrade will not clobber your list.** `/etc/pacman.d/mirrorlist` is a `Backup`
-  entry of `pacman-mirrorlist` and reads `[modified]`, so an upgrade leaves a `.pacnew` beside
-  it, which `config-drift` reports like any other.
-
-`-c DE` is the default and the one thing to change if this machine moves; `rankmirrors` comes
-from `pacman-contrib`, and `reflector` is deliberately not installed.
 
 **Sync live changes back to dotfiles**: just `cp` the changed file — the symlink means the
 dotfiles file IS the live file, so this is only needed if symlinks were bypassed.
@@ -316,21 +215,13 @@ builds; it does not cap every possible OpenBLAS build. See the
 The shell's `nproc / 2` is an existing machine-specific approximation, not a physical-core
 topology query; changing shell computation is a separate step.
 
-**Session decoupling is verified for the isolated entry (2026-09-11).**
-The separate [isolated Niri session](../niri/isolated-session.md) forwards only validated
-login metadata to the existing service. It does not read or duplicate `environment.d`.
-`IPYTHONDIR` and the Cargo PATH addition remain on the shell side. The packaged
-`/usr/bin/niri-session` remains unchanged as recovery and still runs its login shell,
-bare `systemctl --user import-environment`, and
-`dbus-update-activation-environment --all`. The isolated login reached readiness
-without the deprecation warning, and Niri/swayidle process environments confirmed
-the selected application defaults and absence of shell-only exports. Implementation
-is closed; unverified manual cases are recorded in the isolated-session guide.
+The isolated Niri session forwards only validated login metadata and does not read or
+duplicate `environment.d`; `IPYTHONDIR` and the Cargo PATH addition stay on the shell side.
+Implementation and remaining live checks: [isolated session](../niri/isolated-session.md).
 
-The environment generator runs at user-manager startup and configuration reload. Existing
-processes retain their environment, and a new graphical login need not recreate a lingering
-user manager. Editing these files alone is not proof that running applications received the
-values; this documentation update did not reload the manager or restart the session.
+The environment generator runs at user-manager startup and configuration reload; existing
+processes keep whatever environment they already have. Editing these files is not proof that
+a running application received the new values without reloading the manager or session.
 
 `CENTRAL_VENVS` only joined them that day. It had been exported from
 `zsh/functions/virtualenv.zsh`, which `.zshrc` sources, so it existed **only in interactive
@@ -364,79 +255,16 @@ System-level choices that aren't captured in any config file:
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
   files and are kept on purpose for if Go is picked up later. Not a misconfiguration; leave
   them.
-- **Tor Browser is deliberately unconfigured — do not add config for it.** Its anonymity
-  depends on every user looking identical, so a `user.js`, `userChrome.css` or extra extension
-  makes you *more* fingerprintable. The profile is clean (only bundled NoScript) and should
-  stay that way; nothing about it belongs in this repo.
-  - Installed by the AUR `tor-browser-bin`, whose `/usr/bin/tor-browser` extracts the tarball
-    from `/opt/tor-browser/` into `~/.local/opt/tor-browser/{app,VERSION,LOG}` on first launch.
-    Do not confuse that with `~/.local/share/torbrowser/`, which belongs to the unrelated
-    `torbrowser-launcher` — 370 MiB of that was removed in the 2026-08-02 audit after the
-    package itself had been uninstalled.
-  - `browser.security_level.security_slider` is **`safest: 1, safer: 2, standard: 4`**
-    (verified in the bundle's own `modules/SecurityLevel.sys.mjs`). Currently 4 = Standard,
-    deliberately. Change it via the shield icon, never by editing prefs — a hand-edit desyncs
-    `security_custom`.
 - **`aocl-gcc` (1.6 GiB at 5.3.0) is load-bearing — do not flag it as unused.** Nothing
   declares a dependency on it (`Required By: None`) and numpy ignores it entirely (wheels
   bundle their own OpenBLAS — see `uv/README.md`), so an audit will keep concluding it is dead
   weight. It is not: C++ projects here link it for BLAS/LAPACK. Measured on this machine it
   beats OpenBLAS on DTRSM by 43–213% — the routine direct solvers live on — and ties on large
-  DGEMM (`~/learning/playground/blas_bench/RESULTS_SUMMARY.md`).
-  - **There is deliberately no system `blas` provider.** The AUR adapter `blas-aocl-gcc`, which
-    symlinked `/usr/lib/lib{blas,cblas,lapack,lapacke}.so` at AOCL, was **removed 2026-08-14**:
-    it is orphaned upstream (no maintainer, flagged out-of-date), and AOCL 5.3.0 moved the
-    library trees down into `MT/` (multi-threaded) and `ST/` subdirectories, dangling all 13 of
-    its hardcoded symlinks — `ldconfig` then pruned the four `.so.3` ones, silently. **`-lblas`
-    no longer resolves, and never should:** AOCL ships no `libblas.so` at all, so that name was
-    always the adapter's invention. Don't reinstall it, and don't add a replacement provider —
-    nothing on the system depends on `blas`.
-  - **How to link AOCL.** CMake has native support since 3.27, and it is strictly better than
-    the old symlinks: it adds the `-fopenmp` that libflame needs (the symlinks silently omitted
-    it) and picks MT/ST and LP64/ILP64 correctly instead of hardcoding one combination.
-    ```cmake
-    list(APPEND CMAKE_LIBRARY_PATH "/opt/aocl/gcc/MT/lib_LP64")
-    set(BLA_VENDOR AOCL_mt)
-    find_package(BLAS REQUIRED)
-    find_package(LAPACK REQUIRED)
-    ```
-    Copy the full pattern — layout probe plus RPATH — from
-    `~/learning/playground/aocl-check/CMakeLists.txt`. Running that project verifies the wiring
-    end to end (`dgemm`/`dtrsm`/`dgesv`, exit 0 = correct).
-  - **Never add AOCL's lib dir to `/etc/ld.so.conf.d/`**, despite what the `aocl-gcc` install
-    scriptlet suggests. It ships `libfftw3.so.3` (FFTW 3.3.10) with the *same soname* as the
-    system fftw (3.3.11), so a global entry would hijack FFTW for every process on the machine.
-    Use per-target `BUILD_RPATH`/`INSTALL_RPATH`; binaries then run in a clean environment with
-    no `LD_LIBRARY_PATH`.
-  - **Put `/usr/lib` first in that RPATH** — `"/usr/lib:${AOCL_LIB_DIR}"`. `DT_RUNPATH` is
-    searched *before* `ld.so.cache`, so a bare AOCL rpath reproduces the FFTW hijack inside
-    that one binary: measured, a program linked against system `-lfftw3` then loads AOCL's
-    3.3.10 at runtime and warns ``Symbol `fftw_version' has different size in shared object``.
-    Ordering `/usr/lib` first fixes it and costs nothing; `libblis-mt`/`libflame` still resolve
-    from AOCL. Both `blas_bench` and `aocl-check` do this.
-  - **`PKG_CONFIG_PATH` is deliberately not set globally**, for that same FFTW reason —
-    pkg-config searches it *before* the compiled-in defaults, so exposing it makes `pkg-config
-    fftw3` return AOCL's 3.3.10. Set it per project if you need the BLIS-native API (`blis.h`,
-    `blis`/`blis-mt`/`flame` modules). The `.pc` files are also **broken out of the box**: they
-    hardcode `prefix=/opt/aocl/5.3.0/gcc/MT`, which does not exist. Override it with
-    `pkg-config --define-variable=prefix=/opt/aocl/gcc/MT --libs flame`.
-  - BLIS worker count is set to 8 in `environment.d/defaults.conf`; `zsh/.zshenv` still
-    calculates `nproc / 2` (8 with all 16 logical CPUs available). This matches the physical
-    core count but does not pin workers to cores. With both thread-count overrides unset,
-    BLIS was measured using all 16 logical CPUs.
-    `BLIS_NUM_THREADS` **outranks** `OMP_NUM_THREADS` (measured), so a project setting
-    `OMP_NUM_THREADS` for its own parallel regions will not resize BLIS.
-  - **Don't wrap BLAS calls in an `omp parallel` region.** `omp_max_active_levels` is 1 by
-    default, so BLIS collapses to a single thread inside an active region — no
-    oversubscription, but a real loss: 4×1500³ dgemm ran 435 GFLOP/s letting BLIS thread vs 265
-    GFLOP/s hand-parallelised over 4 OpenMP threads (3 runs, ±1 ms).
-  - Verified sound in the 2026-08-03 second check: libFLAME exports 12,161 symbols with 0 of 30
-    common LAPACK routines missing, and `dgemm`/`dgesv`/`dsyev` are numerically exact. The one
-    rough edge was a link-time `libaoclutils.so ... not found` warning, which is **gone**: it
-    came from `/usr/lib/liblapack.so`, a `blas-aocl-gcc` symlink, and that package was removed
-    on 2026-08-14. Verified 2026-09-08 — the file does not exist, `/usr/local/lib` is empty,
-    and 5.3.0's `libflame.so` records absolute `DT_NEEDED` paths so `ld` needs no help.
-- **`rust` (306 MiB) is not removable like Go was**: `paru` is written in Rust and depends on
+  DGEMM (`~/learning/playground/blas_bench/RESULTS_SUMMARY.md`). No system `blas` provider
+  exists deliberately — see [AOCL](architecture/aocl.md) for why, and for how to link it
+  (CMake pattern, RPATH ordering against the FFTW soname collision, `PKG_CONFIG_PATH`, BLIS
+  thread-count interaction) without breaking anything else on the machine.
+- **`rust` (303 MiB) is not removable like Go was**: `paru` is written in Rust and depends on
   `libalpm.so>=14`, so it needs rebuilding whenever pacman bumps that soname. Keeping rust
   installed avoids re-fetching it each time.
 - **`shpool` is installed with `cargo install shpool`**, not from the AUR. The resulting
@@ -465,9 +293,9 @@ System-level choices that aren't captured in any config file:
     `gumbo-parser` — an OCR stack, none of it installed. It would also not fix the thing that
     matters: sioyek **statically bundles the same mupdf 1.26.11** (pinned as a submodule at
     `d189cc131`), and sioyek is what actually opens untrusted downloaded PDFs, so patching the
-    occasionally-used CLI to 1.28.0 would buy a false sense of security. `mutool` refreshes for
+    occasionally-used CLI to 1.28.4 would buy a false sense of security. `mutool` refreshes for
     free whenever sioyek is rebuilt.
-  - `agy` (172 MiB, an AI CLI agent) is unrelated to these dotfiles.
+  - `agy` (204 MiB, an AI CLI agent) is unrelated to these dotfiles.
 - **`pdfjam` is free, not a swappable dependency**: it's a script *inside* `texlive-binextra`
   (kept for LaTeX anyway) that wraps `\includepdf` via `pdflatex` — it does not call
   qpdf/mutool, and LaTeX does not depend on it. Its only real niche is n-up/booklet imposition,

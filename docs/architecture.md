@@ -13,6 +13,8 @@ state before acting. Read the file for the app you're touching before changing i
 - [Zsh](architecture/zsh.md) — entry points, functions, the bgutil/yts `sysup` steps
 - [sysclean](architecture/sysclean.md) — NVMe health check, glob-qualifier removals
 - [Mirrorlist check](architecture/mirrorlist.md) — the `sysup` step that runs first
+- [mirrorlist-rank](architecture/mirrorlist-rank.md) — filtering, timing methodology, safe
+  writes
 - [config-drift](architecture/config-drift.md) — catching config that silently stopped
   meaning what it used to
 - [USB media](architecture/usb-media.md) — vifm `:media`, no automount daemon
@@ -29,3 +31,4 @@ state before acting. Read the file for the app you're touching before changing i
   remote
 - [btrfs subvolumes](architecture/btrfs.md) — snapshot exclusion, the two snapper configs
 - [Containers](architecture/containers.md) — rootless podman, Postgres as a Quadlet unit
+- [AOCL](architecture/aocl.md) — linking without hijacking system FFTW, BLIS thread count
