@@ -672,3 +672,22 @@ so `vl` lists it as `(0) [Py ?]`.
   un-removable by `vr`, which checks existence first — worse than the cosmetic listing.
   A real fix needs a distinct "incomplete" state, more code than the symptom is worth.
 - **Recheck:** if a half-created env ever causes more than a misleading `vl` line.
+
+---
+
+## Podman helper-scope ordering can stall a pg stop — ACCEPTED (2026-09-22)
+
+The `Before=pg.service` drop-ins (see `containers/README.md`, "Shutdown ordering") have a
+cost: systemd runs a unit's stop before any start it is ordered with, so a helper scope that
+podman must create *while* pg is stopping waits for that stop, which waits for the helper.
+
+- **Measured:** a probe service whose ExecStop starts a matching scope hung for its full
+  `TimeoutStopSec` (20 s), then was killed. For pg that is 120 s and a failed stop, after
+  postgres itself has already shut down cleanly.
+- **Trigger:** a helper (aardvark-dns, pasta, pause process) dying mid-session before a
+  manual stop or restart. In 30 days of journal every helper stop was part of a shutdown;
+  a normal `systemctl --user restart pg` stopped in ~0.35 s. At shutdown it cannot happen,
+  since the helpers now outlive pg. An ad-hoc `systemd-run --user --scope` launched during
+  pg's sub-second stop waits likewise.
+- **Fix:** none. The alternative is pg failing on every shutdown.
+- **Recheck:** if a pg stop ever times out, or when podman orders its helper scopes itself.

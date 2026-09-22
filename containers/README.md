@@ -108,6 +108,16 @@ The Quadlet unit is `WantedBy=graphical-session.target`, so it now comes up with
 alongside the `rclone@` mounts, and carries `OnFailure=notify-failure@%n.service` like every
 other service here.
 
+## Shutdown ordering — `systemd/user/*-.scope.d/order.conf`
+
+Podman runs pg's helpers in transient scopes of their own: pasta (`rootless-netns-*`),
+aardvark-dns (`run-*`, via `systemd-run`) and the pause process (`podman-pause-*`). Nothing
+tells systemd that pg needs them, so at shutdown it stopped all four at once, `podman rm`
+found the helpers gone, could not start new scopes during shutdown, and exited 125 — pg
+failed on every shutdown although postgres had stopped cleanly. The drop-ins order those
+scopes `Before=pg.service`, so pg stops first. A new container needs its unit added there.
+The rare cost is recorded in `revisit.md`.
+
 ## The password is a podman secret, not an `Environment=` line
 
 This repo is **public**, so a committed credential is published to the world — which is what an
