@@ -67,7 +67,7 @@ check_symlink_integrity() {
           continue ;;
         bash/*) livef=$HOME/.local/bin/${rel#bash/} ;;
         applications/*.desktop) livef=$HOME/.local/share/applications/${rel##*/} ;;
-        ptpython/config.py|ipython/profile_default/ipython_config.py|ipython/profile_default/startup/*.py|systemd/user/*.service|systemd/user/*.timer|systemd/user/app-niri-.scope.d/*.conf)
+        ptpython/config.py|ipython/profile_default/ipython_config.py|ipython/profile_default/startup/*.py|systemd/user/*.service|systemd/user/*.timer|systemd/user/*.d/*.conf)
           livef=$HOME/.config/$rel ;;
         pcmanfm-qt/settings.conf|pcmanfm-qt/bookmarks.xml)
           livef=$config_home/pcmanfm-qt/default/${rel##*/} ;;
