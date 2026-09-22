@@ -74,3 +74,7 @@ git/config.local
 **/id_ed25519
 **/*.pem
 **/*.key
+
+# Claude Code session/local state — repo-local backstop; do not rely solely on
+# the global excludesFile, which only covers settings.local.json by name.
+**/.claude/
