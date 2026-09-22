@@ -258,7 +258,7 @@ link_glob "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.networ
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
 link_glob "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer "${DOTFILES}/systemd/user/"*.socket "${HOME}/.config/systemd/user"
-link_glob "${DOTFILES}/systemd/user/app-niri-.scope.d/"*.conf "${HOME}/.config/systemd/user/app-niri-.scope.d"
+for d in "${DOTFILES}/systemd/user/"*.d; do link_glob "$d"/*.conf "${HOME}/.config/systemd/user/${d##*/}"; done
 systemctl --user daemon-reload
 
 # Enable explicitly rather than globbing (idempotent). A glob gets this wrong in
