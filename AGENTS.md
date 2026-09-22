@@ -59,6 +59,9 @@ and their limitations.
   folding that into a plain pass — a skip means something didn't run, not that it passed.
   Separately, `python3 -B -m unittest discover -s tests` for the checkers and
   `bash bash/check-skills` for skills.
+- New tests must not depend on the invoking shell's inherited environment. If a test asserts
+  on exact output that locale or color settings can change, `unset`/pin the relevant variable
+  (`LC_ALL`, `NO_COLOR`, etc.) at the top of the file rather than assuming a clean shell.
 - `bash -n` and `shellcheck` for Bash — with `-x` where a script sources another
   repo file, or its `source=` annotation is reported as unfollowed rather than honoured;
   `zsh -n` for Zsh, never Bash-only checks;
