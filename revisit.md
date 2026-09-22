@@ -682,12 +682,16 @@ cost: systemd runs a unit's stop before any start it is ordered with, so a helpe
 podman must create *while* pg is stopping waits for that stop, which waits for the helper.
 
 - **Measured:** a probe service whose ExecStop starts a matching scope hung for its full
-  `TimeoutStopSec` (20 s), then was killed. For pg that is 120 s and a failed stop, after
-  postgres itself has already shut down cleanly.
+  `TimeoutStopSec` (20 s), then was killed. For pg that means at least 120 s (inferred:
+  `ExecStopPost` may wait again) and a failed stop, after postgres itself has already shut
+  down cleanly.
 - **Trigger:** a helper (aardvark-dns, pasta, pause process) dying mid-session before a
-  manual stop or restart. In 30 days of journal every helper stop was part of a shutdown;
-  a normal `systemctl --user restart pg` stopped in ~0.35 s. At shutdown it cannot happen,
-  since the helpers now outlive pg. An ad-hoc `systemd-run --user --scope` launched during
-  pg's sub-second stop waits likewise.
+  manual stop or restart. In the ~19 days of journal, podman reported a helper dead (188
+  warnings) only within 2 min of a shutdown; a normal `systemctl --user restart pg` stopped
+  in ~0.35 s. At shutdown the stall cannot happen — a new scope is refused at once, so a
+  helper that died mid-session still gives the old exit-125 failure there. An ad-hoc
+  `systemd-run --user --scope` launched during pg's sub-second stop waits likewise.
 - **Fix:** none. The alternative is pg failing on every shutdown.
-- **Recheck:** if a pg stop ever times out, or when podman orders its helper scopes itself.
+- **Recheck:** after the first reboot with the fix, `journalctl --user -b -1 -u pg.service`
+  must show no `status=125`; later, if a pg stop ever times out, or when podman orders its
+  helper scopes itself.

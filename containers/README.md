@@ -110,13 +110,14 @@ other service here.
 
 ## Shutdown ordering — `systemd/user/*-.scope.d/order.conf`
 
-Podman runs pg's helpers in transient scopes of their own: pasta (`rootless-netns-*`),
+Podman runs its shared helpers in transient scopes of their own: pasta (`rootless-netns-*`),
 aardvark-dns (`run-*`, via `systemd-run`) and the pause process (`podman-pause-*`). Nothing
 tells systemd that pg needs them, so at shutdown it stopped all four at once, `podman rm`
 found the helpers gone, could not start new scopes during shutdown, and exited 125 — pg
 failed on every shutdown although postgres had stopped cleanly. The drop-ins order those
-scopes `Before=pg.service`, so pg stops first. A new container needs its unit added there.
-The rare cost is recorded in `revisit.md`.
+scopes `Before=pg.service`, so pg stops first. A new container on a bridge network such as
+`data.network` shares the helpers, so its unit (`X.service`) goes on the `Before=` line of
+all three files. The rare cost is recorded in `revisit.md`.
 
 ## The password is a podman secret, not an `Environment=` line
 

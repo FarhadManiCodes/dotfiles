@@ -24,7 +24,7 @@ Three ways to get this wrong:
 - **Lifecycle is `systemctl --user`, not `podman`.** `pg` is a Quadlet unit, so
   `podman stop pg` just gets it restarted by systemd.
 
-And six things not to "fix", each explained in `containers/README.md`:
+And seven things not to "fix", each explained in `containers/README.md`:
 
 - **`runc` over `crun` is deliberate** — crun hard-depends on `criu` on Arch (~27 MiB)
   for checkpoint/restore, which podman documents as non-functional rootless.
@@ -38,6 +38,9 @@ And six things not to "fix", each explained in `containers/README.md`:
   can't work; use container-to-container names on `data.network`.
 - **Don't migrate the store by moving files** — stop the units, clear both locations,
   re-pull, and recreate the secret.
+- **Podman's helper scopes are ordered `Before=pg.service`** — the drop-ins in
+  `systemd/user/*-.scope.d/` stop pg before pasta, aardvark-dns and the pause process at
+  shutdown; a new container's unit goes on the same `Before=` line.
 - **`postgresql-libs` must stay `--asexplicit`** — `psql` lives in it and is otherwise an
   orphan candidate `sysclean --all` would remove.
 
