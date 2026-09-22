@@ -11,19 +11,29 @@
 #
 # A missing suite is a failure, not a pass: unittest discovery exits 1 on an
 # absent directory and bash exits 127 on an absent script, both recorded below.
+#
+# A suite that passes but reports skipped checks (unittest's "OK (skipped=N)")
+# is flagged separately in the summary rather than folded into a plain pass --
+# a skip means a check didn't run, which a bare "pass" would hide.
 
 set -uo pipefail
 
 root=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd)
 results=()
 status=0
+output=$(mktemp)
+trap 'rm -f "$output"' EXIT
 
 suite() {
   local name=$1
   shift
   printf '\n\033[1m== %s ==\033[0m\n' "$name"
-  if "$@"; then
-    results+=("$(printf '\033[32mpass\033[0m  %s' "$name")")
+  if "$@" 2>&1 | tee "$output"; then
+    if grep -qE '\(skipped=[0-9]+\)' "$output"; then
+      results+=("$(printf '\033[33mpass, skips\033[0m  %s' "$name")")
+    else
+      results+=("$(printf '\033[32mpass\033[0m  %s' "$name")")
+    fi
   else
     results+=("$(printf '\033[31mFAIL\033[0m  %s' "$name")")
     status=1

@@ -54,9 +54,11 @@ No CI runs anything. Use checks appropriate to the changed files, and report che
 and their limitations.
 
 - `bash bash/run-tests` is the single entry point for the test suites: every suite runs even
-  after an earlier failure, and a missing suite fails rather than passing quietly. Separately,
-  `python3 -B -m unittest discover -s tests` for the checkers and `bash bash/check-skills`
-  for skills.
+  after an earlier failure, and a missing suite fails rather than passing quietly. It also
+  flags a suite that reported skipped checks (`unittest`'s `OK (skipped=N)`) instead of
+  folding that into a plain pass — a skip means something didn't run, not that it passed.
+  Separately, `python3 -B -m unittest discover -s tests` for the checkers and
+  `bash bash/check-skills` for skills.
 - `bash -n` and `shellcheck` for Bash — with `-x` where a script sources another
   repo file, or its `source=` annotation is reported as unfollowed rather than honoured;
   `zsh -n` for Zsh, never Bash-only checks;
