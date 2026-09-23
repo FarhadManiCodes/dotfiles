@@ -60,10 +60,11 @@ missing. For a big backlog, index one reference at a time (`papis ask index "ref
 pause between runs. Semantic Scholar 429s during indexing are different: they only skip optional
 metadata enrichment for that paper and do not stop the run.
 
-**OR works within one key, not across keys.** `docmatcher.py` ANDs space-separated terms, but
-each value is a regex, so `tags:llm-steering|agent-safety` matches either (18 documents, checked
-2026-09-23). "Tag X or author Y" cannot be written as one query. `pask index` accepts several
-query strings and loops over them for that case.
+**Queries support `AND`, `OR`, `NOT` and parentheses** (papis 0.16, `docmatcher._QUERY_GRAMMAR`).
+Space-separated terms are ANDed. `tags:llm-steering OR tags:agent-safety` returns 18 documents,
+the same as the regex `tags:llm-steering|agent-safety`, and `tags:book AND NOT tags:cpp` works
+too (checked 2026-09-24). `pask index` also accepts several query strings and loops over them,
+but a single `OR` query does the same job.
 
 Two things about `papis list` worth having straight, both re-measured on papis 0.16.0 on
 2026-09-06:
@@ -118,11 +119,11 @@ Anything that is not `index` passes straight through to `papis ask`, with
 `~/.config/secrets/papis.env` sourced in a subshell.
 
 `-s`/`--scope QUERY` answers from the documents matching a papis query only (added 2026-09-23).
-Within one key a regex `|` already gives a union. Repeat `-s` to union different keys:
+It takes any papis query, and repeating `-s` is the same as joining queries with `OR`:
 
 ```bash
-pask -s "tags:llm-steering|agent-safety" "your question"
-pask -s "tags:sciml" -s "author:zuazua" "your question"
+pask -s "tags:llm-steering OR tags:agent-safety" "your question"
+pask -s "tags:book AND NOT tags:cpp" "your question"
 ```
 
 Scoping reuses the stored embeddings, so it costs nothing extra. Matching documents that are not

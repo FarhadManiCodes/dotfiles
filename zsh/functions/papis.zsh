@@ -11,11 +11,11 @@ _papis_ask_needs_refine() {
   [[ ! -f "$chunks" || "$pdf" -nt "$chunks" ]]
 }
 
-# papis' own query language has no OR (docmatcher.py ANDs every space-separated
-# term/key:value pair together) and `papis ask index` takes exactly one query
-# argument -- so "match paper A OR paper B" can't be expressed in one papis
-# call at all. _papis_ask_refine_pending and pask's index branch both accept
-# multiple query strings and union/loop across them instead.
+# `papis ask index` takes exactly one query argument. papis 0.16's query
+# language does support OR/AND/NOT and parentheses (docmatcher._QUERY_GRAMMAR;
+# an earlier version of this comment said it had no OR, which was wrong), so
+# one "A OR B" query works too. _papis_ask_refine_pending and pask's index
+# branch still accept several query strings and union/loop across them.
 
 _papis_ask_matching_pdfs() {
   local query="$1"
