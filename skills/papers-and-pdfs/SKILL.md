@@ -22,6 +22,7 @@ neither.
 |---|---|---|
 | A paper in the library, searchable | `papis add …`, then `pask index` | Gemini + CrossRef/S2/OpenAlex |
 | An answer from the library | `pask "your question"` | Gemini |
+| An answer from part of it | `pask -s "tags:control-theory" "your question"` | Gemini |
 | **A general PDF as markdown** | `refinery-typeset <pdf>`, then read `<pdf-stem>.refinery/parsed.md` | Configured OCR backend |
 | A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | Configured OCR backend |
 | A paper as enriched markdown | `refinery <pdf>` → `<stem>.refinery/refinery.md` | Gemini + providers |
@@ -49,6 +50,22 @@ or older than the PDF and runs `refinery` (or `refinery-batch` for several) befo
 rewrites chunks the index has already read.
 
 `--no-refine` or `--raw` suppresses that step. Nothing else does.
+
+**The query scopes the refining, not the indexing.** Without `-f`, `pask index "q"` refines only
+what matches `q` and then runs an *unscoped* `papis ask index`, which embeds every PDF in the
+library that is not indexed yet — through plain pypdf chunking if it has no `chunks.json`. With
+unrefined books in the library that is hundreds of pages embedded badly, then paid for again once
+they are refined. To index a subset only, refine it first (`refinery-batch` on its PDFs), then
+call papis directly with the keys sourced, since `papis ask index` does not refine:
+
+```bash
+( source ~/.config/secrets/papis.env; papis ask index "tags:paper" )
+```
+
+`pask index -f "q"` is scoped too, but `-f` re-embeds every match, which costs money.
+
+Scoped runs still drop deleted documents from the index: the existence check always covers the
+whole library.
 
 ## What has to be in place
 
@@ -88,9 +105,11 @@ uv tool install --force --from ~/projects/paper-refinery paper-refinery
 ```
 
 Nothing announces the divergence. `uv tool list` reports the version from `pyproject.toml`, which
-is not bumped per commit, so a stale tool and a current one look identical. Verified 2026-09-06:
-`direct_url.json` says `"editable": false`, and the installed copy happened to match the source
-that day only because the tool was reinstalled four minutes after the last commit.
+is bumped per release, not per commit, so a stale tool and a current one can look identical.
+Verified 2026-09-06: `direct_url.json` says `"editable": false`, and the installed copy happened to
+match the source that day only because the tool was reinstalled four minutes after the last
+commit. Since v0.3.1 (2026-09-23) `paper_refinery.__version__` reads the package metadata; before
+that it was a hardcoded `0.2.1` that no longer matched `pyproject.toml`.
 
 To check rather than assume:
 
@@ -107,3 +126,8 @@ A full parse is roughly ten minutes. Both `refinery` and `refinery-typeset` writ
 `<stem>.refinery/parse_cache/`, keyed on the PDF hash and the parse config, and reuse it on a
 re-run. `--force-parse` bypasses it — pass that only when the OCR output itself is what you are
 trying to change, never as a general "start clean".
+
+Books over 100 pages are split, and each part checkpoints under `<stem>.refinery/parts/part_N/`,
+keyed on the *original* PDF's hash, so the checkpoint survives being copied. Before OCR-ing a book
+that a study project already converted, check for its `parts/`. Reusing it, and importing an
+existing markdown conversion, are both in `references/ingest.md`.

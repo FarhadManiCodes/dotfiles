@@ -19,6 +19,23 @@ Two ways in, and they are for different situations:
 `papis-add-paper` auto-disambiguates its suggestion and re-prompts on a typed clash — do not work
 around that by forcing a duplicate.
 
+`papis add FILE` **copies** the file into the library; the original stays where it was.
+
+**A failed importer still adds a document in `--batch` mode**, with no metadata at all: a
+`papis_id`-named folder, a timestamp `ref`, nothing else. Seen 2026-09-23 when arXiv briefly
+answered the `arxiv` library with HTTP 406 after a burst of PDF downloads from the same IP; it
+worked again minutes later with no change. For bulk adds, fetch metadata yourself (the arXiv
+Atom API with plain curl works) and add with `papis add --batch --from yaml meta.yaml file.pdf`.
+papis rewrites `ref` from `ref-format` even when the YAML sets one, and normalises hyphens
+(`Ruiz-Balet` becomes `Ruiz_Balet`), so check refs for duplicates afterwards.
+
+**`key:value` values are unanchored, case-insensitive regexes** (`docmatcher.get_regex_from_search`).
+So `ref:Li_2026` also matches `Ali_2026`, and `tags:control` also matches `agent-control`. Use
+`ref:^Li_2026$` for an exact ref. Anchors do not work on list fields such as `tags`:
+`tags:^cpp$` matches nothing (checked 2026-09-23). Keep tag names from being substrings of each
+other. The library's tags on 2026-09-23: `book`/`paper` plus `control-theory`, `optimization`, `sciml`, `data-systems`,
+`fifth-paradigm`, `agent-control`, `llm-steering`, `agent-safety`, `cpp`, `business`.
+
 ## Indexing
 
 ```bash
@@ -36,10 +53,17 @@ One PDF goes through `refinery`; several go through `refinery-batch`, which gate
 `--workers`. A paper that fails is logged and skipped, so **the final count can be lower than the
 number of PDFs given** — check the count, do not assume completion.
 
-**papis' query language has no OR.** `docmatcher.py` ANDs every space-separated term together,
-and `papis ask index` takes exactly one query argument, so "paper A or paper B" cannot be
-expressed in a single papis call. `pask index` accepts several query strings and loops instead —
-that is why it takes multiple arguments where papis takes one.
+**Embedding a large batch can hit Gemini's rate limit.** On 2026-09-23 about 600 chunks in one
+run ended in `429 RESOURCE_EXHAUSTED` after LiteLLM's three retries, and `papis ask index` exited
+with a traceback. Work done before the error was saved, and a re-run embeds only what is still
+missing. For a big backlog, index one reference at a time (`papis ask index "ref:^X$"`) with a
+pause between runs. Semantic Scholar 429s during indexing are different: they only skip optional
+metadata enrichment for that paper and do not stop the run.
+
+**OR works within one key, not across keys.** `docmatcher.py` ANDs space-separated terms, but
+each value is a regex, so `tags:llm-steering|agent-safety` matches either (18 documents, checked
+2026-09-23). "Tag X or author Y" cannot be written as one query. `pask index` accepts several
+query strings and loops over them for that case.
 
 Two things about `papis list` worth having straight, both re-measured on papis 0.16.0 on
 2026-09-06:
@@ -51,6 +75,39 @@ Two things about `papis list` worth having straight, both re-measured on papis 0
   return every document. A comment in `zsh/functions/papis.zsh` claimed the empty form matched
   zero; it does not on 0.16.0, and that comment has been corrected.
 
+## Books a study project already converted
+
+Study projects (`~/projects/cpp-study`, `DDIA_study`, `DataEngineering_study`) hold refinery OCR
+of books that are also in the library. Two ways to avoid paying for it again:
+
+**Copy the OCR checkpoint** when the project kept its work directory, as `cpp-study` does under
+`books/<slug>/work/refinery/parts/`. Copy that `parts/` into `<library-pdf-stem>.refinery/` and
+run `refinery` normally. Every part hits, provided the two PDFs are byte-identical: the key is
+the original PDF's sha256 plus the part index and `max_pages_per_part`, and the parse config and
+checkpoint version must match too. A project converted with a different OCR backend or parse
+config misses without any message and pays for full OCR. Compare `sha256sum`s first, and check
+with `parse_cache.load_checkpoint` for a dry run that costs nothing. Done on
+2026-09-23 for Gottschling (6 parts) and Meyers (4 parts): no OCR, and the log shows the split
+then `done` within seconds.
+
+**Import the markdown** when only the conversion survived. Write a `refinery.md` into the
+library PDF's `<stem>.refinery/` and run `refinery --from chunk <pdf>` (see `convert.md`). The
+chunker reads `<page_number>N</page_number>` markers, which must be **PDF page numbers**, so
+check what the markers mean before trusting them. The 2026-09-23 imports met all three cases:
+
+| Source | Markers | Fix |
+|---|---|---|
+| DDIA chapters | restart at 1 per chapter | add each chapter's start page from the PDF outline (`get_toc()`) |
+| Data Center as a Computer, Fourth Paradigm | printed page numbers | constant offset per chapter or book, found by matching text |
+| Fundamentals of Data Engineering | stripped entirely | rebuild by locating each paragraph's opening words in the PDF text layer |
+
+Verify either way. Sample marked pages and compare each one's words with `pymupdf` page text at
+offsets −1/0/+1; the right mapping wins at 0 almost every time. Also strip chapter-end
+`## References` sections, which otherwise turn into chunks of bibliography, and bare
+`![FIGURE_CROP …](…)` lines, which a full run would have replaced with descriptions. Keep the
+captions. What you give up compared with a full run is figure descriptions and the citation
+stage.
+
 ## Asking
 
 ```bash
@@ -59,6 +116,17 @@ pask "what does this library say about observability gramians"
 
 Anything that is not `index` passes straight through to `papis ask`, with
 `~/.config/secrets/papis.env` sourced in a subshell.
+
+`-s`/`--scope QUERY` answers from the documents matching a papis query only (added 2026-09-23).
+Within one key a regex `|` already gives a union. Repeat `-s` to union different keys:
+
+```bash
+pask -s "tags:llm-steering|agent-safety" "your question"
+pask -s "tags:sciml" -s "author:zuazua" "your question"
+```
+
+Scoping reuses the stored embeddings, so it costs nothing extra. Matching documents that are not
+indexed are left out. A blank `-s ""` is rejected, because papis would match everything.
 
 Embeddings come from papis' configured backend (`ask.embedding`, currently a Gemini model), not
 from a local llama.cpp server — that moved off local on 2026-07-08. If answers look like they are
@@ -72,3 +140,21 @@ retrieval wrong*: re-run `pask index` for that paper and compare.
 source identification so refinery can take the S2 bulk-references fast path — one call for the
 whole bibliography instead of a per-reference search. It is optional complementary data; without
 it refinery falls back to the OCR'd title.
+
+## Checking citations after a refine
+
+Before v0.3.1 (2026-09-23), a Gemini response one row short of a 50-line reference batch was
+padded at the end, and every later reference took its neighbour's title, which then drove resolution
+and the `[surname_year]` rewrite. A `_row_fits` audit of the library's citations.json files on
+2026-09-23 found it in 5 of 41 papers, one of them refined in July. The old
+log line was `padding/truncating to align by position`. From v0.3.1, rows are placed by the line they name (v0.3.2 adds their printed reference number)
+and checked against the raw text, and anything unplaceable is left empty. The warnings
+now read `N line(s) unmatched -- retrying them once` or `dropped N row(s) that do not fit their
+line`, and both are benign.
+
+To audit a paper, check each `references[i]` in `<stem>.citations.json` with
+`paper_refinery.citation_extraction._row_fits` against its own `raw_text`. A run of misfits
+ending at a multiple of 50 is the old shift. Fix it by re-running `refinery` on that PDF. The OCR
+checkpoint is reused, but figure descriptions, citation extraction and provider lookups all run
+again. The new `chunks.json` then makes the next index run re-embed that paper, which also costs
+money.
