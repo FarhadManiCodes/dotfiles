@@ -97,6 +97,16 @@ Anything that is not `index` passes straight through to `papis ask`, with
 the same as joining queries with `OR`. Scoping reuses the stored embeddings, so it costs nothing
 extra. Matching documents that are not indexed are left out, and a blank `-s ""` is rejected.
 
+`pask -o json "…"` returns the answer with its sources; each reference and context carries
+`papis_id`, `ref` and `source_type` (`publication` or `personal_note`), since a note and its
+paper share the same `papis_id`.
+
+`[ask] mmr-lambda` in the papis config trades similarity for diversity when picking evidence
+(0–1; unset keeps PaperQA's 1.0, similarity only). Lower values stop one long book filling every
+evidence slot with near-duplicate chunks. 0.9 was tried and not adopted: it also let
+bibliography and index chunks in, which chunking now drops, so it is worth re-testing. Compare
+settings on the library with `contrib/eval_questions.py` in papis-ask.
+
 Embeddings come from papis' configured backend (`ask.embedding`, a Gemini model), not a local
 server. If answers seem to miss a paper you know is there, the question is almost always *was
 it indexed*, not *is retrieval wrong*: index that paper and compare.
@@ -105,7 +115,7 @@ it indexed*, not *is retrieval wrong*: index that paper and compare.
 
 A document's personal note is the file named in its papis `notes:` field (`papis edit -n`
 creates it). papis-ask indexes it as a separate source next to the paper, so answers can cite
-your own notes. Only the `notes:` file counts; other `.md` files in the folder are never
+your own notes; they are cited as `<ref>-note` (for example `Kalman_1960-note`). Only the `notes:` file counts; other `.md` files in the folder are never
 indexed. A note is independent of refinery: re-refining the paper, even with
 `--overwrite-edits`, leaves the note untouched.
 
@@ -153,8 +163,8 @@ Each refine writes `<stem>.refinery/resolution_report.txt` and `<stem>.citations
 **Reading the report.** The first line gives the verified count, split by the route that
 verified each reference: `resolved 157/937 references (crossref: 154, openalex: 2,
 semanticscholar: 1)`. `crossref`, `semanticscholar` and `openalex` are title searches, tried in
-that order, so a healthy report is mostly `crossref` too. `bulk` means the source paper's own
-reference list, fetched from S2 or OpenAlex; `doi` an S2 lookup by a printed DOI; `papis` a match
+the order of `[citation] title_search_order`, so a healthy report is dominated by the first of
+them. `bulk` means the source paper's own reference list, fetched from S2 or OpenAlex; `doi` an S2 lookup by a printed DOI; `papis` a match
 against the document's papis `citations:` field.
 
 Acceptance: a title match at similarity ≥ 0.90 needs the year within ±1 (a missing year on
@@ -171,9 +181,30 @@ candidate from any provider`:
 | Similarity 0.75–0.90 | An OCR-garbled title without matching year and first author, or a different work | Look at the entry by hand |
 | Similarity ≥ 0.90, printed year off by more than 1 | Another edition or a reprint | No; rejected on purpose |
 | Similarity ≥ 0.90, year within ±1 | The printed and provider authors disagree (the report does not show the authors) | Look at the entry by hand |
-| Low verified share on a paper-heavy bibliography, with `semanticscholar`, `openalex`, `bulk` and `doi` all near zero | S2 and OpenAlex were rate-limited or keyless during the run | **Yes**, serially |
+| Low verified share on a paper-heavy bibliography, with `semanticscholar`, `openalex`, `bulk` and `doi` all near zero | S2 and OpenAlex were rate-limited or out of budget during the run | **Yes**, serially |
+| A paper with `bulk` near zero | Its reference list was not fetched; the log says why (below) | Yes, if the log says the fetch failed |
 
 A book citing mostly web pages and standards stays around 20% however often it is re-run.
+
+**The source's reference list.** A paper's whole bibliography often comes in one call from
+S2 (or OpenAlex, by DOI), and is then matched offline: fast, and usually 90%+ verified. The log
+says which, per document: `source reference list: 67 from S2, OpenAlex not asked; matching
+locally`, or `source reference list unavailable (<reason>; …); searching each reference`. The
+reasons: `not found in S2, or the S2 lookup failed`, `S2 list fetch failed` (a warning;
+throttling, worth a re-run), `S2 lists no references`. Books have no list at any provider
+(CrossRef, including Springer chapter records, OpenAlex and S2 were all checked), so a book's
+references are always searched one by one, which is the slow part of a refine. List calls
+retry longer (`[citation] bulk_retry_attempts`); after one exhausts its retries, a warning
+names the host and later list calls use the ordinary budget until one succeeds.
+
+**Search order.** `[citation] title_search_order` sets which provider each per-reference search
+asks first. The config here uses `["openalex", "crossref", "semanticscholar"]`: OpenAlex
+answers fast with the key, where keyless S2 backs off under load (a 937-reference book took
+3+ hours with S2 early in the chain). Acceptance is the same in any order, and a preprint hit
+still yields to a later published record. What differs is the stored record: OpenAlex may
+give a merged work's earliest year where no year was printed, types proceedings papers as
+articles, and splits names on the last token. S2 is still called for printed DOIs and for
+abstracts of CrossRef matches.
 
 **Refine serially when citations matter.** Several refinery workers make the free providers
 rate-limit each other: papers from a 4-worker batch verified 12–53% of references, and one of
@@ -184,7 +215,11 @@ them went from 40% to 77% when re-run alone with an OpenAlex key. Use
 
 - OpenAlex requires a free API key. Keyless requests share a per-IP daily budget and return
   `429 "Insufficient budget"`, and the fallback then fails without further notice. The key goes
-  in `openalex.env` as `OPENALEX_API_KEY`; a rejected key is logged once.
+  in `openalex.env` as `OPENALEX_API_KEY`; a rejected key is logged once. The keyed daily
+  budget can run out too, with the same 429, during long batches; adding credit to the account
+  restores it. Check without printing the key:
+  `( set -a; source ~/.config/paper-refinery/secrets/openalex.env; curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $OPENALEX_API_KEY" 'https://api.openalex.org/works?search=test&per-page=1' )`
+  prints 200 when it works.
 - CrossRef and OpenAlex give a "polite pool" to requests carrying a contact address:
   `REFINERY_MAILTO` in `contact.env`, sent only to the providers in `[citation]
   mailto_providers` of `config.toml`.
