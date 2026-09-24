@@ -69,8 +69,13 @@ editmode = vi
 [ask]
 # Refinery handles enrichment; disable PaperQA's separate image enrichment.
 multimodal = False
-llm = gemini/gemini-3-flash-preview
-summary-llm = gemini/gemini-2.5-flash-lite
+# 2026-09-24 A/B, same 6 questions and index: the newer pair scored evidence on a graded
+# scale (the old summary model gave nearly everything 10/10 or 1), added only supported
+# detail (every extra claim checked against the cited pages), kept the user's note
+# attributed as a note, and answered in 14-19 s vs 17-78 s. gemini-3-flash-preview is
+# deprecated; gemini-2.5-flash-lite is legacy with restricted access.
+llm = gemini/gemini-3.8-flash
+summary-llm = gemini/gemini-3.5-flash-lite
 embedding = gemini/gemini-embedding-2
 max-sources = 8
 answer-length = about 500 words, but can be longer
