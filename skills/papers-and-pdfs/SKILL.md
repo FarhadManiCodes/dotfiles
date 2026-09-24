@@ -78,19 +78,25 @@ Two different secret locations, and they are not interchangeable:
 | Tool | Reads |
 |---|---|
 | `pask` | `~/.config/secrets/papis.env` — sourced in a subshell, so it never leaks into your shell |
-| `refinery` | `~/.config/paper-refinery/secrets/{google,hf,zai}.env` |
+| `refinery` | every `~/.config/paper-refinery/secrets/*.env`: `google`, `hf`, `zai`, plus `openalex` (`OPENALEX_API_KEY`), `contact` (`REFINERY_MAILTO`), optionally `s2` (`S2_API_KEY`) |
 
-Those keys exist **only on this disk and are in no backup**; losing them means re-issuing all
-three. Never print them, and never add `~/.config/paper-refinery/` to a public repo — the config
+Those keys exist **only on this disk and are in no backup**; losing them means re-issuing
+them. Never print them, and never add `~/.config/paper-refinery/` to a public repo — the config
 sits beside the secrets, which is why it is deliberately untracked.
 
 Check presence without reading contents:
 
 ```bash
-for f in ~/.config/secrets/papis.env ~/.config/paper-refinery/secrets/{google,hf,zai}.env; do
+for f in ~/.config/secrets/papis.env ~/.config/paper-refinery/secrets/{google,hf,zai,openalex,contact}.env; do
   printf '%-52s %s\n' "${f/#$HOME/~}" "$([ -f "$f" ] && echo present || echo MISSING)"
 done
 ```
+
+Models are pinned by exact name in `config.toml` and the papis config, never `-latest`
+aliases, with the evidence for each choice in a comment. Before changing one, compare on the
+library: `scripts/eval_models.py check|extraction|figures` in paper-refinery, and
+`contrib/eval_questions.py` in papis-ask. Never change `ask.embedding` casually: it forces a
+full re-embed.
 
 ## The trap: `refinery` on PATH is a snapshot, not the source
 

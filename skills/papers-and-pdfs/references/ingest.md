@@ -160,10 +160,29 @@ sensing" (Baraniuk, Candès) resolved to Donoho's "Compressed sensing" and Alpha
 Gomoku paper. Measured on 2026-09-24 by re-extracting authors: 43 wrong matches across 14 documents. v0.3.3
 rejects a title match when the printed and provider surnames plainly disagree.
 
+**Citation providers need their credentials** (all in refinery's secrets folder, see
+`SKILL.md`). OpenAlex has required a free API key since 2026 (observed): keyless requests share a per-IP
+daily budget and return `429 "Insufficient budget"` (seen 2026-09-24), so without
+`OPENALEX_API_KEY` the third-provider fallback fails without any warning. From v0.3.7 the key is
+sent as a bearer header, and a rejected key is logged once. CrossRef
+and OpenAlex give a "polite pool" to requests carrying a contact address: `REFINERY_MAILTO` in
+`contact.env`, restricted per provider by `[citation] mailto_providers` in `config.toml`. Semantic
+Scholar has no polite pool; its key application asked for an academic affiliation (seen
+2026-09-24), and keyless worked with more retries (`[citation] api_retry_attempts`, 5 in
+`config.toml`; the default is 2). From v0.3.4 a rejected top title hit is followed
+by the provider's next hits (`search_candidates`), which recovers generic titles.
+
 Verification rates also depend on how a document was refined. Papers refined in a
 4-worker `refinery-batch` on 2026-09-23 verified 12–53% of references, because the free
 providers rate-limited the lookups. Re-run alone, one paper went from 40% to 75%. Use
 `refinery-batch --workers 1` when citation quality matters more than speed.
+
+**A full re-run replaces `refinery.md`**, and hand edits to it used to be lost silently (a
+July math cleanup on kalman-1960 was, on 2026-09-24). From v0.3.6 each run records the file's
+checksum; a later full run that finds it edited stops before any paid work, keeps a
+`refinery.md.hand-edited-*` copy and points to `refinery --from chunk`, which re-chunks the
+edited file. `--overwrite-edits` replaces it anyway; a file from before checksums is copied to
+`refinery.md.before-*` and replaced.
 
 To fix a document, re-run `refinery` on its PDF. OCR and figure descriptions both come from
 caches, and successful provider lookups are cached too. What runs again is citation

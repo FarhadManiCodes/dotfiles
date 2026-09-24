@@ -58,6 +58,16 @@ refinery --from chunk paper.pdf
 Re-chunks the saved `refinery.md` only. Instant, no OCR, no network — for tuning chunk policy.
 `refinery-batch --from chunk` does the same across many.
 
+From v0.3.5 chunking leaves out reference lists and back-of-book indexes
+(`[chunk] drop_back_matter`, default on), which were being retrieved and cited as evidence. A
+headed section is dropped only when its content looks like references or index entries, so a
+section titled "1.8.4 References" about C++ references stays; long unheaded index runs go too.
+Page markers move to the next kept text and figures inside dropped pages stay. Re-chunking with
+`--from chunk` is free, but it rewrites every `chunks.json` it touches, and papis-ask
+re-embeds by file date alone, so each re-chunked document is re-embedded (paid) even if its
+chunks come out identical. Re-chunk only the documents whose chunks would change: compare
+`chunk_markdown` with and without `drop_back_matter` on their `refinery.md` first.
+
 ## When the OCR itself is wrong
 
 Same checkpoint as in `SKILL.md` — if the OCR itself was wrong, a plain re-run just reproduces
