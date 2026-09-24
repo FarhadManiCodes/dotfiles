@@ -154,7 +154,7 @@ Each refine writes `<stem>.refinery/resolution_report.txt` and `<stem>.citations
 verified each reference: `resolved 157/937 references (crossref: 154, openalex: 2,
 semanticscholar: 1)`. `crossref`, `semanticscholar` and `openalex` are title searches, tried in
 that order, so a healthy report is mostly `crossref` too. `bulk` means the source paper's own
-reference list, fetched from S2 or OpenAlex; `doi` a lookup by a printed DOI; `papis` a match
+reference list, fetched from S2 or OpenAlex; `doi` an S2 lookup by a printed DOI; `papis` a match
 against the document's papis `citations:` field.
 
 Acceptance: a title match at similarity ≥ 0.90 needs the year within ±1 (a missing year on
@@ -171,7 +171,7 @@ candidate from any provider`:
 | Similarity 0.75–0.90 | An OCR-garbled title without matching year and first author, or a different work | Look at the entry by hand |
 | Similarity ≥ 0.90, printed year off by more than 1 | Another edition or a reprint | No; rejected on purpose |
 | Similarity ≥ 0.90, year within ±1 | The printed and provider authors disagree (the report does not show the authors) | Look at the entry by hand |
-| Low verified share on a paper-heavy bibliography, with S2 and OpenAlex near zero | S2 and OpenAlex were rate-limited or keyless during the run | **Yes**, serially |
+| Low verified share on a paper-heavy bibliography, with `semanticscholar`, `openalex`, `bulk` and `doi` all near zero | S2 and OpenAlex were rate-limited or keyless during the run | **Yes**, serially |
 
 A book citing mostly web pages and standards stays around 20% however often it is re-run.
 
