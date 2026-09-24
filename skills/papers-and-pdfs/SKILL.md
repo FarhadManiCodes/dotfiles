@@ -27,6 +27,10 @@ neither.
 | A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | Configured OCR backend |
 | A paper as enriched markdown | `refinery <pdf>` → `<stem>.refinery/refinery.md` | Gemini + providers |
 
+Figure descriptions are anchored on "FIGURE N" captions, so an image without a numbered caption
+is never described. For a visual book (canvases, worksheets), pass `--describe-uncaptioned`
+(refinery 0.3.3+) to describe those too: one gemini-3-flash call per image, cached.
+
 `refinery-typeset` runs parse only — no figure-description stage and no citation verification.
 For PDF input it still uses the configured OCR backend: default `maas` mode needs
 `ZHIPU_API_KEY` and network access, while `selfhosted` mode runs locally. Markdown input skips

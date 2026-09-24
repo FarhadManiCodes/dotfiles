@@ -145,17 +145,28 @@ it refinery falls back to the OCR'd title.
 ## Checking citations after a refine
 
 Before v0.3.1 (2026-09-23), a Gemini response one row short of a 50-line reference batch was
-padded at the end, and every later reference took its neighbour's title, which then drove resolution
-and the `[surname_year]` rewrite. A `_row_fits` audit of the library's citations.json files on
-2026-09-23 found it in 5 of 41 papers, one of them refined in July. The old
-log line was `padding/truncating to align by position`. From v0.3.1, rows are placed by the line they name (v0.3.2 adds their printed reference number)
-and checked against the raw text, and anything unplaceable is left empty. The warnings
-now read `N line(s) unmatched -- retrying them once` or `dropped N row(s) that do not fit their
-line`, and both are benign.
+padded at the end, and every later reference took its neighbour's title, which then drove
+resolution and the `[surname_year]` rewrite. A `_row_fits` audit of the library's
+citations.json files on 2026-09-23 found it in 5 of 41 papers, one of them refined in July. The
+old log line was `padding/truncating to align by position`. From v0.3.1, rows are placed by the
+line they name (v0.3.2 adds their printed reference number) and checked against the raw text,
+and anything unplaceable is left empty. The warnings now read `N line(s) unmatched -- retrying
+them once` or `dropped N row(s) that do not fit their line`, and both are benign.
 
-To audit a paper, check each `references[i]` in `<stem>.citations.json` with
-`paper_refinery.citation_extraction._row_fits` against its own `raw_text`. A run of misfits
-ending at a multiple of 50 is the old shift. Fix it by re-running `refinery` on that PDF. The OCR
-checkpoint is reused, but figure descriptions, citation extraction and provider lookups all run
-again. The new `chunks.json` then makes the next index run re-embed that paper, which also costs
-money.
+A `_row_fits` misfit that is not part of a run usually means a wrong *resolution*, not a
+wrong extraction: `citations.json` stores the provider's title. Before v0.3.3 (2026-09-24), a
+title match at >= 0.90 similarity was accepted without looking at authors, so "Compressive
+sensing" (Baraniuk, Candès) resolved to Donoho's "Compressed sensing" and AlphaGo Zero to a
+Gomoku paper. Measured on 2026-09-24 by re-extracting authors: 43 wrong matches across 14 documents. v0.3.3
+rejects a title match when the printed and provider surnames plainly disagree.
+
+Verification rates also depend on how a document was refined. Papers refined in a
+4-worker `refinery-batch` on 2026-09-23 verified 12–53% of references, because the free
+providers rate-limited the lookups. Re-run alone, one paper went from 40% to 75%. Use
+`refinery-batch --workers 1` when citation quality matters more than speed.
+
+To fix a document, re-run `refinery` on its PDF. OCR and figure descriptions both come from
+caches, and successful provider lookups are cached too. What runs again is citation
+extraction (flash-lite, one call per 50 references, plus a retry for skipped lines). The new `chunks.json` then makes the next
+index run re-embed the whole document: for the 49 refined documents on 2026-09-24 that was
+~3.7M embedding tokens against ~1M extraction tokens.
