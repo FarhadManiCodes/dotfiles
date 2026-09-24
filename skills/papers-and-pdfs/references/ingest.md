@@ -10,6 +10,7 @@ Read after choosing the library path in `SKILL.md`.
 - [Books a study project already converted](#books-a-study-project-already-converted)
 - [Citation quality](#citation-quality)
 - [Re-refining documents](#re-refining-documents)
+- [Passing known metadata to refinery](#passing-known-metadata-to-refinery)
 
 ## Adding
 
@@ -108,6 +109,12 @@ your own notes. Only the `notes:` file counts; other `.md` files in the folder a
 indexed. A note is independent of refinery: re-refining the paper, even with
 `--overwrite-edits`, leaves the note untouched.
 
+- `<!--quote-->…<!--/quote-->` blocks and HTML comments (such as sioyek's page markers) are
+  removed before embedding; a note holding only headings or quotes is not indexed.
+- Editing a note re-embeds it on the next index run.
+- A `type: note` entry whose `.md` sits under `files:` instead of `notes:` is never indexed
+  (a warning is logged).
+
 ## Books a study project already converted
 
 Study projects (`~/projects/cpp-study`, `DDIA_study`, `DataEngineering_study`) hold refinery OCR
@@ -143,23 +150,35 @@ stage.
 
 Each refine writes `<stem>.refinery/resolution_report.txt` and `<stem>.citations.json`.
 
-**Reading the report.** The first line gives the verified count and which provider verified
-each: `resolved 157/937 references (crossref: 154, openalex: 2, semanticscholar: 1)`. Each
-reference under `UNVERIFIED` shows its `best reject`, the closest candidate a provider returned:
+**Reading the report.** The first line gives the verified count, split by the route that
+verified each reference: `resolved 157/937 references (crossref: 154, openalex: 2,
+semanticscholar: 1)`. `crossref`, `semanticscholar` and `openalex` are title searches, tried in
+that order, so a healthy report is mostly `crossref` too. `bulk` means the source paper's own
+reference list, fetched from S2 or OpenAlex; `doi` a lookup by a printed DOI; `papis` a match
+against the document's papis `citations:` field.
+
+Acceptance: a title match at similarity ≥ 0.90 needs the year within ±1 (a missing year on
+either side skips the check) and no plain disagreement between printed and provider surnames. A
+match at 0.75–0.90 needs the exact year and the same first-author surname.
+
+Each reference under `UNVERIFIED` shows its `best reject`, the closest candidate, with the
+*candidate's* year (check the printed year in `references.md` or `citations.json`), or `no
+candidate from any provider`:
 
 | What you see | What it means | Worth a re-run? |
 |---|---|---|
 | Low similarity, candidate unrelated | The providers do not list it: web pages, blog posts, talks, ISO standards, software, committee papers | No; unverified is correct |
-| Similarity ≥ 0.9, year off by more than 1 | Another edition or a reprint | No; rejected on purpose |
-| Similarity ≥ 0.9, same year | The printed and provider authors disagree (the report does not show the authors) | Look at the entry by hand |
-| Mostly CrossRef, S2 and OpenAlex near zero, on a paper-heavy bibliography | S2 and OpenAlex were rate-limited or keyless during the run | **Yes**, serially |
+| Similarity 0.75–0.90 | An OCR-garbled title without matching year and first author, or a different work | Look at the entry by hand |
+| Similarity ≥ 0.90, printed year off by more than 1 | Another edition or a reprint | No; rejected on purpose |
+| Similarity ≥ 0.90, year within ±1 | The printed and provider authors disagree (the report does not show the authors) | Look at the entry by hand |
+| Low verified share on a paper-heavy bibliography, with S2 and OpenAlex near zero | S2 and OpenAlex were rate-limited or keyless during the run | **Yes**, serially |
 
-A book citing mostly web pages and standards stays around 20% however often it is re-run. A
-paper whose OpenAlex lookups had been failing went from 40% to 77% once they worked.
+A book citing mostly web pages and standards stays around 20% however often it is re-run.
 
 **Refine serially when citations matter.** Several refinery workers make the free providers
-rate-limit each other: a 4-worker batch verified 12–55% of references where the same papers
-refined one at a time reached 75–100%. Use `refinery-batch --workers 1`.
+rate-limit each other: papers from a 4-worker batch verified 12–53% of references, and one of
+them went from 40% to 77% when re-run alone with an OpenAlex key. Use
+`refinery-batch --workers 1`.
 
 **Providers and credentials** (all in refinery's secrets folder, see `SKILL.md`):
 
@@ -190,7 +209,10 @@ documents whose chunks actually change.
 **Hand edits to `refinery.md`.** A full run replaces `refinery.md`. Refinery records a checksum
 of each file it writes; a later full run that finds the file edited stops before any paid work,
 keeps a `refinery.md.hand-edited-*` copy, and points to `refinery --from chunk`, which re-chunks
-the edited file. `--overwrite-edits` replaces it anyway (a copy is kept either way).
+the edited file. `--overwrite-edits` replaces it anyway (a copy is kept either way). In
+`refinery-batch` a refused paper is skipped, so the final count drops. A `refinery.md` written
+before checksums existed (refinery < 0.3.6) cannot be checked: it is copied to
+`refinery.md.before-*` and replaced without stopping.
 
 Checklist for re-refining several documents:
 
@@ -198,16 +220,19 @@ Checklist for re-refining several documents:
 - [ ] No refinery process running; installed refinery matches the source (SKILL.md)
 - [ ] Back up each document's citations.json, chunks.json, .md and .refinery/ outside the library
 - [ ] Note each document's current verified count (first line of resolution_report.txt)
+- [ ] Decide on hand-edited documents: --from chunk to keep the edits, --overwrite-edits to drop them
 - [ ] Refine one PDF at a time: refinery-batch --workers 1 [--meta-map map.json] PDF
-- [ ] Decide on hand-edited documents first: --from chunk to keep the edits, --overwrite-edits to drop them
 - [ ] After each refine, pause, then index that ref alone:
       ( source ~/.config/secrets/papis.env; papis ask index "ref:^X$" )
       retry after a pause on 429; stop on "spending cap"
 - [ ] Check every refine succeeded and every ref is indexed; compare verified counts with the backup
 ```
 
+## Passing known metadata to refinery
+
 `refinery-batch --meta-map FILE` feeds known doi/title/year/authors (a JSON object keyed by PDF
 path) into source identification, so refinery can take the S2 bulk-references fast path: one
 call for the whole bibliography instead of a per-reference search. It is optional; without it
-refinery falls back to the OCR'd title. `refinery-export-citations` goes the other way, turning
+refinery falls back to the OCR'd title. For a single PDF, `refinery --doi DOI` does the same.
+`refinery-export-citations` goes the other way, turning
 resolved references into papis `citations:` YAML.

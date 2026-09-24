@@ -53,7 +53,9 @@ Read the matching reference before running anything expensive:
 `pask index` **already refines**. It runs `refinery` (or `refinery-batch` for several) on every
 matching PDF whose `chunks.json` is missing or older than the PDF, then hands off to
 `papis ask index`. Running `refinery` first is redundant; running it *after* rewrites chunks the
-index has already read. `--no-refine` or `--raw` suppresses the refining; nothing else does.
+index has already read. `--no-refine` or `--raw` suppresses the refining, and nothing else
+does, but **it also reaches `papis ask index`**, where it means "ignore `chunks.json`, use pypdf":
+everything that run embeds is chunked badly and paid for. Do not use it to skip refining.
 
 **The query scopes the refining, not the indexing.** Without `-f`, `pask index "q"` refines only
 what matches `q` and then runs an *unscoped* `papis ask index`, which embeds every PDF in the
@@ -67,7 +69,9 @@ call papis directly with the keys sourced, since `papis ask index` does not refi
 ```
 
 `pask index -f "q"` is scoped too, but `-f` re-embeds every match, which costs money. Plain
-`pask index` with no query is safe when the aim is "everything that needs it".
+`pask index` with no query is fine for embedding "everything that needs it", but its automatic
+refine runs `refinery-batch` at the default 4 workers, which loses citations to provider rate
+limits. When citation quality matters, refine new PDFs with `--workers 1` first.
 
 Scoped runs still drop deleted documents from the index: the existence check always covers the
 whole library.

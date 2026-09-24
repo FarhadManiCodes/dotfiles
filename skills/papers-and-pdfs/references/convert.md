@@ -60,8 +60,15 @@ Re-chunks the saved `refinery.md` only. Instant, no OCR, no network — for tuni
 
 Chunking leaves out reference lists and back-of-book indexes (`[chunk] drop_back_matter`,
 default on), which would otherwise be retrieved and cited as evidence. A headed section is
-dropped only when its content looks like references or index entries, so a section titled
-"1.8.4 References" about C++ references stays; long unheaded index runs go too.
+dropped when both its heading and its content agree:
+
+- The heading is References, Bibliography, Works Cited, Index and the like, with at most one
+  top-level number: "5 References" qualifies, while "1.8.4 References" (a C++ section about
+  references) and a chapter-end "3.9 References" do not.
+- At least half of its paragraphs look like references or index entries.
+
+Unheaded runs of 10+ reference entries or 20+ index entries go too. Page markers move to the
+next kept text, and figures inside dropped sections are kept.
 
 Re-chunking is free, but it rewrites every `chunks.json` it touches, and papis-ask re-embeds by
 file date alone, so each re-chunked document is re-embedded (paid) even if its chunks come out
