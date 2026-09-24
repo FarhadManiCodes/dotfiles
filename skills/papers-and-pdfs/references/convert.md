@@ -70,9 +70,9 @@ dropped when both its heading and its content agree:
 Unheaded runs of 10+ reference entries or 20+ index entries go too. Page markers move to the
 next kept text, and figures inside dropped sections are kept.
 
-Re-chunking is free, but it rewrites every `chunks.json` it touches, and papis-ask re-embeds by
-file date alone, so each re-chunked document is re-embedded (paid) even if its chunks come out
-identical. Re-chunk only the documents whose chunks would change: compare `chunk_markdown` on
+Re-chunking is free, and papis-ask re-embeds a document only if its chunks actually changed (it
+compares a digest, not the file date), so re-chunking everything costs only the documents that
+change. To know in advance which those are, compare `chunk_markdown` on
 their `refinery.md` with the old and new settings first.
 
 ## When the OCR itself is wrong

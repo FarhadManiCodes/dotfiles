@@ -9,6 +9,7 @@ Read after choosing the library path in `SKILL.md`.
 - [Personal notes](#personal-notes)
 - [Books a study project already converted](#books-a-study-project-already-converted)
 - [Citation quality](#citation-quality)
+- [Reading a refine's log](#reading-a-refines-log)
 - [Re-refining documents](#re-refining-documents)
 - [Passing known metadata to refinery](#passing-known-metadata-to-refinery)
 
@@ -68,8 +69,11 @@ library (see `SKILL.md`). Refine the subset first if it needs it, then use the p
 
 `pask index` refines first, automatically. A PDF is refined when its `chunks.json` is missing or
 older than the PDF; that mtime comparison is the whole staleness rule, so **touching a PDF marks
-it for re-refining** and editing `chunks.json` by hand does not. papis-ask in turn re-embeds a
-document whenever its `chunks.json` file date changes, even if the chunks are identical.
+it for re-refining** and editing `chunks.json` by hand does not. papis-ask re-embeds a paper
+when its PDF changes or its chunks do: it stores a digest of what it embedded (each chunk's
+text, pages and index), so a re-refine that rewrites `chunks.json` with identical chunks costs
+no embedding. The first index run after this was added records the digest for papers indexed
+earlier, through a one-off metadata refresh (no embedding, one free Semantic Scholar query each).
 
 One PDF goes through `refinery`; several go through `refinery-batch`, which gates cloud OCR to
 `--ocr-workers` (z.ai rate-limits concurrent OCR) while running the network stages at
@@ -184,31 +188,35 @@ candidate from any provider`:
 | Similarity ≥ 0.90, printed year off by more than 1 | Another edition or a reprint | No; rejected on purpose |
 | Similarity ≥ 0.90, year within ±1 | The printed and provider authors disagree (the report does not show the authors) | Look at the entry by hand |
 | Low verified share on a paper-heavy bibliography, with `semanticscholar`, `openalex`, `bulk` and `doi` all near zero | S2 and OpenAlex were rate-limited or out of budget during the run | **Yes**, serially |
-| A paper with `bulk` near zero | Its reference list was not fetched; the log says why (below) | Yes, if the reason was `S2 list fetch failed`, or the lookup failed during a throttled batch |
+| A paper with `bulk` near zero | Its reference list was not fetched; the `reference list:` lines say why | Yes, if one says `found, but the list fetch failed` (a warning), or the lookup failed during a throttled batch |
 
 A book citing mostly web pages and standards stays around 20% however often it is re-run.
 
-**The source's reference list.** A paper's whole bibliography often comes in one call from
-S2, topped up from OpenAlex by DOI when S2's list is short, and is then matched offline, which
-is fast and verifies most references. The log (stderr only, so capture it for batches) says
-which, per document: `source reference list: 67 from S2, OpenAlex not asked; matching
-locally`, or `source reference list unavailable (<reason>; …); searching each reference`. The
-reasons: `not found in S2, or the S2 lookup failed`, `S2 list fetch failed` (a warning;
-throttling, worth a re-run), `S2 lists no references`. Books usually have no list at any
-provider (none of this library's books had one at CrossRef, including Springer chapter records,
-OpenAlex or S2), so a book's references are searched one by one, the slow part of a refine. List calls
-retry longer (`[citation] bulk_retry_attempts`); after one exhausts its retries, a warning
-names the host and later list calls use the ordinary budget until one succeeds. Keyless
-OpenAlex never gets the long wait.
+**The source's reference list.** A paper's whole bibliography often comes in one call and is
+then matched offline, which is fast and verifies most references. The list-capable providers
+are asked in `title_search_order` order until the list covers the printed count: OpenAlex by
+DOI or by title (a title hit must be the same work), S2 by DOI, arXiv id or title. Books
+usually have no list anywhere (none of this library's did, at CrossRef including Springer
+chapters, OpenAlex or S2), so their references are searched one by one. List calls retry
+longer (`[citation] bulk_retry_attempts`), per provider, and S2's honour `s2_retry_attempts`.
 
-**Search order.** `[citation] title_search_order` sets which provider each per-reference search
-asks first. The config here uses `["openalex", "crossref", "semanticscholar"]`: OpenAlex
-answers fast with the key, where keyless S2 backs off under load (a 937-reference book took
-3+ hours with S2 early in the chain). Acceptance is the same in any order, and a preprint hit
-still yields to a later published record. What differs is the stored record: OpenAlex may
-give a merged work's earliest year where no year was printed, types proceedings papers as
-articles, and splits names on the last token. S2 is still called for printed DOIs and for
-abstracts of CrossRef matches.
+**Back-of-book indexes.** An author or subject index printed after the bibliography can be
+parsed as more references (Hastie: 538 lines like `Buja, A. 110, 297, 441` after ~400
+references, reading 39% instead of ~83%, with 30 wrong matches). A run of five or more
+index-like lines (a name or term and page numbers, no year) ending the list is dropped at the
+citation stage, so checkpointed parses are cleaned too; the log says how many.
+`references.md` still shows them. A title without a single letter is never searched.
+
+**Search order.** `[citation] title_search_order` sets the order everywhere: reference lists,
+printed DOIs, abstracts and per-reference searches. The config here uses `["openalex",
+"crossref", "semanticscholar"]` with `s2_retry_attempts = 1`: OpenAlex is keyed (paid) and
+fast; keyless S2 still finds a few references the others miss (5-9 per book), so it stays last,
+asked once with no backoff. A provider whose lookups end in 429 three times in a row is
+skipped for `provider_cooldown_s` (10 min). Acceptance is the same in any order, and a
+preprint hit still yields to a later published record; OpenAlex's stored record may carry a
+merged work's earliest year where none was printed, type proceedings papers as articles, and
+split names on the last token. OpenAlex title searches drop `?`, `*` and `~` and lowercase
+AND/OR/NOT, which its search syntax would otherwise misread.
 
 **Refine serially when citations matter.** Several refinery workers make the free providers
 rate-limit each other: papers from a 4-worker batch verified 12–53% of references, and one of
@@ -241,14 +249,45 @@ printed and provider surnames plainly disagree, and tries the provider's next hi
 one is rejected. Extraction misalignment shows as the benign warnings `N line(s) unmatched --
 retrying them once` or `dropped N row(s) that do not fit their line`.
 
+## Reading a refine's log
+
+`refinery` logs to stderr (capture it: `2>> run.log`), timestamped, one story per document:
+
+```text
+20:31:02 …pdf: 6/6 parts from checkpoint (no OCR)
+20:31:05 …pdf: figures: 42 from cache, 0 described
+20:31:06 …pdf: citations: extracting 675 references (14 batches)
+20:31:50 …pdf: citations: extracted 675 references in 0.7 min (0 without a title; 14/14 batches from cache)
+20:31:51 …pdf: reference list: openalex by title: found "…" (2026), no references listed
+20:31:51 …pdf: reference list: none available; searching each of 675 references (order: …)
+20:31:52 …pdf: [1/675] Boyd 2004 "Convex Optimization" -> verified: openalex (0.98)
+20:31:53 …pdf: [2/675] Nesterov 1983 "A method…" -> unverified (best: crossref 0.62 "…")
+20:36:10 …pdf: resolved 50/675 references (41 verified: openalex 38, crossref 3), 4 min; lookups: openalex 120 ok, 30 cached; crossref 20 ok; semanticscholar 3 failed, 40 skipped [429x3]
+```
+
+In the lookups, `missing` is a 404 (not in that database), `skipped` a provider cooling
+down, and `[…]` counts failed attempts by class. The first failure of each kind per provider is
+a WARNING with the provider's message (an exhausted OpenAlex budget is named as such; contact
+address and keys masked). `grep -v "\] "` hides the per-reference lines (or set `[citation]
+log_each_reference = false`).
+
 ## Re-refining documents
 
-To improve a document, re-run `refinery` on its PDF. OCR, figure descriptions and successful
-provider lookups all come from caches; what runs again is citation extraction (flash-lite, one
-call per 50 references) and the lookups that failed before. The cost is mostly downstream: the
-new `chunks.json` makes the next index run re-embed the whole document, typically several times
-the extraction tokens. When only chunking changed, re-chunk instead (`convert.md`), and only the
-documents whose chunks actually change.
+To improve a document, re-run `refinery` on its PDF. Almost everything comes from caches:
+
+| Stage | Cache | A re-run pays |
+|---|---|---|
+| OCR | `<stem>.refinery/parse_cache/` or `parts/part_N/` | nothing |
+| Figure descriptions | `~/.cache/paper-refinery/figure-cache` | nothing |
+| Citation extraction | `~/.cache/paper-refinery/extraction-cache`, per batch of 50 (model, prompt, schema, texts) | only batches whose text changed, or that had an unextracted line |
+| Provider lookups | `~/.cache/paper-refinery/api-cache`, successes only | only lookups that failed before, or new URLs |
+| Embedding (papis-ask) | chunk digest in the index | only if the chunks changed |
+
+So a re-run of an unchanged document is nearly free; a refinery upgrade that changes search
+URLs or the order costs one round of (cheap) provider calls. Measured on this library: OCR
+of all 8,392 pages cost well under a dollar and is never repeated; Gemini (extraction,
+figures, embeddings, answering questions) is the recurring cost, which these caches keep to
+what actually changed. When only chunking changed, re-chunk instead (`convert.md`).
 
 **Hand edits to `refinery.md`.** A full run replaces `refinery.md`. Refinery records a checksum
 of each file it writes; a later full run that finds the file edited stops before any paid work,
