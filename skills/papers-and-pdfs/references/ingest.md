@@ -170,7 +170,8 @@ semanticscholar: 1)`. `crossref`, `semanticscholar` and `openalex` are title sea
 the order of `[citation] title_search_order`, so among them the first in that order dominates a
 healthy report (this example predates OpenAlex-first). For a paper whose reference list was
 fetched, `bulk` dominates instead. `bulk` means the source paper's own reference list, fetched
-from S2 or OpenAlex; `doi` an S2 lookup by a printed DOI; `papis` a match against the document's
+from OpenAlex or S2; `doi` a lookup by a printed DOI (OpenAlex or S2, in the configured order);
+`papis` a match against the document's
 papis `citations:` field.
 
 Acceptance: a title match at similarity ≥ 0.90 needs the year within ±1 (a missing year on
@@ -240,8 +241,9 @@ them went from 40% to 77% when re-run alone with an OpenAlex key. Use
 - CrossRef and OpenAlex give a "polite pool" to requests carrying a contact address:
   `REFINERY_MAILTO` in `contact.env`, sent only to the providers in `[citation]
   mailto_providers` of `config.toml`.
-- Semantic Scholar has no polite pool, and its key needs an academic affiliation. Keyless works
-  with retries (`[citation] api_retry_attempts`, 5 in `config.toml`; the default is 2).
+- Semantic Scholar has no polite pool, and its key needs an academic affiliation. Keyless, it
+  429s under load, so this config asks it once (`[citation] s2_retry_attempts = 1`); other
+  providers retry (`[citation] api_retry_attempts`, 5 in `config.toml`; the default is 2).
 
 **Wrong matches.** `citations.json` stores the provider's title. A title that does not fit its
 printed reference is usually a wrong *resolution*: refinery rejects a title match when the
@@ -251,25 +253,30 @@ retrying them once` or `dropped N row(s) that do not fit their line`.
 
 ## Reading a refine's log
 
-`refinery` logs to stderr (capture it: `2>> run.log`), timestamped, one story per document:
+`refinery` logs to stderr (capture it: `2>> run.log`), timestamped, one story per document.
+Each real line also carries the level and module (`20:31:02 INFO paper_refinery.cli: …`),
+left out here:
 
 ```text
+20:31:02 …pdf: 511 pages > 100 -- split into 6 parts for OCR
 20:31:02 …pdf: 6/6 parts from checkpoint (no OCR)
 20:31:05 …pdf: figures: 42 from cache, 0 described
 20:31:06 …pdf: citations: extracting 675 references (14 batches)
 20:31:50 …pdf: citations: extracted 675 references in 0.7 min (0 without a title; 14/14 batches from cache)
 20:31:51 …pdf: reference list: openalex by title: found "…" (2026), no references listed
+20:31:51 …pdf: reference list: semanticscholar by title: not found, or the lookup failed
 20:31:51 …pdf: reference list: none available; searching each of 675 references (order: …)
+20:31:51 …pdf: resolving 675 references
 20:31:52 …pdf: [1/675] Boyd 2004 "Convex Optimization" -> verified: openalex (0.98)
 20:31:53 …pdf: [2/675] Nesterov 1983 "A method…" -> unverified (best: crossref 0.62 "…")
-20:36:10 …pdf: resolved 50/675 references (41 verified: openalex 38, crossref 3), 4 min; lookups: openalex 120 ok, 30 cached; crossref 20 ok; semanticscholar 3 failed, 40 skipped [429x3]
+20:36:10 …pdf: resolved 50/675 references (41 verified: openalex 38, crossref 3), 4 min; lookups: crossref 20 ok; openalex 120 ok, 30 cached; semanticscholar 40 skipped, 3 failed [429x3]
 ```
 
 In the lookups, `missing` is a 404 (not in that database), `skipped` a provider cooling
 down, and `[…]` counts failed attempts by class. The first failure of each kind per provider is
 a WARNING with the provider's message (an exhausted OpenAlex budget is named as such; contact
-address and keys masked). `grep -v "\] "` hides the per-reference lines (or set `[citation]
-log_each_reference = false`).
+address and keys masked). `grep -v ': \[[0-9]*/[0-9]*\] '` hides the per-reference lines (or
+set `[citation] log_each_reference = false`).
 
 ## Re-refining documents
 
@@ -280,7 +287,7 @@ To improve a document, re-run `refinery` on its PDF. Almost everything comes fro
 | OCR | `<stem>.refinery/parse_cache/` or `parts/part_N/` | nothing |
 | Figure descriptions | `~/.cache/paper-refinery/figure-cache` | nothing |
 | Citation extraction | `~/.cache/paper-refinery/extraction-cache`, per batch of 50 (model, prompt, schema, texts) | only batches whose text changed, or that had an unextracted line |
-| Provider lookups | `~/.cache/paper-refinery/api-cache`, successes only | only lookups that failed before, or new URLs |
+| Provider lookups | `~/.cache/paper-refinery/api-cache`, successes only | lookups that failed or 404'd before, and new URLs |
 | Embedding (papis-ask) | chunk digest in the index | only if the chunks changed |
 
 So a re-run of an unchanged document is nearly free; a refinery upgrade that changes search
@@ -314,7 +321,7 @@ Checklist for re-refining several documents:
 ## Passing known metadata to refinery
 
 `refinery-batch --meta-map FILE` feeds known doi/title/year/authors (a JSON object keyed by PDF
-path) into source identification, so refinery can take the S2 bulk-references fast path: one
+path) into source identification, so refinery can take the reference-list fast path: one
 call for the whole bibliography instead of a per-reference search. It is optional; without it
 refinery falls back to the OCR'd title. For a single PDF, `refinery --doi DOI` does the same.
 `refinery-export-citations` goes the other way, turning
