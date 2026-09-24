@@ -22,7 +22,7 @@ run's `parsed.md` after editing it by hand.
 
 ## Why not `refinery` for this
 
-`refinery` always runs the full pipeline — parse, figure-enrich via Gemini, citation-verify
+`refinery` always runs the full pipeline: parse, figure-enrich via Gemini, citation-verify
 against CrossRef/S2/OpenAlex, chunk. There is no flag to stop after parsing. On a book or a
 non-academic PDF the citation stage has nothing real to resolve and the figure stage costs one
 Gemini call per figure, so you pay for output you did not want and it fails without keys loaded.
@@ -58,15 +58,15 @@ refinery --from chunk paper.pdf
 Re-chunks the saved `refinery.md` only. Instant, no OCR, no network — for tuning chunk policy.
 `refinery-batch --from chunk` does the same across many.
 
-From v0.3.5 chunking leaves out reference lists and back-of-book indexes
-(`[chunk] drop_back_matter`, default on), which were being retrieved and cited as evidence. A
-headed section is dropped only when its content looks like references or index entries, so a
-section titled "1.8.4 References" about C++ references stays; long unheaded index runs go too.
-Page markers move to the next kept text and figures inside dropped pages stay. Re-chunking with
-`--from chunk` is free, but it rewrites every `chunks.json` it touches, and papis-ask
-re-embeds by file date alone, so each re-chunked document is re-embedded (paid) even if its
-chunks come out identical. Re-chunk only the documents whose chunks would change: compare
-`chunk_markdown` with and without `drop_back_matter` on their `refinery.md` first.
+Chunking leaves out reference lists and back-of-book indexes (`[chunk] drop_back_matter`,
+default on), which would otherwise be retrieved and cited as evidence. A headed section is
+dropped only when its content looks like references or index entries, so a section titled
+"1.8.4 References" about C++ references stays; long unheaded index runs go too.
+
+Re-chunking is free, but it rewrites every `chunks.json` it touches, and papis-ask re-embeds by
+file date alone, so each re-chunked document is re-embedded (paid) even if its chunks come out
+identical. Re-chunk only the documents whose chunks would change: compare `chunk_markdown` on
+their `refinery.md` with the old and new settings first.
 
 ## When the OCR itself is wrong
 
