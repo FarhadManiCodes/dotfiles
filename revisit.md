@@ -285,6 +285,32 @@ perfectly. Where they differed:
   written as `\text{lqr}(` instead of `lqr(` — verified before reporting; watch for this
   when scoring LaTeX output by regex.
 
+## capture-ocr split into exact (Mod+Print) and translate (Mod+Shift+Print) — ADOPTED (measured, 2026-09-25)
+
+The one prompt both transcribed and translated German, so it had to guess intent: it
+turned German job titles into "Kitchen Sales Specialist" when only a copy was wanted. Now
+`OCR_PROMPT` never translates and `TRANSLATE_PROMPT` always does (non-English → English,
+English → German), sharing one `RULES` block. Same model, same dynamic thinking. Measured
+on 17 user captures (web, terminal, code, German, Persian, handwritten/printed math, two
+paper pages, tiny text, blanks); fixtures and scripts stay outside the repo.
+
+- **Paper pages, old vs new OCR prompt:** Navier–Stokes theorem: `\nu` kept (old read `v`),
+  `\tag{1.1}`, 4.1 s vs 7.4–10.9 s, repeats identical. Dense lemma, 5 runs each: `X_v` kept
+  3/5 vs 0/5, `∂_t K =` kept 3/5 vs 0/5, "(ii)" placed right 5/5 vs 3/5. Both lose one
+  phrase ("λ on M_d") 5/5 — that page is at gemini-2.5-flash's limit.
+- **A prompt sentence can cost content.** Adding "preserve the exact symbols, letters,
+  fonts…" dropped `X_v` in 5/5 runs; removed. Measure each rule, don't assume it helps.
+- **Plain text:** "do not add Markdown formatting", worded to keep `_ * #` that belong to
+  code (checked on a rendered snippet: exact apart from collapsed double spaces). Icons
+  stay characters (↑ ✓), not `$\uparrow$`.
+- **`[illegible]` rule** replaces guessing, but a blank dark crop answered `[illegible]` 2/5
+  even with "if there is no text, output nothing"; the script treats a lone marker as no text.
+- Translate checked on German → English, Persian → English, English list with `.dmg` →
+  German, and printed math (math kept unchanged). A page mixing English and German took
+  12–14 s: deciding the direction costs thinking.
+- **Recheck:** with any model change, and before editing `RULES` — re-run the lemma page
+  5× and the blank crops 5×; single runs swung both ways on this model.
+
 ## foot `[text-bindings]` for Shift+Enter — REJECTED as unnecessary (measured, 2026-09-08)
 
 - **Proposed:** static `[text-bindings]` remaps in `foot.ini`/`tmux.conf`, on the claim

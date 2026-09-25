@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 #
-# Screen-region OCR via Gemini. Keep it stdlib-only: this is one HTTP POST with
+# Screen-region OCR via Gemini: `capture-ocr` copies the text exactly,
+# `capture-ocr --translate` translates it (to English, or English to German).
+# Keep it stdlib-only: this is one HTTP POST with
 # a base64 image, and the SDK it used to need cost 109 MB and 265 ms of startup
 # for streaming and auth machinery none of this uses. History in revisit.md.
 
@@ -118,19 +120,34 @@ def capture():
         fail("grim is not installed.")
 
 
-PROMPT = """You are an expert academic transcription and translation engine. Your task is to process the provided image snippet from an academic paper.
+# Two keys, two prompts: one prompt that both transcribed and translated had to
+# guess which the user wanted, and translated German it was only asked to copy.
+# Shared rules keep the modes from drifting apart. Raw strings: the rules hold
+# LaTeX, and "\tag" in a plain string is a tab. Measured against the old
+# combined prompt in revisit.md.
+RULES = r"""Rules:
+1. Output ONLY the resulting text: no preamble, notes or explanations, and do not wrap the whole output in a code block.
+2. Plain text: do not add Markdown formatting for bold, italics or headings. Characters that are part of the text itself, such as _ * # in code or shell commands, are kept. Keep list markers and numbering as shown.
+3. Mathematics: write formulas, equations and matrices as LaTeX. Math inside a sentence uses `$...$`. An equation set on its own line uses `$$...$$`, with no newline directly inside `$$`, and its equation number becomes `\tag{...}`. Other symbols and icons (arrows, check marks, bullets) are copied as the character itself, not LaTeX.
+4. Keep the original structure: paragraph breaks, list items and line order.
+5. Never add, drop or silently correct content. If some text is illegible, write [illegible] in its place instead of guessing. If the image contains no text at all, output nothing."""
 
-Follow these strict rules:
-1. **Zero Chatter:** Output ONLY the final processed text. Do not wrap the entire output in markdown code blocks. Do not include any conversational filler, greetings, or explanations.
-2. **Language & Translation:** If the text is in English, transcribe it exactly as written. If the text is in German, translate it accurately and fluently into academic English in the same pass.
-3. **Mathematics (LaTeX):** Extract all mathematical symbols, matrices, and formulas into strict LaTeX. 
-   - Use `$` for inline equations (e.g., $E=mc^2$).
-   - Use `$$` for standalone block equations. 
-   - Do not add arbitrary newlines immediately inside the `$$` delimiters.
-4. **Structure:** Preserve the original paragraph breaks, bullet points, and general formatting structure seen in the image."""
+OCR_PROMPT = r"""Transcribe all text in this image exactly as written, in its original language. Do not translate anything. Keep spelling, including typos, exactly as shown.
+
+""" + RULES
+
+TRANSLATE_PROMPT = r"""Translate the text in this image.
+- Decide the source language from the dominant language of the text.
+- If it is not English (German, Persian or any other language), translate it into English.
+- If it is English, translate it into German.
+- Do not translate code, commands, file names, paths, URLs, identifiers or mathematics; copy them exactly.
+- Keep names of people, organisations and products as written, and keep citations as written.
+- Match the register of the source: academic text stays academic. Write fluent, natural text in the target language, not a word-for-word rendering.
+
+""" + RULES
 
 
-def transcribe(img_bytes, key):
+def transcribe(img_bytes, key, prompt):
     """One POST. Returns (text, truncated)."""
     body = json.dumps({
         "contents": [{
@@ -139,7 +156,7 @@ def transcribe(img_bytes, key):
                 # grim writes png by default (grim -h); keep these in step.
                 {"inline_data": {"mime_type": "image/png",
                                  "data": base64.b64encode(img_bytes).decode()}},
-                {"text": PROMPT},
+                {"text": prompt},
             ],
         }],
         "generationConfig": {"temperature": TEMPERATURE},
@@ -182,12 +199,22 @@ def transcribe(img_bytes, key):
 
 
 def main():
+    args = sys.argv[1:]
+    if args not in ([], ["--translate"]):
+        fail(f"Unknown arguments: {' '.join(args)}. Usage: capture-ocr [--translate]")
+    translate = bool(args)
     single_instance()
     key = api_key()
     img_bytes = capture()
-    notify("OCR", "Extracting and translating text via Gemini...", timeout=3000)
+    notify("OCR", f"{'Translating' if translate else 'Extracting'} text via Gemini...",
+           timeout=3000)
 
-    text, truncated = transcribe(img_bytes, key)
+    text, truncated = transcribe(img_bytes, key,
+                                 TRANSLATE_PROMPT if translate else OCR_PROMPT)
+    # Measured 2026-09-25: on a blank dark crop, 2 of 5 runs answered
+    # "[illegible]" despite rule 5. A marker with no text around it is no text.
+    if not text.replace("[illegible]", "").strip():
+        text = ""
 
     if not text:
         if truncated:
@@ -201,12 +228,13 @@ def main():
         fail(f"Could not copy to clipboard: {e}")
 
     notify_text = text if len(text) < 150 else text[:147] + "..."
+    done = "Translation Copied" if translate else "OCR Copied"
     if truncated:
-        notify("OCR Copied - TRUNCATED", f"Hit the output token limit; text is "
+        notify(f"{done} - TRUNCATED", f"Hit the output token limit; text is "
                f"incomplete. Capture a smaller region.\n{notify_text}",
                urgency="critical")
     else:
-        notify("OCR Copied", notify_text)
+        notify(done, notify_text)
 
 
 if __name__ == "__main__":
