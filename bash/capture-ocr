@@ -47,10 +47,11 @@ def fail(message):
 
 
 def single_instance():
-    """Exit quietly if another run is active; otherwise hold the lock until exit.
+    """Exit if another run is active; otherwise hold the lock until exit.
 
     A second Mod+Print during a selection or a request would stack another
-    slurp on top of the first; it should do nothing instead. The kernel drops
+    slurp on top of the first; it only says so instead, since a key that does
+    nothing for up to TIMEOUT seconds looks broken. The kernel drops
     a flock when its holder exits, crash included, so no stale lock survives.
     Without a usable XDG_RUNTIME_DIR (never the case under niri) run unlocked
     rather than pick a shared directory another user could squat on.
@@ -67,6 +68,7 @@ def single_instance():
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
+        notify("OCR", "Already running", timeout=2000)
         sys.exit(0)
 
 

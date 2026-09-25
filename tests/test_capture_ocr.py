@@ -1,4 +1,4 @@
-"""capture-ocr runs one instance at a time: a second press while one is active does nothing.
+"""capture-ocr runs one instance at a time: a second press while one is active only says so.
 
     python3 -B -m unittest discover -s tests -v
 
@@ -90,12 +90,12 @@ class SingleInstanceTests(unittest.TestCase):
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 1)
 
-    def test_second_run_during_first_does_nothing(self):
+    def test_second_run_during_first_only_says_so(self):
         first = self.start_blocked()
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 1, "second run opened another selector")
-        self.assertFalse(self.notify_log.exists(), "second run should stay silent")
+        self.assertIn("Already running", self.notify_log.read_text())
         self.assertIsNone(first.poll(), "first run should be left alone")
 
     def test_crashed_run_does_not_leave_a_stale_lock(self):
