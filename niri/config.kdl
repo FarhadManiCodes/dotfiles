@@ -214,6 +214,9 @@ binds {
     Mod+Shift+B hotkey-overlay-title="Bluetooth Manager" { spawn "footclient" "bluetui"; }
     Mod+Shift+W hotkey-overlay-title="WiFi Manager" { spawn "footclient" "impala"; }
     Mod+Shift+M hotkey-overlay-title="Mic Input Control" { spawn "mic-control"; }
+    // Voice dictation (~/projects/audio_text): press to record, press again to copy the text.
+    Mod+Shift+D hotkey-overlay-title="Dictate (toggle)" { spawn "dictate" "toggle"; }
+    Mod+Shift+Escape hotkey-overlay-title="Cancel Dictation" { spawn "dictate" "cancel"; }
     Mod+M hotkey-overlay-title="Media Controls" { spawn "media-menu.sh"; }
     // Lock screen — Ctrl+Alt+L (Mod+L is reserved for Vim navigation).
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
