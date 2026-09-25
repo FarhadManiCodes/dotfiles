@@ -5,6 +5,7 @@
 # for streaming and auth machinery none of this uses. History in revisit.md.
 
 import base64
+import fcntl
 import json
 import os
 import subprocess
@@ -43,6 +44,32 @@ def notify(title, body, urgency=None, timeout=None):
 def fail(message):
     notify("OCR Failed", message, urgency="critical")
     sys.exit(1)
+
+
+def single_instance():
+    """Exit if another run is active; otherwise hold the lock until exit.
+
+    A second Mod+Print during a selection or a request would stack another
+    slurp on top of the first; it only says so instead, since a key that does
+    nothing for up to TIMEOUT seconds looks broken. The kernel drops
+    a flock when its holder exits, crash included, so no stale lock survives.
+    Without a usable XDG_RUNTIME_DIR (never the case under niri) run unlocked
+    rather than pick a shared directory another user could squat on.
+    """
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if not runtime:
+        return
+    # A bare fd, not a file object, so nothing closes it before exit.
+    try:
+        fd = os.open(os.path.join(runtime, "capture-ocr.lock"),
+                     os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    except OSError:
+        return  # unusable runtime dir: a lost lock beats a silent traceback
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        notify("OCR", "Already running", timeout=2000)
+        sys.exit(0)
 
 
 def api_key():
@@ -155,6 +182,7 @@ def transcribe(img_bytes, key):
 
 
 def main():
+    single_instance()
     key = api_key()
     img_bytes = capture()
     notify("OCR", "Extracting and translating text via Gemini...", timeout=3000)
