@@ -293,14 +293,15 @@ captured email it translated German job titles the user only wanted copied. Now
 English → German), sharing one `RULES` block. Same model, same dynamic thinking. Measured
 on 14 user captures (web, terminal, code, German, Persian, handwritten/printed math, two
 paper pages, tiny text, blanks); fixtures, scripts and `final_*` results stay outside the
-repo. Numbers below are from the final prompts, old prompt run alongside.
+repo, in `~/projects/ocr_bench`. Numbers below are from the final prompts, with the old
+prompt run alongside.
 
 - **Paper pages, new vs old OCR prompt.** Navier–Stokes theorem, 2 runs each: `\nu` kept
-  2/2 vs 0/2 (old read `v`), `\tag{1.1}` 2/2 vs 0/2, no Markdown emphasis vs `*...*`
-  throughout; 8.5–8.6 s vs 9.5 s. Dense lemma, 5 runs each: `X_v` kept 3/5 vs 0/5, "(ii)"
-  placed right 5/5 vs 0/5; both lose `∂_t K =` and the phrase "λ on M_d" 5/5 — that page
-  is at gemini-2.5-flash's limit. Speed is not a reason for the change: a draft ran the
-  theorem page in 4.1 s, the final prompt in 8.5 s.
+  2/2 vs 0/2 (old read `v`), `\tag{1.1}` 2/2 vs 0/2, no emphasis markup vs `**…**` and
+  `\textit{}`; 8.5–8.6 s vs 9.5 s. Dense lemma, 5 runs each: `X_v` kept 3/5 vs 0/5, "(ii)"
+  placed right 5/5 vs 0/5; both garble `∂_t K = …` and lose the phrase "λ on M_d" 5/5 —
+  that page is at gemini-2.5-flash's limit. Speed is not a reason for the change: a draft
+  run took 4.1 s on the theorem page, the final prompt 8.5 s — inside run-to-run noise.
 - **A prompt sentence can cost content.** A draft rule "preserve the exact symbols,
   letters, fonts…" dropped `X_v` in 5/5 runs; removed. Measure each rule, don't assume it helps.
 - **Plain text:** "do not add Markdown formatting", worded to keep `_ * #` that belong to
@@ -309,10 +310,11 @@ repo. Numbers below are from the final prompts, old prompt run alongside.
   `[illegible]` in 1/5 OCR runs (0/5 translate, 2/5 in a draft) despite "if there is no
   text, output nothing"; the script treats a lone marker as no text.
 - Translate: German → English, Persian → English, an English list with `.dmg` → German
-  (`.dmg` kept), printed math → German prose with the LaTeX unchanged. A page mixing
-  English and German took 5.8–10.4 s, single-language pages 2.5–6.7 s.
+  (`.dmg` kept), printed math → German prose with the LaTeX unchanged apart from one stray
+  `)` in 1 of 2 runs. A page mixing English and German took 5.8–10.4 s, single-language
+  pages 2.5–6.7 s.
 - **Recheck:** with any model change, and before editing `RULES` — re-run the lemma page
-  5× and the blank crops 5× (`lemma_score.py`, `prompt_check.py` in the bench folder);
+  5× and the blank crops 5× (`lemma_score.py`, `prompt_check.py` in that folder);
   single runs swung both ways on this model.
 
 ## foot `[text-bindings]` for Shift+Enter — REJECTED as unnecessary (measured, 2026-09-08)

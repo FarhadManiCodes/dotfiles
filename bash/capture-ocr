@@ -52,12 +52,13 @@ def single_instance():
     """Exit if another run is active; otherwise hold the lock until exit.
 
     A second press of either key during a selection or a request would stack
-    another slurp on top of the first; it only says so instead, since a key that does
-    nothing for up to TIMEOUT seconds looks broken. The kernel drops
+    another slurp on top of the first; it only says so instead, since a key
+    that does nothing for up to TIMEOUT seconds looks broken. The kernel drops
     a flock when its holder exits, crash included, so no stale lock survives.
     Without a usable XDG_RUNTIME_DIR (never the case under niri) run unlocked
     rather than pick a shared directory another user could squat on.
     """
+
     runtime = os.environ.get("XDG_RUNTIME_DIR")
     if not runtime:
         return
@@ -211,7 +212,7 @@ def main():
 
     text, truncated = transcribe(img_bytes, key,
                                  TRANSLATE_PROMPT if translate else OCR_PROMPT)
-    # Measured 2026-09-25: on a blank dark crop, 2 of 5 runs answered
+    # Measured 2026-09-25: on a blank dark crop, 1 of 5 runs answered
     # "[illegible]" despite rule 5. A marker with no text around it is no text.
     if not text.replace("[illegible]", "").strip():
         text = ""
