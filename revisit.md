@@ -285,6 +285,39 @@ perfectly. Where they differed:
   written as `\text{lqr}(` instead of `lqr(` — verified before reporting; watch for this
   when scoring LaTeX output by regex.
 
+## capture-ocr split into exact (Mod+Print) and translate (Mod+Shift+Print) — ADOPTED (measured, 2026-09-25)
+
+The one prompt both transcribed and translated German, so it had to guess intent: on a
+captured email it translated German job titles the user only wanted copied. Now
+`OCR_PROMPT` never translates and `TRANSLATE_PROMPT` always does (non-English → English,
+English → German), sharing one `RULES` block. Same model, same dynamic thinking. Measured
+on 14 user captures (web, terminal, code, German, Persian, handwritten/printed math, two
+paper pages, tiny text, blanks); fixtures, scripts and `final_*` results stay outside the
+repo, in `~/projects/ocr_bench`. Numbers below are from the final prompts, with the old
+prompt run alongside.
+
+- **Paper pages, new vs old OCR prompt.** Navier–Stokes theorem, 2 runs each: `\nu` kept
+  2/2 vs 0/2 (old read `v`), `\tag{1.1}` 2/2 vs 0/2, no emphasis markup vs `**…**` and
+  `\textit{}`; 8.5–8.6 s vs 9.5 s. Dense lemma, 5 runs each: `X_v` kept 3/5 vs 0/5, "(ii)"
+  placed right 5/5 vs 0/5; `∂_t K = …` never comes out right (new: wrong right side 3/5,
+  missing 2/5; old: missing 5/5) and both lose the phrase "λ on M_d" 5/5 — that page is
+  at gemini-2.5-flash's limit. Speed is not a reason for the change: a draft
+  run took 4.1 s on the theorem page, the final prompt 8.5 s — inside run-to-run noise.
+- **A prompt sentence can cost content.** A draft rule "preserve the exact symbols,
+  letters, fonts…" dropped `X_v` in 5/5 runs; removed. Measure each rule, don't assume it helps.
+- **Plain text:** "do not add Markdown formatting", worded to keep `_ * #` that belong to
+  code; a rendered snippet came back exact apart from collapsed runs of spaces.
+- **`[illegible]` rule** replaces guessing, but a blank dark crop still answered
+  `[illegible]` in 1/5 OCR runs (0/5 translate, 2/5 in a draft) despite "if there is no
+  text, output nothing"; the script treats a lone marker as no text.
+- Translate: German → English, Persian → English, an English list with `.dmg` → German
+  (`.dmg` kept), printed math → German prose with the LaTeX unchanged apart from one stray
+  `)` in 1 of 2 runs. A page mixing English and German took 5.8–10.4 s, single-language
+  pages 2.5–6.7 s.
+- **Recheck:** with any model change, and before editing `RULES` — re-run the lemma page
+  5× and the blank crops 5× (`lemma_score.py`, `prompt_check.py` in that folder);
+  single runs swung both ways on this model.
+
 ## foot `[text-bindings]` for Shift+Enter — REJECTED as unnecessary (measured, 2026-09-08)
 
 - **Proposed:** static `[text-bindings]` remaps in `foot.ini`/`tmux.conf`, on the claim
