@@ -2,6 +2,8 @@
 #
 # Screen-region OCR via Gemini: `capture-ocr` copies the text exactly,
 # `capture-ocr --translate` translates it (to English, or English to German).
+# When Gemini can't be reached, plain OCR falls back to GLM-OCR on the local
+# GPU through a private llama-server; translation has no local fallback.
 # Keep it stdlib-only: this is one HTTP POST with a base64 image, and the SDK
 # it used to need cost 109 MB and 265 ms of startup for streaming and auth
 # machinery none of this uses. History in revisit.md.
@@ -10,8 +12,17 @@ import base64
 import fcntl
 import json
 import os
+import re
+import secrets
+import shlex
+import shutil
+import signal
+import socket
+import struct
 import subprocess
 import sys
+import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -22,6 +33,15 @@ ENDPOINT = ("https://generativelanguage.googleapis.com/v1beta/models/"
             f"{MODEL}:generateContent")
 TIMEOUT = 120
 SYNC_HINT = "string:x-canonical-private-synchronous:ocr"
+
+# Offline fallback. Measured 2026-09-25 on this iGPU (revisit.md): 1.2-6.2 s
+# per capture including a ~0.9 s server start, ~2.2 GB GPU memory, and it
+# invents words on very small print -- which is why it is only the fallback.
+LOCAL_MODEL = "ggml-org/GLM-OCR-GGUF:Q8_0"
+LOCAL_PROMPT = "Text Recognition:"  # GLM-OCR's own task prompt (model card)
+LOCAL_STARTUP = 30
+# The local server is on 127.0.0.1: never route it through an http_proxy.
+DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def notify(title, body, urgency=None, timeout=None):
@@ -148,8 +168,12 @@ TRANSLATE_PROMPT = r"""Translate the text in this image.
 """ + RULES
 
 
+class Unreachable(Exception):
+    """Gemini could not be contacted at all, as opposed to answering badly."""
+
+
 def transcribe(img_bytes, key, prompt):
-    """One POST. Returns (text, truncated)."""
+    """One POST. Returns (text, truncated); raises Unreachable."""
     body = json.dumps({
         "contents": [{
             "role": "user",
@@ -179,9 +203,9 @@ def transcribe(img_bytes, key, prompt):
             pass
         fail(f"Gemini returned {e.code}. {detail}".strip())
     except urllib.error.URLError as e:
-        fail(f"Could not reach Gemini: {e.reason}")
+        raise Unreachable(e.reason) from None
     except (TimeoutError, OSError) as e:
-        fail(f"Request failed: {e}")
+        raise Unreachable(e) from None
 
     candidates = payload.get("candidates") or []
     if not candidates:
@@ -199,6 +223,107 @@ def transcribe(img_bytes, key, prompt):
     return text, cand.get("finishReason") == "MAX_TOKENS"
 
 
+def png_size(img_bytes):
+    """(width, height) from the IHDR chunk, which a PNG must start with."""
+    return struct.unpack(">II", img_bytes[16:24])
+
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def local_transcribe(img_bytes):
+    """GLM-OCR through a private llama-server started for this one capture.
+
+    Returns (text, truncated). The server lives only as long as this call:
+    it loads in about a second once the model is in the page cache, so
+    nothing stays resident holding GPU memory.
+    """
+    binary = shutil.which("llama-server")
+    if binary is None:
+        fail("Gemini unreachable, and llama-server is not installed for the offline fallback.")
+    # --offline never downloads, so check the cache first for a useful message.
+    listed = subprocess.run([binary, "--cache-list"], capture_output=True, text=True)
+    if LOCAL_MODEL not in listed.stdout:
+        fail(f"Gemini unreachable, and the offline model is not downloaded. Once "
+             f"online, run: llama-server -hf {LOCAL_MODEL} (Ctrl+C when it is listening).")
+
+    port = free_port()
+    # Any local user can reach a localhost port; the key keeps the server ours.
+    key = secrets.token_urlsafe(16)
+    server = shlex.join([
+        binary, "-hf", LOCAL_MODEL, "--offline", "-ngl", "99", "-c", "8192",
+        "-np", "1", "--host", "127.0.0.1", "--port", str(port)])
+    # A bash supervisor also watches our pid, so a SIGKILLed or SIGTERMed
+    # capture-ocr (no finally runs) can't leave the server holding GPU memory.
+    watchdog = (f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
+                "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait")
+    log = tempfile.TemporaryFile()
+    proc = subprocess.Popen(
+        ["bash", "-c", watchdog], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+        start_new_session=True,
+        # Via the environment, not argv: /proc/<pid>/cmdline is world-readable.
+        env={**os.environ, "LLAMA_API_KEY": key})
+    base = f"http://127.0.0.1:{port}"
+    try:
+        deadline = time.monotonic() + LOCAL_STARTUP
+        while True:
+            if proc.poll() is not None:
+                log.seek(0)
+                lines = log.read().decode(errors="replace").strip().splitlines()
+                fail("Offline model failed to start: " + " | ".join(lines[-2:]))
+            if time.monotonic() > deadline:
+                fail(f"Offline model not ready after {LOCAL_STARTUP} s.")
+            try:
+                with DIRECT.open(base + "/health", timeout=1) as r:
+                    if r.status == 200:
+                        break
+            except urllib.error.HTTPError as e:  # 503 while the model loads
+                e.close()
+            except (urllib.error.URLError, OSError):
+                pass
+            time.sleep(0.05)
+
+        width, height = png_size(img_bytes)
+        body = json.dumps({
+            "messages": [{"role": "user", "content": [
+                {"type": "image_url", "image_url": {
+                    "url": "data:image/png;base64," + base64.b64encode(img_bytes).decode()}},
+                {"type": "text", "text": LOCAL_PROMPT}]}],
+            "temperature": 0,
+            # A cap against runaway repetition. The densest page measured needed
+            # about one token per 500 px^2; this allows 2.5x that.
+            "max_tokens": 64 + width * height // 200,
+        }).encode()
+        req = urllib.request.Request(
+            base + "/v1/chat/completions", data=body,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
+        try:
+            with DIRECT.open(req, timeout=TIMEOUT) as r:
+                choice = json.load(r)["choices"][0]
+        except (urllib.error.URLError, OSError) as e:
+            fail(f"Offline model request failed: {e}")
+    finally:
+        # The whole group: bash, the server and the watchdog's tail.
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.wait()
+        log.close()
+
+    text = (choice.get("message") or {}).get("content") or ""
+    # Measured: blank crops come back as an empty ```markdown fence or "---".
+    fence = re.fullmatch(r"\s*```\w*\n?(.*?)\n?```\s*", text, re.S)
+    if fence:
+        text = fence.group(1)
+    if not re.search(r"\w", text):
+        text = ""
+    return text.strip(), choice.get("finish_reason") == "length"
+
+
 def main():
     args = sys.argv[1:]
     if args not in ([], ["--translate"]):
@@ -210,8 +335,17 @@ def main():
     notify("OCR", f"{'Translating' if translate else 'Extracting'} text via Gemini...",
            timeout=3000)
 
-    text, truncated = transcribe(img_bytes, key,
-                                 TRANSLATE_PROMPT if translate else OCR_PROMPT)
+    offline = False
+    try:
+        text, truncated = transcribe(img_bytes, key,
+                                     TRANSLATE_PROMPT if translate else OCR_PROMPT)
+    except Unreachable as e:
+        if translate:
+            fail(f"Could not reach Gemini ({e}); translation needs the network.")
+        notify("OCR", f"Gemini unreachable ({e}); reading it offline with GLM-OCR...",
+               timeout=3000)
+        text, truncated = local_transcribe(img_bytes)
+        offline = True
     # Measured 2026-09-25: on a blank dark crop, 1 of 5 runs answered
     # "[illegible]" despite rule 5. A marker with no text around it is no text.
     if not text.replace("[illegible]", "").strip():
@@ -229,7 +363,8 @@ def main():
         fail(f"Could not copy to clipboard: {e}")
 
     notify_text = text if len(text) < 150 else text[:147] + "..."
-    done = "Translation Copied" if translate else "OCR Copied"
+    done = ("Translation Copied" if translate
+            else "OCR Copied (offline)" if offline else "OCR Copied")
     if truncated:
         notify(f"{done} - TRUNCATED", f"Hit the output token limit; text is "
                f"incomplete. Capture a smaller region.\n{notify_text}",
