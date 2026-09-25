@@ -27,8 +27,11 @@ class SingleInstanceTests(unittest.TestCase):
         self.bin.mkdir()
         self.slurp_log = self.root / "slurp.log"
         self.notify_log = self.root / "notify.log"
+        self.block = self.root / "block"
         self.fake("notify-send", f'echo "$*" >> {self.notify_log}')
-        self.slurp("exit 1")
+        # Parked while the flag file exists, the way an open region selector is.
+        self.fake("slurp", f"echo called >> {self.slurp_log}\n"
+                           f"[ -e {self.block} ] && exec /usr/bin/sleep 30\nexit 1")
         # Pinned, not inherited: only the fakes are on PATH.
         self.env = {"PATH": str(self.bin), "HOME": str(self.root),
                     "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused"}
@@ -37,9 +40,6 @@ class SingleInstanceTests(unittest.TestCase):
         path = self.bin / name
         path.write_text(f"#!/bin/sh\n{body}\n")
         path.chmod(0o755)
-
-    def slurp(self, then):
-        self.fake("slurp", f"echo called >> {self.slurp_log}\n{then}")
 
     def slurp_calls(self):
         return len(self.slurp_log.read_text().splitlines()) if self.slurp_log.exists() else 0
@@ -52,8 +52,11 @@ class SingleInstanceTests(unittest.TestCase):
         return proc
 
     def kill(self, proc):
-        if proc.poll() is None:
+        # The whole group, even after the script exits: its slurp may still be running.
+        try:
             os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         proc.communicate()
 
     def run_once(self):
@@ -62,15 +65,15 @@ class SingleInstanceTests(unittest.TestCase):
         return proc.returncode, err.decode()
 
     def start_blocked(self):
-        """A first run parked inside slurp, the way an open region selector is."""
-        self.slurp("exec /usr/bin/sleep 30")
+        """A first run parked inside slurp."""
+        self.block.touch()
         first = self.start()
         deadline = time.monotonic() + 10
         while self.slurp_calls() == 0:
             self.assertIsNone(first.poll(), "first run exited before reaching slurp")
             self.assertLess(time.monotonic(), deadline, "first run never reached slurp")
             time.sleep(0.05)
-        self.slurp("exit 1")
+        self.block.unlink()
         return first
 
     def test_lone_run_reaches_selection(self):
@@ -88,8 +91,11 @@ class SingleInstanceTests(unittest.TestCase):
         self.assertIsNone(first.poll(), "first run should be left alone")
 
     def test_crashed_run_does_not_leave_a_stale_lock(self):
+        # Only the script dies; its slurp lives on, as wl-copy's daemon outlives a normal run.
+        # A lock inherited by a child would still be held, and the next run would do nothing.
         first = self.start_blocked()
-        self.kill(first)
+        first.send_signal(signal.SIGKILL)
+        first.wait()
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 2)
