@@ -52,8 +52,8 @@ def single_instance():
     A second Mod+Print during a selection or a request would stack another
     slurp on top of the first; it should do nothing instead. The kernel drops
     a flock when its holder exits, crash included, so no stale lock survives.
-    Without XDG_RUNTIME_DIR (never the case under niri) run unlocked rather
-    than pick a shared directory another user could squat on.
+    Without a usable XDG_RUNTIME_DIR (never the case under niri) run unlocked
+    rather than pick a shared directory another user could squat on.
     """
     runtime = os.environ.get("XDG_RUNTIME_DIR")
     if not runtime:

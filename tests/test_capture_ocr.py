@@ -84,7 +84,7 @@ class SingleInstanceTests(unittest.TestCase):
         self.assertEqual(self.slurp_calls(), 1)
 
     def test_unusable_runtime_dir_runs_unlocked(self):
-        # Set but missing: the docstring promises an unlocked run, not a traceback.
+        # Set but missing: an unlocked run, not a traceback nobody sees.
         self.env["XDG_RUNTIME_DIR"] = str(self.root / "missing")
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
