@@ -318,6 +318,29 @@ prompt run alongside.
   5× and the blank crops 5× (`lemma_score.py`, `prompt_check.py` in that folder);
   single runs swung both ways on this model.
 
+## Local GLM-OCR as capture-ocr's engine — REJECTED; kept as the offline fallback (measured, 2026-09-25)
+
+Proposed to make Mod+Print offline and, hopefully, faster: GLM-OCR (0.9B,
+`ggml-org/GLM-OCR-GGUF` Q8_0, 1.4 GB) on the Radeon 780M through a private `llama-server`
+per capture. Judged by a rule written before any output was seen
+(`~/projects/ocr_bench/RULE.md`, `RESULTS.md`) on the user's captures, each run a cold
+server start plus one request, 3 runs each:
+
+- **Not faster.** 1.2–6.2 s vs Gemini's 1.0–4.3 s on the same captures (median 5.1 s
+  against a 3.0 s limit). ~0.9 s is server start; the rest is image prompt processing
+  (1251 image tokens took 3.5 s). `--no-warmup` and `-fa on` changed nothing beyond noise.
+- **Invents text on small print.** At 40% scale it wrote a wrong issue number and "Buy Mac
+  OS Coffee" for "Buy Me a Coffee"; Gemini read the same crop correctly.
+- **Otherwise good:** byte-identical repeats, correct LaTeX for handwritten math, German
+  kept as written, ~2.2 GB GPU memory above idle. Blank crops come back as an empty
+  ```` ```markdown ```` fence or `---`, which the script counts as no text.
+- **Offline works:** inside `unshare -rn` the cached model loads with `--offline`, and an
+  uncached one fails at once instead of downloading.
+- **Decision:** Gemini stays primary. GLM-OCR runs only when Gemini is unreachable, and
+  says so. Translation has no local model under the size budget that translates well.
+- **Recheck:** if a local OCR model is measured faster than Gemini on these captures, or
+  if offline use becomes the common case. PaddleOCR-VL 1.6 was the untried alternative.
+
 ## foot `[text-bindings]` for Shift+Enter — REJECTED as unnecessary (measured, 2026-09-08)
 
 - **Proposed:** static `[text-bindings]` remaps in `foot.ini`/`tmux.conf`, on the claim
