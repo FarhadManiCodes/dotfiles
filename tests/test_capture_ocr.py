@@ -149,12 +149,12 @@ class ModeTests(unittest.TestCase):
         self.ocr.single_instance = lambda: None  # covered by SingleInstanceTests
         self.sent = []
 
-    def gemini(self, text):
+    def gemini(self, text, finish="STOP"):
         """Fake urlopen answering every request with `text`."""
         def urlopen(req, timeout):
             self.sent.append(json.loads(req.data))
             return io.BytesIO(json.dumps({"candidates": [{
-                "content": {"parts": [{"text": text}]}, "finishReason": "STOP"}]}).encode())
+                "content": {"parts": [{"text": text}]}, "finishReason": finish}]}).encode())
         return mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen)
 
     def run_main(self, *args):
@@ -174,6 +174,7 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(self.prompt_sent(), self.ocr.OCR_PROMPT)
         self.assertEqual(self.clipboard.read_text(), "Anfahrt")
         self.assertIn("OCR Copied", self.notify_log.read_text())
+        self.assertIn("Extracting text", self.notify_log.read_text())
 
     def test_translate_flag_translates(self):
         with self.gemini("Directions"):
@@ -181,6 +182,12 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(self.prompt_sent(), self.ocr.TRANSLATE_PROMPT)
         self.assertEqual(self.clipboard.read_text(), "Directions")
         self.assertIn("Translation Copied", self.notify_log.read_text())
+        self.assertIn("Translating text", self.notify_log.read_text())
+
+    def test_truncated_translation_says_so(self):
+        with self.gemini("Direc", finish="MAX_TOKENS"):
+            self.assertEqual(self.run_main("--translate"), 0)
+        self.assertIn("Translation Copied - TRUNCATED", self.notify_log.read_text())
 
     def test_prompts_share_rules_and_hold_no_escapes(self):
         # A plain string once turned the rules' "\\tag" into a tab.
@@ -190,7 +197,7 @@ class ModeTests(unittest.TestCase):
             self.assertIn("\\tag{...}", prompt)
 
     def test_lone_illegible_marker_is_no_text(self):
-        with self.gemini(" [illegible]\n"):
+        with self.gemini(" [illegible]\n[illegible] "):
             self.assertEqual(self.run_main(), 0)
         self.assertFalse(self.clipboard.exists())
         self.assertIn("No text found", self.notify_log.read_text())
@@ -200,10 +207,12 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         self.assertEqual(self.clipboard.read_text(), "See [illegible] page")
 
-    def test_unknown_argument_fails_visibly_before_selecting(self):
-        with self.gemini("unused"):
-            self.assertEqual(self.run_main("--translte"), 1)
-        self.assertIn("Unknown arguments: --translte", self.notify_log.read_text())
+    def test_unknown_arguments_fail_visibly_before_selecting(self):
+        for args in (["--translte"], ["--translate", "junk"]):
+            with self.subTest(args=args), self.gemini("unused"):
+                self.assertEqual(self.run_main(*args), 1)
+                self.assertIn(f"Unknown arguments: {' '.join(args)}",
+                              self.notify_log.read_text())
         self.assertFalse(self.slurp_log.exists())
         self.assertEqual(self.sent, [])
 

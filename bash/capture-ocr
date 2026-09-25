@@ -2,9 +2,9 @@
 #
 # Screen-region OCR via Gemini: `capture-ocr` copies the text exactly,
 # `capture-ocr --translate` translates it (to English, or English to German).
-# Keep it stdlib-only: this is one HTTP POST with
-# a base64 image, and the SDK it used to need cost 109 MB and 265 ms of startup
-# for streaming and auth machinery none of this uses. History in revisit.md.
+# Keep it stdlib-only: this is one HTTP POST with a base64 image, and the SDK
+# it used to need cost 109 MB and 265 ms of startup for streaming and auth
+# machinery none of this uses. History in revisit.md.
 
 import base64
 import fcntl
@@ -51,8 +51,8 @@ def fail(message):
 def single_instance():
     """Exit if another run is active; otherwise hold the lock until exit.
 
-    A second Mod+Print during a selection or a request would stack another
-    slurp on top of the first; it only says so instead, since a key that does
+    A second press of either key during a selection or a request would stack
+    another slurp on top of the first; it only says so instead, since a key that does
     nothing for up to TIMEOUT seconds looks broken. The kernel drops
     a flock when its holder exits, crash included, so no stale lock survives.
     Without a usable XDG_RUNTIME_DIR (never the case under niri) run unlocked
