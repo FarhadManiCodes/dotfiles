@@ -59,8 +59,11 @@ def single_instance():
     if not runtime:
         return
     # A bare fd, not a file object, so nothing closes it before exit.
-    fd = os.open(os.path.join(runtime, "capture-ocr.lock"),
-                 os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    try:
+        fd = os.open(os.path.join(runtime, "capture-ocr.lock"),
+                     os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    except OSError:
+        return  # unusable runtime dir: a lost lock beats a silent traceback
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:

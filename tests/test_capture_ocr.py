@@ -30,8 +30,9 @@ class SingleInstanceTests(unittest.TestCase):
         self.block = self.root / "block"
         self.fake("notify-send", f'echo "$*" >> {self.notify_log}')
         # Parked while the flag file exists, the way an open region selector is.
-        self.fake("slurp", f"echo called >> {self.slurp_log}\n"
-                           f"[ -e {self.block} ] && exec /usr/bin/sleep 30\nexit 1")
+        # The flag is checked before logging, so once the log shows a call it has parked.
+        self.fake("slurp", f"if [ -e {self.block} ]; then echo called >> {self.slurp_log}; "
+                           f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\nexit 1")
         # Pinned, not inherited: only the fakes are on PATH.
         self.env = {"PATH": str(self.bin), "HOME": str(self.root),
                     "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused"}
@@ -78,6 +79,13 @@ class SingleInstanceTests(unittest.TestCase):
 
     def test_lone_run_reaches_selection(self):
         # Baseline: without it, the tests below would pass on a script that never selects.
+        code, err = self.run_once()
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(self.slurp_calls(), 1)
+
+    def test_unusable_runtime_dir_runs_unlocked(self):
+        # Set but missing: the docstring promises an unlocked run, not a traceback.
+        self.env["XDG_RUNTIME_DIR"] = str(self.root / "missing")
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 1)
