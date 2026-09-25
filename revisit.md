@@ -299,8 +299,9 @@ prompt run alongside.
 - **Paper pages, new vs old OCR prompt.** Navier–Stokes theorem, 2 runs each: `\nu` kept
   2/2 vs 0/2 (old read `v`), `\tag{1.1}` 2/2 vs 0/2, no emphasis markup vs `**…**` and
   `\textit{}`; 8.5–8.6 s vs 9.5 s. Dense lemma, 5 runs each: `X_v` kept 3/5 vs 0/5, "(ii)"
-  placed right 5/5 vs 0/5; both garble `∂_t K = …` and lose the phrase "λ on M_d" 5/5 —
-  that page is at gemini-2.5-flash's limit. Speed is not a reason for the change: a draft
+  placed right 5/5 vs 0/5; `∂_t K = …` never comes out right (new: wrong right side 3/5,
+  missing 2/5; old: missing 5/5) and both lose the phrase "λ on M_d" 5/5 — that page is
+  at gemini-2.5-flash's limit. Speed is not a reason for the change: a draft
   run took 4.1 s on the theorem page, the final prompt 8.5 s — inside run-to-run noise.
 - **A prompt sentence can cost content.** A draft rule "preserve the exact symbols,
   letters, fonts…" dropped `X_v` in 5/5 runs; removed. Measure each rule, don't assume it helps.
