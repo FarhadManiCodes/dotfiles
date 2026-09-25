@@ -211,6 +211,20 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         self.assertEqual(self.clipboard.read_text(), "See [illegible] page")
 
+    def test_gemini_http_error_fails_without_falling_back(self):
+        # HTTPError subclasses URLError: an HTTP answer means Gemini was reached,
+        # and a quota error must not silently switch to the offline model.
+        def urlopen(req, timeout):
+            raise self.ocr.urllib.error.HTTPError(
+                req.full_url, 429, "Too Many Requests", {},
+                io.BytesIO(b'{"error": {"message": "quota"}}'))
+        fallback = mock.Mock(return_value=("offline text", False))
+        with mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen), \
+                mock.patch.object(self.ocr, "local_transcribe", fallback, create=True):
+            self.assertEqual(self.run_main(), 1)
+        self.assertIn("Gemini returned 429. quota", self.notify_log.read_text())
+        fallback.assert_not_called()
+
     def test_unknown_arguments_fail_visibly_before_selecting(self):
         for args in (["--translte"], ["--translate", "junk"]):
             with self.subTest(args=args), self.gemini("unused"):
@@ -259,8 +273,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         (out / "request.json").write_bytes(self.rfile.read(n))
         if os.environ.get("FAKE_MODE") == "hang":
             time.sleep(60)
+        if os.environ.get("FAKE_MODE") == "http500":
+            body = b"boom: out of memory"
+            self.send_response(500)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
         if os.environ.get("FAKE_MODE") == "garbage":
-            body = b"not json"
+            body = os.environ.get("FAKE_RAW", "not json").encode()
             self.send_response(200)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -397,9 +417,21 @@ class OfflineFallbackTests(unittest.TestCase):
 
     def test_unreadable_reply_is_reported(self):
         self.env["FAKE_MODE"] = "garbage"
+        for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
+                    '{"choices": [{"message": "s"}]}',
+                    '{"choices": [{"message": {"content": ["a"]}}]}'):
+            with self.subTest(raw=raw):
+                self.env["FAKE_RAW"] = raw
+                self.notify_log.unlink(missing_ok=True)
+                code, err = self.run_script()
+                self.assertEqual((code, err), (1, ""))
+                self.assertIn("unreadable reply", self.notices())
+                self.assertFalse(self.server_alive(), "server left running")
+
+    def test_local_http_error_shows_its_body(self):
+        self.env["FAKE_MODE"] = "http500"
         self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("unreadable reply", self.notices())
-        self.assertFalse(self.server_alive(), "server left running")
+        self.assertIn("Offline model returned 500: boom: out of memory", self.notices())
 
     def test_failing_cache_list_is_not_reported_as_missing_model(self):
         self.env["FAKE_MODE"] = "broken"

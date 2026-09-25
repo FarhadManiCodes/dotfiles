@@ -10,6 +10,7 @@
 
 import base64
 import fcntl
+import http.client
 import json
 import os
 import re
@@ -253,6 +254,8 @@ def local_transcribe(img_bytes):
                                 text=True, timeout=10)
     except subprocess.TimeoutExpired:
         fail("llama-server --cache-list hung; the offline fallback can't start.")
+    except OSError as e:
+        fail(f"llama-server can't run ({e}); the offline fallback can't start.")
     if listed.returncode != 0:
         fail(f"llama-server --cache-list failed (exit {listed.returncode}); "
              "the offline fallback can't start.")
@@ -271,11 +274,14 @@ def local_transcribe(img_bytes):
     watchdog = (f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
                 "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait")
     log = tempfile.TemporaryFile()
-    proc = subprocess.Popen(
-        ["bash", "-c", watchdog], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-        start_new_session=True,
-        # Via the environment, not argv: /proc/<pid>/cmdline is world-readable.
-        env={**os.environ, "LLAMA_API_KEY": key})
+    try:
+        proc = subprocess.Popen(
+            ["bash", "-c", watchdog], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+            start_new_session=True,
+            # Via the environment, not argv: /proc/<pid>/cmdline is world-readable.
+            env={**os.environ, "LLAMA_API_KEY": key})
+    except OSError as e:
+        fail(f"Could not start the offline model ({e}).")
     base = f"http://127.0.0.1:{port}"
     try:
         deadline = time.monotonic() + LOCAL_STARTUP
@@ -284,8 +290,10 @@ def local_transcribe(img_bytes):
                 log.seek(0)
                 lines = log.read().decode(errors="replace").strip().splitlines()
                 # The watchdog's own "bash: ... Killed tail" line always comes last.
+                # Unless bash itself is the cause, e.g. an unrunnable binary.
                 tail = [line for line in lines if not line.startswith("bash:")][-3:]
-                fail("Offline model failed to start: " + " | ".join(tail))
+                fail("Offline model failed to start: "
+                     + (" | ".join(tail or lines[-2:]) or "no output"))
             if time.monotonic() > deadline:
                 fail(f"Offline model not ready after {LOCAL_STARTUP} s.")
             try:
@@ -314,11 +322,15 @@ def local_transcribe(img_bytes):
         try:
             with DIRECT.open(req, timeout=TIMEOUT) as r:
                 choice = json.load(r)["choices"][0]
+            text = choice["message"]["content"] or ""
+            if not isinstance(text, str):
+                raise TypeError(f"content is {type(text).__name__}")
+            truncated = choice.get("finish_reason") == "length"
         except urllib.error.HTTPError as e:
             fail(f"Offline model returned {e.code}: "
                  f"{e.read().decode(errors='replace')[:200]}")
-        except (urllib.error.URLError, OSError) as e:
-            fail(f"Offline model request failed: {e}")
+        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
+            fail(f"Offline model request failed: {e!r}")
         except (ValueError, KeyError, IndexError, TypeError) as e:
             fail(f"Offline model gave an unreadable reply: {e!r}")
     finally:
@@ -330,7 +342,6 @@ def local_transcribe(img_bytes):
         proc.wait()
         log.close()
 
-    text = (choice.get("message") or {}).get("content") or ""
     # Measured: blank crops come back as an empty ```markdown fence or "---".
     # Only those shapes count as no text, so a capture of just "=" or "->" stays.
     fence = re.fullmatch(r"\s*```\w*\n(.*?)\n?```\s*", text, re.S)
@@ -338,7 +349,7 @@ def local_transcribe(img_bytes):
         text = fence.group(1)
     if re.fullmatch(r"[\s-]*", text):
         text = ""
-    return text.strip(), choice.get("finish_reason") == "length"
+    return text.strip(), truncated
 
 
 def main():
