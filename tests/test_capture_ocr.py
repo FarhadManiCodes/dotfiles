@@ -226,6 +226,8 @@ import http.server, json, os, sys, time
 from pathlib import Path
 out = Path(os.environ["FAKE_DIR"])
 args = sys.argv[1:]
+if "--cache-list" in args and os.environ.get("FAKE_MODE") == "broken":
+    sys.exit(2)
 if "--cache-list" in args:
     print("number of models in cache: 1\\n   1. " + os.environ.get("FAKE_CACHE", ""))
     sys.exit(0)
@@ -233,6 +235,7 @@ if "--cache-list" in args:
 (out / "argv.json").write_text(json.dumps(args))
 if os.environ.get("FAKE_MODE") == "crash":
     print("load_model: failed to load model", file=sys.stderr)
+    print("llama_server: exiting due to model loading error", file=sys.stderr)
     sys.exit(1)
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -256,6 +259,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         (out / "request.json").write_bytes(self.rfile.read(n))
         if os.environ.get("FAKE_MODE") == "hang":
             time.sleep(60)
+        if os.environ.get("FAKE_MODE") == "garbage":
+            body = b"not json"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
         self.reply(200, {"choices": [{"message": {"content": os.environ["FAKE_REPLY"]},
                                       "finish_reason": os.environ.get("FAKE_FINISH", "stop")}]})
 
@@ -372,12 +381,37 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertEqual(self.run_script()[0], 1)
         self.assertIn("failed to start", self.notices())
         self.assertIn("failed to load model", self.notices())
+        self.assertIn("exiting due to model loading error", self.notices())
+        self.assertNotIn("bash:", self.notices())
 
-    def test_empty_markdown_fence_is_no_text(self):
-        self.env["FAKE_REPLY"] = "\n```markdown\n\n```"
-        self.assertEqual(self.run_script(), (0, ""))
-        self.assertIn("No text found", self.notices())
-        self.assertFalse(self.clipboard.exists())
+    def test_blank_outputs_are_no_text_but_symbols_are_kept(self):
+        for reply, blank in [("---", True), ("\n```markdown\n\n```", True),
+                             ("$=$", False), ("\u2192", False), ("```foo```", False)]:
+            with self.subTest(reply=reply):
+                self.env["FAKE_REPLY"] = reply
+                self.notify_log.unlink(missing_ok=True)
+                self.clipboard.unlink(missing_ok=True)
+                self.assertEqual(self.run_script(), (0, ""))
+                self.assertEqual("No text found" in self.notices(), blank)
+                self.assertEqual(self.clipboard.exists(), not blank)
+
+    def test_unreadable_reply_is_reported(self):
+        self.env["FAKE_MODE"] = "garbage"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("unreadable reply", self.notices())
+        self.assertFalse(self.server_alive(), "server left running")
+
+    def test_failing_cache_list_is_not_reported_as_missing_model(self):
+        self.env["FAKE_MODE"] = "broken"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("--cache-list failed", self.notices())
+        self.assertNotIn("not downloaded", self.notices())
+
+    def test_non_png_capture_fails_before_starting_a_server(self):
+        (self.root / "capture.png").write_bytes(b"P6 not a png")
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("not a PNG", self.notices())
+        self.assertFalse((self.root / "argv.json").exists())
 
     def test_output_limit_is_reported_as_truncated(self):
         self.env.update(FAKE_REPLY="Anf", FAKE_FINISH="length")
