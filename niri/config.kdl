@@ -385,7 +385,7 @@ binds {
     Alt+Print   { screenshot-window; }
     Mod+Print   repeat=false hotkey-overlay-title="Extract Text from Screen: Gemini" { spawn "capture-ocr"; }
     Mod+Shift+Print repeat=false hotkey-overlay-title="Translate Text from Screen: Gemini" { spawn "capture-ocr" "--translate"; }
-    Alt+Q       hotkey-overlay-title="Scan a QR Code: zbar" { spawn "qrscan"; }
+    Alt+Q       repeat=false hotkey-overlay-title="Scan a QR Code: zbar" { spawn "qrscan"; }
 
     // Escape hatch so a remote-desktop/KVM app can't hold the session hostage.
     Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
