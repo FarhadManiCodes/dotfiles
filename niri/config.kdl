@@ -383,7 +383,7 @@ binds {
     Print       { screenshot; }
     Ctrl+Print  { screenshot-screen; }
     Alt+Print   { screenshot-window; }
-    Mod+Print   repeat=false hotkey-overlay-title="Extract Text from Screen: Gemini" { spawn "capture-ocr"; }
+    Mod+Print   repeat=false hotkey-overlay-title="Extract Text from Screen: Gemini, offline GLM-OCR" { spawn "capture-ocr"; }
     Mod+Shift+Print repeat=false hotkey-overlay-title="Translate Text from Screen: Gemini" { spawn "capture-ocr" "--translate"; }
     Alt+Q       repeat=false hotkey-overlay-title="Scan a QR Code: zbar" { spawn "qrscan"; }
 

@@ -245,6 +245,11 @@ System-level choices that aren't captured in any config file:
   builds before replacing it, and retains the previous copy. It does not bootstrap
   absent installations. See `docs/architecture/zsh.md` for behavior on failure and
   backup locations.
+- **capture-ocr's offline model is fetched on demand**, not by `install.sh`: 1.4 GB in the
+  Hugging Face cache (`~/.cache/huggingface/hub/models--ggml-org--GLM-OCR-GGUF`), used only
+  when Gemini is unreachable. After a rebuild, run once while online:
+  `llama-server -hf ggml-org/GLM-OCR-GGUF:Q8_0` and stop it once it is listening;
+  `llama-server --cache-list` shows whether it is there. Needs `llama-cpp` + `ggml-vulkan`.
 - **`shellcheck-bin` (AUR), not repo `shellcheck`**: same upstream version, but the repo
   package is dynamically linked against the Haskell runtime (`ghc-libs` + ~53 `haskell-*`
   packages, ~190 MiB). `shellcheck-bin` is the official upstream static binary (sourced from

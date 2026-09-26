@@ -5,7 +5,9 @@
 SingleInstanceTests run the script for real against fake slurp/notify-send on a
 private PATH; slurp exiting 1 is the user pressing ESC, so none reaches grim or
 the network. ModeTests run main() in-process with fake binaries and a fake
-Gemini response, so they can see which prompt was sent.
+Gemini response, so they can see which prompt was sent. OfflineFallbackTests
+run the script for real with Gemini made unreachable (https_proxy at a closed
+port) and a fake llama-server that serves the local API.
 """
 import importlib.machinery
 import importlib.util
@@ -14,12 +16,14 @@ import json
 import os
 from pathlib import Path
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
 from unittest import mock
+import zlib
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/capture-ocr"
@@ -207,6 +211,20 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         self.assertEqual(self.clipboard.read_text(), "See [illegible] page")
 
+    def test_gemini_http_error_fails_without_falling_back(self):
+        # HTTPError subclasses URLError: an HTTP answer means Gemini was reached,
+        # and a quota error must not silently switch to the offline model.
+        def urlopen(req, timeout):
+            raise self.ocr.urllib.error.HTTPError(
+                req.full_url, 429, "Too Many Requests", {},
+                io.BytesIO(b'{"error": {"message": "quota"}}'))
+        fallback = mock.Mock(return_value=("offline text", False))
+        with mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen), \
+                mock.patch.object(self.ocr, "local_transcribe", fallback, create=True):
+            self.assertEqual(self.run_main(), 1)
+        self.assertIn("Gemini returned 429. quota", self.notify_log.read_text())
+        fallback.assert_not_called()
+
     def test_unknown_arguments_fail_visibly_before_selecting(self):
         for args in (["--translte"], ["--translate", "junk"]):
             with self.subTest(args=args), self.gemini("unused"):
@@ -215,6 +233,237 @@ class ModeTests(unittest.TestCase):
                               self.notify_log.read_text())
         self.assertFalse(self.slurp_log.exists())
         self.assertEqual(self.sent, [])
+
+
+FAKE_LLAMA_SERVER = """#!/usr/bin/python3
+import http.server, json, os, sys, time
+from pathlib import Path
+out = Path(os.environ["FAKE_DIR"])
+args = sys.argv[1:]
+if "--cache-list" in args and os.environ.get("FAKE_MODE") == "broken":
+    sys.exit(2)
+if "--cache-list" in args:
+    print("number of models in cache: 1\\n   1. " + os.environ.get("FAKE_CACHE", ""))
+    sys.exit(0)
+(out / "server.pid").write_text(str(os.getpid()))
+(out / "argv.json").write_text(json.dumps(args))
+if os.environ.get("FAKE_MODE") == "crash":
+    print("load_model: failed to load model", file=sys.stderr)
+    print("llama_server: exiting due to model loading error", file=sys.stderr)
+    sys.exit(1)
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a):
+        pass
+
+    def reply(self, code, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        self.reply(200 if self.path == "/health" else 404, {})
+
+    def do_POST(self):
+        if self.headers.get("Authorization") != "Bearer " + os.environ["LLAMA_API_KEY"]:
+            return self.reply(401, {})
+        n = int(self.headers["Content-Length"])
+        (out / "request.json").write_bytes(self.rfile.read(n))
+        if os.environ.get("FAKE_MODE") == "hang":
+            time.sleep(60)
+        if os.environ.get("FAKE_MODE") == "http500":
+            body = b"boom: out of memory"
+            self.send_response(500)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
+        if os.environ.get("FAKE_MODE") == "garbage":
+            body = os.environ.get("FAKE_RAW", "not json").encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            return self.wfile.write(body)
+        self.reply(200, {"choices": [{"message": {"content": os.environ["FAKE_REPLY"]},
+                                      "finish_reason": os.environ.get("FAKE_FINISH", "stop")}]})
+
+port = int(args[args.index("--port") + 1])
+http.server.HTTPServer(("127.0.0.1", port), Handler).serve_forever()
+"""
+
+
+def png(width, height):
+    """A valid 1-bit grayscale PNG; only its IHDR size matters to the script."""
+    def chunk(kind, data):
+        return (struct.pack(">I", len(data)) + kind + data
+                + struct.pack(">I", zlib.crc32(kind + data)))
+    rows = b"".join(b"\0" + b"\0" * ((width + 7) // 8) for _ in range(height))
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 1, 0, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+class OfflineFallbackTests(unittest.TestCase):
+    MODEL = "ggml-org/GLM-OCR-GGUF:Q8_0"
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory(prefix="capture-ocr-test-")
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        bin_ = self.root / "bin"
+        bin_.mkdir()
+        (self.root / "capture.png").write_bytes(png(300, 100))
+        self.notify_log = self.root / "notify.log"
+        self.clipboard = self.root / "clipboard"
+        for name, body in [
+                ("slurp", "echo '0,0 300x100'"),
+                ("grim", f"exec /usr/bin/cat {self.root / 'capture.png'}"),
+                ("wl-copy", f"exec /usr/bin/cat > {self.clipboard}"),
+                ("notify-send", f'printf "%s\\n" "$*" >> {self.notify_log}')]:
+            (bin_ / name).write_text(f"#!/bin/sh\n{body}\n")
+            (bin_ / name).chmod(0o755)
+        (bin_ / "llama-server").write_text(FAKE_LLAMA_SERVER)
+        (bin_ / "llama-server").chmod(0o755)
+        # The watchdog needs bash and tail. Linked in rather than putting /usr/bin
+        # on PATH, so a broken fake fails instead of running the real program.
+        for tool in ("bash", "tail"):
+            (bin_ / tool).symlink_to(f"/usr/bin/{tool}")
+        self.env = {"PATH": str(bin_), "HOME": str(self.root),
+                    "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused",
+                    # Gemini is https: a closed proxy port makes it unreachable.
+                    "https_proxy": "http://127.0.0.1:1", "no_proxy": "",
+                    "FAKE_DIR": str(self.root), "FAKE_CACHE": self.MODEL,
+                    "FAKE_REPLY": "Anfahrt"}
+
+    def start(self, *args):
+        proc = subprocess.Popen([sys.executable, "-B", str(SCRIPT), *args], env=self.env,
+                                start_new_session=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.addCleanup(self.kill, proc)
+        return proc
+
+    def kill(self, proc):
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        pid = self.root / "server.pid"
+        if pid.exists():  # the fake runs in its own session; never leave it behind
+            try:
+                os.kill(int(pid.read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    def run_script(self, *args):
+        proc = self.start(*args)
+        out, err = proc.communicate(timeout=30)
+        return proc.returncode, err.decode()
+
+    def notices(self):
+        return self.notify_log.read_text() if self.notify_log.exists() else ""
+
+    def server_alive(self):
+        try:
+            os.kill(int((self.root / "server.pid").read_text()), 0)
+            return True
+        except ProcessLookupError:
+            return False
+
+    def test_unreachable_gemini_falls_back_to_local_model(self):
+        self.assertEqual(self.run_script(), (0, ""))
+        self.assertEqual(self.clipboard.read_text(), "Anfahrt")
+        self.assertIn("reading it offline", self.notices())
+        self.assertIn("OCR Copied (offline)", self.notices())
+        argv = json.loads((self.root / "argv.json").read_text())
+        self.assertIn("--offline", argv)
+        self.assertEqual(argv[argv.index("-hf") + 1], self.MODEL)
+        self.assertEqual(argv[argv.index("--host") + 1], "127.0.0.1")
+        request = json.loads((self.root / "request.json").read_text())
+        self.assertEqual(request["messages"][0]["content"][1]["text"], "Text Recognition:")
+        self.assertEqual(request["max_tokens"], 64 + 300 * 100 // 200)
+        self.assertFalse(self.server_alive(), "server left running")
+
+    def test_translation_does_not_fall_back(self):
+        self.assertEqual(self.run_script("--translate")[0], 1)
+        self.assertIn("translation needs the network", self.notices())
+        self.assertFalse((self.root / "argv.json").exists())
+
+    def test_uncached_model_says_how_to_get_it(self):
+        self.env["FAKE_CACHE"] = "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn(f"llama-server -hf {self.MODEL}", self.notices())
+        self.assertFalse((self.root / "argv.json").exists())
+
+    def test_server_that_dies_at_startup_is_reported(self):
+        self.env["FAKE_MODE"] = "crash"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("failed to start", self.notices())
+        self.assertIn("failed to load model", self.notices())
+        self.assertIn("exiting due to model loading error", self.notices())
+        self.assertNotIn("bash:", self.notices())
+
+    def test_blank_outputs_are_no_text_but_symbols_are_kept(self):
+        for reply, blank in [("---", True), ("\n```markdown\n\n```", True),
+                             ("$=$", False), ("\u2192", False), ("```foo```", False)]:
+            with self.subTest(reply=reply):
+                self.env["FAKE_REPLY"] = reply
+                self.notify_log.unlink(missing_ok=True)
+                self.clipboard.unlink(missing_ok=True)
+                self.assertEqual(self.run_script(), (0, ""))
+                self.assertEqual("No text found" in self.notices(), blank)
+                self.assertEqual(self.clipboard.exists(), not blank)
+
+    def test_unreadable_reply_is_reported(self):
+        self.env["FAKE_MODE"] = "garbage"
+        for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
+                    '{"choices": [{"message": "s"}]}',
+                    '{"choices": [{"message": {"content": ["a"]}}]}'):
+            with self.subTest(raw=raw):
+                self.env["FAKE_RAW"] = raw
+                self.notify_log.unlink(missing_ok=True)
+                code, err = self.run_script()
+                self.assertEqual((code, err), (1, ""))
+                self.assertIn("unreadable reply", self.notices())
+                self.assertFalse(self.server_alive(), "server left running")
+
+    def test_local_http_error_shows_its_body(self):
+        self.env["FAKE_MODE"] = "http500"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("Offline model returned 500: boom: out of memory", self.notices())
+
+    def test_failing_cache_list_is_not_reported_as_missing_model(self):
+        self.env["FAKE_MODE"] = "broken"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("--cache-list failed", self.notices())
+        self.assertNotIn("not downloaded", self.notices())
+
+    def test_non_png_capture_fails_before_starting_a_server(self):
+        (self.root / "capture.png").write_bytes(b"P6 not a png")
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("not a PNG", self.notices())
+        self.assertFalse((self.root / "argv.json").exists())
+
+    def test_output_limit_is_reported_as_truncated(self):
+        self.env.update(FAKE_REPLY="Anf", FAKE_FINISH="length")
+        self.assertEqual(self.run_script(), (0, ""))
+        self.assertIn("OCR Copied (offline) - TRUNCATED", self.notices())
+
+    def test_killed_caller_takes_the_server_down(self):
+        # SIGKILL runs no finally: only the watchdog can stop the server.
+        self.env["FAKE_MODE"] = "hang"
+        proc = self.start()
+        deadline = time.monotonic() + 20
+        while not (self.root / "request.json").exists():
+            self.assertLess(time.monotonic(), deadline, "never reached the local model")
+            time.sleep(0.05)
+        os.kill(proc.pid, signal.SIGKILL)
+        proc.wait()
+        deadline = time.monotonic() + 5  # tail --pid polls once a second
+        while self.server_alive():
+            self.assertLess(time.monotonic(), deadline, "server outlived its caller")
+            time.sleep(0.1)
 
 
 if __name__ == "__main__":
