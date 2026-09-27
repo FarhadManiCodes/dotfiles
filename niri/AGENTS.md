@@ -14,8 +14,6 @@ and operational details. Root dotfiles instructions also apply.
   Super on a TTY and Alt when Niri runs in a window.
 - Idle management belongs to `systemd/user/swayidle.service`, not an additional
   `spawn-at-startup`. Consult the root architecture's locking/suspend section first.
-- The book picker uses the local study-library mirror for offline access. Do not
-  restore an rclone-mounted source, cache file, or startup pre-warm without new evidence.
 
 Validate with `niri validate` after confirming it resolves the edited config.
 Use `niri msg outputs`, `niri msg windows`, and `niri msg workspaces` for live evidence.

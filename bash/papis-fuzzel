@@ -2,6 +2,7 @@
 # Search the papis library with fuzzel and open the pick: its first file with
 # xdg-open (PDF in sioyek, DjVu in zathura, EPUB in Foliate; `papis open` sends
 # everything to sioyek), or its DOI/URL in the browser when it has no file (↗).
+# `papis-fuzzel --books` (Mod+z) opens with "#book" typed: books carry a `book` tag.
 #
 # Entries are read straight from info.yaml with yq: accurate list handling for
 # tags and files, and no papis (Python) start before the menu.
@@ -9,6 +10,9 @@ set -uo pipefail
 
 PAPERS="$HOME/.local/share/papis/papers"
 notify() { notify-send -u critical "Papers" "$1"; }
+
+search=()
+[[ ${1:-} == --books ]] && search=(--search "#book ")
 
 # Per entry: ref, year, first author, title, folder, first file, tags.
 # yq stops at the first unreadable info.yaml, and the papers after it would
@@ -27,7 +31,7 @@ menu=$(awk -F'\t' '{
     printf "%s\t[%s]  %-16s  %s%s%s\n", open, $2, substr($3, 1, 16), substr($4, 1, 55), ($6 == "") ? " ↗" : "", t
 }' <<<"$rows")
 
-choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
+choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 "${search[@]}" \
     --prompt "  Papers (type a #tag to filter): " --width 100 --lines 15 <<<"$menu")
 case $choice in
     '') exit 0 ;;

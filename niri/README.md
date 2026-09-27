@@ -123,10 +123,8 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
-- Library browser (Mod+z): `~/.local/bin/book-resources` — fuzzel picker, opens via xdg-open (sioyek/zathura/foliate)
-- Library source: `~/.local/share/study-library`, a static local mirror (not the rclone mount,
-  so the picker and opening a book both work offline) — update by hand, there is no sync timer
-  or cache file any more. Reasoning in `docs/architecture/rclone.md`.
+- Book picker (Mod+z): `papis-fuzzel --books`, the papis picker (Mod+Shift+P) with `#book`
+  typed; files open via xdg-open (sioyek/zathura/foliate).
 - No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for
   are in `docs/architecture/git.md`.
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`

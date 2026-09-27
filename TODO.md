@@ -18,6 +18,7 @@ Off-machine backup remains deferred.
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
 | 4. Alt+p resolves citations from refinery | Proposed 2026-09-27; after the audit branch merges | User agrees scope; own branch |
+| 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
 
 ## 1. Off-machine backup
 
@@ -235,3 +236,22 @@ stale.
 **Done when:** selecting `[10]` on page 12 of leng-2023 opens malitsky-2018 with no network,
 references without a DOI still reach Crossref, and tests in `tests/test_sioyek_papis.py` cover
 markers, reference entries and the fallback.
+
+## 5. Move the useful study-library books into papis, then drop the copy
+
+**Opened 2026-09-27** when `book-resources` (Mod+z) was deleted. Mod+z is now
+`papis-fuzzel --books`: the papis picker with `#book` typed, so a book shows there only if
+its papis entry has the `book` tag (all 14 current books do).
+
+**What is left:** `~/.local/share/study-library`, a static copy of Drive's `FAU/Library`
+(21 files, newest 2026-05-16, no sync). The user picks which books are worth keeping;
+Gottschling (Discovering Modern C++) and Meyers (Effective Modern C++) are already in
+papis. Add the rest with a `book` tag plus the folder's topic as a tag (`control`, `cpp`,
+`hpc`, `linear-algebra`, `math`, `multiscale`, `numerical-methods`, `PDE`).
+
+**Before deleting the copy:** `fbook`/`rgbook` (`zsh/functions/pdf.zsh`, mirrored in
+`bash/vifm-pick`) still search it by name and full text. Point them at papis or retire
+them first; `vifm-pick` is in group 4 of the bash/ review.
+
+**Done when:** the kept books open from Mod+z, `fbook`/`rgbook` no longer read the copy,
+and `~/.local/share/study-library` is deleted.
