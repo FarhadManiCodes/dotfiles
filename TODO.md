@@ -249,9 +249,7 @@ Gottschling (Discovering Modern C++) and Meyers (Effective Modern C++) are alrea
 papis. Add the rest with a `book` tag plus the folder's topic as a tag (`control`, `cpp`,
 `hpc`, `linear-algebra`, `math`, `multiscale`, `numerical-methods`, `PDE`).
 
-**Before deleting the copy:** `fbook`/`rgbook` (`zsh/functions/pdf.zsh`, mirrored in
-`bash/vifm-pick`) still search it by name and full text. Point them at papis or retire
-them first; `vifm-pick` is in group 4 of the bash/ review.
+Nothing reads the copy any more: `fbook`/`rgbook` (`zsh/functions/pdf.zsh`, mirrored in
+`bash/vifm-pick`) search the papis library since 2026-09-27.
 
-**Done when:** the kept books open from Mod+z, `fbook`/`rgbook` no longer read the copy,
-and `~/.local/share/study-library` is deleted.
+**Done when:** the kept books open from Mod+z and `~/.local/share/study-library` is deleted.

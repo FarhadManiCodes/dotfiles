@@ -50,8 +50,8 @@ upstreams = FAU=gdrive-full:FAU Documents=gdrive-full:Documents tmp-office=gdriv
 `combine` rather than mounting a subfolder, because it keeps every existing path valid —
 `bash/gdocs-open` wants `gdrive:tmp-office`. (`FAU/Library` had three consumers: the niri
 startup indexer, `bash/book-resources` and `study-library-sync`. All are gone: the book
-picker reads papis since 2026-09-27, and a static local copy of the library remains at
-`~/.local/share/study-library` for `fbook`/`rgbook`; see TODO.md.) What stops being reachable through the filesystem
+picker and `fbook`/`rgbook` read papis since 2026-09-27. A static local copy of the library
+remains at `~/.local/share/study-library` until its useful books are moved; see TODO.md.) What stops being reachable through the filesystem
 is the other seven top-level Drive folders, still reachable through `gdrive-full:`.
 
 **Be honest about what that buys.** It shrinks the *filesystem* blast radius — an
