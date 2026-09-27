@@ -1,7 +1,0 @@
-#!/bin/bash
-# Open a directory in vifm inside foot terminal
-# Handles file:// URIs from Firefox/xdg-open
-path="${1:-$HOME}"
-path="${path#file://}"
-path=$(python3 -c "import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))" "$path")
-exec footclient --app-id=vifm vifm "$path"
