@@ -43,12 +43,27 @@ reply() {
 # point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
 # mimeapps.list, dispatched here because handlr cannot carry a page number.
 # setsid detaches the viewer from vifm's term() window, which closes on exit.
+# Sioyek centers --yloc in the window. Without it, --page puts the page's top
+# boundary at the center, leaving the previous page visible.
+book_page_middle() {
+    LC_ALL=C pdfinfo -f "$2" -l "$2" "$1" 2>/dev/null |
+        awk '$1 == "Page" && $3 == "size:" && $5 == "x" && $6 > 0 {
+            printf "%.3f", $6 / 2; exit
+        }'
+}
+
 open_book() {
     local file="$1" page="${2:-}"
     case "${file,,}" in
         *.pdf)
             if [[ -n "$page" ]]; then
-                setsid -f sioyek --page "$page" "$file" >/dev/null 2>&1
+                local yloc
+                yloc=$(book_page_middle "$file" "$page")
+                if [[ -n "$yloc" ]]; then
+                    setsid -f sioyek --page "$page" --yloc "$yloc" "$file" >/dev/null 2>&1
+                else
+                    setsid -f sioyek --page "$page" "$file" >/dev/null 2>&1
+                fi
             else
                 setsid -f sioyek "$file" >/dev/null 2>&1
             fi

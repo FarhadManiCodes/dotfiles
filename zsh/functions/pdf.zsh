@@ -14,12 +14,26 @@ PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 # Open by type: sioyek for PDF — it is the only one taking --page, which is the
 # point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
 # mimeapps.list, dispatched here because handlr cannot carry a page number.
+# Sioyek centers --yloc in the window. Without it, --page puts the page's top
+# boundary at the center, leaving the previous page visible.
+_book_page_middle() {
+  LC_ALL=C pdfinfo -f "$2" -l "$2" "$1" 2>/dev/null |
+    awk '$1 == "Page" && $3 == "size:" && $5 == "x" && $6 > 0 {
+      printf "%.3f", $6 / 2; exit
+    }'
+}
+
 _open_book() {
   local file="$1" page="${2:-}"
   case "${file:l}" in
     *.pdf)
       if [[ -n "$page" ]]; then
-        sioyek --page "$page" "$file" 2>/dev/null &
+        local yloc=$(_book_page_middle "$file" "$page")
+        if [[ -n "$yloc" ]]; then
+          sioyek --page "$page" --yloc "$yloc" "$file" 2>/dev/null &
+        else
+          sioyek --page "$page" "$file" 2>/dev/null &
+        fi
       else
         sioyek "$file" 2>/dev/null &
       fi

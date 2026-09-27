@@ -71,6 +71,16 @@ class RgbookTests(unittest.TestCase):
             '#!/bin/sh\nshift\nprintf "%s\\n" "$@" > "$OPEN_LOG"\n'
         )
         (self.bin / "setsid").chmod(0o755)
+        (self.bin / "sioyek").write_text(
+            '#!/bin/sh\n{ printf "sioyek\\n"; printf "%s\\n" "$@"; } > "$OPEN_LOG"\n'
+        )
+        (self.bin / "sioyek").chmod(0o755)
+        (self.bin / "pdfinfo").write_text(
+            '#!/bin/sh\n[ "$PDFINFO_FAIL" = 1 ] && exit 1\n'
+            'case "$2" in 1) height=372 ;; 2) height=558 ;; 3) height=842 ;; esac\n'
+            'printf "Page %s size: 338 x %s pts\\n" "$2" "$height"\n'
+        )
+        (self.bin / "pdfinfo").chmod(0o755)
         (self.bin / "vifm").write_text(
             '#!/bin/sh\nprintf "%s\\n" "$@" > "$VIFM_LOG"\n'
         )
@@ -101,6 +111,7 @@ class RgbookTests(unittest.TestCase):
             "FZF_DEFAULT_OPTS": "", "PAPIS_PAPERS": str(self.library),
             "XDG_RUNTIME_DIR": str(self.root), "FZF_LOG": str(self.fzf_log),
             "OPEN_LOG": str(self.open_log), "VIFM_LOG": str(self.vifm_log),
+            "PDFINFO_FAIL": "0",
             "SCRIPT": str(ROOT / "zsh/functions/pdf.zsh"),
         }
 
@@ -116,8 +127,8 @@ _fzf_split() {
     key=""; selection="$1"
   fi
 }
-_open_book() { printf 'sioyek\\n--page\\n%s\\n%s\\n' "$2" "$1" > "$OPEN_LOG"; }
 rgbook "$TEST_QUERY"
+wait
 pwd > "$PWD_LOG"
 '''
             env["PWD_LOG"] = str(self.root / "pwd.log")
@@ -140,7 +151,7 @@ pwd > "$PWD_LOG"
                 self.assertEqual(sum("alpha.pdf:Page 2:" in x for x in rows), 1)
                 self.assertTrue(any("beta.pdf:Page 3:" in x for x in rows))
                 self.assertEqual(self.open_log.read_text().splitlines(),
-                                 ["sioyek", "--page", "2", str(self.alpha)])
+                                 ["sioyek", "--page", "2", "--yloc", "279.000", str(self.alpha)])
                 self.open_log.unlink()
                 self.assertIn("rg --smart-case --context 3", data["preview"])
                 self.assertIn("optimal", data["preview_output"].lower())
@@ -155,8 +166,22 @@ pwd > "$PWD_LOG"
                 self.assertIn("DeepNeedle: after a colon", rows[0])
                 self.assertLess(len(rows[0]), 300)
                 self.assertEqual(self.open_log.read_text().splitlines()[-2:],
-                                 ["2", str(self.alpha)])
+                                 ["279.000", str(self.alpha)])
                 self.open_log.unlink()
+
+    def test_selected_page_geometry_and_pdfinfo_fallback(self):
+        for caller in ("zsh", "vifm"):
+            with self.subTest(caller=caller):
+                self.run_caller(caller, "Optimal", "beta.pdf:Page 3")
+                self.assertEqual(self.open_log.read_text().splitlines(),
+                                 ["sioyek", "--page", "3", "--yloc", "421.000", str(self.beta)])
+                self.open_log.unlink()
+                self.env["PDFINFO_FAIL"] = "1"
+                self.run_caller(caller, "optimal", "alpha.pdf:Page 1")
+                self.assertEqual(self.open_log.read_text().splitlines(),
+                                 ["sioyek", "--page", "1", str(self.alpha)])
+                self.open_log.unlink()
+                self.env["PDFINFO_FAIL"] = "0"
 
     def test_smart_case_empty_invalid_and_excluded_files(self):
         for caller in ("zsh", "vifm"):

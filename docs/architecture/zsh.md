@@ -38,6 +38,10 @@
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
 
+`rgbook` keeps refinery's one-based physical page number for Sioyek's `--page`.
+It passes half the selected PDF page's height as `--yloc`, because Sioyek otherwise
+centers the page's top boundary and leaves the preceding page in view.
+
 ## yt-dlp's token helper
 
 Immediately after uv updates, `_sysup_bgutil` compares the installed Python plugin
