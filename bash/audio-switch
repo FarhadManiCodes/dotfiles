@@ -1,42 +1,23 @@
 #!/bin/bash
-# Switch default audio output via fuzzel dmenu. Active sink marked with *.
-# HDMI sinks are hidden when no monitor is connected (checked via ALSA ELD files).
+# Switch the default audio output with fuzzel; the current one is marked *.
+# Outputs whose active port PipeWire reports "not available" (an HDMI/DP port
+# with no monitor on it) are left out.
+set -o pipefail
+notify() { notify-send -u critical "Audio output" "$1"; }
 
-default_sink=$(pactl get-default-sink 2>/dev/null)
-declare -A sink_names
-entries=""
+menu=$(pactl -f json list sinks | jq -r --arg d "$(pactl get-default-sink)" '
+    .[] | .active_port as $p
+    | select(([.ports[] | select(.name == $p) | .availability] | first) != "not available")
+    | "\(.name)\t\(if .name == $d then "* " else "  " end)\(.description)"') \
+    || { notify "Could not list the outputs"; exit 1; }
+[[ -n $menu ]] || exit 0
 
-is_available() {
-    local desc="$1"
-    if [[ "$desc" =~ HDMI\ ([0-9]+) ]]; then
-        local idx="${BASH_REMATCH[1]}"
-        grep -q "monitor_present[[:space:]]*1" "/proc/asound/card0/eld#0.${idx}" 2>/dev/null \
-            || return 1
-    fi
-    return 0
-}
+sink=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
+    --prompt " Audio  " --width 50 <<<"$menu")
+[[ -n $sink ]] || exit 0
 
-while IFS=$'\t' read -r desc name; do
-    is_available "$desc" || continue
-    marker="  "
-    [[ "$name" == "$default_sink" ]] && marker="* "
-    label="${marker}${desc}"
-    sink_names["$label"]="$name"
-    entries+="${label}\n"
-done < <(pactl list sinks | awk '
-    /^\s*Name:/        { name = $2 }
-    /^\s*Description:/ { print substr($0, index($0, $2)) "\t" name }
-')
-
-[ -z "$entries" ] && exit 0
-
-selected=$(printf '%b' "$entries" | fuzzel --dmenu --prompt " Audio  " --width 50)
-[[ -z "$selected" ]] && exit 0
-
-sink="${sink_names[$selected]}"
-[[ -z "$sink" ]] && exit 0
-
-pactl set-default-sink "$sink"
-pactl list sink-inputs short | awk '{print $1}' | while read -r id; do
+err=$(pactl set-default-sink "$sink" 2>&1) || { notify "Could not switch: $err"; exit 1; }
+# Move what is already playing, too.
+pactl list short sink-inputs | while read -r id _; do
     pactl move-sink-input "$id" "$sink"
 done
