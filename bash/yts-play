@@ -13,7 +13,8 @@ case ${1:-} in
   -a|--audio) audio=True; shift ;;
 esac
 if (($#)); then url=$1; else url=$(cat); fi
-[ -n "$url" ] || { echo "usage: yts-play [-a] [url]" >&2; exit 2; }
-exec "$HOME/.local/share/yts-gui/venv/bin/python" -c \
+[ -n "$url" ] || { notify-send yts-play "No URL given"; exit 2; }
+"$HOME/.local/share/yts-gui/venv/bin/python" -c \
   'import sys; from yts.actions import play; sys.exit(0 if play(sys.argv[1], audio=sys.argv[2]=="True") else 1)' \
-  "$url" "$audio"
+  "$url" "$audio" \
+  || { notify-send yts-play "Could not play: $url"; exit 1; }
