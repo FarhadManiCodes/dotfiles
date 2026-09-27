@@ -31,14 +31,17 @@ QUERY=${RAW//[[:space:]]/ }; QUERY=${QUERY//+( )/ }
 QUERY=${QUERY# }; QUERY=${QUERY% }                                # for text search
 [[ -z "$QUERY" ]] && { note "Empty selection"; exit 0; }
 
-# One yq pass over the library: "doi \t ref \t title \t folder" per entry
-# (folder = the info.yaml's directory). Computed once, reused by every lookup.
-ENTRIES=$(yq -o=tsv '[(.doi // ""), .ref, (.title // ""), (filename | sub("/info\.yaml$"; ""))]' \
+# One yq pass over the library, computed once and reused by every lookup:
+# "doi \t ref \t title \t file" per entry. file is the first document papis
+# records under `files:`; the folder also holds refinery outputs and
+# embeddings, so a directory listing can't tell which one it is.
+ENTRIES=$(yq -o=tsv '[(.doi // ""), .ref, (.title // ""),
+                      (filename | sub("info\.yaml$"; "")) + .files[0]]' \
             "$PAPERS"/*/info.yaml 2>/dev/null)
 
 # Entries whose field COL contains SEL, case-insensitive; the title (col 3) is
 # compared on a normalised form (non-alnum -> space) so "physics informed"
-# matches "Physics-informed ...". Emits "folder \t ref | title". ENVIRON avoids
+# matches "Physics-informed ...". Emits "file \t ref | title". ENVIRON avoids
 # awk -v escape processing of SEL.
 lookup() {
     COL=$1 SEL=$2 awk -F'\t' '
@@ -51,12 +54,11 @@ lookup() {
         q != "" && $col != "" && index(norm($col), q) { print $4 "\t" $2 " | " $3 }' <<<"$ENTRIES"
 }
 
-# Open the (first) document file inside a papis folder in a new sioyek window.
-open_folder() {
-    local file
-    file=$(find "$1" -maxdepth 1 -type f ! -name '*.yaml' ! -name 'notes.md' 2>/dev/null | head -1)
-    if [[ -n "$file" ]]; then
-        sioyek --new-window "$file" >/dev/null 2>&1 &
+# Open an entry's file in a new sioyek window. Without `files:` the scan yields
+# just the folder, so a missing file and a missing record read the same.
+open_file() {
+    if [[ -f "$1" ]]; then
+        sioyek --new-window "$1" >/dev/null 2>&1 &
     else
         note "Entry is in the library but has no attached file"
     fi
@@ -68,11 +70,11 @@ pick() { fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 --prompt "papis
 
 # Open one match directly; offer several in a menu.
 open_matches() {
-    local folder
-    if (( $# == 1 )); then folder=${1%%$'\t'*}
-    else folder=$(printf '%s\n' "$@" | pick) || return 0
+    local file
+    if (( $# == 1 )); then file=${1%%$'\t'*}
+    else file=$(printf '%s\n' "$@" | pick) || return 0
     fi
-    [[ -n "$folder" ]] && open_folder "$folder"
+    [[ -n "$file" ]] && open_file "$file"
 }
 
 # DOI looks complete enough to add (not a bare publisher prefix).
@@ -129,7 +131,7 @@ PICKED_DOI=$(printf '%s\n' "${RESULTS[@]}" | pick) || exit 0
 
 mapfile -t M < <(lookup 1 "$PICKED_DOI")
 if (( ${#M[@]} )); then
-    open_folder "${M[0]%%$'\t'*}"
+    open_file "${M[0]%%$'\t'*}"
 else
     add_doi "$PICKED_DOI"
 fi
