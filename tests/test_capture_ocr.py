@@ -281,11 +281,14 @@ class ModeTests(unittest.TestCase):
             b"<html>proxy</html>", b"[]", b'{"candidates": ["x"]}',
             b'{"candidates": {"0": {}}}', b'{"candidates": [{"content": {"parts": ["x"]}}]}')]
         for urlopen in answers + [http_error]:
+            fallback = mock.Mock(return_value=("offline text", False))
             with self.subTest(urlopen=urlopen), \
-                    mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen):
+                    mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen), \
+                    mock.patch.object(self.ocr, "local_transcribe", fallback):
                 self.notify_log.unlink(missing_ok=True)
                 self.assertEqual(self.run_main(), 1)
                 self.assertIn("OCR Failed Unexpected", self.notify_log.read_text())
+                fallback.assert_not_called()  # Gemini answered: never offline
 
     def test_connection_cut_mid_reply_counts_as_unreachable(self):
         class Cut(io.BytesIO):
@@ -501,7 +504,8 @@ class OfflineFallbackTests(unittest.TestCase):
         self.env["FAKE_MODE"] = "garbage"
         for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
                     '{"choices": [{"message": "s"}]}',
-                    '{"choices": [{"message": {"content": ["a"]}}]}'):
+                    '{"choices": [{"message": {"content": ["a"]}}]}',
+                    '{"choices": [{"message": {"content": []}}]}'):
             with self.subTest(raw=raw):
                 self.env["FAKE_RAW"] = raw
                 self.notify_log.unlink(missing_ok=True)
