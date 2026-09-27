@@ -111,9 +111,6 @@ simple_configs=(
   direnv/direnvrc
   uv/uv.toml
   gh/config.yml
-  # ripgrep-all is not configured here: rga writes its own config.jsonc (and
-  # schema) on first run, and every adapter we want is enabled by default.
-  #
   # neocmakelsp: the trailing "-" in its [format] args is load-bearing --
   # gersemi with no file operand exits 0 printing nothing, which neocmakelsp
   # applies as a successful empty format and blanks the buffer. See the
