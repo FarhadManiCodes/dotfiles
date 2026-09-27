@@ -18,9 +18,11 @@ if ! sessions_json=$("$shpool" list --json 2>&1); then
     exit 1
 fi
 
-# One line per session name; jq fails on a malformed list (no array, a
-# non-string name), as it should.
-if ! menu=$(jq -r '.sessions[] | .name + ""' <<<"$sessions_json"); then
+# One line per session, marked when a terminal is still attached elsewhere:
+# shpool refuses to attach those, so the new window would close at once. jq
+# fails on a malformed list (no array, a non-string name), as it should.
+if ! menu=$(jq -r '.sessions[] | .name + (if .status == "Attached" then " (attached)" else "" end)' \
+        <<<"$sessions_json"); then
     notify_error "shpool returned an invalid session list."
     exit 1
 fi
@@ -28,4 +30,8 @@ fi
 
 selected=$(fuzzel --dmenu --prompt="Restore Task > " <<<"$menu")
 [[ -n "$selected" ]] || exit 0
+if [[ $selected == *" (attached)" ]]; then
+    notify-send "shpool" "'${selected% (attached)}' is attached in another window"
+    exit 0
+fi
 exec footclient --app-id=foot-popup "$shpool" attach "$selected"
