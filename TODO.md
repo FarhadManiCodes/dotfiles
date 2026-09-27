@@ -240,8 +240,8 @@ markers, reference entries and the fallback.
 ## 5. Move the useful study-library books into papis, then drop the copy
 
 **Opened 2026-09-27** when `book-resources` (Mod+z) was deleted. Mod+z is now
-`papis-fuzzel --books`: the papis picker with `#book` typed, so a book shows there only if
-its papis entry has the `book` tag (all 14 current books do).
+`papis-fuzzel --books`: the papis picker filtered to entries tagged `book`, so a book
+shows there only if its papis entry has the `book` tag (all 14 current books do).
 
 **What is left:** `~/.local/share/study-library`, a static copy of Drive's `FAU/Library`
 (21 files, newest 2026-05-16, no sync). The user picks which books are worth keeping;
@@ -253,3 +253,11 @@ Nothing reads the copy any more: `fbook`/`rgbook` (`zsh/functions/pdf.zsh`, mirr
 `bash/vifm-pick`) search the papis library since 2026-09-27.
 
 **Done when:** the kept books open from Mod+z and `~/.local/share/study-library` is deleted.
+
+## 6. Finish refinery review copies for four books
+
+`rgbook` searches sibling `<stem>.md` review copies. The papis library has them for 52 of
+56 PDFs. Barroso, Hey, Kleppmann, and Reis currently have only refinery working copies,
+whose page labels cannot be used to open physical PDF pages reliably. Run refinery for
+those four when the API cost is acceptable; each finished review copy will then appear in
+`rgbook` without a config change.

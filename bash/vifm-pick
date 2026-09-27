@@ -11,7 +11,7 @@
 # MIRRORS the interactive shell finders — keep the search halves in sync:
 #   fbook, rgbook  <-> zsh/functions/pdf.zsh
 #   fdata, fnb     <-> zsh/functions/fzf.zsh
-# Identical in both: the rga command, the awk formatter, the rga preview and the
+# Identical in both: the rg command, the awk formatter, the rg preview and the
 # fdata extension list. Only the fzf key handling and what happens to the
 # selection differ, and deliberately so: the zsh versions `cd`, which only works
 # in the interactive shell, while vifm needs the exchange files below.
@@ -85,30 +85,65 @@ case "$cmd" in
   rgbook)
     sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
     export SP="$sp"
-    rga_cmd="rga -g '*.pdf' --max-depth 2 --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
-    format_cmd="awk -F: -v sp='$sp/' '{
-        gsub(/\\033\\[[0-9;]*m/, \"\", \$1);
-        gsub(sp, \"\", \$1);
-        n=split(\$1,a,\"/\");
-        key=\$1\":\"\$3;
-        if(seen[key]++) next;
-        printf \"%s\\t%s:\\033[32m%s\\033[0m:%s\\n\", \$1, a[n], \$3, \$4
+    rg_cmd="[ -n {q} ] && rg --smart-case --color=always --no-heading --line-number --max-depth 2 -g '*.md' -g '!notes.md' -g '!*.refinery/**' -e '^<page_number>[0-9]+</page_number>$' -e {q} \"\$SP\" 2>/dev/null"
+    format_cmd="awk -v sp=\"\$SP/\" '
+    {
+      first=index(\$0, \":\"); if (!first) next;
+      second=index(substr(\$0, first+1), \":\"); if (!second) next;
+      path=substr(\$0, 1, first-1);
+      line=substr(\$0, first+1, second-1);
+      raw=substr(\$0, first+second+1);
+      gsub(/\\033\\[[0-9;]*m/, \"\", path);
+      gsub(/\\033\\[[0-9;]*m/, \"\", line);
+      if (substr(path, 1, length(sp)) != sp) next;
+      path=substr(path, length(sp)+1);
+      plain=raw; gsub(/\\033\\[[0-9;]*m/, \"\", plain);
+      if (plain ~ /^<page_number>[0-9]+<\\/page_number>$/) {
+        page[path]=plain; sub(/^<page_number>/, \"\", page[path]);
+        sub(/<\\/page_number>$/, \"\", page[path]); next;
+      }
+      if (!(path in page)) next;
+      key=path SUBSEP page[path]; if (seen[key]++) next;
+      name=path; sub(/^.*\\//, \"\", name); sub(/\\.md$/, \".pdf\", name);
+      snippet=raw;
+      if (length(plain) > 220) {
+        start_color=match(raw, /\\033\\[1m\\033\\[31m/);
+        before=substr(raw, 1, start_color-1);
+        gsub(/\\033\\[[0-9;]*m/, \"\", before);
+        pos=length(before)+1;
+        start=pos-50; if (start<1) start=1;
+        stop=pos+150; if (stop>length(plain)) stop=length(plain);
+        snippet=substr(plain, start, stop-start+1);
+        if (start_color) {
+          colored=substr(raw, start_color+RLENGTH);
+          reset=index(colored, sprintf(\"%c[0m\", 27));
+          if (reset) {
+            hit=substr(colored, 1, reset-1);
+            gsub(/\\033\\[[0-9;]*m/, \"\", hit);
+            offset=pos-start+1;
+            snippet=substr(snippet, 1, offset-1) sprintf(\"%c[1m%c[31m\", 27, 27) hit sprintf(\"%c[0m\", 27) substr(snippet, offset+length(hit));
+          }
+        }
+        if (start>1) snippet=\"…\" snippet;
+        if (stop<length(plain)) snippet=snippet \"…\";
+      }
+      printf \"%s\\t%s:\\033[32mPage %s\\033[0m:%s\\n\", path, name, page[path], snippet;
     }'"
-    reload_cmd="$rga_cmd | $format_cmd || true"
+    reload_cmd="$rg_cmd | $format_cmd || true"
     result=$(fzf --ansi --disabled \
         --bind "change:reload:$reload_cmd" \
         --bind "start:reload:$reload_cmd" \
         --delimiter=$'\t' \
         --with-nth=2 \
         --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-        --preview 'rga --context 3 --no-heading {q} "$SP/"{1} 2>/dev/null | head -20' \
+        --preview '[ -n {q} ] && rg --smart-case --context 3 --no-heading -e {q} "$SP/"{1} 2>/dev/null | head -20' \
         --preview-window='hidden,right:50%' \
         --bind 'ctrl-p:toggle-preview' \
         --header='Enter: open at page | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
     relpath="${result%%$'\t'*}"
     page=$(grep -oP 'Page \K[0-9]+' <<< "$result" | head -1)
-    abs="$sp/$relpath"
+    abs="$sp/${relpath%.md}.pdf"
     if [[ -e "$xdir/cd" ]]; then
         reply cd "$(dirname "$abs")"
     else

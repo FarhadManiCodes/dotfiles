@@ -12,7 +12,8 @@
   - `git-enhancements.zsh` — `gci`, `gst`, `gstds`
   - `last_working_dir.zsh` — restore last directory
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
-  - `pdf.zsh` — PDF/book search with rga + fzf
+  - `pdf.zsh` — book search with fzf; `rgbook` searches refinery's sibling Markdown
+    review copies with physical PDF page markers
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
