@@ -225,6 +225,23 @@ class ModeTests(unittest.TestCase):
         self.assertIn("Gemini returned 429. quota", self.notify_log.read_text())
         fallback.assert_not_called()
 
+    def test_unreadable_gemini_reply_fails_visibly(self):
+        with mock.patch.object(self.ocr.urllib.request, "urlopen",
+                               lambda req, timeout: io.BytesIO(b"<html>proxy</html>")):
+            self.assertEqual(self.run_main(), 1)
+        self.assertIn("Gemini gave an unreadable reply", self.notify_log.read_text())
+
+    def test_clean_drops_only_the_measured_no_text_shapes(self):
+        clean = self.ocr.clean
+        for answer, expected in [
+                ("[illegible]", ""), (" [illegible]\n[illegible] ", ""), ("---", ""),
+                ("```markdown\n\n```", ""), ("```\nx = 1\n```", "x = 1"),
+                ("See [illegible] page", "See [illegible] page"), ("$=$", "$=$"),
+                ("```foo```", "```foo```"),
+                ("```a\nx\n```\nprose\n```b\ny\n```", "```a\nx\n```\nprose\n```b\ny\n```")]:
+            with self.subTest(answer=answer):
+                self.assertEqual(clean(answer), expected)
+
     def test_unknown_arguments_fail_visibly_before_selecting(self):
         for args in (["--translte"], ["--translate", "junk"]):
             with self.subTest(args=args), self.gemini("unused"):
@@ -247,6 +264,8 @@ if "--cache-list" in args:
     sys.exit(0)
 (out / "server.pid").write_text(str(os.getpid()))
 (out / "argv.json").write_text(json.dumps(args))
+if os.environ.get("FAKE_MODE") == "silent":
+    sys.exit(1)
 if os.environ.get("FAKE_MODE") == "crash":
     print("load_model: failed to load model", file=sys.stderr)
     print("llama_server: exiting due to model loading error", file=sys.stderr)
@@ -404,6 +423,12 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("exiting due to model loading error", self.notices())
         self.assertNotIn("bash:", self.notices())
 
+    def test_server_that_dies_silently_says_so(self):
+        # Not bash's report of the watchdog's tail, which it kills on the way out.
+        self.env["FAKE_MODE"] = "silent"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("Offline model failed to start: no output", self.notices())
+
     def test_blank_outputs_are_no_text_but_symbols_are_kept(self):
         for reply, blank in [("---", True), ("\n```markdown\n\n```", True),
                              ("$=$", False), ("\u2192", False), ("```foo```", False)]:
@@ -419,7 +444,8 @@ class OfflineFallbackTests(unittest.TestCase):
         self.env["FAKE_MODE"] = "garbage"
         for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
                     '{"choices": [{"message": "s"}]}',
-                    '{"choices": [{"message": {"content": ["a"]}}]}'):
+                    '{"choices": [{"message": {"content": ["a"]}}]}',
+                    '{"choices": [{"message": {"content": []}}]}'):
             with self.subTest(raw=raw):
                 self.env["FAKE_RAW"] = raw
                 self.notify_log.unlink(missing_ok=True)
@@ -431,7 +457,7 @@ class OfflineFallbackTests(unittest.TestCase):
     def test_local_http_error_shows_its_body(self):
         self.env["FAKE_MODE"] = "http500"
         self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("Offline model returned 500: boom: out of memory", self.notices())
+        self.assertIn("Offline model returned 500. boom: out of memory", self.notices())
 
     def test_failing_cache_list_is_not_reported_as_missing_model(self):
         self.env["FAKE_MODE"] = "broken"

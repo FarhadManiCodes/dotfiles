@@ -170,12 +170,38 @@ TRANSLATE_PROMPT = r"""Translate the text in this image.
 
 
 class Unreachable(Exception):
-    """Gemini could not be contacted at all, as opposed to answering badly."""
+    """The server could not be contacted at all, as opposed to answering badly."""
+
+
+def post_json(open_url, url, payload, headers, who):
+    """POST JSON, return the parsed reply. An HTTP error fails with its message;
+    a network error raises Unreachable, so the caller picks fallback or failure."""
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json", **headers})
+    try:
+        with open_url(req, timeout=TIMEOUT) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            body = e.read().decode(errors="replace")
+        except (OSError, http.client.HTTPException):
+            body = ""
+        try:
+            detail = json.loads(body)["error"]["message"]  # Gemini's error shape
+        except (ValueError, KeyError, TypeError):
+            detail = body[:200]
+        fail(f"{who} returned {e.code}. {detail}".strip())
+    except urllib.error.URLError as e:
+        raise Unreachable(e.reason) from None
+    except (OSError, http.client.HTTPException) as e:
+        raise Unreachable(e) from None
+    except ValueError as e:
+        fail(f"{who} gave an unreadable reply: {e!r}")
 
 
 def transcribe(img_bytes, key, prompt):
-    """One POST. Returns (text, truncated); raises Unreachable."""
-    body = json.dumps({
+    """Gemini. Returns (text, truncated); raises Unreachable."""
+    payload = post_json(urllib.request.urlopen, ENDPOINT, {
         "contents": [{
             "role": "user",
             "parts": [
@@ -186,27 +212,9 @@ def transcribe(img_bytes, key, prompt):
             ],
         }],
         "generationConfig": {"temperature": TEMPERATURE},
-    }).encode()
-
-    req = urllib.request.Request(
-        ENDPOINT, data=body,
-        headers={"Content-Type": "application/json",
-                 # Header, not ?key= -- a query string lands in logs and proxies.
-                 "x-goog-api-key": key})
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
-            payload = json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        detail = ""
-        try:
-            detail = json.loads(e.read()).get("error", {}).get("message", "")
-        except Exception:
-            pass
-        fail(f"Gemini returned {e.code}. {detail}".strip())
-    except urllib.error.URLError as e:
-        raise Unreachable(e.reason) from None
-    except (TimeoutError, OSError) as e:
-        raise Unreachable(e) from None
+    },
+        # Header, not ?key= -- a query string lands in logs and proxies.
+        {"x-goog-api-key": key}, "Gemini")
 
     candidates = payload.get("candidates") or []
     if not candidates:
@@ -271,8 +279,11 @@ def local_transcribe(img_bytes):
         "-np", "1", "--host", "127.0.0.1", "--port", str(port)])
     # A bash supervisor also watches our pid, so a SIGKILLed or SIGTERMed
     # capture-ocr (no finally runs) can't leave the server holding GPU memory.
+    # The waits' stderr is silenced: bash would report the tail it kills as
+    # "Killed" (translated per locale) where the server's error should be.
     watchdog = (f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
-                "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait")
+                "watch=$!; wait -n 2>/dev/null; kill -KILL $srv $watch 2>/dev/null; "
+                "wait 2>/dev/null")
     log = tempfile.TemporaryFile()
     try:
         proc = subprocess.Popen(
@@ -289,11 +300,8 @@ def local_transcribe(img_bytes):
             if proc.poll() is not None:
                 log.seek(0)
                 lines = log.read().decode(errors="replace").strip().splitlines()
-                # The watchdog's own "bash: ... Killed tail" line always comes last.
-                # Unless bash itself is the cause, e.g. an unrunnable binary.
-                tail = [line for line in lines if not line.startswith("bash:")][-3:]
                 fail("Offline model failed to start: "
-                     + (" | ".join(tail or lines[-2:]) or "no output"))
+                     + (" | ".join(lines[-3:]) or "no output"))
             if time.monotonic() > deadline:
                 fail(f"Offline model not ready after {LOCAL_STARTUP} s.")
             try:
@@ -306,7 +314,7 @@ def local_transcribe(img_bytes):
                 pass
             time.sleep(0.05)
 
-        body = json.dumps({
+        reply = post_json(DIRECT.open, base + "/v1/chat/completions", {
             "messages": [{"role": "user", "content": [
                 {"type": "image_url", "image_url": {
                     "url": "data:image/png;base64," + base64.b64encode(img_bytes).decode()}},
@@ -315,24 +323,9 @@ def local_transcribe(img_bytes):
             # A cap against runaway repetition. The densest page measured needed
             # about one token per 500 px^2; this allows 2.5x that.
             "max_tokens": 64 + width * height // 200,
-        }).encode()
-        req = urllib.request.Request(
-            base + "/v1/chat/completions", data=body,
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
-        try:
-            with DIRECT.open(req, timeout=TIMEOUT) as r:
-                choice = json.load(r)["choices"][0]
-            text = choice["message"]["content"] or ""
-            if not isinstance(text, str):
-                raise TypeError(f"content is {type(text).__name__}")
-            truncated = choice.get("finish_reason") == "length"
-        except urllib.error.HTTPError as e:
-            fail(f"Offline model returned {e.code}: "
-                 f"{e.read().decode(errors='replace')[:200]}")
-        except (urllib.error.URLError, OSError, http.client.HTTPException) as e:
-            fail(f"Offline model request failed: {e!r}")
-        except (ValueError, KeyError, IndexError, TypeError) as e:
-            fail(f"Offline model gave an unreadable reply: {e!r}")
+        }, {"Authorization": f"Bearer {key}"}, "Offline model")
+    except Unreachable as e:
+        fail(f"Offline model request failed: {e}")
     finally:
         # The whole group: bash, the server and the watchdog's tail.
         try:
@@ -342,14 +335,32 @@ def local_transcribe(img_bytes):
         proc.wait()
         log.close()
 
-    # Measured: blank crops come back as an empty ```markdown fence or "---".
-    # Only those shapes count as no text, so a capture of just "=" or "->" stays.
-    fence = re.fullmatch(r"\s*```\w*\n(.*?)\n?```\s*", text, re.S)
+    try:
+        choice = reply["choices"][0]
+        text = choice["message"]["content"]
+        if text is None:
+            text = ""
+        if not isinstance(text, str):
+            raise TypeError(f"content is {type(text).__name__}")
+    except (KeyError, IndexError, TypeError) as e:
+        fail(f"Offline model gave an unreadable reply: {e!r}")
+    return text, choice.get("finish_reason") == "length"
+
+
+def clean(text):
+    """The answer, or "" when it only says there is no text.
+
+    Measured 2026-09-25 on blank crops: Gemini answered a lone "[illegible]"
+    in 1 of 5 runs despite its prompt; GLM-OCR an empty ```markdown fence or
+    "---". Only those shapes count, so a capture of just "=" or "->" stays,
+    and a fence is only unwrapped when it holds no other fence.
+    """
+    fence = re.fullmatch(r"\s*```\w*\n((?:(?!```).)*?)\n?```\s*", text, re.S)
     if fence:
         text = fence.group(1)
-    if re.fullmatch(r"[\s-]*", text):
-        text = ""
-    return text.strip(), truncated
+    if re.fullmatch(r"[\s-]*", text.replace("[illegible]", "")):
+        return ""
+    return text.strip()
 
 
 def main():
@@ -374,10 +385,7 @@ def main():
                timeout=3000)
         text, truncated = local_transcribe(img_bytes)
         offline = True
-    # Measured 2026-09-25: on a blank dark crop, 1 of 5 runs answered
-    # "[illegible]" despite rule 5. A marker with no text around it is no text.
-    if not text.replace("[illegible]", "").strip():
-        text = ""
+    text = clean(text)
 
     if not text:
         if truncated:
