@@ -54,9 +54,19 @@ sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'
 papers_glob=("$HOME"/.local/share/papis/papers/*/info.yaml)
 # yq stops at the first unreadable info.yaml, and every key after it would look
 # free: a duplicate ref breaks papis.nvim, so a failed scan stops here.
-existing_refs=$(yq -o=tsv '.ref' "${papers_glob[@]}" 2>&1) \
-    || { notify-send -u critical "Papis" "Library scan failed: ${existing_refs##*$'\n'}"; exit 1; }
+# "ref \t doi \t eprint" per entry.
+library=$(yq -o=tsv '[.ref, (.doi // ""), (.eprint // "")]' "${papers_glob[@]}" 2>&1) \
+    || { notify-send -u critical "Papis" "Library scan failed: ${library##*$'\n'}"; exit 1; }
+existing_refs=$(cut -f1 <<<"$library")
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
+
+# Already in the library? A DOI matches case-insensitively, an arXiv id without
+# its version suffix (entries store "2602.23859v2" as well as "2606.14130").
+existing=$(ID=$identifier IMP=$importer awk -F'\t' '
+    function bare(s) { s = tolower(s); if (ENVIRON["IMP"] == "arxiv") sub(/v[0-9]+$/, "", s); return s }
+    BEGIN { id = bare(ENVIRON["ID"]); col = (ENVIRON["IMP"] == "doi") ? 2 : 3 }
+    $col != "" && bare($col) == id { print $1; exit }' <<<"$library")
+[[ -n "$existing" ]] && { notify-send -u low "Papis" "Already in papis as $existing\n$identifier"; exit 0; }
 existing_tags=$(yq -o=tsv '.tags[]?' "${papers_glob[@]}" 2>/dev/null | sort -u | paste -sd' ' -)
 
 # Append a/b/c… (then _2, _3…) until the key is free.
@@ -117,6 +127,12 @@ notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set ref "$ref" 2>&1); then
     notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
     exit 1
+fi
+# --batch refuses a duplicate found on another unique key (isbn, url, ...) but
+# still exits 0, after logging the folder it would have used.
+if [[ $output == *'No new document is created'* ]]; then
+    notify-send -u normal "Papis" "Already in papis (matched on another field), not added\n$identifier"
+    exit 0
 fi
 
 folder=$(grep -oP "Document folder is '\K[^']+" <<<"$output" | head -1)
