@@ -13,10 +13,14 @@ notify_error() {
 [[ -x "$shpool" ]] || { notify_error "shpool is not installed at $shpool. Recreate it with: cargo install shpool"; exit 1; }
 command -v jq >/dev/null 2>&1 || { notify_error "jq is not installed, so the shpool session list cannot be read."; exit 1; }
 
-# stdout only: shpool can succeed with a warning on stderr (e.g. a client/daemon
-# version mismatch), which would corrupt the JSON. Its error is fetched on failure.
-if ! sessions_json=$("$shpool" list --json 2>/dev/null); then
-    err=$("$shpool" list --json 2>&1 >/dev/null)
+# stdout and stderr apart: shpool can succeed with a warning on stderr (e.g. a
+# client/daemon version mismatch), which would corrupt the JSON, yet on failure
+# that same call's stderr is the error to show. Removed at once, not by a trap:
+# the script ends in exec.
+errf=$(mktemp -p "${XDG_RUNTIME_DIR:-/tmp}")
+sessions_json=$("$shpool" list --json 2>"$errf"); rc=$?
+err=$(<"$errf"); rm -f "$errf"
+if (( rc != 0 )); then
     notify_error "Could not reach shpool (${err##*$'\n'}). Check: systemctl --user status shpool.socket"
     exit 1
 fi
