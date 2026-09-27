@@ -123,8 +123,8 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
-- Book picker (Mod+z): `papis-fuzzel --books`, the papis picker (Mod+Shift+P) with `#book`
-  typed; files open via xdg-open (sioyek/zathura/foliate).
+- Book picker (Mod+z): `papis-fuzzel --books` lists entries tagged `book`; type an
+  author, title, or tag to narrow them. Files open via xdg-open (sioyek/zathura/foliate).
 - No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for
   are in `docs/architecture/git.md`.
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`

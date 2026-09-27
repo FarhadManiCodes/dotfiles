@@ -2,7 +2,7 @@
 # Search the papis library with fuzzel and open the pick: its first file with
 # xdg-open (PDF in sioyek, DjVu in zathura, EPUB in Foliate; `papis open` sends
 # everything to sioyek), or its DOI/URL in the browser when it has no file (↗).
-# `papis-fuzzel --books` (Mod+z) opens with "#book" typed: books carry a `book` tag.
+# `papis-fuzzel --books` (Mod+z) lists entries tagged `book`.
 #
 # Entries are read straight from info.yaml with yq: accurate list handling for
 # tags and files, and no papis (Python) start before the menu.
@@ -11,8 +11,12 @@ set -uo pipefail
 PAPERS="$HOME/.local/share/papis/papers"
 notify() { notify-send -u critical "Papers" "$1"; }
 
-search=()
-[[ ${1:-} == --books ]] && search=(--search "#book ")
+books=0
+prompt="  Papers (type a #tag to filter): "
+if [[ ${1:-} == --books ]]; then
+    books=1
+    prompt="  Books (author, title or #tag): "
+fi
 
 # Per entry: ref, year, first author, title, folder, first file, tags.
 # yq stops at the first unreadable info.yaml, and the papers after it would
@@ -25,14 +29,16 @@ rows=$(yq -o=tsv '[.ref, (.year // ""), (.author_list[0].family // .author // "?
 
 # "<what to open> \t <label>": the file's path, or browse:<ref> without one.
 # Tags become #words so fuzzel's filter matches them.
-menu=$(awk -F'\t' '{
+menu=$(awk -F'\t' -v books="$books" '{
+    if (books && !index(" " $7 " ", " book ")) next
     open = ($6 != "") ? $5 $6 : "browse:" $1
     t = $7; if (t != "") { gsub(/ /, " #", t); t = "  #" t }
     printf "%s\t[%s]  %-16s  %s%s%s\n", open, $2, substr($3, 1, 16), substr($4, 1, 55), ($6 == "") ? " ↗" : "", t
 }' <<<"$rows")
+[[ -n $menu ]] || exit 0
 
-choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 "${search[@]}" \
-    --prompt "  Papers (type a #tag to filter): " --width 100 --lines 15 <<<"$menu")
+choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
+    --prompt "$prompt" --width 100 --lines 15 <<<"$menu")
 case $choice in
     '') exit 0 ;;
     browse:*)

@@ -236,7 +236,7 @@ binds {
         spawn "bash" "-c" "cliphist list | fuzzel -d --anchor top-right --width 40 --lines 20 --x-margin 20 --y-margin 20 | cliphist decode | wl-copy";
     }
 
-    // Mod+z — books: the papis picker with "#book" typed; opens via xdg-open.
+    // Mod+z — books: only entries tagged book; opens via xdg-open.
     Mod+z hotkey-overlay-title="Search Books: papis" { spawn "papis-fuzzel" "--books"; }
 
     Mod+Alt+T hotkey-overlay-title="Toggle Foot Theme" { spawn "toggle-foot-theme.sh"; }
