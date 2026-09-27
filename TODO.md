@@ -17,6 +17,7 @@ Off-machine backup remains deferred.
 | 3a. Sensitive-site Tridactyl rules | Applied; pending user verification | Reload Tridactyl, check each site's login flow |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
+| 4. Alt+p resolves citations from refinery | Proposed 2026-09-27; after the audit branch merges | User agrees scope; own branch |
 
 ## 1. Off-machine backup
 
@@ -204,3 +205,33 @@ selection doesn't touch link-opening behavior.
 **Verified 2026-09-16 (user, interactive):** enabled the pref, confirmed Personal/Work cookie
 separation, confirmed both container tabs survive a full restart, confirmed Tridactyl hinting,
 tab open/close/switch behave normally with containers in use. No extension needed.
+
+## 4. Alt+p resolves citations from refinery's `citations.json`
+
+**Proposed 2026-09-27** during the bash/ scripts audit. A new feature, kept off `audit-2026-09`.
+
+**Problem:** `sioyek-papis` knows only the selected text. A reference with no DOI or arXiv id
+printed goes to Crossref, which costs a network round trip and a pick from up to 8 guesses,
+and an in-text marker such as `[10]` cannot be resolved at all.
+
+**What exists already:** refinery writes `<pdf-stem>.citations.json` next to each refined PDF
+(48 of 56 papers on 2026-09-27). `references[]` holds `citation_key`, `title`, `authors`,
+`year`, `page` and, for 3626 of 4843 references, a verified `doi`. `linking.markers[]` maps
+each in-text marker to reference indexes, ranges expanded (`[6-10]` -> 6..10). Styles:
+32 numbered-bracket, 15 author-year, 1 numbered-paren.
+
+**Proposal:** add `%{file_path}` to the `_papis` command in `sioyek/prefs_user.config`
+(placeholders are one argv each), and before the Crossref step look the selection up in the
+current paper's `citations.json`: a marker (`[10]`) or a reference entry resolves to its DOI,
+then opens it if it is in the library or adds it. Fall back to today's path when there is no
+file, no match, or no identifier. One jq lookup takes about 3 ms. No separately rebuilt
+cross-reference map: refinery already keeps these files current, and a hand-run map would go
+stale.
+
+**Scope order:** numbered markers and reference entries first; author-year selections
+("Smith et al., 2020") need fuzzy matching on authors and year and come second. A library-wide
+"which of my papers cite this one" view is a separate feature.
+
+**Done when:** selecting `[10]` on page 12 of leng-2023 opens malitsky-2018 with no network,
+references without a DOI still reach Crossref, and tests in `tests/test_sioyek_papis.py` cover
+markers, reference entries and the fallback.
