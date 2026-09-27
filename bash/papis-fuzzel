@@ -1,47 +1,47 @@
 #!/usr/bin/env bash
-# Search papis library via fuzzel dmenu, open selected PDF in sioyek.
-# Falls back to browser (DOI/URL) if no file is attached.
+# Search the papis library with fuzzel and open the pick: its first file with
+# xdg-open (PDF in sioyek, DjVu in zathura, EPUB in Foliate; `papis open` sends
+# everything to sioyek), or its DOI/URL in the browser when it has no file (↗).
+# `papis-fuzzel --books` (Mod+z) lists entries tagged `book`.
 #
-# Data is read straight from the info.yaml files with yq (accurate list handling
-# for tags/files, and faster than papis' Python startup). awk is used only to lay
-# out the columns. -o=tsv keeps fields flat with no "---" separators.
-
+# Entries are read straight from info.yaml with yq: accurate list handling for
+# tags and files, and no papis (Python) start before the menu.
 set -uo pipefail
 
 PAPERS="$HOME/.local/share/papis/papers"
+notify() { notify-send -u critical "Papers" "$1"; }
 
-# Per paper: ref \t year \t author-family \t title \t file-count \t "tag tag ..."
-ROWS=$(yq -o=tsv \
-    '[.ref, (.year // ""), (.author_list[0].family // .author // "?"), (.title // ""), ((.files // []) | length), ((.tags // []) | join(" "))]' \
-    "$PAPERS"/*/info.yaml 2>/dev/null)
-
-[[ -z "$ROWS" ]] && exit 0
-
-# Build "ref \t filecount \t <visible>". Tags are already clean from yq; just
-# prefix each with # so fuzzel's fuzzy filter matches them. Mark file-less with ↗.
-DISPLAY=$(echo "$ROWS" | awk -F'\t' '{
-    icon = ($5 + 0 == 0) ? " ↗" : ""
-    t = $6; if (t != "") gsub(/ /, " #", t)
-    tags = (t != "") ? "  #" t : ""
-    printf "%s\t%s\t[%s]  %-16s  %s%s%s\n", $1, $5, $2, substr($3,1,16), substr($4,1,55), icon, tags
-}')
-
-SELECTED=$(echo "$DISPLAY" | cut -f3- \
-    | fuzzel --dmenu \
-        --prompt "  Papers (type a #tag to filter): " \
-        --width 100 \
-        --lines 15)
-
-[[ -z "$SELECTED" ]] && exit 0
-
-# Map the chosen visible line back to its ref + file count (no extra papis call).
-match=$(echo "$DISPLAY" | awk -F'\t' -v sel="$SELECTED" '($3 == sel){print $1 "\t" $2; exit}')
-REF=$(cut -f1 <<<"$match")
-NFILES=$(cut -f2 <<<"$match")
-
-[[ -z "$REF" ]] && exit 0
-if [[ "${NFILES:-0}" -gt 0 ]]; then
-    papis open "ref:$REF"
-else
-    papis browse "ref:$REF"
+books=0
+prompt="  Papers (type a #tag to filter): "
+if [[ ${1:-} == --books ]]; then
+    books=1
+    prompt="  Books (author, title or #tag): "
 fi
+
+# Per entry: ref, year, first author, title, folder, first file, tags.
+# yq stops at the first unreadable info.yaml, and the papers after it would
+# silently be missing from the menu, so a failure is reported instead.
+rows=$(yq -o=tsv '[.ref, (.year // ""), (.author_list[0].family // .author // "?"),
+        (.title // ""), (filename | sub("info\.yaml$"; "")), (.files[0] // ""),
+        ((.tags // []) | join(" "))]' "$PAPERS"/*/info.yaml 2>&1) \
+    || { notify "Library scan failed: ${rows##*$'\n'}"; exit 1; }
+[[ -n $rows ]] || exit 0
+
+# "<what to open> \t <label>": the file's path, or browse:<ref> without one.
+# Tags become #words so fuzzel's filter matches them.
+menu=$(awk -F'\t' -v books="$books" '{
+    if (books && !index(" " $7 " ", " book ")) next
+    open = ($6 != "") ? $5 $6 : "browse:" $1
+    t = $7; if (t != "") { gsub(/ /, " #", t); t = "  #" t }
+    printf "%s\t[%s]  %-16s  %s%s%s\n", open, $2, substr($3, 1, 16), substr($4, 1, 55), ($6 == "") ? " ↗" : "", t
+}' <<<"$rows")
+[[ -n $menu ]] || exit 0
+
+choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
+    --prompt "$prompt" --width 100 --lines 15 <<<"$menu")
+case $choice in
+    '') exit 0 ;;
+    browse:*)
+        err=$(papis browse "ref:${choice#browse:}" 2>&1) || notify "Could not open it: ${err##*$'\n'}" ;;
+    *) setsid -f xdg-open "$choice" >/dev/null 2>&1 ;;
+esac

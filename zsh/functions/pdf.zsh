@@ -6,8 +6,10 @@
 # formatter and rga preview are identical in both — change one, change the other.
 # ============================================================================
 
-# Default library path (local sync from cloud, can override with STUDY_LIBRARY env var)
-STUDY_LIBRARY="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+# The papis library. Searched to depth 2 (<entry>/<file>) only: refinery keeps
+# split part_N.pdf copies of books under <entry>/<name>.refinery/parts/, which
+# would list each book twice and give the part's page numbers, not the book's.
+PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 
 # Open by type: sioyek for PDF — it is the only one taking --page, which is the
 # point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
@@ -34,14 +36,14 @@ _open_book() {
 # Keys: Enter → open at page (sioyek), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 rgbook() {
-  local sp="${STUDY_LIBRARY}"
+  local sp="${PAPIS_PAPERS}"
   local query="${*:-}"
   # Exported for fzf's preview shell: {1} must sit outside our quotes, because
   # fzf substitutes it as a single-quoted string.
   local -x SP="$sp"
 
   # rga output: path:line:Page N:text → format to: path<TAB>filename:Page N:text
-  local rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
+  local rga_cmd="rga -g '*.pdf' --max-depth 2 --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
   local format_cmd="awk -F: -v sp='$sp/' '{
     gsub(/\\033\\[[0-9;]*m/, \"\", \$1);
     gsub(sp, \"\", \$1);
@@ -99,11 +101,11 @@ rgbook() {
 # Keys: Enter → open (sioyek/zathura/Foliate by type), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 fbook() {
-  local search_path="${STUDY_LIBRARY}"
+  local search_path="${PAPIS_PAPERS}"
   local pattern="${*:-.}"
 
   local -x SP="$search_path"
-  local result=$(fd --type f -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
+  local result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
     sed "s|^$search_path/||" | \
     fzf --preview 'pdfinfo "$SP/"{} 2>/dev/null || echo "No info available"' \
         --preview-window='hidden,right:40%' \

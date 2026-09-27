@@ -62,9 +62,9 @@ open_book() {
 case "$cmd" in
 
   fbook)
-    sp="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+    sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
     export SP="$sp"
-    result=$(fd --type f -e pdf -e epub -e djvu . "$sp" 2>/dev/null \
+    result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu . "$sp" 2>/dev/null \
         | sed "s|^$sp/||" \
         | fzf \
             --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
@@ -83,9 +83,9 @@ case "$cmd" in
     ;;
 
   rgbook)
-    sp="${STUDY_LIBRARY:-$HOME/.local/share/study-library}"
+    sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
     export SP="$sp"
-    rga_cmd="rga -g '*.pdf' --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
+    rga_cmd="rga -g '*.pdf' --max-depth 2 --color=always --line-number --no-heading {q} '$sp' 2>/dev/null"
     format_cmd="awk -F: -v sp='$sp/' '{
         gsub(/\\033\\[[0-9;]*m/, \"\", \$1);
         gsub(sp, \"\", \$1);
