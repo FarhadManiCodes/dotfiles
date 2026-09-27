@@ -278,6 +278,18 @@ class ModeTests(unittest.TestCase):
                 self.assertEqual(self.run_main(), 1)
                 self.assertIn("Gemini gave an unreadable reply", self.notify_log.read_text())
 
+    def test_failed_notifier_falls_back_to_stderr(self):
+        failing = Path(os.environ["PATH"]) / "notify-send"
+        failing.write_text("#!/bin/sh\nexit 1\n")
+        with self.gemini("Anfahrt"), mock.patch("sys.stderr", new_callable=io.StringIO) as err:
+            self.assertEqual(self.run_main(), 0)
+        self.assertIn("OCR Copied: Anfahrt", err.getvalue())
+
+    def test_nul_in_text_still_notifies(self):
+        with self.gemini("a\0b"):
+            self.assertEqual(self.run_main(), 0)
+        self.assertIn("OCR Copied ab", self.notify_log.read_text())
+
     def test_connection_cut_mid_reply_counts_as_unreachable(self):
         class Cut(io.BytesIO):
             def read(self, *a):

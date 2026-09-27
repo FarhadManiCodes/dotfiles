@@ -64,7 +64,10 @@ def notify(title, body, urgency=None, timeout=None):
             return
     except OSError:
         pass
-    print(f"{title}: {body}", file=sys.stderr)
+    try:
+        print(f"{title}: {body}", file=sys.stderr)
+    except (OSError, ValueError, AttributeError):  # broken, full or closed stderr
+        pass  # no channel left
 
 
 def fail(message):
