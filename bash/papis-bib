@@ -44,6 +44,22 @@ commit_bib() {
     cp -- "$1" "$staged" && mv -- "$staged" "$bib"
 }
 
+# The compile hook discards this script's output (nvim runs it through
+# vim.fn.system), so a failure also notifies: otherwise it is never seen.
+fail() {
+    echo "papis-bib: $1"
+    command -v notify-send >/dev/null && notify-send -u critical "papis-bib" "$1"
+    exit 1
+}
+
+# papis bibtex ..., ending the run with papis's last error line if it fails.
+# papis exits 0 for no citations, an empty .bib and unknown keys, so a non-zero
+# status is a real error (a missing or unreadable file).
+bibtex() {
+    local err
+    err=$(papis bibtex "$@" 2>&1 >/dev/null) || fail "papis failed: ${err##*$'\n'}"
+}
+
 prune=0
 if [[ "${1:-}" == "--prune" ]]; then prune=1; shift; fi
 
@@ -98,17 +114,15 @@ auto_sync() {
     cited=$(mktmp); out=$(mktmp)
 
     # 1. library entries whose key is cited somewhere in the sources.
-    if ! papis bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited" >/dev/null 2>&1; then
-        rm -f "$cited" "$out"; echo "papis-bib: papis error, nothing changed"; return 0
-    fi
+    bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited"
 
     # 2. union = existing (read first, so it WINS on a key clash) + cited-from-library.
     local read_existing=()
     [[ -f "$bib" ]] && read_existing=(read "$bib")
-    if ! papis bibtex "${read_existing[@]}" read "$cited" unique save -f "$out" >/dev/null 2>&1 || [[ ! -s "$out" ]]; then
-        rm -f "$cited" "$out"; echo "papis-bib: nothing to sync"; return 0
+    bibtex "${read_existing[@]}" read "$cited" unique save -f "$out"
+    if [[ ! -s "$out" ]]; then
+        echo "papis-bib: nothing to sync"; return 0
     fi
-    rm -f "$cited"
 
     if [[ -f "$bib" ]] && cmp -s "$out" "$bib"; then
         rm -f "$out"; echo "papis-bib: $(basename "$bib") already up to date"; return 0
@@ -126,9 +140,7 @@ auto_sync() {
         return 1
     fi
 
-    if ! commit_bib "$out"; then
-        echo "papis-bib: failed to write $bib"; return 1
-    fi
+    commit_bib "$out" || fail "failed to write $bib"
     echo "papis-bib: synced $(basename "$bib") ($old -> $new entries)"
     command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") ($old -> $new entries)"
 }
