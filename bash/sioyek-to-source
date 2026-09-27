@@ -25,8 +25,10 @@ read -r PAGE X Y <<< "$2"
 
 SYNCTEX=$(command -v synctex || echo /usr/sbin/synctex)
 
-# Map (page+1, x, y) -> source file + line. Take the first result.
-OUT=$("$SYNCTEX" edit -o "$((PAGE + 1)):${X}:${Y}:${PDF}" 2>/dev/null)
+# Map (page+1, x, y) -> source file + line. Take the first result. A PDF built
+# without -synctex=1 fails here, with the reason on the first line.
+OUT=$("$SYNCTEX" edit -o "$((PAGE + 1)):${X}:${Y}:${PDF}" 2>&1) \
+    || { notify-send "sioyek" "synctex: ${OUT%%$'\n'*}"; exit 1; }
 FILE=$(sed -n 's/^Input://p' <<<"$OUT" | head -n1)
 LINE=$(sed -n 's/^Line://p'  <<<"$OUT" | head -n1)
 
