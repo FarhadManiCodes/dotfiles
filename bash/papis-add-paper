@@ -140,15 +140,19 @@ if [[ $output == *'No new document is created'* ]]; then
     exit 0
 fi
 
-folder=$(grep -oP "Document folder is '\K[^']+" <<<"$output" | head -1)
+# The new entry, found by its key rather than by papis's "Document folder is"
+# info log line, which depends on papis's log level.
+info=$(REF=$ref yq 'select(.ref == strenv(REF)) | filename' "$HOME"/.local/share/papis/papers/*/info.yaml 2>/dev/null | head -1)
+[[ -f "$info" ]] || { notify-send -u critical "Papis" "Added as $ref, but its folder was not found: tags not set"; exit 1; }
 
 # Store tags as a proper YAML list (papis.nvim requires list type, one element per
 # tag). papis --set only writes a string, so set the split list with yq directly.
-[[ -n "$tags" && -f "$folder/info.yaml" ]] && \
-    tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$folder/info.yaml"
+if [[ -n "$tags" ]] && ! tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$info"; then
+    notify-send -u critical "Papis" "Added as $ref, but writing the tags failed"; exit 1
+fi
 
 tagnote=""; [[ -n "$tags" ]] && tagnote="\\n[$tags]"
-nfiles=0; [[ -f "$folder/info.yaml" ]] && nfiles=$(yq '(.files // []) | length' "$folder/info.yaml" 2>/dev/null)
+nfiles=$(yq '(.files // []) | length' "$info" 2>/dev/null)
 if [[ "${nfiles:-0}" -gt 0 ]]; then
     notify-send -u low "Papis" "Added with PDF ✓\n$ref$tagnote"
 else
