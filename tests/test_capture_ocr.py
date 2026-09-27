@@ -233,14 +233,41 @@ class ModeTests(unittest.TestCase):
 
     def test_clean_drops_only_the_measured_no_text_shapes(self):
         clean = self.ocr.clean
-        for answer, expected in [
-                ("[illegible]", ""), (" [illegible]\n[illegible] ", ""), ("---", ""),
-                ("```markdown\n\n```", ""), ("```\nx = 1\n```", "x = 1"),
-                ("See [illegible] page", "See [illegible] page"), ("$=$", "$=$"),
-                ("```foo```", "```foo```"),
-                ("```a\nx\n```\nprose\n```b\ny\n```", "```a\nx\n```\nprose\n```b\ny\n```")]:
-            with self.subTest(answer=answer):
-                self.assertEqual(clean(answer), expected)
+        two_blocks = "```a\nx\n```\nprose\n```b\ny\n```"
+        for answer, offline, expected in [
+                ("[illegible]", False, ""), (" [illegible]\n[illegible] ", True, ""),
+                ("See [illegible] page", False, "See [illegible] page"),
+                ("$=$", True, "$=$"), ("```foo```", True, "```foo```"),
+                # GLM-OCR's measured blank answers; from Gemini the same is content.
+                ("---", True, ""), ("---", False, "---"),
+                ("```markdown\n\n```", True, ""),
+                ("```\nx = 1\n```", True, "x = 1"),
+                ("```\nx = 1\n```", False, "```\nx = 1\n```"),
+                (two_blocks, True, two_blocks)]:
+            with self.subTest(answer=answer, offline=offline):
+                self.assertEqual(clean(answer, offline), expected)
+
+    def test_gemini_rule_line_is_content(self):
+        # GLM-OCR's blank-crop "---" rule must not eat Gemini's real text.
+        with self.gemini("---"):
+            self.assertEqual(self.run_main(), 0)
+        self.assertEqual(self.clipboard.read_text(), "---")
+
+    def test_gemini_reply_of_the_wrong_shape_fails_visibly(self):
+        for reply in (b"[]", b'{"candidates": ["x"]}', b'{"candidates": [{"content": {"parts": ["x"]}}]}'):
+            with self.subTest(reply=reply), mock.patch.object(
+                    self.ocr.urllib.request, "urlopen", lambda req, timeout: io.BytesIO(reply)):
+                self.assertEqual(self.run_main(), 1)
+                self.assertIn("Gemini gave an unreadable reply", self.notify_log.read_text())
+
+    def test_unreadable_error_body_still_notifies(self):
+        body = io.BytesIO(b"x")
+        body.close()  # read() now raises ValueError
+        def urlopen(req, timeout):
+            raise self.ocr.urllib.error.HTTPError(req.full_url, 500, "boom", {}, body)
+        with mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen):
+            self.assertEqual(self.run_main(), 1)
+        self.assertIn("Gemini returned 500.", self.notify_log.read_text())
 
     def test_unknown_arguments_fail_visibly_before_selecting(self):
         for args in (["--translte"], ["--translate", "junk"]):

@@ -184,7 +184,7 @@ def post_json(open_url, url, payload, headers, who):
     except urllib.error.HTTPError as e:
         try:
             body = e.read().decode(errors="replace")
-        except (OSError, http.client.HTTPException):
+        except (OSError, ValueError, http.client.HTTPException):
             body = ""
         try:
             detail = json.loads(body)["error"]["message"]  # Gemini's error shape
@@ -216,20 +216,23 @@ def transcribe(img_bytes, key, prompt):
         # Header, not ?key= -- a query string lands in logs and proxies.
         {"x-goog-api-key": key}, "Gemini")
 
-    candidates = payload.get("candidates") or []
-    if not candidates:
-        # A prompt-level block returns no candidate at all.
-        blocked = (payload.get("promptFeedback") or {}).get("blockReason")
-        fail(f"No response from Gemini{f' ({blocked})' if blocked else ''}.")
-    cand = candidates[0]
-    parts = (cand.get("content") or {}).get("parts") or []
-    text = "".join(p.get("text", "") for p in parts).strip()
-    # Thinking tokens count against the output limit, so a large capture can
-    # stop mid-sentence in an otherwise successful-looking response. Measured
-    # 2026-09-08: a 256-token limit returned 39 characters of a 3316-character
-    # page, and without this check those 39 characters were copied and
-    # announced as "OCR Copied". Truncation must never look like success.
-    return text, cand.get("finishReason") == "MAX_TOKENS"
+    try:
+        candidates = payload.get("candidates") or []
+        if not candidates:
+            # A prompt-level block returns no candidate at all.
+            blocked = (payload.get("promptFeedback") or {}).get("blockReason")
+            fail(f"No response from Gemini{f' ({blocked})' if blocked else ''}.")
+        cand = candidates[0]
+        parts = (cand.get("content") or {}).get("parts") or []
+        text = "".join(p.get("text", "") for p in parts).strip()
+        # Thinking tokens count against the output limit, so a large capture can
+        # stop mid-sentence in an otherwise successful-looking response. Measured
+        # 2026-09-08: a 256-token limit returned 39 characters of a 3316-character
+        # page, and without this check those 39 characters were copied and
+        # announced as "OCR Copied". Truncation must never look like success.
+        return text, cand.get("finishReason") == "MAX_TOKENS"
+    except (AttributeError, TypeError, IndexError) as e:  # valid JSON, wrong shape
+        fail(f"Gemini gave an unreadable reply: {e!r}")
 
 
 def png_size(img_bytes):
@@ -347,18 +350,22 @@ def local_transcribe(img_bytes):
     return text, choice.get("finish_reason") == "length"
 
 
-def clean(text):
+def clean(text, offline):
     """The answer, or "" when it only says there is no text.
 
     Measured 2026-09-25 on blank crops: Gemini answered a lone "[illegible]"
     in 1 of 5 runs despite its prompt; GLM-OCR an empty ```markdown fence or
-    "---". Only those shapes count, so a capture of just "=" or "->" stays,
-    and a fence is only unwrapped when it holds no other fence.
+    "---". Each rule applies to the engine it was measured on: from Gemini a
+    "---" line or a fenced block is real content. A fence is only unwrapped
+    when it holds no other fence, and "=" or "->" alone always stays.
     """
-    fence = re.fullmatch(r"\s*```\w*\n((?:(?!```).)*?)\n?```\s*", text, re.S)
-    if fence:
-        text = fence.group(1)
-    if re.fullmatch(r"[\s-]*", text.replace("[illegible]", "")):
+    if offline:
+        fence = re.fullmatch(r"\s*```\w*\n((?:(?!```).)*?)\n?```\s*", text, re.S)
+        if fence:
+            text = fence.group(1)
+        if re.fullmatch(r"[\s-]*", text):
+            return ""
+    if not text.replace("[illegible]", "").strip():
         return ""
     return text.strip()
 
@@ -385,7 +392,7 @@ def main():
                timeout=3000)
         text, truncated = local_transcribe(img_bytes)
         offline = True
-    text = clean(text)
+    text = clean(text, offline)
 
     if not text:
         if truncated:
