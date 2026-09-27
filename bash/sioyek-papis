@@ -35,9 +35,12 @@ QUERY=${QUERY# }; QUERY=${QUERY% }                                # for text sea
 # "doi \t ref \t title \t file" per entry. file is the first document papis
 # records under `files:`; the folder also holds refinery outputs and
 # embeddings, so a directory listing can't tell which one it is.
+# yq stops at the first unreadable info.yaml, and a partial list would make
+# the papers after it look absent, so a failure is reported instead.
 ENTRIES=$(yq -o=tsv '[(.doi // ""), .ref, (.title // ""),
                       (filename | sub("info\.yaml$"; "")) + .files[0]]' \
-            "$PAPERS"/*/info.yaml 2>/dev/null)
+            "$PAPERS"/*/info.yaml 2>&1) \
+    || { note "Library scan failed: ${ENTRIES##*$'\n'}"; exit 1; }
 
 # Entries whose field COL contains SEL, case-insensitive; the title (col 3) is
 # compared on a normalised form (non-alnum -> space) so "physics informed"
