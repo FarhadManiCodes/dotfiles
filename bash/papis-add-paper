@@ -92,6 +92,11 @@ prompt_meta() {
             read -e -r -i "$3" -p "tags (space-separated, optional)> " t || t=""
             printf "%s\n%s" "$k" "$t" > "$4"
         ' _ "$1" "$2" "$3" "$out" 2>/dev/null
+    # footclient exits 220 (itself) or 230 (the server) when no window opened;
+    # otherwise with the prompt's own status, and Ctrl-C/closing is a cancel.
+    case $? in
+        220|230) rm -f "$out"; notify-send -u critical "Papis" "Could not open the prompt window (foot server not running?)"; exit 1 ;;
+    esac
     OUT_KEY=$(sanitize_ref "$(sed -n 1p "$out" 2>/dev/null)")
     OUT_TAGS=$(sed -n 2p "$out" 2>/dev/null | tr -s ' ' | sed 's/^ *//; s/ *$//')
     rm -f "$out"
