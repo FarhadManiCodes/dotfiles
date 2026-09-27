@@ -1,9 +1,19 @@
 #!/bin/bash
-# Open audio file in cmus; launch cmus in foot if not running.
-# If cmus is already running, play the file immediately via cmus-remote.
-FILE="$1"
-if cmus-remote -Q &>/dev/null 2>&1; then
-    [ -n "$FILE" ] && cmus-remote -f "$FILE"
-else
-    exec footclient --app-id=cmus cmus
+# Play an audio file in cmus (the audio mime handler, applications/cmus.desktop).
+# If cmus isn't running it is started in foot first, and the file is sent once
+# cmus answers on its socket; with no file this just starts cmus.
+file=${1:-}
+[[ -z $file || $file == /* ]] || file=$PWD/$file   # cmus resolves paths from its own cwd
+
+if ! cmus-remote -Q >/dev/null 2>&1; then
+    footclient --no-wait --app-id=cmus cmus \
+        || { notify-send cmus-open "Could not start cmus"; exit 1; }
+    [[ -n $file ]] || exit 0
+    for _ in {1..50}; do
+        cmus-remote -Q >/dev/null 2>&1 && break
+        sleep 0.1
+    done
 fi
+[[ -n $file ]] || exit 0
+err=$(cmus-remote -f "$file" 2>&1) \
+    || { notify-send cmus-open "Could not play ${file##*/}: $err"; exit 1; }
