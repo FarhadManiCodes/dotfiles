@@ -87,19 +87,27 @@ case "$choice" in
         notify-send -u low "${CLOCK} Uptime" "$(uptime -p)\nLoad (1/5/15 min): ${load}"
         ;;
     *"CPU Temp"*)
-        cpu=$(sensors 2>/dev/null | awk '/Tctl/{gsub(/[+°C]/,"",$2); print $2; exit}')
-        gpu=$(sensors 2>/dev/null | awk '/^edge:/{gsub(/[+°C]/,"",$2); print $2; exit}')
-        fan1=$(sensors 2>/dev/null | awk '/^fan1:/{print $2; exit}')
-        fan2=$(sensors 2>/dev/null | awk '/^fan2:/{print $2; exit}')
-        body="${cpu:+CPU ${cpu}°C}"
-        [[ -n "$gpu" ]] && body+=" • GPU ${gpu}°C"
-        [[ -n "$fan1" ]] && body+=" • Fan ${fan1}/${fan2} RPM"
+        # First match of each; values compared with "" since a fan can read 0.
+        body=$(sensors 2>/dev/null | awk '
+            /Tctl/    && cpu == "" { cpu = $2 }
+            /^edge:/  && gpu == "" { gpu = $2 }
+            /^fan1:/  && f1 == ""  { f1 = $2 }
+            /^fan2:/  && f2 == ""  { f2 = $2 }
+            END {
+                gsub(/[+°C]/, "", cpu); gsub(/[+°C]/, "", gpu)
+                s = cpu != "" ? "CPU " cpu "°C" : ""
+                if (gpu != "") s = s " • GPU " gpu "°C"
+                if (f1 != "")  s = s " • Fan " f1 (f2 != "" ? "/" f2 : "") " RPM"
+                print s
+            }')
         notify-send -u low "${THERM} CPU Temp" "$body"
         ;;
     *Memory*)
-        mem=$(free -h | awk '/^Mem/{print $3 " used / " $2 " total (" $7 " avail)"}')
-        swap=$(free -h | awk '/^Swap/{if ($3+0 > 0 || $3 ~ /[KMGT]/) print "Swap: " $3 " / " $2; else print "Swap: none"}')
-        notify-send -u low "${CHIP} Memory" "${mem}\n${swap}"
+        # "none" only when there is no swap at all: unused swap reads "0B used".
+        body=$(free -h | awk '
+            /^Mem/  { print $3 " used / " $2 " total (" $7 " avail)" }
+            /^Swap/ { print ($2 == "0B" ? "Swap: none" : "Swap: " $3 " used / " $2) }')
+        notify-send -u low "${CHIP} Memory" "$body"
         ;;
     *Time*)
         # Local + Iran + Vancouver(=Seattle, Pacific); Germany only when not local.
