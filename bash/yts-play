@@ -1,14 +1,19 @@
 #!/bin/bash
 # Play a URL in the persistent yts mpv (spawns it if not already running).
+#   yts-play [-a|--audio] [url]      the URL is read from stdin when omitted
 #   -a, --audio   audio-only (yt-dlp fetches bestaudio, no wasted video bytes)
+# Tridactyl (,y ,Y ;y ;Y in tridactylrc) passes the URL on stdin, as
+# native.run's content: the command itself goes through /bin/sh, and "$(...)"
+# in a URL survives the browser's normalisation, so a URL in the command line
+# could run commands.
 # Reuses yts's own play path (ensure_mpv + loadfile over the IPC socket), so
-# behaviour matches the GUI. Bound to ,y / ,Y / ;y / ;Y in tridactylrc.
-AUDIO=False
-case "$1" in
-  -a|--audio) AUDIO=True; shift ;;
+# behaviour matches the GUI.
+audio=False
+case ${1:-} in
+  -a|--audio) audio=True; shift ;;
 esac
-URL="$1"
-[ -n "$URL" ] || { echo "usage: yts-play [-a] <url>" >&2; exit 2; }
-exec /home/farhad/.local/share/yts-gui/venv/bin/python -c \
+if (($#)); then url=$1; else url=$(cat); fi
+[ -n "$url" ] || { echo "usage: yts-play [-a] [url]" >&2; exit 2; }
+exec "$HOME/.local/share/yts-gui/venv/bin/python" -c \
   'import sys; from yts.actions import play; sys.exit(0 if play(sys.argv[1], audio=sys.argv[2]=="True") else 1)' \
-  "$URL" "$AUDIO"
+  "$url" "$audio"
