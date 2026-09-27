@@ -117,7 +117,10 @@ else
   remote_file_path="${remote_upload_dir}/${fname}"
 
   notify "Uploading $fname…"
-  rclone copyto --no-check-dest "$file" "${GDRIVE_REMOTE}:${remote_file_path}"
+  # --update: replace the Drive copy only if the local file is newer, so reopening
+  # keeps edits made in Google Docs. Updating in place keeps the file's ID;
+  # --no-check-dest made a duplicate.
+  rclone copyto --update "$file" "${GDRIVE_REMOTE}:${remote_file_path}"
 
   file_id="$(get_id "$remote_file_path")"
   [[ -n "$file_id" ]] || die "Could not retrieve file ID from Google Drive"
