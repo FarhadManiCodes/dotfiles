@@ -1,2 +1,0 @@
-#!/bin/bash
-exec /usr/sbin/vimb --no-maximize -i "https://scholar.google.com/scholar?q=${*// /+}"
