@@ -751,3 +751,20 @@ podman must create *while* pg is stopping waits for that stop, which waits for t
 - **Recheck:** after the first reboot with the fix, `journalctl --user -b -1 -u pg.service`
   must show no `status=125`; later, if a pg stop ever times out, or when podman orders its
   helper scopes itself.
+
+---
+
+## `sioyek-to-source`: silent with no nvim, quote-sensitive path — ACCEPTED (2026-09-27)
+
+Two limits of the sioyek `i` jump (PDF selection -> LaTeX source), found in the bash/ audit.
+
+- **No nvim has the file open -> nothing happens, no message.** The script hands off to
+  `VimtexInverseSearch`, which `rpcnotify`s every nvim in vimtex's server registry and
+  quits without waiting for an answer, so the script cannot learn whether any nvim took
+  the jump. sioyek's own `inverse_search_command` behaves the same way.
+- **A source path containing `'` would break the Vim command** (`VimtexInverseSearch N
+  '<path>'`). vimtex's own sioyek integration quotes the path the same way, and these
+  paths are the user's own LaTeX projects.
+- **Fix:** none. Reporting a missed jump would need a round trip vimtex doesn't offer.
+- **Recheck:** if vimtex's inverse search starts returning a result, or a jump is ever
+  silently lost with the source open.
