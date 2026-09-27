@@ -11,9 +11,12 @@ set -uo pipefail
 PAPERS="$HOME/.local/share/papis/papers"
 
 # Per paper: ref \t year \t author-family \t title \t file-count \t "tag tag ..."
+# yq stops at the first unreadable info.yaml, and the papers after it would
+# silently be missing from the menu, so a failure is reported instead.
 ROWS=$(yq -o=tsv \
     '[.ref, (.year // ""), (.author_list[0].family // .author // "?"), (.title // ""), ((.files // []) | length), ((.tags // []) | join(" "))]' \
-    "$PAPERS"/*/info.yaml 2>/dev/null)
+    "$PAPERS"/*/info.yaml 2>&1) \
+    || { notify-send -u critical "Papers" "Library scan failed: ${ROWS##*$'\n'}"; exit 1; }
 
 [[ -z "$ROWS" ]] && exit 0
 
