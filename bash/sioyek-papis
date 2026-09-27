@@ -124,11 +124,13 @@ if [[ $NOSPACE =~ [0-9]{4}\.[0-9]{4,5}(v[0-9]+)? ]]; then
 fi
 
 # ---- Crossref: resolve free text -> DOI -----------------------------------
-JSON=$(curl -sSG -m 10 --data-urlencode "query.bibliographic=$QUERY" \
-    -d rows=8 -d select=DOI,title,issued https://api.crossref.org/works 2>/dev/null)
+JSON=$(curl -sSfG -m 10 --data-urlencode "query.bibliographic=$QUERY" \
+    -d rows=8 -d select=DOI,title,issued https://api.crossref.org/works 2>&1) \
+    || { note "Crossref request failed: ${JSON##*$'\n'}"; exit 1; }
+# Titles can hold newlines and tabs, which would break the menu's lines and columns.
 mapfile -t RESULTS < <(printf '%s' "$JSON" | jq -r '
     .message.items[]?
-    | "\(.DOI)\t\((.title[0]) // "?") — \(((.issued."date-parts"[0][0]) // "?")) — \(.DOI)"' 2>/dev/null)
+    | "\(.DOI)\t\(.title[0] // "?" | gsub("\\s+"; " ")) — \(.issued."date-parts"[0][0] // "?") — \(.DOI)"' 2>/dev/null)
 
 if (( ${#RESULTS[@]} == 0 )); then
     note "No Crossref match for: $QUERY"; exit 0
