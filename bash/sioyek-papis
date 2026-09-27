@@ -13,8 +13,9 @@
 #       - otherwise                     -> Crossref search, pick in fuzzel, upsert
 #
 # Notes baked in from the sioyek config quirks:
-#   - sioyek splits the command on whitespace BEFORE expanding %{...} and passes
-#     each piece as a separate argv, so the selection arrives across $@ -> "$*".
+#   - sioyek splits the command on whitespace BEFORE expanding %{...}, so the
+#     selection arrives as one argv, spaces and newlines included, with no shell
+#     in between. "$*" also takes it split across argv, as when run by hand.
 #   - library lookups read the entries' OWN fields straight from info.yaml with yq
 #     (fast, no papis startup); matching the doi FIELD (not the `citations:` list)
 #     avoids false matches on papers that merely cite the target.
