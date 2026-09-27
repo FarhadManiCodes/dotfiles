@@ -29,10 +29,13 @@
 set -uo pipefail
 
 # Track every temp file and remove them on any exit (incl. Ctrl-C at a prompt),
-# so an interrupted run never leaves scratch files behind.
+# so an interrupted run never leaves scratch files behind. INT/TERM must exit:
+# a trap that only cleans up leaves `read` waiting at the same prompt, with the
+# working files gone.
 TMPS=()
 cleanup() { (( ${#TMPS[@]} )) && rm -f "${TMPS[@]}" 2>/dev/null; }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 mktmp() { local t; t=$(mktemp "$@") || exit 1; TMPS+=("$t"); printf '%s' "$t"; }
 
 # Atomically replace $bib with the contents of $1. The staging temp is created
