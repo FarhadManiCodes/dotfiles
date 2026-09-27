@@ -19,50 +19,42 @@
 #     avoids false matches on papers that merely cite the target.
 
 set -uo pipefail
+shopt -s extglob
 
 PAPERS="$HOME/.local/share/papis/papers"
 note() { notify-send "papis" "$1"; }
 
 # --- reassemble + normalise the selection ----------------------------------
 RAW="$*"
-NOSPACE=$(printf '%s' "$RAW" | tr -d '[:space:]')                 # for DOI rejoin
-QUERY=$(printf '%s' "$RAW" | tr '\n\r\t' '   ' | tr -s ' ' \
-        | sed 's/^ *//; s/ *$//')                                 # for text search
+NOSPACE=${RAW//[[:space:]]/}                                      # for DOI rejoin
+QUERY=${RAW//[[:space:]]/ }; QUERY=${QUERY//+( )/ }
+QUERY=${QUERY# }; QUERY=${QUERY% }                                # for text search
 [[ -z "$QUERY" ]] && { note "Empty selection"; exit 0; }
 
-# --- extract a DOI / arXiv id ----------------------------------------------
-DOI=$(printf '%s' "$NOSPACE" | grep -oiE '10\.[0-9]{4,9}/[^[:space:]]+' | head -1)
-DOI=$(printf '%s' "$DOI" | sed 's/[.,;:)]*$//')                   # strip trailing punct
-ARXIV=$(printf '%s' "$NOSPACE" | grep -oiE '(arxiv:)?[0-9]{4}\.[0-9]{4,5}(v[0-9]+)?' | head -1)
-ARXIV=${ARXIV#[Aa][Rr][Xx][Ii][Vv]:}
-
 # One yq pass over the library: "doi \t ref \t title \t folder" per entry
-# (folder = the info.yaml's directory). Computed once, reused by both matchers.
-ENTRIES=$(yq -o=tsv '[(.doi // ""), .ref, (.title // ""), filename]' \
-            "$PAPERS"/*/info.yaml 2>/dev/null | sed 's:/info\.yaml$::')
+# (folder = the info.yaml's directory). Computed once, reused by every lookup.
+ENTRIES=$(yq -o=tsv '[(.doi // ""), .ref, (.title // ""), (filename | sub("/info\.yaml$"; ""))]' \
+            "$PAPERS"/*/info.yaml 2>/dev/null)
 
-# Entries whose OWN doi equals/contains SEL (case-insensitive). Emits
-# "folder \t ref \t title". ENVIRON avoids awk -v escape processing of SEL.
-match_doi() {
-    SEL="$1" awk -F'\t' '
-        BEGIN { t = tolower(ENVIRON["SEL"]) }
-        $1 != "" { d = tolower($1); if (d == t || index(d, t)) print $4 "\t" $2 "\t" $3 }' <<<"$ENTRIES"
-}
-
-# Entries whose title contains SEL on a normalised form (lowercase, non-alnum ->
-# space) so "physics informed" matches "Physics-informed ...". Same columns.
-match_text() {
-    SEL="$1" awk -F'\t' '
-        function norm(s) { s = tolower(s); gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s); return s }
-        BEGIN { q = norm(ENVIRON["SEL"]) }
-        q != "" && $3 != "" { if (index(norm($3), q)) print $4 "\t" $2 "\t" $3 }' <<<"$ENTRIES"
+# Entries whose field COL contains SEL, case-insensitive; the title (col 3) is
+# compared on a normalised form (non-alnum -> space) so "physics informed"
+# matches "Physics-informed ...". Emits "folder \t ref | title". ENVIRON avoids
+# awk -v escape processing of SEL.
+lookup() {
+    COL=$1 SEL=$2 awk -F'\t' '
+        function norm(s) {
+            s = tolower(s)
+            if (col == 3) { gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s) }
+            return s
+        }
+        BEGIN { col = ENVIRON["COL"]; q = norm(ENVIRON["SEL"]) }
+        q != "" && $col != "" && index(norm($col), q) { print $4 "\t" $2 " | " $3 }' <<<"$ENTRIES"
 }
 
 # Open the (first) document file inside a papis folder in a new sioyek window.
 open_folder() {
-    local folder="$1" file
-    file=$(find "$folder" -maxdepth 1 -type f \
-            ! -name 'info.yaml' ! -name '*.yaml' ! -name 'notes.md' 2>/dev/null | head -1)
+    local file
+    file=$(find "$1" -maxdepth 1 -type f ! -name '*.yaml' ! -name 'notes.md' 2>/dev/null | head -1)
     if [[ -n "$file" ]]; then
         sioyek --new-window "$file" >/dev/null 2>&1 &
     else
@@ -70,22 +62,17 @@ open_folder() {
     fi
 }
 
-# fuzzel dmenu picker over the lines on stdin; prints the chosen line (empty if cancelled).
-pick() { fuzzel --dmenu --prompt "papis> "; }
+# fuzzel menu over "value \t label" lines on stdin: shows the labels, prints the
+# chosen value (nothing if cancelled).
+pick() { fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 --prompt "papis> "; }
 
-# Present a fuzzel menu for several "folder \t ref \t title" matches; open chosen.
-choose_open() {
-    local -A lbl2dir=()
-    local line folder rest ref title menu=() chosen
-    for line in "$@"; do
-        folder=${line%%$'\t'*}
-        rest=${line#*$'\t'}; ref=${rest%%$'\t'*}; title=${rest#*$'\t'}
-        lbl2dir["$ref | $title"]="$folder"
-        menu+=("$ref | $title")
-    done
-    chosen=$(printf '%s\n' "${menu[@]}" | pick)
-    [[ -z "$chosen" ]] && return 0
-    open_folder "${lbl2dir[$chosen]}"
+# Open one match directly; offer several in a menu.
+open_matches() {
+    local folder
+    if (( $# == 1 )); then folder=${1%%$'\t'*}
+    else folder=$(printf '%s\n' "$@" | pick) || return 0
+    fi
+    [[ -n "$folder" ]] && open_folder "$folder"
 }
 
 # DOI looks complete enough to add (not a bare publisher prefix).
@@ -96,64 +83,52 @@ add_doi() {
     if out=$(papis add --from doi "$1" --no-edit --batch 2>&1); then
         note "Added to papis: $1"
     else
-        note "papis add failed: $(printf '%s' "$out" | tail -1)"
+        note "papis add failed: ${out##*$'\n'}"
     fi
 }
 
 # =====================  main  ==============================================
-if [[ -n "$DOI" ]]; then
-    mapfile -t M < <(match_doi "$DOI")
-    case ${#M[@]} in
-        0)  if doi_complete "$DOI"; then add_doi "$DOI"
-            else note "Partial DOI not in library; select the full DOI"; fi ;;
-        1)  open_folder "${M[0]%%$'\t'*}" ;;
-        *)  choose_open "${M[@]}" ;;        # several entries match a partial DOI
-    esac
-    exit 0
-fi
-
-# A DOI prefix was selected but no complete DOI could be extracted (e.g. a bare
-# "10.1103/"): don't fall through to a Crossref title search -- ask for the full DOI.
-if printf '%s' "$NOSPACE" | grep -qiE '10\.[0-9]{4,9}/'; then
-    note "Incomplete DOI selection; select the full DOI"
+# DOI, trailing punctuation stripped. A bare publisher prefix ("10.1103/") is not
+# looked up, so it doesn't list every paper from that publisher.
+if [[ $NOSPACE =~ 10\.[0-9]{4,9}/.* ]]; then
+    DOI=${BASH_REMATCH[0]%%+([.,;:)])}
+    M=(); [[ $DOI == */ ]] || mapfile -t M < <(lookup 1 "$DOI")
+    if (( ${#M[@]} )); then open_matches "${M[@]}"
+    elif doi_complete "$DOI"; then add_doi "$DOI"
+    else note "Incomplete DOI; select the full DOI"
+    fi
     exit 0
 fi
 
 # ---- no DOI: local bibliographic search (normalised title match) ----------
-mapfile -t M < <(match_text "$QUERY")
-case ${#M[@]} in
-    1)  open_folder "${M[0]%%$'\t'*}"; exit 0 ;;
-    0)  : ;;                                # fall through to arXiv / Crossref
-    *)  choose_open "${M[@]}"; exit 0 ;;
-esac
+mapfile -t M < <(lookup 3 "$QUERY")
+(( ${#M[@]} )) && { open_matches "${M[@]}"; exit 0; }
 
 # ---- arXiv id (no DOI, looks like an arXiv id) ----------------------------
-if [[ -n "$ARXIV" ]]; then
-    if out=$(papis add --from arxiv "$ARXIV" --no-edit --batch 2>&1); then
+if [[ $NOSPACE =~ [0-9]{4}\.[0-9]{4,5}(v[0-9]+)? ]]; then
+    ARXIV=${BASH_REMATCH[0]}
+    if papis add --from arxiv "$ARXIV" --no-edit --batch >/dev/null 2>&1; then
         note "Added arXiv:$ARXIV to papis"; exit 0
     fi
     # else fall through to Crossref text search
 fi
 
 # ---- Crossref: resolve free text -> DOI -----------------------------------
-URI=$(printf '%s' "$QUERY" | jq -sRr @uri)
-JSON=$(curl -sS -m 10 \
-    "https://api.crossref.org/works?query.bibliographic=${URI}&rows=8&select=DOI,title,issued,author" 2>/dev/null)
+JSON=$(curl -sSG -m 10 --data-urlencode "query.bibliographic=$QUERY" \
+    -d rows=8 -d select=DOI,title,issued https://api.crossref.org/works 2>/dev/null)
 mapfile -t RESULTS < <(printf '%s' "$JSON" | jq -r '
     .message.items[]?
-    | "\((.title[0]) // "?") — \(((.issued."date-parts"[0][0]) // "?")) — \(.DOI)"' 2>/dev/null)
+    | "\(.DOI)\t\((.title[0]) // "?") — \(((.issued."date-parts"[0][0]) // "?")) — \(.DOI)"' 2>/dev/null)
 
-if [[ ${#RESULTS[@]} -eq 0 ]]; then
+if (( ${#RESULTS[@]} == 0 )); then
     note "No Crossref match for: $QUERY"; exit 0
 fi
 
-chosen=$(printf '%s\n' "${RESULTS[@]}" | pick)
-[[ -z "$chosen" ]] && exit 0
-PICKED_DOI="${chosen##* — }"
+PICKED_DOI=$(printf '%s\n' "${RESULTS[@]}" | pick) || exit 0
 [[ -z "$PICKED_DOI" ]] && exit 0
 
-mapfile -t M < <(match_doi "$PICKED_DOI")
-if [[ ${#M[@]} -gt 0 ]]; then
+mapfile -t M < <(lookup 1 "$PICKED_DOI")
+if (( ${#M[@]} )); then
     open_folder "${M[0]%%$'\t'*}"
 else
     add_doi "$PICKED_DOI"
