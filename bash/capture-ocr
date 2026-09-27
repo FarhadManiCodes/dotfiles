@@ -128,11 +128,15 @@ def capture():
     broken capture indistinguishable from a deliberate cancel.
     """
     try:
-        geom = subprocess.check_output(["slurp"], text=True).strip()
-    except subprocess.CalledProcessError:
-        sys.exit(0)  # ESC / no selection -- deliberate cancel
+        sel = subprocess.run(["slurp"], capture_output=True, text=True)
     except OSError:
         fail("slurp is not installed.")
+    if sel.returncode != 0:
+        # ESC and a real failure both exit 1; only ESC prints this (slurp 1.5).
+        if "selection cancelled" in sel.stderr:
+            sys.exit(0)
+        fail(f"slurp failed: {sel.stderr.strip() or f'exit {sel.returncode}'}")
+    geom = sel.stdout.strip()
 
     try:
         return subprocess.check_output(["grim", "-g", geom, "-"])
@@ -180,7 +184,7 @@ def post_json(open_url, url, payload, headers, who):
                                  headers={"Content-Type": "application/json", **headers})
     try:
         with open_url(req, timeout=TIMEOUT) as r:
-            return json.load(r)
+            raw = r.read()
     except urllib.error.HTTPError as e:
         try:
             body = e.read().decode(errors="replace")
@@ -195,6 +199,13 @@ def post_json(open_url, url, payload, headers, who):
         raise Unreachable(e.reason) from None
     except (OSError, http.client.HTTPException) as e:
         raise Unreachable(e) from None
+    except ValueError:
+        # http.client rejects a header with a stray newline -- and that header
+        # holds the API key, so the message must not be repeated.
+        fail(f"Could not send the request to {who}: a header value is invalid "
+             "(check the API key for stray characters).")
+    try:
+        return json.loads(raw)
     except ValueError as e:
         fail(f"{who} gave an unreadable reply: {e!r}")
 
@@ -231,7 +242,7 @@ def transcribe(img_bytes, key, prompt):
         # page, and without this check those 39 characters were copied and
         # announced as "OCR Copied". Truncation must never look like success.
         return text, cand.get("finishReason") == "MAX_TOKENS"
-    except (AttributeError, TypeError, IndexError) as e:  # valid JSON, wrong shape
+    except (AttributeError, TypeError, IndexError, KeyError) as e:  # wrong shape
         fail(f"Gemini gave an unreadable reply: {e!r}")
 
 
@@ -282,11 +293,10 @@ def local_transcribe(img_bytes):
         "-np", "1", "--host", "127.0.0.1", "--port", str(port)])
     # A bash supervisor also watches our pid, so a SIGKILLed or SIGTERMed
     # capture-ocr (no finally runs) can't leave the server holding GPU memory.
-    # The waits' stderr is silenced: bash would report the tail it kills as
-    # "Killed" (translated per locale) where the server's error should be.
+    # Only the last wait is silenced: it would report the tail killed here as
+    # "Killed", while wait -n still reports a server crash ("Segmentation fault").
     watchdog = (f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
-                "watch=$!; wait -n 2>/dev/null; kill -KILL $srv $watch 2>/dev/null; "
-                "wait 2>/dev/null")
+                "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait 2>/dev/null")
     log = tempfile.TemporaryFile()
     try:
         proc = subprocess.Popen(
@@ -313,7 +323,7 @@ def local_transcribe(img_bytes):
                         break
             except urllib.error.HTTPError as e:  # 503 while the model loads
                 e.close()
-            except (urllib.error.URLError, OSError):
+            except OSError:  # URLError included: not listening yet
                 pass
             time.sleep(0.05)
 
@@ -359,13 +369,12 @@ def clean(text, offline):
     "---" line or a fenced block is real content. A fence is only unwrapped
     when it holds no other fence, and "=" or "->" alone always stays.
     """
+    blank = r"[\s-]*" if offline else r"\s*"
     if offline:
         fence = re.fullmatch(r"\s*```\w*\n((?:(?!```).)*?)\n?```\s*", text, re.S)
         if fence:
             text = fence.group(1)
-        if re.fullmatch(r"[\s-]*", text):
-            return ""
-    if not text.replace("[illegible]", "").strip():
+    if re.fullmatch(blank, text.replace("[illegible]", "")):
         return ""
     return text.strip()
 
@@ -417,4 +426,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        # Last resort for a keybinding with no terminal: never a silent traceback.
+        # Only the type is shown -- a message can carry file contents or the key.
+        import traceback
+        traceback.print_exc()
+        fail(f"Unexpected {type(e).__name__}; run capture-ocr in a terminal for details.")

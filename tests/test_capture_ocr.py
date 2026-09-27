@@ -43,7 +43,9 @@ class SingleInstanceTests(unittest.TestCase):
         # Parked while the flag file exists, the way an open region selector is.
         # The flag is checked before logging, so once the log shows a call it has parked.
         self.fake("slurp", f"if [ -e {self.block} ]; then echo called >> {self.slurp_log}; "
-                           f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\nexit 1")
+                           f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\n"
+                           # What slurp 1.5 prints on ESC; any other exit 1 is a failure.
+                           "echo 'selection cancelled' >&2\nexit 1")
         # Pinned, not inherited: only the fakes are on PATH.
         self.env = {"PATH": str(self.bin), "HOME": str(self.root),
                     "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused"}
@@ -93,6 +95,19 @@ class SingleInstanceTests(unittest.TestCase):
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 1)
+
+    def test_failing_selector_is_not_a_silent_cancel(self):
+        self.fake("slurp", "echo 'failed to create display' >&2\nexit 1")
+        code, err = self.run_once()
+        self.assertEqual(code, 1)
+        self.assertIn("slurp failed: failed to create display", self.notify_log.read_text())
+
+    def test_unreadable_key_file_notifies_instead_of_a_silent_traceback(self):
+        del self.env["GOOGLE_API_KEY"]
+        (self.root / ".config/capture-ocr/google.env").mkdir(parents=True)  # a dir: read fails
+        code, err = self.run_once()
+        self.assertEqual(code, 1)
+        self.assertIn("Unexpected IsADirectoryError", self.notify_log.read_text())
 
     def test_unusable_runtime_dir_runs_unlocked(self):
         # Set but missing: an unlocked run, not a traceback nobody sees.
@@ -254,7 +269,8 @@ class ModeTests(unittest.TestCase):
         self.assertEqual(self.clipboard.read_text(), "---")
 
     def test_gemini_reply_of_the_wrong_shape_fails_visibly(self):
-        for reply in (b"[]", b'{"candidates": ["x"]}', b'{"candidates": [{"content": {"parts": ["x"]}}]}'):
+        for reply in (b"[]", b'{"candidates": ["x"]}', b'{"candidates": {"0": {}}}',
+                      b'{"candidates": [{"content": {"parts": ["x"]}}]}'):
             with self.subTest(reply=reply), mock.patch.object(
                     self.ocr.urllib.request, "urlopen", lambda req, timeout: io.BytesIO(reply)):
                 self.assertEqual(self.run_main(), 1)
@@ -291,6 +307,8 @@ if "--cache-list" in args:
     sys.exit(0)
 (out / "server.pid").write_text(str(os.getpid()))
 (out / "argv.json").write_text(json.dumps(args))
+if os.environ.get("FAKE_MODE") == "slowstart":
+    time.sleep(60)
 if os.environ.get("FAKE_MODE") == "silent":
     sys.exit(1)
 if os.environ.get("FAKE_MODE") == "crash":
@@ -504,19 +522,31 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("OCR Copied (offline) - TRUNCATED", self.notices())
 
     def test_killed_caller_takes_the_server_down(self):
-        # SIGKILL runs no finally: only the watchdog can stop the server.
-        self.env["FAKE_MODE"] = "hang"
-        proc = self.start()
-        deadline = time.monotonic() + 20
-        while not (self.root / "request.json").exists():
-            self.assertLess(time.monotonic(), deadline, "never reached the local model")
-            time.sleep(0.05)
-        os.kill(proc.pid, signal.SIGKILL)
-        proc.wait()
-        deadline = time.monotonic() + 5  # tail --pid polls once a second
-        while self.server_alive():
-            self.assertLess(time.monotonic(), deadline, "server outlived its caller")
-            time.sleep(0.1)
+        # SIGKILL and SIGTERM run no finally: only the watchdog can stop the
+        # server, whether it is still starting or already answering.
+        for mode, reached in (("slowstart", "server.pid"), ("hang", "request.json")):
+            for sig in (signal.SIGKILL, signal.SIGTERM):
+                with self.subTest(phase=mode, signal=sig.name):
+                    for f in ("server.pid", "request.json"):
+                        (self.root / f).unlink(missing_ok=True)
+                    self.env["FAKE_MODE"] = mode
+                    proc = self.start()
+                    deadline = time.monotonic() + 20
+                    while not (self.root / reached).exists():
+                        self.assertLess(time.monotonic(), deadline, f"never reached {reached}")
+                        time.sleep(0.05)
+                    os.kill(proc.pid, sig)
+                    proc.wait()
+                    deadline = time.monotonic() + 5  # tail --pid polls once a second
+                    while self.server_alive():
+                        self.assertLess(time.monotonic(), deadline, "server outlived its caller")
+                        time.sleep(0.1)
+
+    def test_invalid_key_is_reported_without_echoing_it(self):
+        self.env["GOOGLE_API_KEY"] = "AIza\nsecret-part"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("header value is invalid", self.notices())
+        self.assertNotIn("secret-part", self.notices())
 
 
 if __name__ == "__main__":
