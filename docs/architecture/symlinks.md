@@ -22,8 +22,6 @@ that branch, not the last one.
 
 **Checked and deliberately left untracked** (2026-09-04 sweep, so these aren't
 re-examined every audit):
-- `~/.config/ripgrep-all/` — `config.jsonc` is rga's shipped default; tracking it would
-  pin something upstream owns.
 - `~/.config/paper-refinery/` — sits beside `secrets/{google,hf,zai}.env`; a config whose
   siblings are API keys doesn't belong in a public repo (one careless `git add -A` leaks
   it). Those keys have no backup — losing them means re-issuing all three.
