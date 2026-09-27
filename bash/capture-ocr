@@ -49,8 +49,10 @@ def notify(title, body, urgency=None, timeout=None):
 
     Never raises. This runs from a niri keybinding with no terminal attached,
     so if notify-send is missing or fails, a check_call here would replace the
-    error being reported with a traceback nobody can see. stderr is the
-    fallback -- useless from a keybinding, but visible when run by hand.
+    error being reported with a traceback nobody can see. The fallback is a
+    terminal only: the body can be captured screen text, which must not land
+    in whatever log a non-interactive caller attaches to stderr (under niri
+    it is /dev/null, measured 2026-09-27).
     """
     cmd = ["notify-send", "-h", SYNC_HINT]
     if urgency:
@@ -64,7 +66,8 @@ def notify(title, body, urgency=None, timeout=None):
     except OSError:
         pass
     try:
-        print(f"{title}: {body}", file=sys.stderr)
+        if sys.stderr.isatty():
+            print(f"{title}: {body}", file=sys.stderr)
     except (OSError, ValueError, AttributeError):  # broken, full or closed stderr
         pass  # no channel left
 
@@ -360,7 +363,7 @@ def run():
         # a message can carry file contents or the key (a bad header echoes it).
         notify("OCR Failed", f"Unexpected {type(e).__name__}; run capture-ocr in a "
                "terminal for details.", urgency="critical")
-        # Only to a terminal: niri hands its children's stderr to the journal.
+        # Only to a terminal, as in notify(): a traceback can quote file contents.
         if sys.stderr and sys.stderr.isatty():
             import traceback
             traceback.print_exc()

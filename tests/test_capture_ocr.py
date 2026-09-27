@@ -256,12 +256,16 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         self.assertEqual(self.clipboard.read_text(), "---")
 
-    def test_failed_notifier_falls_back_to_stderr(self):
-        failing = Path(os.environ["PATH"]) / "notify-send"
-        failing.write_text("#!/bin/sh\nexit 1\n")
-        with self.gemini("Anfahrt"), mock.patch("sys.stderr", new_callable=io.StringIO) as err:
-            self.assertEqual(self.run_main(), 0)
-        self.assertIn("OCR Copied: Anfahrt", err.getvalue())
+    def test_failed_notifier_falls_back_to_a_terminal_only(self):
+        # The body can be screen text: never into a non-terminal stderr (a log).
+        (Path(os.environ["PATH"]) / "notify-send").write_text("#!/bin/sh\nexit 1\n")
+        for tty in (True, False):
+            with self.subTest(tty=tty):
+                err = io.StringIO()
+                err.isatty = lambda: tty
+                with self.gemini("Anfahrt"), mock.patch("sys.stderr", err):
+                    self.assertEqual(self.run_main(), 0)
+                self.assertEqual("OCR Copied: Anfahrt" in err.getvalue(), tty)
 
     def test_nul_in_text_still_notifies(self):
         with self.gemini("a\0b"):
