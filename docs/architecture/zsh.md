@@ -12,7 +12,8 @@
   - `git-enhancements.zsh` — `gci`, `gst`, `gstds`
   - `last_working_dir.zsh` — restore last directory
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
-  - `pdf.zsh` — PDF/book search with rga + fzf
+  - `pdf.zsh` — book search with fzf; `rgbook` searches refinery's sibling Markdown
+    review copies with physical PDF page markers
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
@@ -36,6 +37,10 @@
 | `gstds` | Git status with data science awareness |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
+
+`rgbook` keeps refinery's one-based physical page number for Sioyek's `--page`.
+It passes half the selected PDF page's height as `--yloc`, because Sioyek otherwise
+centers the page's top boundary and leaves the preceding page in view.
 
 ## yt-dlp's token helper
 
