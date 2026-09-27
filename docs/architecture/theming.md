@@ -1,8 +1,9 @@
 # Light/dark theme — how tools follow `Mod+Alt+T`
 
 `bash/toggle-foot-theme.sh` signals foot (SIGUSR1 dark / SIGUSR2 light) and writes
-`~/.local/state/foot_theme_state`. Tools follow in one of two ways, **preferring the
-first**:
+`~/.local/state/foot_theme_state`. At login niri starts foot's server in the saved theme
+(`-o initial-color-theme`, `niri/config.kdl`), so foot and the file agree after a reboot.
+Tools follow in one of two ways, **preferring the first**:
 
 1. **Terminal-native** — the tool asks the terminal. `bat` uses `--theme=auto:always`
    (OSC 11), tmux uses palette indices (`colour13`, `default`) that foot re-resolves per
