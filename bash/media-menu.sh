@@ -1,98 +1,65 @@
 #!/bin/bash
+# Media controls (niri Mod+M): play/pause, next, previous, focus the player's
+# window, start/stop a recording. `media-menu.sh call` (the headset's play key)
+# pauses and unmutes the mic, or plays and mutes it.
 
-# Returns the Playing player name; falls back to first Paused one.
-get_active_player() {
-    local p
-    while IFS= read -r p; do
-        [[ "$(playerctl -p "$p" status 2>/dev/null)" == "Playing" ]] && printf '%s' "$p" && return
-    done < <(playerctl -l 2>/dev/null)
-    while IFS= read -r p; do
-        [[ "$(playerctl -p "$p" status 2>/dev/null)" == "Paused" ]] && printf '%s' "$p" && return
-    done < <(playerctl -l 2>/dev/null)
+# The Playing player, else a Paused one: one playerctl call for all players.
+active_player() {
+    playerctl -a status -f '{{status}}	{{playerInstance}}' 2>/dev/null | awk -F'\t' '
+        $1 == "Playing" { print $2; found = 1; exit }
+        $1 == "Paused" && paused == "" { paused = $2 }
+        END { if (!found && paused != "") print paused }'
 }
 
-# Run a playerctl command targeting the active player; falls back to bare playerctl.
-playerctl_cmd() {
-    local player
-    player=$(get_active_player)
-    if [[ -n "$player" ]]; then
-        playerctl -p "$player" "$@"
-    else
-        playerctl "$@"
-    fi
+# playerctl on the active player, or playerctl's own choice if there is none.
+pc() {
+    local player args=()
+    player=$(active_player)
+    [[ -n $player ]] && args=(-p "$player")
+    playerctl "${args[@]}" "$@"
 }
 
-focus_active_player() {
-    local player win_id track_title
-
-    player=$(get_active_player)
-    [[ -z "$player" ]] && player=$(playerctl -f '{{playerName}}' metadata 2>/dev/null)
-    [[ -z "$player" ]] && return
-
-    case "$player" in
-        spotify_player)
-            win_id=$(niri msg windows | grep -B2 'App ID: "spotify-player"' | grep "^Window ID" | head -1 | awk '{print $3}' | tr -d ':')
-            ;;
-        firefox*)
-            track_title=$(playerctl -p "$player" metadata xesam:title 2>/dev/null)
-            if [[ -n "$track_title" ]]; then
-                win_id=$(niri msg windows | awk -v t="$track_title" '
-                    /^Window ID/ { wid = $3; gsub(/:$/, "", wid) }
-                    /Title:/ && index($0, t) { print wid; exit }
-                ')
-            fi
-            [[ -z "$win_id" ]] && win_id=$(niri msg windows | grep -B2 'App ID: "firefox"' | grep "^Window ID" | head -1 | awk '{print $3}' | tr -d ':')
-            ;;
-        mpv*)
-            win_id=$(niri msg windows | grep -B2 'App ID: "mpv"' | grep "^Window ID" | head -1 | awk '{print $3}' | tr -d ':')
-            ;;
-        *)
-            notify-send -t 2000 "Media" "No focusable window for $player"
-            return
-            ;;
+focus_player() {
+    local player app title id
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] || return
+    case $player in
+        spotify_player*) app=spotify-player ;;
+        firefox*)        app=firefox ;;
+        mpv*)            app=mpv ;;
+        *) notify-send -t 2000 "Media" "No focusable window for $player"; return ;;
     esac
-
-    if [[ -n "$win_id" ]]; then
-        niri msg action focus-window --id "$win_id"
+    # The window whose title has the track in it (a Firefox tab), else the first.
+    title=$(playerctl -p "$player" metadata xesam:title 2>/dev/null)
+    id=$(niri msg -j windows | jq -r --arg a "$app" --arg t "$title" '
+        [.[] | select(.app_id == $a)]
+        | (map(select($t != "" and ((.title // "") | contains($t)))) + .)[0].id // empty')
+    if [[ -n $id ]]; then
+        niri msg action focus-window --id "$id"
     else
         notify-send -t 2000 "Media" "No window found for $player"
     fi
 }
 
-if [[ "$1" == "focus" ]]; then
-    focus_active_player
-    exit 0
-fi
+case ${1:-} in
+    focus) focus_player; exit 0 ;;
+    call)
+        mic_muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
+        if [[ $(pc status 2>/dev/null) == Playing ]]; then
+            pc pause; mic_muted && wob-control mic-mute
+        else
+            pc play; mic_muted || wob-control mic-mute
+        fi
+        exit 0 ;;
+esac
 
-if [[ "$1" == "call" ]]; then
-    mic_is_muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
-    if playerctl_cmd status 2>/dev/null | grep -q "Playing"; then
-        playerctl_cmd pause
-        mic_is_muted && wob-control mic-mute
-    else
-        playerctl_cmd play
-        mic_is_muted || wob-control mic-mute
-    fi
-    exit 0
-fi
-
-if pgrep -x pw-record > /dev/null; then
-    RECORD_LABEL="🔴  Stop Recording"
-else
-    RECORD_LABEL="⏺  Start Recording"
-fi
-
-OPTIONS="▶/⏸  Play/Pause\n⏭  Next\n⏮  Prev\n🎯  Focus Player\n${RECORD_LABEL}"
-
-# '%b' keeps the \n escapes above working while treating the menu as data: with
-# the string in the format position, a '%' in any label fuzzel is handed -- a
-# track title, a filename -- would be read as a conversion and eat the entry.
-CHOICE=$(printf '%b' "$OPTIONS" | fuzzel --dmenu --prompt "Media > " --lines 5)
-
-case "$CHOICE" in
-    "▶/⏸  Play/Pause")                         playerctl_cmd play-pause ;;
-    "⏭  Next")                                  playerctl_cmd next ;;
-    "⏮  Prev")                                  playerctl_cmd previous ;;
-    "🎯  Focus Player")                          focus_active_player ;;
-    "🔴  Stop Recording"|"⏺  Start Recording")  "$HOME/.local/bin/toggle-record.sh" ;;
+if toggle-record.sh status; then rec="🔴  Stop Recording"; else rec="⏺  Start Recording"; fi
+choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "🎯  Focus Player" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 5)
+case $choice in
+    "▶/⏸  Play/Pause") pc play-pause ;;
+    "⏭  Next") pc next ;;
+    "⏮  Prev") pc previous ;;
+    "🎯  Focus Player") focus_player ;;
+    "$rec") toggle-record.sh ;;
 esac

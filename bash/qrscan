@@ -1,23 +1,14 @@
 #!/bin/sh
 # Decode a QR/barcode from a screen region into the clipboard.
 #
-# Bound to Alt+Q in niri and run as `qrscan` from a shell. One script, because
-# it used to be two copies -- a niri keybinding and a zsh alias -- which had
-# already drifted apart: only one of them echoed the decoded text.
+# Bound to Alt+Q in niri, and run as `qrscan` from a shell.
 #
-# Guarded rather than a bare `grim | zbarimg | wl-copy && notify-send`. That
-# form fails two ways at once: wl-copy is last, so `&&` tests ITS status and
-# never zbarimg's, and wl-copy on empty stdin CLEARS the clipboard rather than
-# doing nothing. Between them, a cancelled drag or a region with no code
-# silently ate the clipboard and still reported success. Capture, check, copy.
-#
-# Being a script rather than an alias is also what buys the silent cancel:
-# `exit` inside an alias is substituted into the interactive shell and closes
-# the terminal.
+# Capture, check, then copy -- not `grim | zbarimg | wl-copy && notify-send`:
+# wl-copy on empty input clears the clipboard, and `&&` tests only wl-copy, so
+# a region with no code ate the clipboard and still reported success.
 
 warn() {
-    # notify-send may itself be absent; stderr is useless from a keybinding but
-    # is the only channel left, and it is the right one when run by hand.
+    # From a keybinding only the notification is seen; stderr is the fallback.
     notify-send -u critical "QR Scan" "$1" 2>/dev/null ||
         printf 'QR Scan: %s\n' "$1" >&2
 }
@@ -28,11 +19,18 @@ for cmd in slurp grim zbarimg wl-copy; do
     exit 1
 done
 
-geom=$(slurp) || exit 0   # ESC / no selection -- a deliberate cancel, stay quiet
+# ESC and a real failure both exit 1; only ESC prints "selection cancelled".
+# slurp writes to stderr only when it fails, so capturing both is safe.
+if ! geom=$(slurp 2>&1); then
+    case $geom in
+        *'selection cancelled'*) exit 0 ;;
+    esac
+    warn "slurp failed: ${geom:-no message}"
+    exit 1
+fi
 
-# $(...) strips the trailing newline zbarimg --raw appends, so the clipboard
-# gets the payload and nothing else. zbarimg exits 4 when it decodes nothing;
-# an empty result covers that and a failed grim alike.
+# Empty covers both "no code found" (zbarimg exits 4) and a failed grim.
+# $(...) also drops the newline zbarimg --raw appends.
 out=$(grim -g "$geom" - | zbarimg -q --raw -)
 if [ -z "$out" ]; then
     warn "No QR code found"

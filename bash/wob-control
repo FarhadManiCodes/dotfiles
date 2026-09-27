@@ -1,59 +1,27 @@
 #!/bin/bash
-pipe="$XDG_RUNTIME_DIR/wobpipe"
+# Volume, brightness and mute keys (niri): show the level on wob's bar (the pipe
+# niri's config starts wob on) and keep the ThinkPad mute LEDs in step.
+pipe=$XDG_RUNTIME_DIR/wobpipe
+sink=@DEFAULT_AUDIO_SINK@ source=@DEFAULT_AUDIO_SOURCE@
 
-case "$1" in
-    volume-up)
-        wpctl set-mute @DEFAULT_AUDIO_SINK@ 0
-        wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+
-        wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{v=int($2*100); print (v>100?100:v) " volume"}' > "$pipe"
-        ;;
-    volume-down)
-        wpctl set-mute @DEFAULT_AUDIO_SINK@ 0
-        wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-        wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > "$pipe"
-        ;;
+muted() { wpctl get-volume "$1" | grep -q MUTED; }
+# One computed value, so a failed `set 1` can't fall through to `set 0` and
+# darken the LED while muted.
+led() { local on=0; muted "$2" && on=1; brightnessctl --device "$1" set "$on" >/dev/null 2>&1; }
+# Rounded: int() made 0.29 read as 28.
+show_volume() { wpctl get-volume "$sink" | awk '{ printf "%d volume\n", $2 * 100 + 0.5 }' > "$pipe"; }
+show_brightness() { brightnessctl -m set "$1" | awk -F, '{ print $4 + 0, "brightness" }' > "$pipe"; }
+
+case $1 in
+    volume-up)       wpctl set-mute "$sink" 0; wpctl set-volume -l 1.0 "$sink" 5%+; show_volume ;;
+    volume-down)     wpctl set-mute "$sink" 0; wpctl set-volume "$sink" 5%-; show_volume ;;
     volume-mute)
-        wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-        if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then
-            brightnessctl --device "platform::mute" set 1 &>/dev/null
-            echo "0 muted" > "$pipe"
-        else
-            brightnessctl --device "platform::mute" set 0 &>/dev/null
-            wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{print int($2*100) " volume"}' > "$pipe"
-        fi
-        ;;
-    brightness-up)
-        brightnessctl set +5%
-        echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > "$pipe"
-        ;;
-    brightness-down)
-        brightnessctl set 5%-
-        echo "$(( $(brightnessctl get) * 100 / $(brightnessctl max) )) brightness" > "$pipe"
-        ;;
+        wpctl set-mute "$sink" toggle; led platform::mute "$sink"
+        if muted "$sink"; then echo "0 muted" > "$pipe"; else show_volume; fi ;;
+    brightness-up)   show_brightness +5% ;;
+    brightness-down) show_brightness 5%- ;;
     mic-mute)
-        wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
-        if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
-            brightnessctl --device "platform::micmute" set 1 &>/dev/null
-            echo "0 mic" > "$pipe"
-        else
-            brightnessctl --device "platform::micmute" set 0 &>/dev/null
-            echo "100 mic" > "$pipe"
-        fi
-        ;;
-    led-sync)
-        # if/else, not `grep -q && set 1 || set 0`: in that form a failing
-        # `set 1` falls through to `set 0`, darkening the LED while muted --
-        # exactly the state this is meant to reflect. Matches volume-mute
-        # and mic-mute above.
-        if wpctl get-volume @DEFAULT_AUDIO_SINK@ | grep -q MUTED; then
-            brightnessctl --device "platform::mute" set 1 &>/dev/null
-        else
-            brightnessctl --device "platform::mute" set 0 &>/dev/null
-        fi
-        if wpctl get-volume @DEFAULT_AUDIO_SOURCE@ | grep -q MUTED; then
-            brightnessctl --device "platform::micmute" set 1 &>/dev/null
-        else
-            brightnessctl --device "platform::micmute" set 0 &>/dev/null
-        fi
-        ;;
+        wpctl set-mute "$source" toggle; led platform::micmute "$source"
+        if muted "$source"; then echo "0 mic" > "$pipe"; else echo "100 mic" > "$pipe"; fi ;;
+    led-sync)        led platform::mute "$sink"; led platform::micmute "$source" ;;
 esac
