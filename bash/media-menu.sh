@@ -34,7 +34,7 @@ focus_player() {
     title=$(playerctl -p "$player" metadata xesam:title 2>/dev/null)
     id=$(niri msg -j windows | jq -r --arg a "$app" --arg t "$title" '
         [.[] | select(.app_id == $a)]
-        | (map(select($t != "" and (.title | contains($t)))) + .)[0].id // empty')
+        | (map(select($t != "" and ((.title // "") | contains($t)))) + .)[0].id // empty')
     if [[ -n $id ]]; then
         niri msg action focus-window --id "$id"
     else
