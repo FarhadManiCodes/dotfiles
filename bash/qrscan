@@ -28,7 +28,15 @@ for cmd in slurp grim zbarimg wl-copy; do
     exit 1
 done
 
-geom=$(slurp) || exit 0   # ESC / no selection -- a deliberate cancel, stay quiet
+# ESC and a real failure both exit 1; only ESC prints "selection cancelled".
+# slurp writes to stderr only when it fails, so capturing both is safe.
+if ! geom=$(slurp 2>&1); then
+    case $geom in
+        *'selection cancelled'*) exit 0 ;;
+    esac
+    warn "slurp failed: ${geom:-no message}"
+    exit 1
+fi
 
 # $(...) strips the trailing newline zbarimg --raw appends, so the clipboard
 # gets the payload and nothing else. zbarimg exits 4 when it decodes nothing;
