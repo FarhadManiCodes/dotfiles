@@ -3,8 +3,8 @@
     python3 -B -m unittest discover -s tests -v
 
 SingleInstanceTests run the script for real against fake slurp/notify-send on a
-private PATH; slurp exiting 1 is the user pressing ESC, so none reaches grim or
-the network. ModeTests run main() in-process with fake binaries and a fake
+private PATH; the fake slurp exits the way ESC does ("selection cancelled"), so
+none reaches grim or the network. ModeTests run main() in-process with fake binaries and a fake
 Gemini response, so they can see which prompt was sent. OfflineFallbackTests
 run the script for real with Gemini made unreachable (https_proxy at a closed
 port) and a fake llama-server that serves the local API.
@@ -43,7 +43,9 @@ class SingleInstanceTests(unittest.TestCase):
         # Parked while the flag file exists, the way an open region selector is.
         # The flag is checked before logging, so once the log shows a call it has parked.
         self.fake("slurp", f"if [ -e {self.block} ]; then echo called >> {self.slurp_log}; "
-                           f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\nexit 1")
+                           f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\n"
+                           # What slurp 1.5 prints on ESC; any other exit 1 is a failure.
+                           "echo 'selection cancelled' >&2\nexit 1")
         # Pinned, not inherited: only the fakes are on PATH.
         self.env = {"PATH": str(self.bin), "HOME": str(self.root),
                     "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused"}
@@ -93,13 +95,20 @@ class SingleInstanceTests(unittest.TestCase):
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 1)
+        self.assertFalse(self.notify_log.exists(), "ESC must stay silent")
 
-    def test_unusable_runtime_dir_runs_unlocked(self):
-        # Set but missing: an unlocked run, not a traceback nobody sees.
-        self.env["XDG_RUNTIME_DIR"] = str(self.root / "missing")
+    def test_failing_selector_is_not_a_silent_cancel(self):
+        self.fake("slurp", "echo 'failed to create display' >&2\nexit 1")
         code, err = self.run_once()
-        self.assertEqual((code, err), (0, ""))
-        self.assertEqual(self.slurp_calls(), 1)
+        self.assertEqual(code, 1)
+        self.assertIn("slurp failed: failed to create display", self.notify_log.read_text())
+
+    def test_unreadable_key_file_notifies_instead_of_a_silent_traceback(self):
+        del self.env["GOOGLE_API_KEY"]
+        (self.root / ".config/capture-ocr/google.env").mkdir(parents=True)  # a dir: read fails
+        code, err = self.run_once()
+        self.assertEqual(code, 1)
+        self.assertIn("Unexpected IsADirectoryError", self.notify_log.read_text())
 
     def test_second_run_during_first_only_says_so(self):
         first = self.start_blocked()
@@ -164,7 +173,7 @@ class ModeTests(unittest.TestCase):
     def run_main(self, *args):
         with mock.patch.object(sys, "argv", ["capture-ocr", *args]):
             try:
-                self.ocr.main()
+                self.ocr.run()
                 return 0
             except SystemExit as e:
                 return e.code
@@ -225,6 +234,74 @@ class ModeTests(unittest.TestCase):
         self.assertIn("Gemini returned 429. quota", self.notify_log.read_text())
         fallback.assert_not_called()
 
+    def test_clean_drops_only_the_measured_no_text_shapes(self):
+        clean = self.ocr.clean
+        two_blocks = "```a\nx\n```\nprose\n```b\ny\n```"
+        for answer, offline, expected in [
+                ("[illegible]", False, ""), (" [illegible]\n[illegible] ", True, ""),
+                ("See [illegible] page", False, "See [illegible] page"),
+                ("$=$", True, "$=$"), ("```foo```", True, "```foo```"),
+                # GLM-OCR's measured blank answers; from Gemini the same is content.
+                ("---", True, ""), ("---", False, "---"),
+                ("```markdown\n\n```", True, ""),
+                ("```\nx = 1\n```", True, "x = 1"),
+                ("```\nx = 1\n```", False, "```\nx = 1\n```"),
+                (two_blocks, True, two_blocks)]:
+            with self.subTest(answer=answer, offline=offline):
+                self.assertEqual(clean(answer, offline), expected)
+
+    def test_gemini_rule_line_is_content(self):
+        # GLM-OCR's blank-crop "---" rule must not eat Gemini's real text.
+        with self.gemini("---"):
+            self.assertEqual(self.run_main(), 0)
+        self.assertEqual(self.clipboard.read_text(), "---")
+
+    def test_failed_notifier_falls_back_to_a_terminal_only(self):
+        # The body can be screen text: never into a non-terminal stderr (a log).
+        (Path(os.environ["PATH"]) / "notify-send").write_text("#!/bin/sh\nexit 1\n")
+        for tty in (True, False):
+            with self.subTest(tty=tty):
+                err = io.StringIO()
+                err.isatty = lambda: tty
+                with self.gemini("Anfahrt"), mock.patch("sys.stderr", err):
+                    self.assertEqual(self.run_main(), 0)
+                self.assertEqual("OCR Copied: Anfahrt" in err.getvalue(), tty)
+
+    def test_nul_in_text_still_notifies(self):
+        with self.gemini("a\0b"):
+            self.assertEqual(self.run_main(), 0)
+        self.assertIn("OCR Copied ab", self.notify_log.read_text())
+
+    def test_odd_gemini_replies_end_in_one_visible_failure(self):
+        closed = io.BytesIO(b"x")
+        closed.close()  # an error body that can't be read
+        def http_error(req, timeout):
+            raise self.ocr.urllib.error.HTTPError(req.full_url, 500, "boom", {}, closed)
+        answers = [lambda req, timeout, b=b: io.BytesIO(b) for b in (
+            b"<html>proxy</html>", b"[]", b'{"candidates": ["x"]}',
+            b'{"candidates": {"0": {}}}', b'{"candidates": [{"content": {"parts": ["x"]}}]}')]
+        for urlopen in answers + [http_error]:
+            fallback = mock.Mock(return_value=("offline text", False))
+            with self.subTest(urlopen=urlopen), \
+                    mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen), \
+                    mock.patch.object(self.ocr, "local_transcribe", fallback):
+                self.notify_log.unlink(missing_ok=True)
+                self.assertEqual(self.run_main(), 1)
+                self.assertIn("OCR Failed Unexpected", self.notify_log.read_text())
+                fallback.assert_not_called()  # Gemini answered: never offline
+
+    def test_connection_cut_mid_reply_counts_as_unreachable(self):
+        class Cut(io.BytesIO):
+            def read(self, *a):
+                raise self_ocr.http.client.IncompleteRead(b"partial", 74)
+        self_ocr = self.ocr
+        fallback = mock.Mock(return_value=("offline text", False))
+        with mock.patch.object(self.ocr.urllib.request, "urlopen", lambda req, timeout: Cut()), \
+                mock.patch.object(self.ocr, "local_transcribe", fallback):
+            self.assertEqual(self.run_main(), 0)
+        fallback.assert_called_once()
+        self.assertEqual(self.clipboard.read_text(), "offline text")
+
     def test_unknown_arguments_fail_visibly_before_selecting(self):
         for args in (["--translte"], ["--translate", "junk"]):
             with self.subTest(args=args), self.gemini("unused"):
@@ -236,17 +313,18 @@ class ModeTests(unittest.TestCase):
 
 
 FAKE_LLAMA_SERVER = """#!/usr/bin/python3
-import http.server, json, os, sys, time
+import http.server, json, os, signal, sys, time
 from pathlib import Path
 out = Path(os.environ["FAKE_DIR"])
 args = sys.argv[1:]
-if "--cache-list" in args and os.environ.get("FAKE_MODE") == "broken":
-    sys.exit(2)
-if "--cache-list" in args:
-    print("number of models in cache: 1\\n   1. " + os.environ.get("FAKE_CACHE", ""))
-    sys.exit(0)
 (out / "server.pid").write_text(str(os.getpid()))
 (out / "argv.json").write_text(json.dumps(args))
+if os.environ.get("FAKE_MODE") == "slowstart":
+    time.sleep(60)
+if os.environ.get("FAKE_MODE") == "signal":
+    os.kill(os.getpid(), signal.SIGUSR1)  # dies by a signal, and leaves no core
+if os.environ.get("FAKE_MODE") == "silent":
+    sys.exit(1)
 if os.environ.get("FAKE_MODE") == "crash":
     print("load_model: failed to load model", file=sys.stderr)
     print("llama_server: exiting due to model loading error", file=sys.stderr)
@@ -333,7 +411,7 @@ class OfflineFallbackTests(unittest.TestCase):
                     "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused",
                     # Gemini is https: a closed proxy port makes it unreachable.
                     "https_proxy": "http://127.0.0.1:1", "no_proxy": "",
-                    "FAKE_DIR": str(self.root), "FAKE_CACHE": self.MODEL,
+                    "FAKE_DIR": str(self.root),
                     "FAKE_REPLY": "Anfahrt"}
 
     def start(self, *args):
@@ -390,12 +468,6 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("translation needs the network", self.notices())
         self.assertFalse((self.root / "argv.json").exists())
 
-    def test_uncached_model_says_how_to_get_it(self):
-        self.env["FAKE_CACHE"] = "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0"
-        self.assertEqual(self.run_script()[0], 1)
-        self.assertIn(f"llama-server -hf {self.MODEL}", self.notices())
-        self.assertFalse((self.root / "argv.json").exists())
-
     def test_server_that_dies_at_startup_is_reported(self):
         self.env["FAKE_MODE"] = "crash"
         self.assertEqual(self.run_script()[0], 1)
@@ -403,6 +475,19 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("failed to load model", self.notices())
         self.assertIn("exiting due to model loading error", self.notices())
         self.assertNotIn("bash:", self.notices())
+
+    def test_server_killed_by_a_signal_says_so(self):
+        # wait -n reports it; only the final wait (the watchdog's tail) is silenced.
+        self.env["FAKE_MODE"] = "signal"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("User defined signal 1", self.notices())
+        self.assertNotIn("Killed", self.notices())
+
+    def test_server_that_dies_silently_says_so(self):
+        # Not bash's report of the watchdog's tail, which it kills on the way out.
+        self.env["FAKE_MODE"] = "silent"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("Offline model failed to start: no output", self.notices())
 
     def test_blank_outputs_are_no_text_but_symbols_are_kept(self):
         for reply, blank in [("---", True), ("\n```markdown\n\n```", True),
@@ -415,35 +500,24 @@ class OfflineFallbackTests(unittest.TestCase):
                 self.assertEqual("No text found" in self.notices(), blank)
                 self.assertEqual(self.clipboard.exists(), not blank)
 
-    def test_unreadable_reply_is_reported(self):
+    def test_odd_local_replies_end_in_one_visible_failure(self):
         self.env["FAKE_MODE"] = "garbage"
         for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
                     '{"choices": [{"message": "s"}]}',
-                    '{"choices": [{"message": {"content": ["a"]}}]}'):
+                    '{"choices": [{"message": {"content": ["a"]}}]}',
+                    '{"choices": [{"message": {"content": []}}]}'):
             with self.subTest(raw=raw):
                 self.env["FAKE_RAW"] = raw
                 self.notify_log.unlink(missing_ok=True)
                 code, err = self.run_script()
                 self.assertEqual((code, err), (1, ""))
-                self.assertIn("unreadable reply", self.notices())
+                self.assertIn("OCR Failed Unexpected", self.notices())
                 self.assertFalse(self.server_alive(), "server left running")
 
     def test_local_http_error_shows_its_body(self):
         self.env["FAKE_MODE"] = "http500"
         self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("Offline model returned 500: boom: out of memory", self.notices())
-
-    def test_failing_cache_list_is_not_reported_as_missing_model(self):
-        self.env["FAKE_MODE"] = "broken"
-        self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("--cache-list failed", self.notices())
-        self.assertNotIn("not downloaded", self.notices())
-
-    def test_non_png_capture_fails_before_starting_a_server(self):
-        (self.root / "capture.png").write_bytes(b"P6 not a png")
-        self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("not a PNG", self.notices())
-        self.assertFalse((self.root / "argv.json").exists())
+        self.assertIn("Offline model returned 500. boom: out of memory", self.notices())
 
     def test_output_limit_is_reported_as_truncated(self):
         self.env.update(FAKE_REPLY="Anf", FAKE_FINISH="length")
@@ -451,19 +525,33 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("OCR Copied (offline) - TRUNCATED", self.notices())
 
     def test_killed_caller_takes_the_server_down(self):
-        # SIGKILL runs no finally: only the watchdog can stop the server.
-        self.env["FAKE_MODE"] = "hang"
-        proc = self.start()
-        deadline = time.monotonic() + 20
-        while not (self.root / "request.json").exists():
-            self.assertLess(time.monotonic(), deadline, "never reached the local model")
-            time.sleep(0.05)
-        os.kill(proc.pid, signal.SIGKILL)
-        proc.wait()
-        deadline = time.monotonic() + 5  # tail --pid polls once a second
-        while self.server_alive():
-            self.assertLess(time.monotonic(), deadline, "server outlived its caller")
-            time.sleep(0.1)
+        # SIGKILL and SIGTERM run no finally: only the watchdog can stop the
+        # server, whether it is still starting or already answering.
+        for mode, reached in (("slowstart", "server.pid"), ("hang", "request.json")):
+            for sig in (signal.SIGKILL, signal.SIGTERM):
+                with self.subTest(phase=mode, signal=sig.name):
+                    for f in ("server.pid", "request.json"):
+                        (self.root / f).unlink(missing_ok=True)
+                    self.env["FAKE_MODE"] = mode
+                    proc = self.start()
+                    deadline = time.monotonic() + 20
+                    while not (self.root / reached).exists():
+                        self.assertLess(time.monotonic(), deadline, f"never reached {reached}")
+                        time.sleep(0.05)
+                    os.kill(proc.pid, sig)
+                    proc.wait()
+                    deadline = time.monotonic() + 5  # tail --pid polls once a second
+                    while self.server_alive():
+                        self.assertLess(time.monotonic(), deadline, "server outlived its caller")
+                        time.sleep(0.1)
+
+    def test_invalid_key_is_reported_without_echoing_it(self):
+        self.env["GOOGLE_API_KEY"] = "AIza\nsecret-part"
+        code, err = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertNotIn("secret-part", err)
+        self.assertIn("OCR Failed Unexpected ValueError", self.notices())
+        self.assertNotIn("secret-part", self.notices())
 
 
 if __name__ == "__main__":
