@@ -52,7 +52,10 @@ sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'
 # (handles any field content) and faster than papis' Python startup. -o=tsv keeps
 # values flat without "---" document separators between files.
 papers_glob=("$HOME"/.local/share/papis/papers/*/info.yaml)
-existing_refs=$(yq -o=tsv '.ref' "${papers_glob[@]}" 2>/dev/null)
+# yq stops at the first unreadable info.yaml, and every key after it would look
+# free: a duplicate ref breaks papis.nvim, so a failed scan stops here.
+existing_refs=$(yq -o=tsv '.ref' "${papers_glob[@]}" 2>&1) \
+    || { notify-send -u critical "Papis" "Library scan failed: ${existing_refs##*$'\n'}"; exit 1; }
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
 existing_tags=$(yq -o=tsv '.tags[]?' "${papers_glob[@]}" 2>/dev/null | sort -u | paste -sd' ' -)
 
