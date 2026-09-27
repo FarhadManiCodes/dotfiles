@@ -110,13 +110,6 @@ class SingleInstanceTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Unexpected IsADirectoryError", self.notify_log.read_text())
 
-    def test_unusable_runtime_dir_runs_unlocked(self):
-        # Set but missing: an unlocked run, not a traceback nobody sees.
-        self.env["XDG_RUNTIME_DIR"] = str(self.root / "missing")
-        code, err = self.run_once()
-        self.assertEqual((code, err), (0, ""))
-        self.assertEqual(self.slurp_calls(), 1)
-
     def test_second_run_during_first_only_says_so(self):
         first = self.start_blocked()
         code, err = self.run_once()
@@ -180,7 +173,7 @@ class ModeTests(unittest.TestCase):
     def run_main(self, *args):
         with mock.patch.object(sys, "argv", ["capture-ocr", *args]):
             try:
-                self.ocr.main()
+                self.ocr.run()
                 return 0
             except SystemExit as e:
                 return e.code
@@ -241,12 +234,6 @@ class ModeTests(unittest.TestCase):
         self.assertIn("Gemini returned 429. quota", self.notify_log.read_text())
         fallback.assert_not_called()
 
-    def test_unreadable_gemini_reply_fails_visibly(self):
-        with mock.patch.object(self.ocr.urllib.request, "urlopen",
-                               lambda req, timeout: io.BytesIO(b"<html>proxy</html>")):
-            self.assertEqual(self.run_main(), 1)
-        self.assertIn("Gemini gave an unreadable reply", self.notify_log.read_text())
-
     def test_clean_drops_only_the_measured_no_text_shapes(self):
         clean = self.ocr.clean
         two_blocks = "```a\nx\n```\nprose\n```b\ny\n```"
@@ -269,15 +256,6 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         self.assertEqual(self.clipboard.read_text(), "---")
 
-    def test_gemini_reply_of_the_wrong_shape_fails_visibly(self):
-        for reply in (b"[]", b'{"candidates": ["x"]}', b'{"candidates": {"0": {}}}',
-                      b'{"candidates": [{"content": {"parts": ["x"]}}]}'):
-            with self.subTest(reply=reply), mock.patch.object(
-                    self.ocr.urllib.request, "urlopen", lambda req, timeout: io.BytesIO(reply)):
-                self.notify_log.unlink(missing_ok=True)
-                self.assertEqual(self.run_main(), 1)
-                self.assertIn("Gemini gave an unreadable reply", self.notify_log.read_text())
-
     def test_failed_notifier_falls_back_to_stderr(self):
         failing = Path(os.environ["PATH"]) / "notify-send"
         failing.write_text("#!/bin/sh\nexit 1\n")
@@ -290,6 +268,21 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         self.assertIn("OCR Copied ab", self.notify_log.read_text())
 
+    def test_odd_gemini_replies_end_in_one_visible_failure(self):
+        closed = io.BytesIO(b"x")
+        closed.close()  # an error body that can't be read
+        def http_error(req, timeout):
+            raise self.ocr.urllib.error.HTTPError(req.full_url, 500, "boom", {}, closed)
+        answers = [lambda req, timeout, b=b: io.BytesIO(b) for b in (
+            b"<html>proxy</html>", b"[]", b'{"candidates": ["x"]}',
+            b'{"candidates": {"0": {}}}', b'{"candidates": [{"content": {"parts": ["x"]}}]}')]
+        for urlopen in answers + [http_error]:
+            with self.subTest(urlopen=urlopen), \
+                    mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen):
+                self.notify_log.unlink(missing_ok=True)
+                self.assertEqual(self.run_main(), 1)
+                self.assertIn("OCR Failed Unexpected", self.notify_log.read_text())
+
     def test_connection_cut_mid_reply_counts_as_unreachable(self):
         class Cut(io.BytesIO):
             def read(self, *a):
@@ -301,15 +294,6 @@ class ModeTests(unittest.TestCase):
             self.assertEqual(self.run_main(), 0)
         fallback.assert_called_once()
         self.assertEqual(self.clipboard.read_text(), "offline text")
-
-    def test_unreadable_error_body_still_notifies(self):
-        body = io.BytesIO(b"x")
-        body.close()  # read() now raises ValueError
-        def urlopen(req, timeout):
-            raise self.ocr.urllib.error.HTTPError(req.full_url, 500, "boom", {}, body)
-        with mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen):
-            self.assertEqual(self.run_main(), 1)
-        self.assertIn("Gemini returned 500.", self.notify_log.read_text())
 
     def test_unknown_arguments_fail_visibly_before_selecting(self):
         for args in (["--translte"], ["--translate", "junk"]):
@@ -326,11 +310,6 @@ import http.server, json, os, signal, sys, time
 from pathlib import Path
 out = Path(os.environ["FAKE_DIR"])
 args = sys.argv[1:]
-if "--cache-list" in args and os.environ.get("FAKE_MODE") == "broken":
-    sys.exit(2)
-if "--cache-list" in args:
-    print("number of models in cache: 1\\n   1. " + os.environ.get("FAKE_CACHE", ""))
-    sys.exit(0)
 (out / "server.pid").write_text(str(os.getpid()))
 (out / "argv.json").write_text(json.dumps(args))
 if os.environ.get("FAKE_MODE") == "slowstart":
@@ -425,7 +404,7 @@ class OfflineFallbackTests(unittest.TestCase):
                     "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused",
                     # Gemini is https: a closed proxy port makes it unreachable.
                     "https_proxy": "http://127.0.0.1:1", "no_proxy": "",
-                    "FAKE_DIR": str(self.root), "FAKE_CACHE": self.MODEL,
+                    "FAKE_DIR": str(self.root),
                     "FAKE_REPLY": "Anfahrt"}
 
     def start(self, *args):
@@ -482,12 +461,6 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("translation needs the network", self.notices())
         self.assertFalse((self.root / "argv.json").exists())
 
-    def test_uncached_model_says_how_to_get_it(self):
-        self.env["FAKE_CACHE"] = "ggml-org/Qwen3-ASR-0.6B-GGUF:Q8_0"
-        self.assertEqual(self.run_script()[0], 1)
-        self.assertIn(f"llama-server -hf {self.MODEL}", self.notices())
-        self.assertFalse((self.root / "argv.json").exists())
-
     def test_server_that_dies_at_startup_is_reported(self):
         self.env["FAKE_MODE"] = "crash"
         self.assertEqual(self.run_script()[0], 1)
@@ -520,36 +493,23 @@ class OfflineFallbackTests(unittest.TestCase):
                 self.assertEqual("No text found" in self.notices(), blank)
                 self.assertEqual(self.clipboard.exists(), not blank)
 
-    def test_unreadable_reply_is_reported(self):
+    def test_odd_local_replies_end_in_one_visible_failure(self):
         self.env["FAKE_MODE"] = "garbage"
         for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
                     '{"choices": [{"message": "s"}]}',
-                    '{"choices": [{"message": {"content": ["a"]}}]}',
-                    '{"choices": [{"message": {"content": []}}]}'):
+                    '{"choices": [{"message": {"content": ["a"]}}]}'):
             with self.subTest(raw=raw):
                 self.env["FAKE_RAW"] = raw
                 self.notify_log.unlink(missing_ok=True)
                 code, err = self.run_script()
                 self.assertEqual((code, err), (1, ""))
-                self.assertIn("unreadable reply", self.notices())
+                self.assertIn("OCR Failed Unexpected", self.notices())
                 self.assertFalse(self.server_alive(), "server left running")
 
     def test_local_http_error_shows_its_body(self):
         self.env["FAKE_MODE"] = "http500"
         self.assertEqual(self.run_script()[0], 1)
         self.assertIn("Offline model returned 500. boom: out of memory", self.notices())
-
-    def test_failing_cache_list_is_not_reported_as_missing_model(self):
-        self.env["FAKE_MODE"] = "broken"
-        self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("--cache-list failed", self.notices())
-        self.assertNotIn("not downloaded", self.notices())
-
-    def test_non_png_capture_fails_before_starting_a_server(self):
-        (self.root / "capture.png").write_bytes(b"P6 not a png")
-        self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("not a PNG", self.notices())
-        self.assertFalse((self.root / "argv.json").exists())
 
     def test_output_limit_is_reported_as_truncated(self):
         self.env.update(FAKE_REPLY="Anf", FAKE_FINISH="length")
@@ -582,7 +542,7 @@ class OfflineFallbackTests(unittest.TestCase):
         code, err = self.run_script()
         self.assertEqual(code, 1)
         self.assertNotIn("secret-part", err)
-        self.assertIn("header value is invalid", self.notices())
+        self.assertIn("OCR Failed Unexpected ValueError", self.notices())
         self.assertNotIn("secret-part", self.notices())
 
 

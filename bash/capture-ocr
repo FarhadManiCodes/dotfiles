@@ -16,7 +16,6 @@ import os
 import re
 import secrets
 import shlex
-import shutil
 import signal
 import socket
 import struct
@@ -82,19 +81,10 @@ def single_instance():
     another slurp on top of the first; it only says so instead, since a key
     that does nothing for up to TIMEOUT seconds looks broken. The kernel drops
     a flock when its holder exits, crash included, so no stale lock survives.
-    Without a usable XDG_RUNTIME_DIR (never the case under niri) run unlocked
-    rather than pick a shared directory another user could squat on.
     """
-
-    runtime = os.environ.get("XDG_RUNTIME_DIR")
-    if not runtime:
-        return
     # A bare fd, not a file object, so nothing closes it before exit.
-    try:
-        fd = os.open(os.path.join(runtime, "capture-ocr.lock"),
-                     os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, 0o600)
-    except OSError:
-        return  # unusable runtime dir: a lost lock beats a silent traceback
+    fd = os.open(os.path.join(os.environ["XDG_RUNTIME_DIR"], "capture-ocr.lock"),
+                 os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -112,44 +102,24 @@ def api_key():
     key = os.environ.get("GOOGLE_API_KEY")
     if key:
         return key
-    searched = []
     for env_file in (Path.home() / ".config/capture-ocr/google.env",
                      Path.home() / ".config/paper-refinery/secrets/google.env"):
-        searched.append(env_file)
-        if not env_file.exists():
-            continue
-        for line in env_file.read_text().splitlines():
-            if line.startswith("GOOGLE_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-    fail("GOOGLE_API_KEY not set and not in " +
-         " or ".join(str(f).replace(str(Path.home()), "~") for f in searched))
+        if env_file.exists():
+            for line in env_file.read_text().splitlines():
+                if line.startswith("GOOGLE_API_KEY="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    fail("No GOOGLE_API_KEY.")
 
 
 def capture():
-    """Select a region and grab it. Returns PNG bytes, or exits.
-
-    slurp and grim are kept in separate try blocks on purpose: a non-zero slurp
-    is the user pressing ESC and must stay silent, while a non-zero grim is a
-    real failure and must say so. Collapsing them into one handler makes a
-    broken capture indistinguishable from a deliberate cancel.
-    """
-    try:
-        sel = subprocess.run(["slurp"], capture_output=True, text=True)
-    except OSError:
-        fail("slurp is not installed.")
+    """Select a region and grab it as PNG. ESC exits quietly."""
+    sel = subprocess.run(["slurp"], capture_output=True, text=True)
     if sel.returncode != 0:
         # ESC and a real failure both exit 1; only ESC prints this (slurp 1.5).
         if "selection cancelled" in sel.stderr:
             sys.exit(0)
         fail(f"slurp failed: {sel.stderr.strip() or f'exit {sel.returncode}'}")
-    geom = sel.stdout.strip()
-
-    try:
-        return subprocess.check_output(["grim", "-g", geom, "-"])
-    except subprocess.CalledProcessError as e:
-        fail(f"grim could not capture region '{geom}' (exit {e.returncode}).")
-    except OSError:
-        fail("grim is not installed.")
+    return subprocess.check_output(["grim", "-g", sel.stdout.strip(), "-"])
 
 
 # Two keys, two prompts: one prompt that both transcribed and translated had to
@@ -190,32 +160,19 @@ def post_json(open_url, url, payload, headers, who):
                                  headers={"Content-Type": "application/json", **headers})
     try:
         with open_url(req, timeout=TIMEOUT) as r:
-            raw = r.read()
+            return json.load(r)
     except urllib.error.HTTPError as e:
-        try:
+        with e:
             body = e.read().decode(errors="replace")
-        except (OSError, ValueError, http.client.HTTPException):
-            body = ""
-        finally:
-            e.close()
         try:
             detail = json.loads(body)["error"]["message"]  # Gemini's error shape
-        except (ValueError, KeyError, TypeError):
+        except Exception:
             detail = body[:200]
         fail(f"{who} returned {e.code}. {detail}".strip())
     except urllib.error.URLError as e:
         raise Unreachable(e.reason) from None
-    except (OSError, http.client.HTTPException) as e:
+    except (OSError, http.client.HTTPException) as e:  # incl. a cut mid-reply
         raise Unreachable(e) from None
-    except ValueError:
-        # http.client rejects a header with a stray newline -- and that header
-        # holds the API key, so the message must not be repeated.
-        fail(f"Could not send the request to {who}: a header value is invalid "
-             "(check the API key for stray characters).")
-    try:
-        return json.loads(raw)
-    except ValueError as e:
-        fail(f"{who} gave an unreadable reply: {e!r}")
 
 
 def transcribe(img_bytes, key, prompt):
@@ -235,29 +192,24 @@ def transcribe(img_bytes, key, prompt):
         # Header, not ?key= -- a query string lands in logs and proxies.
         {"x-goog-api-key": key}, "Gemini")
 
-    try:
-        candidates = payload.get("candidates") or []
-        if not candidates:
-            # A prompt-level block returns no candidate at all.
-            blocked = (payload.get("promptFeedback") or {}).get("blockReason")
-            fail(f"No response from Gemini{f' ({blocked})' if blocked else ''}.")
-        cand = candidates[0]
-        parts = (cand.get("content") or {}).get("parts") or []
-        text = "".join(p.get("text", "") for p in parts).strip()
-        # Thinking tokens count against the output limit, so a large capture can
-        # stop mid-sentence in an otherwise successful-looking response. Measured
-        # 2026-09-08: a 256-token limit returned 39 characters of a 3316-character
-        # page, and without this check those 39 characters were copied and
-        # announced as "OCR Copied". Truncation must never look like success.
-        return text, cand.get("finishReason") == "MAX_TOKENS"
-    except (AttributeError, TypeError, IndexError, KeyError) as e:  # wrong shape
-        fail(f"Gemini gave an unreadable reply: {e!r}")
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        # A prompt-level block returns no candidate at all.
+        blocked = (payload.get("promptFeedback") or {}).get("blockReason")
+        fail(f"No response from Gemini{f' ({blocked})' if blocked else ''}.")
+    cand = candidates[0]
+    parts = (cand.get("content") or {}).get("parts") or []
+    text = "".join(p.get("text", "") for p in parts).strip()
+    # Thinking tokens count against the output limit, so a large capture can
+    # stop mid-sentence in an otherwise successful-looking response. Measured
+    # 2026-09-08: a 256-token limit returned 39 characters of a 3316-character
+    # page, and without this check those 39 characters were copied and
+    # announced as "OCR Copied". Truncation must never look like success.
+    return text, cand.get("finishReason") == "MAX_TOKENS"
 
 
 def png_size(img_bytes):
     """(width, height) from the IHDR chunk, which a PNG must start with."""
-    if len(img_bytes) < 24 or not img_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-        fail("The capture is not a PNG; grim's default output format changed?")
     return struct.unpack(">II", img_bytes[16:24])
 
 
@@ -275,29 +227,11 @@ def local_transcribe(img_bytes):
     nothing stays resident holding GPU memory.
     """
     width, height = png_size(img_bytes)
-    binary = shutil.which("llama-server")
-    if binary is None:
-        fail("Gemini unreachable, and llama-server is not installed for the offline fallback.")
-    # --offline never downloads, so check the cache first for a useful message.
-    try:
-        listed = subprocess.run([binary, "--cache-list"], capture_output=True,
-                                text=True, timeout=10)
-    except subprocess.TimeoutExpired:
-        fail("llama-server --cache-list hung; the offline fallback can't start.")
-    except OSError as e:
-        fail(f"llama-server can't run ({e}); the offline fallback can't start.")
-    if listed.returncode != 0:
-        fail(f"llama-server --cache-list failed (exit {listed.returncode}); "
-             "the offline fallback can't start.")
-    if LOCAL_MODEL not in listed.stdout:
-        fail(f"Gemini unreachable, and the offline model is not downloaded. Once "
-             f"online, run: llama-server -hf {LOCAL_MODEL} (Ctrl+C when it is listening).")
-
     port = free_port()
     # Any local user can reach a localhost port; the key keeps the server ours.
     key = secrets.token_urlsafe(16)
     server = shlex.join([
-        binary, "-hf", LOCAL_MODEL, "--offline", "-ngl", "99", "-c", "8192",
+        "llama-server", "-hf", LOCAL_MODEL, "--offline", "-ngl", "99", "-c", "8192",
         "-np", "1", "--host", "127.0.0.1", "--port", str(port)])
     # A bash supervisor also watches our pid, so a SIGKILLed or SIGTERMed
     # capture-ocr (no finally runs) can't leave the server holding GPU memory.
@@ -306,19 +240,16 @@ def local_transcribe(img_bytes):
     watchdog = (f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
                 "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait 2>/dev/null")
     log = tempfile.TemporaryFile()
-    try:
-        proc = subprocess.Popen(
-            ["bash", "-c", watchdog], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-            start_new_session=True,
-            # Via the environment, not argv: /proc/<pid>/cmdline is world-readable.
-            env={**os.environ, "LLAMA_API_KEY": key})
-    except OSError as e:
-        fail(f"Could not start the offline model ({e}).")
+    proc = subprocess.Popen(
+        ["bash", "-c", watchdog], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+        start_new_session=True,
+        # Via the environment, not argv: /proc/<pid>/cmdline is world-readable.
+        env={**os.environ, "LLAMA_API_KEY": key})
     base = f"http://127.0.0.1:{port}"
     try:
         deadline = time.monotonic() + LOCAL_STARTUP
         while True:
-            if proc.poll() is not None:
+            if proc.poll() is not None:  # e.g. model not downloaded: its log says so
                 log.seek(0)
                 lines = log.read().decode(errors="replace").strip().splitlines()
                 fail("Offline model failed to start: "
@@ -345,8 +276,6 @@ def local_transcribe(img_bytes):
             # about one token per 500 px^2; this allows 2.5x that.
             "max_tokens": 64 + width * height // 200,
         }, {"Authorization": f"Bearer {key}"}, "Offline model")
-    except Unreachable as e:
-        fail(f"Offline model request failed: {e}")
     finally:
         # The whole group: bash, the server and the watchdog's tail.
         try:
@@ -356,16 +285,8 @@ def local_transcribe(img_bytes):
         proc.wait()
         log.close()
 
-    try:
-        choice = reply["choices"][0]
-        text = choice["message"]["content"]
-        if text is None:
-            text = ""
-        if not isinstance(text, str):
-            raise TypeError(f"content is {type(text).__name__}")
-    except (KeyError, IndexError, TypeError) as e:
-        fail(f"Offline model gave an unreadable reply: {e!r}")
-    return text, choice.get("finish_reason") == "length"
+    choice = reply["choices"][0]
+    return choice["message"]["content"] or "", choice.get("finish_reason") == "length"
 
 
 def clean(text, offline):
@@ -417,10 +338,7 @@ def main():
         notify("OCR", "No text found")
         sys.exit(0)
 
-    try:
-        subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True)
-    except (subprocess.CalledProcessError, OSError) as e:
-        fail(f"Could not copy to clipboard: {e}")
+    subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True)
 
     notify_text = text if len(text) < 150 else text[:147] + "..."
     done = ("Translation Copied" if translate
@@ -433,12 +351,13 @@ def main():
         notify(done, notify_text)
 
 
-if __name__ == "__main__":
+def run():
     try:
         main()
     except Exception as e:
-        # Last resort for a keybinding with no terminal: never a silent traceback.
-        # Only the type is shown -- a message can carry file contents or the key.
+        # Every error without a message of its own ends here: missing tools, odd
+        # replies, a local server that can't be reached. Only the type is shown --
+        # a message can carry file contents or the key (a bad header echoes it).
         notify("OCR Failed", f"Unexpected {type(e).__name__}; run capture-ocr in a "
                "terminal for details.", urgency="critical")
         # Only to a terminal: niri hands its children's stderr to the journal.
@@ -446,3 +365,7 @@ if __name__ == "__main__":
             import traceback
             traceback.print_exc()
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    run()
