@@ -68,7 +68,10 @@ layout {
 }
 
 // ── Startup ──────────────────────────────────────────────────────────────────
-spawn-at-startup "foot" "--server"
+// foot's one server starts in the theme Mod+Alt+T last chose (toggle-foot-theme.sh's
+// state file), so after a login foot agrees with vim, nvim, tmux and ptpython, which
+// read that file. Anything but "light" (or no file) starts dark, never an invalid value.
+spawn-at-startup "sh" "-c" "t=$(cat \"${XDG_STATE_HOME:-$HOME/.local/state}/foot_theme_state\" 2>/dev/null); case $t in light) ;; *) t=dark ;; esac; exec foot --server -o initial-color-theme=$t"
 spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
 spawn-at-startup "sh" "-c" "pkill wob 2>/dev/null; rm -f $XDG_RUNTIME_DIR/wobpipe; mkfifo $XDG_RUNTIME_DIR/wobpipe; tail -f $XDG_RUNTIME_DIR/wobpipe | wob -c $HOME/dotfiles/wob/wob.ini"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
