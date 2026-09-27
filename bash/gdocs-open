@@ -102,9 +102,6 @@ if [[ "$file" == "$GDRIVE_MOUNT"/* ]]; then
   notify "Opening in Google ${service^}…"
   open_url "https://docs.google.com/${service}/d/${file_id}/edit"
 else
-  # Clean up stale tmp-office uploads in background — don't block the upload
-  rclone delete "${GDRIVE_REMOTE}:${TMP_FOLDER}/" --min-age 1d 2>/dev/null &
-
   # Upload to tmp-office preserving relative path from $HOME
   if [[ "$file" == "$HOME/"* ]]; then
     rel_dir="$(dirname "${file#"$HOME"/}")"
@@ -117,10 +114,16 @@ else
   remote_file_path="${remote_upload_dir}/${fname}"
 
   notify "Uploading $fname…"
-  # --update: replace the Drive copy only if the local file is newer, so reopening
-  # keeps edits made in Google Docs. Updating in place keeps the file's ID;
-  # --no-check-dest made a duplicate.
+  # --update: replace the Drive copy only if the local file changed since the
+  # last upload (stamped below), so reopening keeps edits made in Google Docs.
+  # Updating in place keeps the file's ID; --no-check-dest made a duplicate.
   rclone copyto --update "$file" "${GDRIVE_REMOTE}:${remote_file_path}"
+  # rclone keeps the local modification time, and --min-age goes by it: without
+  # this stamp a document last edited a week ago is "older than a day" at once,
+  # and the cleanup would trash it while it is open in Google Docs.
+  rclone touch "${GDRIVE_REMOTE}:${remote_file_path}"
+  # Clean up stale tmp-office uploads in background — don't block opening
+  rclone delete "${GDRIVE_REMOTE}:${TMP_FOLDER}/" --min-age 1d 2>/dev/null &
 
   file_id="$(get_id "$remote_file_path")"
   [[ -n "$file_id" ]] || die "Could not retrieve file ID from Google Drive"
