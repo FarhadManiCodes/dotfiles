@@ -10,43 +10,39 @@ notify_error() {
     notify-send --urgency=critical "shpool restore failed" "$1"
 }
 
-if [[ ! -x "$shpool" ]]; then
-    notify_error "shpool is not installed at $shpool. Recreate it with: cargo install shpool"
+[[ -x "$shpool" ]] || { notify_error "shpool is not installed at $shpool. Recreate it with: cargo install shpool"; exit 1; }
+command -v jq >/dev/null 2>&1 || { notify_error "jq is not installed, so the shpool session list cannot be read."; exit 1; }
+
+# stdout and stderr apart: shpool can succeed with a warning on stderr (e.g. a
+# client/daemon version mismatch), which would corrupt the JSON, yet on failure
+# that same call's stderr is the error to show. Removed at once, not by a trap:
+# the script ends in exec.
+errf=$(mktemp -p "${XDG_RUNTIME_DIR:-/tmp}")
+sessions_json=$("$shpool" list --json 2>"$errf"); rc=$?
+err=$(<"$errf"); rm -f "$errf"
+if (( rc != 0 )); then
+    notify_error "Could not reach shpool (${err##*$'\n'}). Check: systemctl --user status shpool.socket"
     exit 1
 fi
 
-if ! command -v jq >/dev/null 2>&1; then
-    notify_error "jq is not installed, so the shpool session list cannot be read."
-    exit 1
-fi
-
-if ! sessions_json=$("$shpool" list --json 2>/dev/null); then
-    notify_error "Could not reach shpool. Check: systemctl --user status shpool.socket"
-    exit 1
-fi
-
-if ! sessions=$(jq -r '
-    .sessions as $sessions
-    | if ($sessions | type) != "array" then
-        error("sessions is not an array")
-      else
-        $sessions[]
-        | if (.name | type) == "string" then
-            .name
-          else
-            error("session name is not a string")
-          end
-      end
-' <<< "$sessions_json"); then
+# One line per session, marked when a terminal is still attached elsewhere:
+# shpool refuses to attach those, so the new window would close at once. The
+# shape is checked first: `.sessions[]` also walks an object, and a missing or
+# null name would otherwise become an empty entry.
+if ! menu=$(jq -r '
+        .sessions
+        | if type != "array" or any(.[]; (.name | type) != "string")
+          then error("invalid session list") else .[] end
+        | .name + (if .status == "Attached" then " (attached)" else "" end)' <<<"$sessions_json"); then
     notify_error "shpool returned an invalid session list."
     exit 1
 fi
+[[ -n "$menu" ]] || { notify-send "shpool" "No background sessions running."; exit 0; }
 
-if [[ -z "$sessions" ]]; then
-    notify-send "shpool" "No background sessions running."
+selected=$(fuzzel --dmenu --prompt="Restore Task > " <<<"$menu")
+[[ -n "$selected" ]] || exit 0
+if [[ $selected == *" (attached)" ]]; then
+    notify-send "shpool" "'${selected% (attached)}' is attached in another window"
     exit 0
 fi
-
-selected=$(printf '%s\n' "$sessions" | fuzzel --dmenu --prompt="Restore Task > ")
-
-[[ -n "$selected" ]] && exec footclient --app-id=foot-popup -e "$shpool" attach "$selected"
+exec footclient --app-id=foot-popup "$shpool" attach "$selected"
