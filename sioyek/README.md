@@ -53,8 +53,8 @@ shells out to a script in `dotfiles/bash/` (symlinked into `~/.local/bin`).
 | `<A-p>` | Upsert a selected DOI / title into papis — opens the entry if present, else adds it | `sioyek-papis` |
 | `i` | Jump to the end of the selection in nvim (SyncTeX) | `sioyek-to-source` |
 | `<A-i>` | SyncTeX at the mouse cursor, no selection needed | built-in `synctex_under_cursor` |
-| `ss` | Search the selection on Google Scholar | `scholar-search` |
-| `sw` | Search the selection on Wikipedia | `wike` |
+| `ss` | Search the selection on Google Scholar (vimb) | `sioyek-search scholar` |
+| `sw` | Search the selection on Wikipedia (wike) | `sioyek-search wikipedia` |
 
 **`<A-n>` note format.** Quotes are wrapped in `<!--quote-->` fences and the page
 position is stored as an HTML comment, so that papis-ask can strip both before
