@@ -59,9 +59,12 @@ def notify(title, body, urgency=None, timeout=None):
     if timeout:
         cmd += ["-t", str(timeout)]
     try:
-        subprocess.run(cmd + [title, body], check=False)
+        # A NUL (possible in OCR text) can't go in argv: ValueError otherwise.
+        if subprocess.run(cmd + [title, body.replace("\0", "")]).returncode == 0:
+            return
     except OSError:
-        print(f"{title}: {body}", file=sys.stderr)
+        pass
+    print(f"{title}: {body}", file=sys.stderr)
 
 
 def fail(message):
@@ -190,6 +193,8 @@ def post_json(open_url, url, payload, headers, who):
             body = e.read().decode(errors="replace")
         except (OSError, ValueError, http.client.HTTPException):
             body = ""
+        finally:
+            e.close()
         try:
             detail = json.loads(body)["error"]["message"]  # Gemini's error shape
         except (ValueError, KeyError, TypeError):
@@ -431,6 +436,10 @@ if __name__ == "__main__":
     except Exception as e:
         # Last resort for a keybinding with no terminal: never a silent traceback.
         # Only the type is shown -- a message can carry file contents or the key.
-        import traceback
-        traceback.print_exc()
-        fail(f"Unexpected {type(e).__name__}; run capture-ocr in a terminal for details.")
+        notify("OCR Failed", f"Unexpected {type(e).__name__}; run capture-ocr in a "
+               "terminal for details.", urgency="critical")
+        # Only to a terminal: niri hands its children's stderr to the journal.
+        if sys.stderr and sys.stderr.isatty():
+            import traceback
+            traceback.print_exc()
+        sys.exit(1)

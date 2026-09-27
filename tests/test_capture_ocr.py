@@ -3,8 +3,8 @@
     python3 -B -m unittest discover -s tests -v
 
 SingleInstanceTests run the script for real against fake slurp/notify-send on a
-private PATH; slurp exiting 1 is the user pressing ESC, so none reaches grim or
-the network. ModeTests run main() in-process with fake binaries and a fake
+private PATH; the fake slurp exits the way ESC does ("selection cancelled"), so
+none reaches grim or the network. ModeTests run main() in-process with fake binaries and a fake
 Gemini response, so they can see which prompt was sent. OfflineFallbackTests
 run the script for real with Gemini made unreachable (https_proxy at a closed
 port) and a fake llama-server that serves the local API.
@@ -95,6 +95,7 @@ class SingleInstanceTests(unittest.TestCase):
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.slurp_calls(), 1)
+        self.assertFalse(self.notify_log.exists(), "ESC must stay silent")
 
     def test_failing_selector_is_not_a_silent_cancel(self):
         self.fake("slurp", "echo 'failed to create display' >&2\nexit 1")
@@ -273,8 +274,21 @@ class ModeTests(unittest.TestCase):
                       b'{"candidates": [{"content": {"parts": ["x"]}}]}'):
             with self.subTest(reply=reply), mock.patch.object(
                     self.ocr.urllib.request, "urlopen", lambda req, timeout: io.BytesIO(reply)):
+                self.notify_log.unlink(missing_ok=True)
                 self.assertEqual(self.run_main(), 1)
                 self.assertIn("Gemini gave an unreadable reply", self.notify_log.read_text())
+
+    def test_connection_cut_mid_reply_counts_as_unreachable(self):
+        class Cut(io.BytesIO):
+            def read(self, *a):
+                raise self_ocr.http.client.IncompleteRead(b"partial", 74)
+        self_ocr = self.ocr
+        fallback = mock.Mock(return_value=("offline text", False))
+        with mock.patch.object(self.ocr.urllib.request, "urlopen", lambda req, timeout: Cut()), \
+                mock.patch.object(self.ocr, "local_transcribe", fallback):
+            self.assertEqual(self.run_main(), 0)
+        fallback.assert_called_once()
+        self.assertEqual(self.clipboard.read_text(), "offline text")
 
     def test_unreadable_error_body_still_notifies(self):
         body = io.BytesIO(b"x")
@@ -296,7 +310,7 @@ class ModeTests(unittest.TestCase):
 
 
 FAKE_LLAMA_SERVER = """#!/usr/bin/python3
-import http.server, json, os, sys, time
+import http.server, json, os, signal, sys, time
 from pathlib import Path
 out = Path(os.environ["FAKE_DIR"])
 args = sys.argv[1:]
@@ -309,6 +323,8 @@ if "--cache-list" in args:
 (out / "argv.json").write_text(json.dumps(args))
 if os.environ.get("FAKE_MODE") == "slowstart":
     time.sleep(60)
+if os.environ.get("FAKE_MODE") == "signal":
+    os.kill(os.getpid(), signal.SIGUSR1)  # dies by a signal, and leaves no core
 if os.environ.get("FAKE_MODE") == "silent":
     sys.exit(1)
 if os.environ.get("FAKE_MODE") == "crash":
@@ -468,6 +484,13 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertIn("exiting due to model loading error", self.notices())
         self.assertNotIn("bash:", self.notices())
 
+    def test_server_killed_by_a_signal_says_so(self):
+        # wait -n reports it; only the final wait (the watchdog's tail) is silenced.
+        self.env["FAKE_MODE"] = "signal"
+        self.assertEqual(self.run_script()[0], 1)
+        self.assertIn("User defined signal 1", self.notices())
+        self.assertNotIn("Killed", self.notices())
+
     def test_server_that_dies_silently_says_so(self):
         # Not bash's report of the watchdog's tail, which it kills on the way out.
         self.env["FAKE_MODE"] = "silent"
@@ -544,7 +567,9 @@ class OfflineFallbackTests(unittest.TestCase):
 
     def test_invalid_key_is_reported_without_echoing_it(self):
         self.env["GOOGLE_API_KEY"] = "AIza\nsecret-part"
-        self.assertEqual(self.run_script()[0], 1)
+        code, err = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertNotIn("secret-part", err)
         self.assertIn("header value is invalid", self.notices())
         self.assertNotIn("secret-part", self.notices())
 
