@@ -1,43 +1,27 @@
 #!/bin/bash
-# Mic control via fuzzel dmenu: switch default input or kill active recordings.
+# Mic control with fuzzel: pick the default input (the current one marked *), or
+# stop a recording. A recording is stopped through its PipeWire object.id.
+set -o pipefail
+notify() { notify-send -a "" -u critical "Mic Control" "$1"; }
 
-default_source=$(pactl get-default-source 2>/dev/null)
+# Each line: "<action>:<id> TAB <label>"; fuzzel shows the label, returns the id.
+menu=$({ pactl -f json list sources; pactl -f json list source-outputs; } |
+    jq -rs --arg d "$(pactl get-default-source)" '
+    (.[0][] | select(.monitor_source == "")
+        | "src:\(.name)\t[src] \(if .name == $d then "* " else "  " end)\(.description)"),
+    (.[1][] | select(.properties["object.id"] and .properties["application.name"])
+        | "kill:\(.properties["object.id"])\t[kill] \(.properties["application.name"])")') \
+    || { notify "Could not list inputs"; exit 1; }
+[[ -n $menu ]] || { notify-send -a "" "Mic Control" "No inputs or recordings found"; exit 0; }
 
-entries=""
-declare -A kill_ids
-
-# Input sources
-while IFS=$'\t' read -r _idx name _rest; do
-    marker="  "
-    [[ "$name" == "$default_source" ]] && marker="* "
-    entries+="[src] ${marker}${name}\n"
-done < <(pactl list short sources 2>/dev/null | grep -v monitor)
-
-# Active recordings — use PipeWire object.id (not pactl index) for pw-cli destroy
-while IFS=$'\t' read -r oid name; do
-    label="[kill] ${name}"
-    kill_ids["$label"]="$oid"
-    entries+="${label}\n"
-done < <(pactl list source-outputs 2>/dev/null | awk '
-    /^Source Output #/ { if (oid && name) print oid "\t" name; oid=""; name="" }
-    /object\.id =/     { gsub(/"/, "", $NF); oid=$NF }
-    /application\.name =/ { match($0, /"([^"]+)"/, a); name=a[1] }
-    END                { if (oid && name) print oid "\t" name }
-')
-
-[ -z "$entries" ] && { notify-send -a "" "Mic Control" "No inputs or recordings found"; exit 0; }
-
-selected=$(printf '%b' "$entries" | fuzzel --dmenu --prompt " Mic  " --width 50)
-[[ -z "$selected" ]] && exit 0
-
-if [[ "$selected" == "[src]"* ]]; then
-    # Strips the "[src] " prefix and the two-character marker set at line 12,
-    # which is "* " for the default source and "  " otherwise. Brackets are
-    # escaped because [src] would otherwise be a character class.
-    name=${selected#\[src\] [* ] }
-    pactl set-default-source "$name"
-    notify-send -a "" -u low " Default input: $name"
-elif [[ "$selected" == "[kill]"* ]]; then
-    oid="${kill_ids[$selected]}"
-    [[ -n "$oid" ]] && pw-cli destroy "$oid" && notify-send -a "" -u low " Recording stopped"
-fi
+choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
+    --prompt " Mic  " --width 50 <<<"$menu")
+case $choice in
+    src:*)
+        err=$(pactl set-default-source "${choice#src:}" 2>&1) || { notify "Could not switch: $err"; exit 1; }
+        label=$(awk -F'\t' -v c="$choice" '$1 == c { print $2 }' <<<"$menu")
+        notify-send -a "" -u low " Default input: ${label#\[src\] ??}" ;;
+    kill:*)
+        err=$(pw-cli destroy "${choice#kill:}" 2>&1) || { notify "Could not stop it: $err"; exit 1; }
+        notify-send -a "" -u low " Recording stopped" ;;
+esac
