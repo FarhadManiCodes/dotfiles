@@ -236,6 +236,9 @@ mkdir -p "${HOME}/Audio/Recordings"
 # ============ helper scripts ==============================
 echo "🛠️  Installing helper scripts..."
 link_glob "${DOTFILES}/bash/"* "${HOME}/.local/bin"
+# The custom sioyek build lives off PATH (sioyek/README.md). It finds its shaders
+# and prefs.config through /proc/self/exe, so a link is enough; skipped if unbuilt.
+link_glob "${HOME}/.local/share/sioyek/sioyek" "${HOME}/.local/bin"
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================

@@ -286,9 +286,12 @@ System-level choices that aren't captured in any config file:
   Don't flag it for removal.
 - **Hand-installed binaries in `~/.local/bin`, owned by no package** — they get no updates, so
   don't assume `pacman -Qo` accounts for everything here:
-  - `sioyek` is a 3-line **wrapper** (tracked as `bash/sioyek`) that forces
-    `QT_QPA_PLATFORM=wayland` and execs the real 46 MiB binary at
-    `~/.local/share/sioyek/sioyek`. Without the wrapper sioyek falls back to XWayland. The
+  - `sioyek` is a **symlink** made by `install.sh` to the real 46 MiB binary at
+    `~/.local/share/sioyek/sioyek`, which is off PATH. It finds its shaders and
+    `prefs.config` beside the real file (Qt's `applicationDirPath()` reads `/proc/self/exe`).
+    Wayland comes from the session's `QT_QPA_PLATFORM`; there is no X server to fall back to
+    (no `DISPLAY`, no `xwayland-satellite`). Until 2026-09-27 this was a wrapper script that
+    also defaulted `QT_QPA_PLATFORM=wayland`, which the session always set anyway. The
     binary itself is deliberately not tracked — too large, and not a config.
   - `mutool` (42 MiB) — **decided 2026-08-10: keep it, do not swap for `mupdf-tools`.** It is
     byte-identical to `~/Installs/sioyek/mupdf/build/release/mutool`, i.e. a by-product of the

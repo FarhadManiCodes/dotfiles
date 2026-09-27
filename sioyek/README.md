@@ -13,11 +13,11 @@ Both are symlinked into `~/.config/sioyek/` by `install.sh`. Sioyek picks them u
 
 ## Sioyek itself (not in this dotfile)
 
-This config assumes a custom build sitting at `~/.local/share/sioyek/sioyek` with a wrapper at `~/.local/bin/sioyek`. The build source lives at `~/Installs/sioyek/` on branch `personal` and is **not** part of this dotfile repo.
+This config assumes a custom build sitting at `~/.local/share/sioyek/sioyek` linked as `~/.local/bin/sioyek` by `install.sh`. The build source lives at `~/Installs/sioyek/` on branch `personal` and is **not** part of this dotfile repo.
 
 Build summary:
 - `-march=znver4 -O3 -flto=auto` for Ryzen 7 PRO 7840U
-- Wayland-only (`QT_QPA_PLATFORM=wayland` set by the wrapper)
+- Wayland-only (`QT_QPA_PLATFORM` comes from the session, `environment.d/wayland.conf`)
 - Bundled mupdf submodule (static-linked into sioyek; `mutool` also installed to `~/.local/bin/` for vifm previews etc.)
 - `SIOYEK_NO_TTS` flag — no `qt6-speech` dependency
 - Portable layout under `~/.local/` — no system install
