@@ -52,8 +52,9 @@ sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'
 PAPERS="$HOME/.local/share/papis/papers"
 # yq stops at the first unreadable info.yaml, and every key after it would look
 # free: a duplicate ref breaks papis.nvim, so a failed scan stops here.
-# "ref \t doi \t eprint \t tags" per entry.
-library=$(yq -o=tsv '[.ref, (.doi // ""), (.eprint // ""), ((.tags // []) | join(" "))]' \
+# "ref \t doi \t eprint \t tags" per entry. Tags are joined when a list; a plain string
+# (hand edits, `papis --set tags x`) is taken as is, since join() fails on it.
+library=$(yq -o=tsv '[.ref, (.doi // ""), (.eprint // ""), ((.tags // []) | (select(tag == "!!seq") | join(" ")) // .)]' \
     "$PAPERS"/*/info.yaml 2>&1) \
     || { notify-send -u critical "Papis" "Library scan failed: ${library##*$'\n'}"; exit 1; }
 existing_refs=$(cut -f1 <<<"$library")

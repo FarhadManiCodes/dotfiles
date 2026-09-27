@@ -18,12 +18,13 @@ if [[ ${1:-} == --books ]]; then
     prompt="  Books (author, title or #tag): "
 fi
 
-# Per entry: ref, year, first author, title, folder, first file, tags.
+# Per entry: ref, year, first author, title, folder, first file, tags (joined when
+# a list, as is when a plain string: join() fails on a string).
 # yq stops at the first unreadable info.yaml, and the papers after it would
 # silently be missing from the menu, so a failure is reported instead.
 rows=$(yq -o=tsv '[.ref, (.year // ""), (.author_list[0].family // .author // "?"),
         (.title // ""), (filename | sub("info\.yaml$"; "")), (.files[0] // ""),
-        ((.tags // []) | join(" "))]' "$PAPERS"/*/info.yaml 2>&1) \
+        ((.tags // []) | (select(tag == "!!seq") | join(" ")) // .)]' "$PAPERS"/*/info.yaml 2>&1) \
     || { notify "Library scan failed: ${rows##*$'\n'}"; exit 1; }
 [[ -n $rows ]] || exit 0
 

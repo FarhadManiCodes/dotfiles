@@ -110,6 +110,13 @@ class PapisAddPaperTests(unittest.TestCase):
             self.assertIn("Cancelled", self.notices()[-1])
             self.assertNotIn("papis add", self.logged())
 
+    def test_an_entry_with_plain_string_tags_does_not_block_adding(self):
+        # `papis --set tags x` or a hand edit writes a string, not a list.
+        self.entry("plain", "ref: Plain_2019\ntags: control-theory\n")
+        self.assertEqual(self.run_script("doi", "10.1000/new"), 0)
+        self.assertNotIn("Library scan failed", self.logged())
+        self.assertIn("Added with PDF", self.notices()[-1])
+
     def test_suggested_key_skips_taken_ones(self):
         # Offline, the suggestion is the sanitised identifier; a taken key gets a/b/...
         self.entry("taken", "ref: 10_1000_new\n")
