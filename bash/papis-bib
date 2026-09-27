@@ -159,13 +159,15 @@ prune_mode() {
     # Normalise through papis up front so later diffs reflect content, not the
     # difference between hand formatting and papis' serialisation.
     local work; work=$(mktmp)
-    papis bibtex read "$bib" save -f "$work" >/dev/null 2>&1
+    # Every papis step goes through bibtex(): a failed filter-cited left an empty
+    # list, which read as "no source cites anything" and offered every entry.
+    bibtex read "$bib" save -f "$work"
     local changed=0 ans
 
     # ---- Phase 1: remove uncited -------------------------------------------
     local pruned removed
     pruned=$(mktmp)
-    papis bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned" >/dev/null 2>&1
+    bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned"
     removed=$(comm -23 <(keys_of "$work") <(keys_of "$pruned"))
     if [[ -n "$removed" ]]; then
         echo "Uncited entries in $(basename "$bib") (no source cites them):"
@@ -182,7 +184,7 @@ prune_mode() {
 
     # ---- Phase 2: update entries that differ from the library --------------
     local updated; updated=$(mktmp)
-    papis bibtex read "$work" update --from --all save -f "$updated" >/dev/null 2>&1
+    bibtex read "$work" update --from --all save -f "$updated"
     if ! cmp -s "$work" "$updated"; then
         local diffkeys=""
         while read -r k; do
