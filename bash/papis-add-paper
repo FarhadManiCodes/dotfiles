@@ -24,37 +24,50 @@ if (($# >= 2)); then identifier=$2; else identifier=$(cat); fi
 }
 
 # --- fetch metadata (best-effort) for the title + a suggested ref key --------
-META_TITLE=""; META_FAMILY=""; META_YEAR=""
+# Prints "title SEP family SEP year"; SEP is the unit separator, not a tab, since
+# `read` would merge a run of tabs when a field is empty.
+export SEP=$'\x1f'
 fetch_meta() {
     case "$1" in
         doi)
-            local j; j=$(curl -sSL -m 8 "https://api.crossref.org/works/$2" 2>/dev/null) || return
-            META_TITLE=$(jq -r  '.message.title[0]                  // empty' <<<"$j" 2>/dev/null)
-            META_FAMILY=$(jq -r '.message.author[0].family          // empty' <<<"$j" 2>/dev/null)
-            META_YEAR=$(jq -r   '.message.issued."date-parts"[0][0] // empty' <<<"$j" 2>/dev/null)
-            ;;
+            curl -sSL -m 8 "https://api.crossref.org/works/$2" 2>/dev/null | jq -r --arg s "$SEP" '
+                .message | [(.title[0] // ""), (.author[0].family // ""),
+                            (.issued."date-parts"[0][0] // "" | tostring)] | join($s)' ;;
         arxiv)
-            local x name; x=$(curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null) || return
-            # Parse the Atom XML with yq (-p=xml) instead of grep/sed on markup.
-            META_TITLE=$(yq -p=xml '.feed.entry.title' <<<"$x" 2>/dev/null \
-                          | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//; s/ *$//')
-            name=$(yq -p=xml '.feed.entry.author[0].name // .feed.entry.author.name // ""' <<<"$x" 2>/dev/null)
-            META_FAMILY=${name##* }
-            META_YEAR=$(yq -p=xml '.feed.entry.published // ""' <<<"$x" 2>/dev/null | cut -c1-4)
-            ;;
+            # Atom XML parsed with yq (-p=xml), not grep/sed on markup. arXiv wraps
+            # long titles over several lines, hence the whitespace squeeze.
+            # shellcheck disable=SC2016  # ${1} is yq's capture group, not shell
+            curl -sSL -m 8 "https://export.arxiv.org/api/query?id_list=$2" 2>/dev/null | yq -p=xml '
+                [(.feed.entry.title // "" | sub("\s+"; " ")),
+                 ((.feed.entry.author[0].name // .feed.entry.author.name // "") | sub(".* "; "")),
+                 ((.feed.entry.published // "") | sub("^(....).*"; "${1}"))] | join(strenv(SEP))' ;;
     esac
 }
 
 # papis-style citation key: alphanumerics joined by single underscores.
 sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'; }
 
-# Snapshot existing keys + tags once, read straight from YAML with yq: accurate
-# (handles any field content) and faster than papis' Python startup. -o=tsv keeps
-# values flat without "---" document separators between files.
-papers_glob=("$HOME"/.local/share/papis/papers/*/info.yaml)
-existing_refs=$(yq -o=tsv '.ref' "${papers_glob[@]}" 2>/dev/null)
+# Snapshot keys, identifiers and tags once, read straight from YAML with yq:
+# accurate (handles any field content) and faster than papis' Python startup.
+PAPERS="$HOME/.local/share/papis/papers"
+# yq stops at the first unreadable info.yaml, and every key after it would look
+# free: a duplicate ref breaks papis.nvim, so a failed scan stops here.
+# "ref \t doi \t eprint \t tags" per entry. Tags are joined when a list; a plain string
+# (hand edits, `papis --set tags x`) is taken as is, since join() fails on it.
+library=$(yq -o=tsv '[.ref, (.doi // ""), (.eprint // ""), ((.tags // []) | (select(tag == "!!seq") | join(" ")) // .)]' \
+    "$PAPERS"/*/info.yaml 2>&1) \
+    || { notify-send -u critical "Papis" "Library scan failed: ${library##*$'\n'}"; exit 1; }
+existing_refs=$(cut -f1 <<<"$library")
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
-existing_tags=$(yq -o=tsv '.tags[]?' "${papers_glob[@]}" 2>/dev/null | sort -u | paste -sd' ' -)
+
+# Already in the library? A DOI matches case-insensitively, an arXiv id without
+# its version suffix (entries store "2602.23859v2" as well as "2606.14130").
+existing=$(ID=$identifier IMP=$importer awk -F'\t' '
+    function bare(s) { s = tolower(s); if (ENVIRON["IMP"] == "arxiv") sub(/v[0-9]+$/, "", s); return s }
+    BEGIN { id = bare(ENVIRON["ID"]); col = (ENVIRON["IMP"] == "doi") ? 2 : 3 }
+    $col != "" && bare($col) == id { print $1; exit }' <<<"$library")
+[[ -n "$existing" ]] && { notify-send -u low "Papis" "Already in papis as $existing\n$identifier"; exit 0; }
+existing_tags=$(cut -f4 <<<"$library" | tr ' ' '\n' | sort -u | grep . | paste -sd' ' -)
 
 # Append a/b/c… (then _2, _3…) until the key is free.
 free_ref() {
@@ -79,12 +92,17 @@ prompt_meta() {
             read -e -r -i "$3" -p "tags (space-separated, optional)> " t || t=""
             printf "%s\n%s" "$k" "$t" > "$4"
         ' _ "$1" "$2" "$3" "$out" 2>/dev/null
+    # footclient exits 220 (itself) or 230 (the server) when no window opened;
+    # otherwise with the prompt's own status, and Ctrl-C/closing is a cancel.
+    case $? in
+        220|230) rm -f "$out"; notify-send -u critical "Papis" "Could not open the prompt window (foot server not running?)"; exit 1 ;;
+    esac
     OUT_KEY=$(sanitize_ref "$(sed -n 1p "$out" 2>/dev/null)")
     OUT_TAGS=$(sed -n 2p "$out" 2>/dev/null | tr -s ' ' | sed 's/^ *//; s/ *$//')
     rm -f "$out"
 }
 
-fetch_meta "$importer" "$identifier"
+IFS=$SEP read -r META_TITLE META_FAMILY META_YEAR < <(fetch_meta "$importer" "$identifier" 2>/dev/null)
 
 base=$(sanitize_ref "$META_FAMILY")
 [[ -n "$META_YEAR" ]] && base="${base:+${base}_}$META_YEAR"
@@ -115,16 +133,26 @@ if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set
     notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
     exit 1
 fi
+# --batch refuses a duplicate found on another unique key (isbn, url, ...) but
+# still exits 0, after logging the folder it would have used.
+if [[ $output == *'No new document is created'* ]]; then
+    notify-send -u normal "Papis" "Already in papis (matched on another field), not added\n$identifier"
+    exit 0
+fi
 
-folder=$(grep -oP "Document folder is '\K[^']+" <<<"$output" | head -1)
+# The new entry, found by its key rather than by papis's "Document folder is"
+# info log line, which depends on papis's log level.
+info=$(REF=$ref yq 'select(.ref == strenv(REF)) | filename' "$PAPERS"/*/info.yaml 2>/dev/null | head -1)
+[[ -f "$info" ]] || { notify-send -u critical "Papis" "Added as $ref, but its folder was not found: tags not set"; exit 1; }
 
 # Store tags as a proper YAML list (papis.nvim requires list type, one element per
 # tag). papis --set only writes a string, so set the split list with yq directly.
-[[ -n "$tags" && -f "$folder/info.yaml" ]] && \
-    tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$folder/info.yaml"
+if [[ -n "$tags" ]] && ! tags="$tags" yq -i '.tags = (strenv(tags) | split(" "))' "$info"; then
+    notify-send -u critical "Papis" "Added as $ref, but writing the tags failed"; exit 1
+fi
 
 tagnote=""; [[ -n "$tags" ]] && tagnote="\\n[$tags]"
-nfiles=0; [[ -f "$folder/info.yaml" ]] && nfiles=$(yq '(.files // []) | length' "$folder/info.yaml" 2>/dev/null)
+nfiles=$(yq '(.files // []) | length' "$info" 2>/dev/null)
 if [[ "${nfiles:-0}" -gt 0 ]]; then
     notify-send -u low "Papis" "Added with PDF ✓\n$ref$tagnote"
 else
