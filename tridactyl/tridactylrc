@@ -76,16 +76,16 @@ unbind d
 " DOI sources, in order: citation_doi meta, dc.identifier meta, doi.org path, then
 " the DOI embedded in the page URL (covers book/publisher pages like epubs.siam.org
 " that omit the citation_doi meta tag).
-bind ,p js const ax=location.href.match(/arxiv\.org\/(?:abs|pdf)\/([\d.]+(?:v\d+)?)/);const doi=!ax?(document.querySelector('meta[name="citation_doi"]')?.content||(document.querySelector('meta[name="dc.identifier"]')?.content||'').replace(/^doi:/i,'')||(location.hostname==='doi.org'?decodeURIComponent(location.pathname.slice(1)):'')||(location.href.match(/10\.\d{4,9}\/[^?#\s"]+/)?.[0]||'').replace(/\/(full|abstract|abs|pdf|epdf|html|meta)$/i,'')).trim():'';if(ax){tri.native.run('papis-add-paper arxiv "'+ax[1]+'"');}else if(doi){tri.native.run('papis-add-paper doi "'+doi.replace(/"/g,'\\"')+'"');}else{tri.excmds.fillcmdline_tmp(3000,'Papis: no DOI or arXiv ID found');}
+bind ,p js const ax=location.href.match(/arxiv\.org\/(?:abs|pdf)\/([\d.]+(?:v\d+)?)/);const doi=!ax?(document.querySelector('meta[name="citation_doi"]')?.content||(document.querySelector('meta[name="dc.identifier"]')?.content||'').replace(/^doi:/i,'')||(location.hostname==='doi.org'?decodeURIComponent(location.pathname.slice(1)):'')||(location.href.match(/10\.\d{4,9}\/[^?#\s"]+/)?.[0]||'').replace(/\/(full|abstract|abs|pdf|epdf|html|meta)$/i,'')).trim():'';if(ax){tri.native.run('papis-add-paper arxiv',ax[1]);}else if(doi){tri.native.run('papis-add-paper doi',doi);}else{tri.excmds.fillcmdline_tmp(3000,'Papis: no DOI or arXiv ID found');}
 
 " ===== YouTube → yts (mpv) =====
 " Current page: ,y video  /  ,Y audio-only
-bind ,y js tri.native.run('~/.local/bin/yts-play ' + JSON.stringify(location.href))
-bind ,Y js tri.native.run('~/.local/bin/yts-play -a ' + JSON.stringify(location.href))
+bind ,y js tri.native.run('~/.local/bin/yts-play', location.href)
+bind ,Y js tri.native.run('~/.local/bin/yts-play -a', location.href)
 " Hint a link/thumbnail and play it without opening the tab: ;y video / ;Y audio.
-" -F (not -W) so the href is JSON-quoted — -W appends it unquoted and breaks on
-" the & in playlist/tracking URLs.
-bind ;y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts-play ' + JSON.stringify(h)); }
-bind ;Y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts-play -a ' + JSON.stringify(h)); }
+" -F (not -W): -W appends the href to a shell command. The URL goes to yts-play
+" on stdin (native.run's second argument), never through /bin/sh.
+bind ;y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts-play', h); }
+bind ;Y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts-play -a', h); }
 
 

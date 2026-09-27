@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Add a paper to papis from a browser page — called by Tridactyl ,p binding
-# Usage: papis-add-paper <importer> <identifier>
+# Usage: papis-add-paper <importer> [identifier]   (identifier from stdin if omitted)
 # Importers: doi (journal pages), arxiv (arXiv pages — also downloads PDF)
+# Tridactyl passes the identifier on stdin, as native.run's content: the command
+# goes through /bin/sh, and a DOI taken from a page's citation_doi meta tag is
+# whatever the page says, so inside the command line it could run commands.
 #
 # Launched from Firefox (no terminal), so it confirms in a small floating
 # footclient window showing the title + DOI/arXiv id. You edit a pre-filled
@@ -13,10 +16,10 @@
 set -uo pipefail
 
 importer="${1:-}"
-identifier="${2:-}"
+if (($# >= 2)); then identifier=$2; else identifier=$(cat); fi
 
 [[ -z "$importer" || -z "$identifier" ]] && {
-    notify-send -u critical "Papis" "Usage: papis-add-paper <importer> <identifier>"
+    notify-send -u critical "Papis" "Usage: papis-add-paper <importer> [identifier]"
     exit 1
 }
 
