@@ -9,7 +9,8 @@
 #       - not in the library            -> papis add --from doi (+ notify)
 #   * no DOI (title / citation text)
 #       - found locally by text         -> open it
-#       - not local                     -> Crossref search, pick in fuzzel, upsert
+#       - an arXiv id                   -> open it if in the library, else papis add
+#       - otherwise                     -> Crossref search, pick in fuzzel, upsert
 #
 # Notes baked in from the sioyek config quirks:
 #   - sioyek splits the command on whitespace BEFORE expanding %{...} and passes
@@ -32,17 +33,17 @@ QUERY=${QUERY# }; QUERY=${QUERY% }                                # for text sea
 [[ -z "$QUERY" ]] && { note "Empty selection"; exit 0; }
 
 # One yq pass over the library, computed once and reused by every lookup:
-# "doi \t ref \t title \t file" per entry. file is the first document papis
+# "doi \t eprint \t ref \t title \t file" per entry. file is the first document papis
 # records under `files:`; the folder also holds refinery outputs and
 # embeddings, so a directory listing can't tell which one it is.
 # yq stops at the first unreadable info.yaml, and a partial list would make
 # the papers after it look absent, so a failure is reported instead.
-ENTRIES=$(yq -o=tsv '[(.doi // ""), .ref, (.title // ""),
+ENTRIES=$(yq -o=tsv '[(.doi // ""), (.eprint // ""), .ref, (.title // ""),
                       (filename | sub("info\.yaml$"; "")) + .files[0]]' \
             "$PAPERS"/*/info.yaml 2>&1) \
     || { note "Library scan failed: ${ENTRIES##*$'\n'}"; exit 1; }
 
-# Entries whose field COL contains SEL, case-insensitive; the title (col 3) is
+# Entries whose field COL contains SEL, case-insensitive; the title (col 4) is
 # compared on a normalised form (non-alnum -> space) so "physics informed"
 # matches "Physics-informed ...". Emits "file \t ref | title". ENVIRON avoids
 # awk -v escape processing of SEL.
@@ -50,11 +51,11 @@ lookup() {
     COL=$1 SEL=$2 awk -F'\t' '
         function norm(s) {
             s = tolower(s)
-            if (col == 3) { gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s) }
+            if (col == 4) { gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s) }
             return s
         }
         BEGIN { col = ENVIRON["COL"]; q = norm(ENVIRON["SEL"]) }
-        q != "" && $col != "" && index(norm($col), q) { print $4 "\t" $2 " | " $3 }' <<<"$ENTRIES"
+        q != "" && $col != "" && index(norm($col), q) { print $5 "\t" $3 " | " $4 }' <<<"$ENTRIES"
 }
 
 # Open an entry's file in a new sioyek window. Without `files:` the scan yields
@@ -83,12 +84,16 @@ open_matches() {
 # DOI looks complete enough to add (not a bare publisher prefix).
 doi_complete() { [[ "$1" =~ ^10\.[0-9]{4,9}/.{3,}$ ]]; }
 
-add_doi() {
+# papis add --from SOURCE ID. --batch refuses a duplicate it finds on a key this
+# script doesn't look up (isbn, url, ...) but still exits 0, so check its warning.
+add() {
     local out
-    if out=$(papis add --from doi "$1" --no-edit --batch 2>&1); then
-        note "Added to papis: $1"
+    if ! out=$(papis add --from "$1" "$2" --no-edit --batch 2>&1); then
+        note "papis add failed: ${out##*$'\n'}"; return 1
+    elif [[ $out == *'No new document is created'* ]]; then
+        note "Already in papis, not added: $2"
     else
-        note "papis add failed: ${out##*$'\n'}"
+        note "Added to papis: $2"
     fi
 }
 
@@ -99,22 +104,22 @@ if [[ $NOSPACE =~ 10\.[0-9]{4,9}/.* ]]; then
     DOI=${BASH_REMATCH[0]%%+([.,;:)])}
     M=(); [[ $DOI == */ ]] || mapfile -t M < <(lookup 1 "$DOI")
     if (( ${#M[@]} )); then open_matches "${M[@]}"
-    elif doi_complete "$DOI"; then add_doi "$DOI"
+    elif doi_complete "$DOI"; then add doi "$DOI"
     else note "Incomplete DOI; select the full DOI"
     fi
     exit 0
 fi
 
 # ---- no DOI: local bibliographic search (normalised title match) ----------
-mapfile -t M < <(lookup 3 "$QUERY")
+mapfile -t M < <(lookup 4 "$QUERY")
 (( ${#M[@]} )) && { open_matches "${M[@]}"; exit 0; }
 
 # ---- arXiv id (no DOI, looks like an arXiv id) ----------------------------
 if [[ $NOSPACE =~ [0-9]{4}\.[0-9]{4,5}(v[0-9]+)? ]]; then
     ARXIV=${BASH_REMATCH[0]}
-    if papis add --from arxiv "$ARXIV" --no-edit --batch >/dev/null 2>&1; then
-        note "Added arXiv:$ARXIV to papis"; exit 0
-    fi
+    mapfile -t M < <(lookup 2 "${ARXIV%v*}")          # the library may hold another version
+    (( ${#M[@]} )) && { open_matches "${M[@]}"; exit 0; }
+    add arxiv "$ARXIV" && exit 0
     # else fall through to Crossref text search
 fi
 
@@ -136,5 +141,5 @@ mapfile -t M < <(lookup 1 "$PICKED_DOI")
 if (( ${#M[@]} )); then
     open_file "${M[0]%%$'\t'*}"
 else
-    add_doi "$PICKED_DOI"
+    add doi "$PICKED_DOI"
 fi
