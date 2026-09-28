@@ -65,6 +65,9 @@ check_symlink_integrity() {
           # symlinks config-drift.d/ as one directory (same as nvim above), so
           # each file inside is reached through that, never its own link.
           continue ;;
+        bash/.*)
+          # install.sh's bash/* glob skips hidden helper files.
+          continue ;;
         bash/*) livef=$HOME/.local/bin/${rel#bash/} ;;
         applications/*.desktop) livef=$HOME/.local/share/applications/${rel##*/} ;;
         ptpython/config.py|ipython/profile_default/ipython_config.py|ipython/profile_default/startup/*.py|systemd/user/*.service|systemd/user/*.timer|systemd/user/*.d/*.conf)

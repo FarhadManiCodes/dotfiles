@@ -228,6 +228,22 @@ class ConfigDriftTests(unittest.TestCase):
         self.assertEqual(self.run_check('check_symlink_integrity', setup).count('dangling symlink:'), 1)
         self.assertIn('cannot list tracked files', self.run_check('check_symlink_integrity', 'git() { return 1; }'))
 
+    def test_hidden_bash_helper_is_not_an_expected_link(self):
+        self.env['HOME'] = str(self.root / 'home')
+        (self.root / 'live').mkdir()
+        self.write('bash/.pdf-meta.js', 'helper')
+        source = self.write('bash/pdf-meta', 'wrapper')
+        link = self.root / 'home/.local/bin/pdf-meta'
+        link.parent.mkdir(parents=True)
+        link.symlink_to(source)
+        self.write('tracked', 'bash/.pdf-meta.js\nbash/pdf-meta\n')
+        setup = 'git() { cat "$df_dir/tracked"; }'
+        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
+        link.unlink()
+        output = self.run_check('check_symlink_integrity', setup)
+        self.assertIn('missing expected symlink: ~/.local/bin/pdf-meta', output)
+        self.assertNotIn('.pdf-meta.js', output)
+
     def test_directory_and_special_link_mappings(self):
         self.env['HOME'] = str(self.root / 'home')
         mappings = {

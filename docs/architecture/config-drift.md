@@ -34,7 +34,7 @@ interruption can bypass checks entirely.
 replaced by a file/directory, or resolving to the wrong target. Vim/Neovim and skill
 directories, Quadlets, helper scripts and special app destinations are mapped explicitly;
 keep these in sync when changing the installer. Root copies, Spotify's `app.toml`,
-generated files and anything not installed by `install.sh` aren't required to be links;
+generated files and hidden `bash/` helpers skipped by `install.sh` aren't required to be links;
 Firefox is checked only when a default profile exists. Checks report findings only — they
 never repair links or prove every untracked file is configured.
 
