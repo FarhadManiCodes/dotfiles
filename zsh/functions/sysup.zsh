@@ -151,11 +151,12 @@ sysup() {
   echo "==> Neovim health"
   _sysup_nvim_health
 
+  local _podman_status=0
   if (( _include_podman_images )); then
     echo "==> Container images (podman)"
     _sysup_podman_images || {
-      echo "!! container image update failed — stopping sysup"
-      return 1
+      _podman_status=$?
+      echo "!! container image update failed — continuing to post-update checks"
     }
   fi
 
@@ -164,6 +165,10 @@ sysup() {
 
   echo "==> Config drift"
   _sysup_pacnew --pacman-since "$_pacman_boundary"
+
+  if (( _podman_status )); then
+    return "$_podman_status"
+  fi
 
   echo "==> sysup done"
 }

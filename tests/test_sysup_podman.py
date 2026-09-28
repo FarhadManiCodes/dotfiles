@@ -82,9 +82,10 @@ source "$1"
 shift
 for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts \\
           _sysup_prune_claude_versions _sysup_plugins _sysup_nvim_health \\
-          _sysup_fwupd_refresh_if_stale _sysup_pacnew; do
+          _sysup_fwupd_refresh_if_stale; do
   functions[$fn]=':'
 done
+_sysup_pacnew() { print -r -- "config-drift $*" >> "$SYSUP_TEST_LOG"; }
 sysup "$@"
 '''
         return subprocess.run(
@@ -135,8 +136,15 @@ sysup "$@"
         self.env["SYSUP_SERVICE_STATE"] = "active"
         self.env["SYSUP_PULL_FAIL"] = "yes"
         result = self.run_sysup("--podman-images")
-        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.returncode, 1)
         self.assertIn("pull failed", result.stdout)
+        self.assertIn("==> Config drift", result.stdout)
+        self.assertNotIn("==> sysup done", result.stdout)
+        calls = self.calls()
+        self.assertTrue(any(c.startswith("config-drift --pacman-since ")
+                            for c in calls), calls)
+        self.assertLess(next(i for i, c in enumerate(calls) if c.startswith("pull ")),
+                        next(i for i, c in enumerate(calls) if c.startswith("config-drift ")))
         self.assertFalse(any(c.startswith("restart ") for c in self.calls()))
 
     def test_unknown_option_does_no_update_work(self):
