@@ -80,6 +80,9 @@ One PDF goes through `refinery`; several go through `refinery-batch`, which gate
 `--workers`. A paper that fails is logged and skipped, so **the final count can be lower than
 the number of PDFs given**: check the count, do not assume completion.
 
+Scoped index runs still drop deleted documents from the index because the existence check
+covers the whole library.
+
 **Embedding a large batch can hit Gemini's rate limit** (`429 RESOURCE_EXHAUSTED` after
 LiteLLM's retries, around 600 chunks in one run). Work done before the error is saved, and a
 re-run embeds only what is still missing. For a big backlog, index one ref at a time with a
@@ -120,7 +123,8 @@ it indexed*, not *is retrieval wrong*: index that paper and compare.
 A document's personal note is the file named in its papis `notes:` field (`papis edit -n`
 creates it). papis-ask indexes it as a separate source next to the paper, so answers can cite
 your own notes; they are cited as `<ref>-note` (for example `Kalman_1960-note`). Only the
-`notes:` file counts; other `.md` files in the folder are never indexed. A note is independent
+`notes:` file counts; the sibling refinery review copy is searched by `rgbook` but is not
+indexed as a personal note. A note is independent
 of refinery: re-refining the paper, even with `--overwrite-edits`, leaves the note untouched.
 
 - `<!--quote-->…<!--/quote-->` blocks and HTML comments (such as sioyek's page markers) are

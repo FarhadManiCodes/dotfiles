@@ -11,7 +11,8 @@ refinery-typeset paper-or-book.pdf
 ```
 
 Two things come out of that: a typeset PDF at `<stem>.typeset.pdf`, and — the part usually
-wanted — the parsed markdown at `<stem>.refinery/parsed.md`.
+wanted — the parsed markdown at `<stem>.refinery/parsed.md`. This does not create the sibling
+`<stem>.md` review copy that `rgbook` searches; only a full `refinery` run does.
 
 There is no parse-only entry point. `refinery-typeset` is the closest thing to one, and the
 markdown is a by-product of it rather than its advertised output. Take the file and ignore the

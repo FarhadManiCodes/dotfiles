@@ -12,11 +12,9 @@ description: >
 
 # Papers and PDFs
 
-Two tools do the work: **papis** with the papis-ask plugin (the library, the index, the
-answers), and **paper-refinery** (PDF to enriched markdown and chunks). The decision that matters
-is **which entry point**. Choosing wrong is what costs you: running `refinery` on a textbook pays
-for Gemini figure descriptions and citation lookups you did not want, where `refinery-typeset`
-only runs OCR.
+**papis** manages the library, index and answers; **paper-refinery** converts PDFs. Use the
+entry point that fits the job: `refinery` runs figure descriptions and citation lookups,
+while `refinery-typeset` only runs OCR.
 
 ## Pick the entry point first
 
@@ -25,56 +23,49 @@ only runs OCR.
 | A paper in the library, searchable | `papis add …`, then index it (see below) | Gemini + CrossRef/S2/OpenAlex |
 | An answer from the library | `pask "your question"` | Gemini |
 | An answer from part of it | `pask -s "tags:control-theory" "your question"` | Gemini |
+| Inspect an existing PDF | `pdf-meta preview <pdf>` | None; embedded metadata and first-page text only |
+| Find a library file or search its refined text | `fbook` or `rgbook "query"` | None |
 | **A general PDF as markdown** | `refinery-typeset <pdf>`, then read `<pdf-stem>.refinery/parsed.md` | OCR backend only |
 | A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | OCR backend only |
-| A paper as enriched markdown | `refinery <pdf>` → `<stem>.refinery/refinery.md` | Gemini + providers |
+| A paper as enriched markdown | `refinery <pdf>` → sibling `<stem>.md` for review | OCR backend + Gemini + providers |
 
-"OCR backend only" means no Gemini and no citation lookups. The default `maas` OCR mode still
-needs `ZHIPU_API_KEY` and network access; `selfhosted` mode runs locally; markdown input skips
-OCR and needs neither. `refinery-typeset --clean-toc` adds Gemini calls. `refinery-typeset` is
-the right tool for anything that is not a paper you want in the library, and the one people
-reach past because `refinery` has the more obvious name.
+"OCR backend only" excludes Gemini and citation lookups. Default `maas` needs
+`ZHIPU_API_KEY` and network; `selfhosted` runs locally. Markdown input skips OCR.
+`refinery-typeset --clean-toc` adds Gemini calls.
 
-**`parsed.md` is raw OCR markdown. `refinery.md` is the enriched version**: figure descriptions
-spliced in after captions, `[surname_year]` citekeys rewritten. Only `refinery` produces the
-second. A work directory holding `parsed.md` but no `refinery.md` was a typeset/parse run.
+For PDF input, `refinery-typeset` writes OCR to `<stem>.refinery/parsed.md`. A full
+`refinery` run writes enriched `<stem>.refinery/refinery.md` for chunking and a sibling
+`<stem>.md` review copy with math collapsed. `rgbook` searches the sibling, excluding
+`notes.md`; its markers identify one-based physical PDF pages. `--from chunk` does not
+refresh the review copy.
 
-Figure descriptions are anchored on "FIGURE N" captions, so an image without a numbered caption
-is never described. For a visual book (canvases, worksheets), `--describe-uncaptioned` describes
-those too, at one call per image with the configured figure model (cached).
+`fbook` finds library files by name. `pdf-meta preview FILE` shows embedded title, author,
+page count and first-page text without papis metadata or OCR.
+
+Figures without "FIGURE N" captions need `--describe-uncaptioned` to be described;
+that makes one cached figure-model call per image.
 
 Read the matching reference before running anything expensive:
 
 - `references/ingest.md`: adding, indexing, asking, notes, citation quality, re-refining in bulk.
 - `references/convert.md`: PDFs that are not library papers, typesetting, re-chunking.
 
-## Do not run refinery by hand before indexing
+## Indexing scope
 
-`pask index` **already refines**. It runs `refinery` (or `refinery-batch` for several) on every
-matching PDF whose `chunks.json` is missing or older than the PDF, then hands off to
-`papis ask index`. Running `refinery` first is redundant; running it *after* rewrites chunks the
-index has already read. `--no-refine` or `--raw` suppresses the refining, and nothing else
-does, but **it also reaches `papis ask index`**, where it means "ignore `chunks.json`, use pypdf":
-everything that run embeds is chunked badly and paid for. Do not use it to skip refining.
+`pask index` refines PDFs with missing or older `chunks.json`, then calls `papis ask index`.
+`--no-refine` and `--raw` also reach papis-ask, where they bypass `chunks.json` and embed
+raw pypdf text; do not use them to skip refining.
 
-**The query scopes the refining, not the indexing.** Without `-f`, `pask index "q"` refines only
-what matches `q` and then runs an *unscoped* `papis ask index`, which embeds every PDF in the
-library that is not indexed yet, through plain pypdf chunking if it has no `chunks.json`. With
-unrefined books in the library that is hundreds of pages embedded badly, then paid for again once
-they are refined. To index a subset only, refine it first (`refinery-batch` on its PDFs), then
-call papis directly with the keys sourced, since `papis ask index` does not refine:
+`pask index "q"` scopes refining but indexes the whole library, including any still-unrefined
+PDFs. To index a subset, refine its PDFs first, then call papis directly with the keys sourced:
 
 ```bash
 ( source ~/.config/secrets/papis.env; papis ask index "ref:^Kalman_1960$" )
 ```
 
-`pask index -f "q"` is scoped too, but `-f` re-embeds every match, which costs money. Plain
-`pask index` with no query is fine for embedding "everything that needs it", but its automatic
-refine runs `refinery-batch` at the default 4 workers, which loses citations to provider rate
-limits. When citation quality matters, refine new PDFs with `--workers 1` first.
-
-Scoped runs still drop deleted documents from the index: the existence check always covers the
-whole library.
+`pask index -f "q"` is scoped but re-embeds every match. For good citations in a batch,
+refine with `--workers 1` before indexing; automatic batches use 4 workers and can hit
+provider rate limits. See `references/ingest.md` for the indexing details.
 
 ## What has to be in place
 
@@ -103,35 +94,27 @@ on the library: `scripts/eval_models.py check|extraction|figures` in paper-refin
 `contrib/eval_questions.py` in papis-ask. Never change `ask.embedding` casually: it forces a
 full re-embed.
 
-## The trap: `refinery` on PATH is a snapshot, not the source
+## Installed refinery
 
-The `refinery` on `PATH`, the one `pask index` runs, is a **uv tool installed from
-`~/projects/paper-refinery` with `editable: false`**. Editing the project does **not** change
-what runs until it is reinstalled:
-
-```bash
-uv tool install --force --from ~/projects/paper-refinery paper-refinery
-```
-
-Nothing announces the divergence: `uv tool list` shows the `pyproject.toml` version, which is
-bumped per release, not per commit. Check rather than assume:
+`refinery` on `PATH` is a non-editable uv tool snapshot of `~/projects/paper-refinery`.
+Source edits do not change it; compare before assuming they are installed:
 
 ```bash
 diff -rq ~/.local/share/uv/tools/paper-refinery/lib/python*/site-packages/paper_refinery \
          ~/projects/paper-refinery/paper_refinery
 ```
 
-Reinstall only when no refinery process is running (`ps -eo args | grep -c "[b]in/refinery"`
-prints 0): a batch in progress would pick up a mix of old and new modules. `papis` is also a uv
-tool, but papis-ask is an editable dependency of it, so papis-ask edits are live at once.
+Reinstall only when no refinery process is running:
+
+```bash
+uv tool install --force --from ~/projects/paper-refinery paper-refinery
+```
+
+`papis` is also a uv tool, but its papis-ask dependency is editable.
 
 ## OCR is the expensive stage, and it is checkpointed
 
-A full parse is roughly ten minutes. Both `refinery` and `refinery-typeset` write a checkpoint to
-`<stem>.refinery/parse_cache/`, keyed on the PDF hash and the parse config, and reuse it on a
-re-run. `--force-parse` bypasses it: pass that only when the OCR output itself is what you are
-trying to change, never as a general "start clean".
-
-Books over 100 pages are split, and each part checkpoints under `<stem>.refinery/parts/part_N/`,
-keyed on the *original* PDF's hash, so the checkpoint survives being copied. Before OCR-ing a book
-that a study project already converted, check for its `parts/`; see `references/ingest.md`.
+Both `refinery` and `refinery-typeset` cache OCR under `<stem>.refinery/parse_cache/` by PDF
+hash and parse config. Use `--force-parse` only to change OCR output. Books over 100 pages
+also cache split parts under `parts/part_N/`, keyed on the original PDF hash; check for
+existing study-project parts before OCR-ing again (see `references/ingest.md`).
