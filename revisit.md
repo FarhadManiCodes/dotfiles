@@ -777,3 +777,19 @@ Two limits of the sioyek `i` jump (PDF selection -> LaTeX source), found in the 
 - **Fix:** none. Reporting a missed jump would need a round trip vimtex doesn't offer.
 - **Recheck:** if vimtex's inverse search starts returning a result, or a jump is ever
   silently lost with the source open.
+
+---
+
+## `mic-control` source filter drops microphones — REJECTED (2026-09-27)
+
+A review claimed that `pactl -f json list sources` omits `monitor_source` on ordinary
+inputs, so the `.monitor_source == ""` filter would hide every microphone.
+
+- **Evidence:** this machine's `pactl` 17.0 reports `monitor_source: ""` for all three
+  inputs (Stereo Microphone, Digital Microphone, PXC 550-II). Both monitor sources have
+  `monitor_source` set to their output's name. The current menu built from live `pactl`
+  data lists all three microphones; this was also tested before the script was committed.
+- **Decision:** leave the filter unchanged. The reported failure does not occur with the
+  installed `pactl` and current sources.
+- **Recheck:** if a future `pactl` or source backend omits `monitor_source` on a real input,
+  or the menu stops showing an available microphone.
