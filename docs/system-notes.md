@@ -305,10 +305,12 @@ System-level choices that aren't captured in any config file:
     occasionally-used CLI to 1.28.4 would buy a false sense of security. `mutool` refreshes for
     free whenever sioyek is rebuilt.
   - `agy` (204 MiB, an AI CLI agent) is unrelated to these dotfiles.
-- **`poppler` is still installed**: `rgbook`, `fbook` and vifm's PDF preview now use
-  refinery review copies and `pdf-meta`/`mutool`, so those features no longer call
-  `pdfinfo` or `pdftotext`. `~/projects/papis-ask/contrib/ocrpdf.py` still calls `pdftotext`;
-  resolve that dependency in its own project before removing `poppler`.
+- **`poppler` is optional for the checked workflows**: `rgbook`, `fbook` and vifm's PDF
+  preview use refinery review copies and `pdf-meta`/`mutool`. The standalone
+  `~/projects/papis-ask/contrib/ocrpdf.py` still calls `pdftotext`, but normal papis-ask
+  indexing and asking do not run it. If that helper is unused, `poppler` can be removed
+  without changing papis-ask; the helper will stop working. Keep `poppler-data`, which
+  `ghostscript` requires separately.
 - **`pdfjam` is free, not a swappable dependency**: it's a script *inside* `texlive-binextra`
   (kept for LaTeX anyway) that wraps `\includepdf` via `pdflatex` — it does not call
   qpdf/mutool, and LaTeX does not depend on it. Its only real niche is n-up/booklet imposition,

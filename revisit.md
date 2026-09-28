@@ -508,9 +508,10 @@ unwanted.
 `<stem>.md` review copies (`409d812`), and `fbook`, vifm's PDF preview and `rgbook` page
 positioning use `pdf-meta`/`mutool` (`9f34df2`, `db06524`). No rga adapter or `pdfinfo` is
 needed for those workflows. The earlier rejection records why the *rga adapter* was not used;
-it is no longer a reason to keep `poppler` for the pickers. `poppler` remains installed because
-`~/projects/papis-ask/contrib/ocrpdf.py` still calls `pdftotext`; that dependency is separate
-work.
+it is no longer a reason to keep `poppler` for the pickers. The remaining checked call to
+`pdftotext` is in the optional standalone `~/projects/papis-ask/contrib/ocrpdf.py`; normal
+papis-ask indexing and asking do not invoke it. If that helper is unused, `poppler` can be
+removed without changing the repo. `poppler-data` remains required by `ghostscript`.
 
 ---
 
