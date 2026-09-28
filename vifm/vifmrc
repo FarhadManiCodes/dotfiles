@@ -140,7 +140,7 @@ fileviewer {*.avi,*.flv,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.webm,*.av1}
 fileviewer {*.aac,*.au,*.flac,*.m2a,*.m4a,*.mid,*.midi,*.mp3,*.oga,*.ogg,*.ra,*.ram,*.spx,*.wav,*.wma}
          \ file --brief %c
 
-" PDF — embedded title, author and page count via the local MuPDF build.
+" PDF — embedded title, author, page count and first-page text via MuPDF.
 fileviewer *.pdf pdf-meta preview %c 2>/dev/null || echo "No info available"
 
 " Office / eBook binaries — file info only

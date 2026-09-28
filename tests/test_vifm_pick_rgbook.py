@@ -84,7 +84,7 @@ class RgbookTests(unittest.TestCase):
         (self.bin / "pdf-meta").write_text(
             '#!/bin/sh\n[ "$PDF_META_FAIL" = 1 ] && exit 1\n'
             'if [ "$1" = preview ]; then\n'
-            '  case "$2" in *.pdf) printf "Title: Sample\\nAuthor: Ada\\nPages: 3\\n" ;; *) exit 1 ;; esac\n'
+            '  case "$2" in *.pdf) printf "Title: Sample\\nAuthor: Ada\\nPages: 3\\n\\nFirst page:\\nOpening page content\\n" ;; *) exit 1 ;; esac\n'
             'else\n'
             '  case "$3" in 1) echo 186.000 ;; 2) echo 279.000 ;; 3) echo 421.000 ;; *) exit 1 ;; esac\n'
             'fi\n'
@@ -199,7 +199,8 @@ pwd > "$PWD_LOG"
                 data, _ = self.run_caller(caller, "alpha", "alpha.pdf", picker="fbook")
                 self.assertIn('pdf-meta preview "$SP/"{}', data["preview"])
                 self.assertEqual(data["preview_output"],
-                                 "Title: Sample\nAuthor: Ada\nPages: 3\n")
+                                 "Title: Sample\nAuthor: Ada\nPages: 3\n\n"
+                                 "First page:\nOpening page content\n")
                 self.assertEqual(self.open_log.read_text().splitlines()[-1], str(self.alpha))
                 self.open_log.unlink()
         self.assertIn("fileviewer *.pdf pdf-meta preview %c", (ROOT / "vifm/vifmrc").read_text())

@@ -11,18 +11,21 @@ import unittest
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/pdf-meta"
 
 
-def make_pdf(path, title=None, author=None):
+def make_pdf(path, title=None, author=None, with_text=True):
     def pdf_string(value):
         return b"<" + (b"\xfe\xff" + value.encode("utf-16-be")).hex().encode() + b">"
 
+    content = b"BT /F1 12 Tf 50 300 Td (Opening page content) Tj ET" if with_text else b""
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 >>",
-        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 338 372] /Contents 6 0 R >>",
+        (b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 338 372] /Contents 6 0 R "
+         b"/Resources << /Font << /F1 7 0 R >> >> >>"),
         b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 338 558] /Contents 6 0 R >>",
         (b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
          b"/CropBox [100 100 500 700] /Rotate 90 /Contents 6 0 R >>"),
-        b"<< /Length 0 >>\nstream\n\nendstream",
+        f"<< /Length {len(content)} >>\nstream\n".encode() + content + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
     ]
     fields = []
     if title is not None:
@@ -68,7 +71,8 @@ class PdfMetaTests(unittest.TestCase):
         result = self.run_meta("preview", str(self.pdf))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout,
-                         "Title: Café (Draft): One\nAuthor: Ada O'Neil\nPages: 3\n")
+                         "Title: Café (Draft): One\nAuthor: Ada O'Neil\nPages: 3\n\n"
+                         "First page:\nOpening page content\n")
         self.assertEqual(result.stderr, "")
 
     def test_missing_metadata(self):
@@ -76,12 +80,20 @@ class PdfMetaTests(unittest.TestCase):
         result = self.run_meta("preview", str(self.pdf))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout,
-                         "Title: (not embedded)\nAuthor: (not embedded)\nPages: 3\n")
+                         "Title: (not embedded)\nAuthor: (not embedded)\nPages: 3\n\n"
+                         "First page:\nOpening page content\n")
         make_pdf(self.pdf, title="Only a title")
         result = self.run_meta("preview", str(self.pdf))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout,
-                         "Title: Only a title\nAuthor: (not embedded)\nPages: 3\n")
+                         "Title: Only a title\nAuthor: (not embedded)\nPages: 3\n\n"
+                         "First page:\nOpening page content\n")
+
+    def test_page_without_extractable_text(self):
+        make_pdf(self.pdf, with_text=False)
+        result = self.run_meta("preview", str(self.pdf))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.endswith("First page: no extractable text\n"))
 
     def test_midpoints_and_invalid_pages(self):
         for page, expected in (("1", "186.000"), ("2", "279.000"),

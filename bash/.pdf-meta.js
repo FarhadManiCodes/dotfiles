@@ -18,6 +18,18 @@ if (mode === "preview") {
 	print("Title: " + title);
 	print("Author: " + author);
 	print("Pages: " + pages);
+	print("");
+	var lines = pages ? doc.loadPage(0).toStructuredText().asText().split(/\r?\n/) : [];
+	var shown = 0;
+	for (var i = 0; i < lines.length && shown < 16; i++) {
+		var line = lines[i].replace(/[\x00-\x1f\x7f-\x9f]/g, " ").trim();
+		if (line) {
+			if (shown === 0) print("First page:");
+			print(line.substring(0, 120));
+			shown++;
+		}
+	}
+	if (!shown) print("First page: no extractable text");
 } else {
 	var page = scriptArgs[2];
 	if (!page || !/^[1-9][0-9]*$/.test(page) || Number(page) > doc.countPages())
