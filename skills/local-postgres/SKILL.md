@@ -76,6 +76,8 @@ podman ps            # fine for inspection
 The Quadlet has no `[Install]` target, so it does not start with the graphical session.
 The enabled user `podman.socket` is socket-activated for clients such as `docker-compose`;
 it does not start Postgres.
+Image updates are opt-in: `sysup --podman-images` pulls installed Quadlet images even when
+Postgres is stopped, and restarts only services that were already running and changed image.
 
 **Never `sudo podman`.** That uses a separate root-owned store in `/var/lib/containers`. If
 `sudo podman ps` is empty while `podman ps` shows `pg`, that is the reason and not a fault.

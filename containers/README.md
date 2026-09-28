@@ -274,8 +274,9 @@ Three more, all wrong in the first draft:
 ## Updates
 
 There is deliberately no `AutoUpdate=` — a surprise postgres major bump needs `pg_upgrade` and
-would fail against an older data directory. But nothing else refreshed these images either, so
-`sysup` gained a `_sysup_podman_images` step: it pulls the images of running containers and
-**restarts the owning Quadlet unit when a digest changed**. The restart is the part that is easy
-to omit and silently pointless without — a pull alone leaves the old layers in use. Tags pin the
-major version, so a pull only brings minor/patch updates.
+would fail against an older data directory. Container images are updated only with
+`sysup --podman-images`. That step reads installed Quadlets, so it pulls the Postgres image
+even while the service is stopped. It restarts a Quadlet only when its image changed **and**
+the service was already running; a stopped database stays stopped. A pull alone leaves old
+layers in use until a running container is recreated. Tags pin the major version, so a pull
+only brings minor/patch updates.

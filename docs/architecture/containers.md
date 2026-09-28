@@ -57,5 +57,5 @@ podman secret create pg_password -      # type the password, then Ctrl-D
 
 Backups are **per-database, added when a database earns one** — nothing runs `pg_dump`
 today, and a blanket `pg_dumpall` doesn't belong in the container. There is deliberately
-no `AutoUpdate=`; `sysup`'s `_sysup_podman_images` step pulls and restarts the owning
-unit instead.
+no `AutoUpdate=`; `sysup --podman-images` pulls installed Quadlet images, including stopped
+ones, and restarts an owning unit only if it was already running and its image changed.

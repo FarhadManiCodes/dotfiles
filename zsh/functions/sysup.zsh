@@ -2,8 +2,8 @@
 #
 # Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools ->
 # Claude Code ->
-# editor/shell plugins -> nvim :checkhealth -> container images -> fwupd metadata
-# (if stale) -> config-drift.
+# editor/shell plugins -> nvim :checkhealth -> fwupd metadata (if stale) ->
+# config-drift. `--podman-images` adds container image updates after nvim health.
 #
 # No global npm update: system node/npm are covered by paru. The bgutil step
 # rebuilds only the local yt-dlp token helper, using its release's lockfile.
@@ -19,6 +19,21 @@ done
 unset _sysup_module_dir _sysup_module
 
 sysup() {
+  local _include_podman_images=0 _arg
+  for _arg in "$@"; do
+    case $_arg in
+      --podman-images) _include_podman_images=1 ;;
+      -h|--help)
+        print 'Usage: sysup [--podman-images]'
+        print '  --podman-images  update installed Quadlet images; restart only running units'
+        return 0 ;;
+      *)
+        print -u2 "sysup: unknown option: $_arg"
+        print -u2 'Usage: sysup [--podman-images]'
+        return 2 ;;
+    esac
+  done
+
   # Hold off suspend for the duration. swayidle measures INPUT idleness, not CPU,
   # so an unattended update looks idle: on battery it locks at 5min and suspends
   # at 15 (timeout 900 in swayidle.service). A paru -Syu that builds anything
@@ -136,8 +151,13 @@ sysup() {
   echo "==> Neovim health"
   _sysup_nvim_health
 
-  echo "==> Container images (podman)"
-  _sysup_podman_images
+  if (( _include_podman_images )); then
+    echo "==> Container images (podman)"
+    _sysup_podman_images || {
+      echo "!! container image update failed — stopping sysup"
+      return 1
+    }
+  fi
 
   echo "==> Firmware metadata (fwupd)"
   _sysup_fwupd_refresh_if_stale

@@ -18,7 +18,8 @@
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo →
-    Claude Code → plugins → nvim `:checkhealth` → images → fwupd → `config-drift`)
+    Claude Code → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
+    `sysup --podman-images` also updates installed Quadlet images, including stopped ones
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones untracked; list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
@@ -37,6 +38,7 @@
 | `gstds` | Git status with data science awareness |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
+| `sysup [--podman-images]` | Update the system; include installed Quadlet images only when requested |
 
 `rgbook` searches completed sibling `<stem>.md` review copies, not the internal
 `<stem>.refinery/refinery.md` used for re-chunking. It keeps refinery's one-based physical page
