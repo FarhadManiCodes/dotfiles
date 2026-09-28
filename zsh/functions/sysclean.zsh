@@ -75,6 +75,8 @@ sysclean() {
   if (( ${#orphans[@]} )); then
     echo "   ${#orphans[@]} orphaned package(s): ${orphans[*]}"
     sudo pacman -Rs "${orphans[@]}"
+  elif ! pacman -Qq >/dev/null 2>&1; then
+    echo "   !! Unable to query installed packages; orphan check skipped."
   else
     echo "   No orphaned packages found."
   fi
