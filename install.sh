@@ -186,10 +186,8 @@ echo "Foliate configured"
 echo "Setting up XDG user dirs..."
 ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
 
-# Create the folders ourselves instead of calling xdg-user-dirs-update: when a
-# listed folder is missing it rewrites user-dirs.dirs via rename(), which
-# replaces the symlink above with a plain file. Mask the login-time unit for
-# the same reason — the file is ours, nothing else may write it.
+# Create the folders from our tracked definitions. xdg-user-dirs-update would
+# replace the symlink above with a plain file when a listed folder is missing.
 (
   # shellcheck source=xdg/user-dirs.dirs
   . "${DOTFILES}/xdg/user-dirs.dirs"
@@ -197,7 +195,6 @@ ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
     mkdir -p "${!var}"
   done
 )
-systemctl --user mask xdg-user-dirs.service >/dev/null 2>&1
 echo "XDG user dirs configured"
 
 # ============ desktop files ==============================
