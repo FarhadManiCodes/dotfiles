@@ -38,11 +38,13 @@
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
 
-`rgbook` keeps refinery's one-based physical page number for Sioyek's `--page`.
+`rgbook` searches completed sibling `<stem>.md` review copies, not the internal
+`<stem>.refinery/refinery.md` used for re-chunking. It keeps refinery's one-based physical page
+number for Sioyek's `--page`; books without a review copy have no results.
 `pdf-meta yloc` reads that page's bounds with MuPDF and passes half its height as
 `--yloc`, because Sioyek otherwise centers the page's top boundary and leaves the
 preceding page in view. `fbook` and vifm use `pdf-meta preview` for embedded title,
-author, page count and a short first-page text excerpt (no OCR).
+author, page count and a short first-page text excerpt (no OCR or papis metadata fallback).
 
 ## yt-dlp's token helper
 
