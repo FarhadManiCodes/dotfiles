@@ -87,7 +87,7 @@ Claude, Codex, and AGY are installed. A future general launcher may default to C
 
 ### BBR with `fq` pacing
 
-Decision pending. The current kernel supplies `tcp_bbr`, while the live system uses Cubic and does not expose `net.core.default_qdisc` until the relevant queue-discipline support is loaded. Do not copy two sysctl lines without verification.
+**Keep the current settings (2026-09-28); revisit only for an observed upload or upload-latency problem.** The current kernel supplies `tcp_bbr`, while the live system uses Cubic and does not expose `net.core.default_qdisc` until the relevant queue-discipline support is loaded. The live Ethernet qdisc is `fq_codel` and Wi-Fi reports `noqueue`, so do not copy two sysctl lines without verification.
 
 Before deciding:
 
@@ -98,7 +98,7 @@ Before deciding:
 
 ### Kyber I/O scheduling
 
-Decision pending. The machine has one SK hynix NVMe device, `nvme0n1`, currently using the kernel's `none` scheduler with `mq-deadline`, `kyber`, and `bfq` available. Kyber may improve interactive read latency while builds, package updates, copies, or data jobs saturate the device, but it may reduce peak throughput relevant to scientific and data workloads.
+**Keep the current settings (2026-09-28); revisit only if disk-heavy work makes the desktop sluggish.** The machine has one SK hynix NVMe device, `nvme0n1`, currently using the kernel's `none` scheduler with `mq-deadline`, `kyber`, and `bfq` available. Kyber may improve interactive read latency while builds, package updates, copies, or data jobs saturate the device, but it may reduce peak throughput relevant to scientific and data workloads.
 
 Before deciding:
 
