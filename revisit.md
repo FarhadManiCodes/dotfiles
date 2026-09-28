@@ -612,21 +612,12 @@ boot time, and still not worth changing.
 - **Decision (user, 2026-09-18):** leave it at 5. **Recheck** only if boot time becomes an
   actual complaint — this is the one place with seconds available.
 
-## amdxdna NPU firmware missing — ACCEPTED, hardware deliberately unused (2026-09-18)
+## amdxdna NPU firmware — RESOLVED (2026-09-28)
 
-Every boot logs three `amdxdna` driver errors (`ret -2` = ENOENT) for firmware under
-`amdnpu/1502_00/` that `linux-firmware` doesn't ship.
-
-- **Not fixable by installing `xrt-plugin-amdxdna`** (in `extra`) — that's the userspace
-  AIE/FPGA runtime, not the kernel firmware blob the driver wants.
-- **Weak probe, stated rather than hidden:** `pacman -F amdnpu` returned nothing, but the
-  file database wasn't synced first, so "nothing in the repos ships this" is likely, not
-  established.
-- **Decision (user, 2026-09-18):** the NPU isn't used and won't be, so nothing is being
-  installed to satisfy an idle device. The driver gives up cleanly; nothing else refers to
-  it.
-- **Recheck:** if NPU acceleration is ever wanted, or a `linux-firmware` update starts
-  shipping `amdnpu/` and the lines disappear on their own.
+`linux-firmware-amd` is installed because it supplies
+`amdnpu/1502_00/npu_7.sbin`, required by this laptop's `amdxdna` NPU driver. On the
+current boot, the kernel loaded the firmware and initialized the driver; the previous
+missing-firmware errors are gone. No NPU application workload has been tested.
 
 ## ath11k regulatory-domain error — ACCEPTED, cosmetic (2026-09-18)
 
