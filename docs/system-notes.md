@@ -295,8 +295,9 @@ System-level choices that aren't captured in any config file:
     binary itself is deliberately not tracked — too large, and not a config.
   - `mutool` (42 MiB) — **decided 2026-08-10: keep it, do not swap for `mupdf-tools`.** It is
     byte-identical to `~/Installs/sioyek/mupdf/build/release/mutool`, i.e. a by-product of the
-    sioyek build at `-march=znver4`, not a stray download. Its live use is the vifm PDF text
-    preview (`vifm/vifmrc:149`). Swapping it would **add ~23 MiB net**, not save any:
+    sioyek build at `-march=znver4`, not a stray download. Its live uses include the shared
+    PDF metadata preview and `rgbook` page positioning via `bash/pdf-meta`.
+    Swapping it would **add ~23 MiB net**, not save any:
     `mupdf-tools` is 737 KiB but pulls `libmupdf` (55.9 MiB) plus `tesseract`, `leptonica` and
     `gumbo-parser` — an OCR stack, none of it installed. It would also not fix the thing that
     matters: sioyek **statically bundles the same mupdf 1.26.11** (pinned as a submodule at

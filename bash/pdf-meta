@@ -1,0 +1,2 @@
+#!/bin/sh
+exec mutool run "$(dirname -- "$(readlink -f -- "$0")")/.pdf-meta.js" "$@"

@@ -22,23 +22,29 @@ import sys
 
 args = sys.argv[1:]
 binds = [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--bind"]
-reload = next(item.removeprefix("start:reload:") for item in binds
-              if item.startswith("start:reload:"))
+reload = next((item.removeprefix("start:reload:") for item in binds
+               if item.startswith("start:reload:")), None)
 preview = args[args.index("--preview") + 1]
 query = os.environ["TEST_QUERY"]
-command = reload.replace("{q}", shlex.quote(query))
-result = subprocess.run(["/bin/sh", "-c", command], capture_output=True, text=True)
-rows = result.stdout.splitlines()
+if reload:
+    command = reload.replace("{q}", shlex.quote(query))
+    result = subprocess.run(["/bin/sh", "-c", command], capture_output=True, text=True)
+    rows = result.stdout.splitlines()
+else:
+    result = None
+    rows = sys.stdin.read().splitlines()
 pick = os.environ.get("TEST_PICK", "")
 selected = next((row for row in rows if pick and pick in re.sub(r"\x1b\[[0-9;]*m", "", row)), "")
 preview_result = None
 if selected:
     preview_command = preview.replace("{q}", shlex.quote(query)).replace(
-        "{1}", shlex.quote(selected.split("\t", 1)[0]))
+        "{1}", shlex.quote(selected.split("\t", 1)[0])).replace(
+        "{}", shlex.quote(selected))
     preview_result = subprocess.run(["/bin/sh", "-c", preview_command],
                                     capture_output=True, text=True)
 Path(os.environ["FZF_LOG"]).write_text(json.dumps({
-    "reload": reload, "preview": preview, "rows": rows, "stderr": result.stderr,
+    "reload": reload, "preview": preview, "rows": rows,
+    "stderr": result.stderr if result else "",
     "preview_output": preview_result.stdout if preview_result else None,
     "preview_stderr": preview_result.stderr if preview_result else None,
 }))
@@ -75,12 +81,15 @@ class RgbookTests(unittest.TestCase):
             '#!/bin/sh\n{ printf "sioyek\\n"; printf "%s\\n" "$@"; } > "$OPEN_LOG"\n'
         )
         (self.bin / "sioyek").chmod(0o755)
-        (self.bin / "pdfinfo").write_text(
-            '#!/bin/sh\n[ "$PDFINFO_FAIL" = 1 ] && exit 1\n'
-            'case "$2" in 1) height=372 ;; 2) height=558 ;; 3) height=842 ;; esac\n'
-            'printf "Page %s size: 338 x %s pts\\n" "$2" "$height"\n'
+        (self.bin / "pdf-meta").write_text(
+            '#!/bin/sh\n[ "$PDF_META_FAIL" = 1 ] && exit 1\n'
+            'if [ "$1" = preview ]; then\n'
+            '  case "$2" in *.pdf) printf "Title: Sample\\nAuthor: Ada\\nPages: 3\\n" ;; *) exit 1 ;; esac\n'
+            'else\n'
+            '  case "$3" in 1) echo 186.000 ;; 2) echo 279.000 ;; 3) echo 421.000 ;; *) exit 1 ;; esac\n'
+            'fi\n'
         )
-        (self.bin / "pdfinfo").chmod(0o755)
+        (self.bin / "pdf-meta").chmod(0o755)
         (self.bin / "vifm").write_text(
             '#!/bin/sh\nprintf "%s\\n" "$@" > "$VIFM_LOG"\n'
         )
@@ -111,11 +120,11 @@ class RgbookTests(unittest.TestCase):
             "FZF_DEFAULT_OPTS": "", "PAPIS_PAPERS": str(self.library),
             "XDG_RUNTIME_DIR": str(self.root), "FZF_LOG": str(self.fzf_log),
             "OPEN_LOG": str(self.open_log), "VIFM_LOG": str(self.vifm_log),
-            "PDFINFO_FAIL": "0",
+            "PDF_META_FAIL": "0",
             "SCRIPT": str(ROOT / "zsh/functions/pdf.zsh"),
         }
 
-    def run_caller(self, caller, query, pick="", key=""):
+    def run_caller(self, caller, query, pick="", key="", picker="rgbook"):
         env = dict(self.env, TEST_CALLER=caller, TEST_QUERY=query,
                    TEST_PICK=pick, TEST_KEY=key)
         if caller == "zsh":
@@ -127,14 +136,15 @@ _fzf_split() {
     key=""; selection="$1"
   fi
 }
-rgbook "$TEST_QUERY"
+"$TEST_PICKER" "$TEST_QUERY"
 wait
 pwd > "$PWD_LOG"
 '''
             env["PWD_LOG"] = str(self.root / "pwd.log")
             argv = ["zsh", "-f", "-c", command]
         else:
-            argv = ["bash", str(ROOT / "bash/vifm-pick"), "rgbook"]
+            argv = ["bash", str(ROOT / "bash/vifm-pick"), picker]
+        env["TEST_PICKER"] = picker
         result = subprocess.run(argv, env=env, cwd=self.root,
                                 capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -169,19 +179,30 @@ pwd > "$PWD_LOG"
                                  ["279.000", str(self.alpha)])
                 self.open_log.unlink()
 
-    def test_selected_page_geometry_and_pdfinfo_fallback(self):
+    def test_selected_page_geometry_and_helper_fallback(self):
         for caller in ("zsh", "vifm"):
             with self.subTest(caller=caller):
                 self.run_caller(caller, "Optimal", "beta.pdf:Page 3")
                 self.assertEqual(self.open_log.read_text().splitlines(),
                                  ["sioyek", "--page", "3", "--yloc", "421.000", str(self.beta)])
                 self.open_log.unlink()
-                self.env["PDFINFO_FAIL"] = "1"
+                self.env["PDF_META_FAIL"] = "1"
                 self.run_caller(caller, "optimal", "alpha.pdf:Page 1")
                 self.assertEqual(self.open_log.read_text().splitlines(),
                                  ["sioyek", "--page", "1", str(self.alpha)])
                 self.open_log.unlink()
-                self.env["PDFINFO_FAIL"] = "0"
+                self.env["PDF_META_FAIL"] = "0"
+
+    def test_fbook_previews_use_shared_helper(self):
+        for caller in ("zsh", "vifm"):
+            with self.subTest(caller=caller):
+                data, _ = self.run_caller(caller, "alpha", "alpha.pdf", picker="fbook")
+                self.assertIn('pdf-meta preview "$SP/"{}', data["preview"])
+                self.assertEqual(data["preview_output"],
+                                 "Title: Sample\nAuthor: Ada\nPages: 3\n")
+                self.assertEqual(self.open_log.read_text().splitlines()[-1], str(self.alpha))
+                self.open_log.unlink()
+        self.assertIn("fileviewer *.pdf pdf-meta preview %c", (ROOT / "vifm/vifmrc").read_text())
 
     def test_smart_case_empty_invalid_and_excluded_files(self):
         for caller in ("zsh", "vifm"):

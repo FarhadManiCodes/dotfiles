@@ -140,9 +140,8 @@ fileviewer {*.avi,*.flv,*.mkv,*.mov,*.mp4,*.mpeg,*.mpg,*.webm,*.av1}
 fileviewer {*.aac,*.au,*.flac,*.m2a,*.m4a,*.mid,*.midi,*.mp3,*.oga,*.ogg,*.ra,*.ram,*.spx,*.wav,*.wma}
          \ file --brief %c
 
-" PDF — text from first 3 pages via mutool (znver4-optimized, ~/.local/bin/mutool)
-" Bundled with this machine's custom sioyek build; no poppler dependency.
-fileviewer *.pdf mutool draw -q -F txt -o - %c 1-3 2>/dev/null | head -60
+" PDF — embedded title, author and page count via the local MuPDF build.
+fileviewer *.pdf pdf-meta preview %c 2>/dev/null || echo "No info available"
 
 " Office / eBook binaries — file info only
 fileviewer {*.doc,*.dot,*.docx,*.docm,*.xls,*.xlt,*.xlsx,*.xlsm,*.xltx,

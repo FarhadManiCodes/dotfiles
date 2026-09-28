@@ -39,8 +39,10 @@
 | `rgf` | Live ripgrep with preview |
 
 `rgbook` keeps refinery's one-based physical page number for Sioyek's `--page`.
-It passes half the selected PDF page's height as `--yloc`, because Sioyek otherwise
-centers the page's top boundary and leaves the preceding page in view.
+`pdf-meta yloc` reads that page's bounds with MuPDF and passes half its height as
+`--yloc`, because Sioyek otherwise centers the page's top boundary and leaves the
+preceding page in view. `fbook` uses `pdf-meta preview` for embedded title, author
+and page count; vifm uses the same preview for PDFs.
 
 ## yt-dlp's token helper
 
