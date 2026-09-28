@@ -104,9 +104,12 @@ connected to the socket — and `--restart` is only honoured once the daemon run
 2026-09-01: **139 minutes** between boot and the daemon starting, during which the "always-on"
 database was simply down, until an unrelated `docker ps` woke it.
 
-The Quadlet unit is `WantedBy=graphical-session.target`, so it now comes up with the session
-alongside the `rclone@` mounts, and carries `OnFailure=notify-failure@%n.service` like every
-other service here.
+The Quadlet unit remains under systemd for health checks, restart on failure, and
+`OnFailure=notify-failure@%n.service`. It has no `[Install]` target, so login does not start
+Postgres. Start it explicitly with `systemctl --user start pg.service` when needed and stop it
+with `systemctl --user stop pg.service`. The generated `Requires=data-network.service` starts
+the network on demand too. The user `podman.socket` stays enabled for socket-activated
+`docker-compose`; it does not start Postgres.
 
 ## Shutdown ordering — `systemd/user/*-.scope.d/order.conf`
 
@@ -271,8 +274,9 @@ Three more, all wrong in the first draft:
 ## Updates
 
 There is deliberately no `AutoUpdate=` — a surprise postgres major bump needs `pg_upgrade` and
-would fail against an older data directory. But nothing else refreshed these images either, so
-`sysup` gained a `_sysup_podman_images` step: it pulls the images of running containers and
-**restarts the owning Quadlet unit when a digest changed**. The restart is the part that is easy
-to omit and silently pointless without — a pull alone leaves the old layers in use. Tags pin the
-major version, so a pull only brings minor/patch updates.
+would fail against an older data directory. Container images are updated only with
+`sysup --podman-images`. That step reads installed Quadlets, so it pulls the Postgres image
+even while the service is stopped. It restarts a Quadlet only when its image changed **and**
+the service was already running; a stopped database stays stopped. A pull alone leaves old
+layers in use until a running container is recreated. Tags pin the major version, so a pull
+only brings minor/patch updates.

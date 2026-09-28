@@ -23,6 +23,10 @@ Three ways to get this wrong:
   removed. The **user** socket (`$XDG_RUNTIME_DIR/podman/podman.sock`) is the safe one.
 - **Lifecycle is `systemctl --user`, not `podman`.** `pg` is a Quadlet unit, so
   `podman stop pg` just gets it restarted by systemd.
+- **Postgres starts on demand.** `systemctl --user start pg.service` starts it and its
+  `data-network.service` dependency; `systemctl --user stop pg.service` stops the database.
+  Neither Quadlet has an `[Install]` target. The enabled user `podman.socket` only serves
+  clients such as `docker-compose` when they connect.
 
 And seven things not to "fix", each explained in `containers/README.md`:
 
@@ -53,5 +57,5 @@ podman secret create pg_password -      # type the password, then Ctrl-D
 
 Backups are **per-database, added when a database earns one** — nothing runs `pg_dump`
 today, and a blanket `pg_dumpall` doesn't belong in the container. There is deliberately
-no `AutoUpdate=`; `sysup`'s `_sysup_podman_images` step pulls and restarts the owning
-unit instead.
+no `AutoUpdate=`; `sysup --podman-images` pulls installed Quadlet images, including stopped
+ones, and restarts an owning unit only if it was already running and its image changed.

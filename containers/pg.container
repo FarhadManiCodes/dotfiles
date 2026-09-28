@@ -76,8 +76,8 @@ TimeoutStartSec=300
 # that short risks an unclean shutdown and WAL recovery on next start.
 TimeoutStopSec=120
 
-[Install]
-WantedBy=graphical-session.target
+# No [Install] target: PostgreSQL starts only with `systemctl --user start pg.service`.
+# The data-network.service dependency is generated from Network=data.network.
 
 # Drops Quadlet's implicit wait on network-online.target, which this machine never
 # reaches (systemd-networkd-wait-online is masked for boot speed). Without this the

@@ -4,8 +4,8 @@
 [Network]
 NetworkName=data
 
-[Install]
-WantedBy=graphical-session.target
+# No [Install] target: pg.service starts this network through its generated
+# Requires=/After= dependency when PostgreSQL is requested.
 
 # Drops Quadlet's implicit wait on network-online.target, which this machine never
 # reaches (systemd-networkd-wait-online is masked for boot speed). Without this the
