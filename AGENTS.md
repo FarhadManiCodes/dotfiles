@@ -25,6 +25,8 @@ when working from the repository root.
 
 ## Evidence and audits
 
+For Omarchy pull comparisons, read `docs/omarchy-review-local.md` if it exists. It is a local-only workflow guide; decisions belong in `docs/omarchy-update-audit-2026-09.md`.
+
 - Prove a probe can detect something before treating empty output as absence: check
   permissions, names, glob matches including dotfiles, and errors.
 - State what a probe actually measures. Package ownership, file metadata, content and
