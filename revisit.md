@@ -479,7 +479,7 @@ against a cap implying roughly ten months.
 
 ---
 
-## mupdf instead of poppler for rga — REJECTED (tested, 2026-09-17)
+## mupdf instead of poppler for rga — REJECTED, SUPERSEDED (tested 2026-09-17)
 
 `poppler` was removed 2026-07-10 as collateral of an unrelated `pacman -Rns` cascade,
 silently breaking `rgbook` (poppler is rga's only PDF adapter) and `fbook`'s hidden-by-
@@ -503,6 +503,14 @@ than assumed:
 **Decision:** keep `poppler` — reinstalling restores the state the code was written
 against, it isn't a new dependency. **Recheck** only if poppler ever pulls in something
 unwanted.
+
+**Superseded 2026-09-28:** the premise changed. `rgbook` now searches refinery's sibling
+`<stem>.md` review copies (`409d812`), and `fbook`, vifm's PDF preview and `rgbook` page
+positioning use `pdf-meta`/`mutool` (`9f34df2`, `db06524`). No rga adapter or `pdfinfo` is
+needed for those workflows. The earlier rejection records why the *rga adapter* was not used;
+it is no longer a reason to keep `poppler` for the pickers. `poppler` remains installed because
+`~/projects/papis-ask/contrib/ocrpdf.py` still calls `pdftotext`; that dependency is separate
+work.
 
 ---
 
