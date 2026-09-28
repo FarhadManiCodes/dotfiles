@@ -161,3 +161,17 @@ If a DKMS package is introduced, install the headers matching every kernel for w
 ## Completed upstream range
 
 The potentially transferable items in the later Omarchy range through `9c5482c5` have been classified. Factory reset, Windows RDP password handling, Quickshell/QConsole, Plymouth, Omarchy kernel selection, and hardware-specific fixes remain out of scope unless the local setup changes.
+
+## Subsequent pulls reviewed
+
+### 2026-09-27: `947e2fc0..c5b4db77` (89 commits)
+
+No change adopted. Kept Paru's current `SudoLoop` and `CombinedUpgrade` behavior; Omarchy's revised sudo lifecycle addresses a different workflow, and the user is satisfied with `sysup`. Operand delimiters, per-theme wallpapers, and inhibitor-termination cleanup did not address an observed local issue. Quickshell, Hyprland, and hardware-specific changes did not transfer to this Niri setup.
+
+### 2026-09-28: `c5b4db77..de63134b` (50 commits)
+
+**Adopted:** `sysclean` now distinguishes an empty orphan list from a failed installed-package query before reporting “No orphaned packages found.” The two-line change in `zsh/functions/sysclean.zsh` passed `zsh -n` and was committed as `f77ee59`.
+
+**Revisit only if needed:** Opening a new terminal in the focused terminal's directory could help when several projects are open, but it can also be surprising compared with the present latest-directory workflow. Keep `Mod+T` and the tmux-oriented `Mod+Return` unchanged; consider a separate “open here” shortcut only after a concrete need. Notification grouping is deferred until a dedicated notification review; broad grouping could conflate distinct notifications with identical text.
+
+**Skipped:** Browser-default lookup optimization (Firefox is already explicit in `BROWSER`, `mimeapps.list`, and the Niri binding); optional `gcr-ssh-agent` (existing socket-activated agent with one-hour key lifetime); fingerprint-template removal (fingerprint unlock is in use); Hype (presentation workflow uses Typst); Monologue (webcam recording not needed); brightness-key processing optimization (no lag observed with `wob-control`). Theme-rendering, SSH-server/firewall cleanup, screensaver, YT6801 Ethernet, and Quickshell/Hyprland-only changes have no matching local need. Last reviewed Omarchy commit: `de63134b`.
