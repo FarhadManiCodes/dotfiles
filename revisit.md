@@ -784,3 +784,22 @@ inputs, so the `.monitor_source == ""` filter would hide every microphone.
   installed `pactl` and current sources.
 - **Recheck:** if a future `pactl` or source backend omits `monitor_source` on a real input,
   or the menu stops showing an available microphone.
+
+---
+
+## Niri startup messages in a Wayland-only session — ACCEPTED (2026-09-28)
+
+- **`Environment variable $DISPLAY not set, ignoring.`** Niri 26.04 runs
+  `systemctl --user import-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP
+  XDG_SESSION_TYPE NIRI_SOCKET` from its `--session` startup code. With Xwayland
+  explicitly off, Niri removes `DISPLAY`, so systemctl skips that one name and logs a
+  notice (journal priority 5). The user manager has the other four session variables;
+  its missing `DISPLAY` is intentional. Niri's [current import code](https://github.com/niri-wm/niri/blob/main/src/main.rs)
+  has no setting to omit just this name.
+- **Niri `DEBUG` lines** are normal startup diagnostics: its default log filter is
+  `niri=debug`, and the running process has no `RUST_LOG` override. They do not mean a
+  debug build is running. The recent unexplained freeze makes those details useful;
+  `journalctl -p warning` excludes them.
+- **Decision:** keep the real environment and Niri's default logging. Do not set a
+  dummy `DISPLAY` or disable `--session` to hide one notice. Recheck the notice after a
+  Niri update that changes the import list.
