@@ -16,19 +16,13 @@ PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 # mimeapps.list, dispatched here because handlr cannot carry a page number.
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
-_book_page_middle() {
-  LC_ALL=C pdfinfo -f "$2" -l "$2" "$1" 2>/dev/null |
-    awk '$1 == "Page" && $3 == "size:" && $5 == "x" && $6 > 0 {
-      printf "%.3f", $6 / 2; exit
-    }'
-}
 
 _open_book() {
   local file="$1" page="${2:-}"
   case "${file:l}" in
     *.pdf)
       if [[ -n "$page" ]]; then
-        local yloc=$(_book_page_middle "$file" "$page")
+        local yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
         if [[ -n "$yloc" ]]; then
           sioyek --page "$page" --yloc "$yloc" "$file" 2>/dev/null &
         else
@@ -158,7 +152,7 @@ fbook() {
   local -x SP="$search_path"
   local result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
     sed "s|^$search_path/||" | \
-    fzf --preview 'pdfinfo "$SP/"{} 2>/dev/null || echo "No info available"' \
+    fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
         --preview-window='hidden,right:40%' \
         --bind 'ctrl-p:toggle-preview' \
         --expect='ctrl-d,ctrl-o' \
