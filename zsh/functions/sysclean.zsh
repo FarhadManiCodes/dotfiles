@@ -23,7 +23,6 @@ sysclean() {
   elif [[ -f ~/.config/zsh/functions/sysup.zsh ]]; then
     source ~/.config/zsh/functions/sysup.zsh && _sysup_prune_claude_versions
   fi
-
   # 2. Pacman / Paru download cache & partials
   echo "==> 2. Pacman / Paru download cache"
   # Clean partial downloads first so paccache/pacman don't fail on fd errors.
@@ -175,9 +174,13 @@ sysclean() {
     echo "   No Claude file-history to check."
   fi
 
-  # 9. Browser web caches (only on --all)
+  # 9. Codex CLI old releases
+  echo "==> 9. Codex CLI old releases"
+  _sysclean_prune_codex_releases
+
+  # 10. Browser web caches (only on --all)
   if [[ "$all" == true ]]; then
-    echo "==> 9. Browser web content cache"
+    echo "==> 10. Browser web content cache"
     # (N) again: this one works today only because both profiles happen to have
     # a cache2/, and would abort the removal for both if either did not.
     local -a ffcache=(~/.cache/mozilla/firefox/*/cache2/*(N))
@@ -189,11 +192,82 @@ sysclean() {
     fi
   fi
 
-  # 10. NVMe health -- the only step here that frees nothing
-  echo "==> 10. NVMe health"
+  # 11. NVMe health -- the only step here that frees nothing
+  echo "==> 11. NVMe health"
   _sysclean_nvme_health
 
   echo "==> sysclean done"
+}
+
+# Keep the selected Codex release and one completed fallback for each installer
+# component. Both components have their own `current` symlink and release tree.
+_sysclean_prune_codex_releases() {
+  if ! command -v fuser >/dev/null 2>&1; then
+    echo "   !! fuser unavailable — Codex releases not pruned"
+    return 0
+  fi
+
+  local kind base dir current fallback candidate removed held current_name fallback_name detail
+  local -a versions ordered
+  for kind in standalone app-server-daemon; do
+    base="$HOME/.codex/packages/$kind"
+    dir="$base/releases"
+    [[ -d $dir && ! -L $dir ]] || continue
+
+    current=$(readlink -f -- "$base/current" 2>/dev/null)
+    if [[ -z $current || ${current:h} != $dir || ! -x $current/bin/codex ]]; then
+      echo "   !! $kind: current release missing or outside $dir — not pruning"
+      continue
+    fi
+
+    # Only complete, version-named directories. Staging and partial downloads
+    # belong to the installer, not this cleanup step.
+    versions=("$dir"/<->.<->.<->-x86_64-unknown-linux-musl(N/))
+    (( ${#versions} )) || { echo "   !! $kind: no complete releases found — not pruning"; continue; }
+    if (( ${versions[(Ie)$current]} == 0 )); then
+      echo "   !! $kind: current release has an unexpected name — not pruning"
+      continue
+    fi
+    ordered=("${(@f)$(printf '%s\n' "${versions[@]}" | sort -Vr)}")
+
+    fallback=""
+    for candidate in "${ordered[@]}"; do
+      [[ -L $candidate || ! -x $candidate/bin/codex || $candidate == $current ]] && continue
+      fallback=$candidate
+      break
+    done
+
+    removed=0 held=0
+    for candidate in "${ordered[@]}"; do
+      [[ -L $candidate || ! -x $candidate/bin/codex ]] && continue
+      [[ $candidate == $current || $candidate == $fallback ]] && continue
+      # An older Codex session may still execute this release. Preserve its
+      # files until that process exits, then prune on a later sysclean run.
+      if fuser -s "$candidate/bin/codex" "$candidate/bin/codex-code-mode-host" 2>/dev/null; then
+        (( ++held ))
+      elif rm -rf -- "$candidate"; then
+        (( ++removed ))
+      else
+        echo "   !! $kind: could not remove ${candidate:t}"
+      fi
+    done
+    current_name=${current:t}
+    current_name=${current_name%%-*}
+    if [[ -n $fallback ]]; then
+      fallback_name=${fallback:t}
+      fallback_name=${fallback_name%%-*}
+    else
+      fallback_name=none
+    fi
+    if (( removed )); then
+      detail="removed $removed older release(s)"
+    else
+      detail="no older releases to remove"
+    fi
+    echo "   $kind: $detail; current $current_name, fallback $fallback_name"
+    (( held )) && echo "   $kind: kept $held running older release(s) for a later cleanup"
+  done
+  return 0
 }
 
 # Disk health, deliberately hosted by the cleanup function.

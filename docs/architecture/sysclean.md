@@ -1,8 +1,24 @@
 # sysclean (`zsh/functions/sysclean.zsh`)
 
+## CLI release pruning
+
+Step 1 keeps Claude's current binary and one fallback as before. Step 9, after
+Claude Code file-history cleanup, prunes Codex's separate `standalone` and
+`app-server-daemon` release trees.
+For each tree, the `current` symlink must resolve to a complete release directly
+inside `releases/`; a missing or unexpected target stops pruning that tree.
+The newest other complete release is kept for rollback. Only version-named
+directories are eligible, so installer staging files are left alone. `fuser`
+keeps a release whose Codex or code-mode-host executable is still in use for
+another run; without `fuser`, Codex pruning is skipped.
+
+On 2026-09-28, `sysclean` removed about 2.1 GiB of older releases. Both trees
+now contain the selected 0.158.0 and rollback 0.157.1 releases.
+This cleanup needs no sudo and runs only when `sysclean` is invoked.
+
 ## NVMe health — the one hardware fault nothing else would report
 
-`_sysclean_nvme_health` runs as step 10 (2026-09-09). Everything else here that can fail
+`_sysclean_nvme_health` runs as step 11. Everything else here that can fail
 silently has a watcher — `config-drift`, `notify-failure@`, `sysup`'s health step — a
 dying disk did not.
 

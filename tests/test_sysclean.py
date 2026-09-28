@@ -216,7 +216,46 @@ class SyscleanTests(unittest.TestCase):
     def test_history_prune_skipped_when_directories_absent(self):
         self.assertIn("No Claude file-history to check", self._run_history())
 
-    # --- step 9: Firefox cache ------------------------------------------------
+    # --- step 9: Codex releases -----------------------------------------------
+
+    def test_codex_prune_runs_after_claude_history_and_keeps_rollback(self):
+        self.assertLess(SOURCE.index('==> 8. Claude Code orphaned file-history'),
+                        SOURCE.index('==> 9. Codex CLI old releases'))
+        self.assertLess(SOURCE.index('==> 9. Codex CLI old releases'),
+                        SOURCE.index('==> 10. Browser web content cache'))
+
+        for kind in ('standalone', 'app-server-daemon'):
+            base = self.home / '.codex/packages' / kind
+            releases = base / 'releases'
+            for version in ('0.157.0', '0.157.1', '0.158.0'):
+                directory = releases / f'{version}-x86_64-unknown-linux-musl'
+                binary = directory / 'bin/codex'
+                binary.parent.mkdir(parents=True)
+                binary.write_text('fixture')
+                binary.chmod(0o755)
+            (base / 'current').symlink_to(releases / '0.158.0-x86_64-unknown-linux-musl')
+
+        script = 'source "$SOURCE_PATH"\nfuser() { return 1 }\n_sysclean_prune_codex_releases\n'
+        env = dict(self.env, SOURCE_PATH=str(SOURCE_PATH), LC_ALL='C', NO_COLOR='1')
+        result = subprocess.run(['zsh', '-f', '-c', script], env=env,
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, '')
+        for kind in ('standalone', 'app-server-daemon'):
+            releases = self.home / '.codex/packages' / kind / 'releases'
+            self.assertEqual(sorted(p.name for p in releases.iterdir()), [
+                '0.157.1-x86_64-unknown-linux-musl',
+                '0.158.0-x86_64-unknown-linux-musl',
+            ])
+            self.assertIn(f'{kind}: removed 1 older release(s); current 0.158.0, fallback 0.157.1',
+                          result.stdout)
+
+        again = subprocess.run(['zsh', '-f', '-c', script], env=env,
+                               capture_output=True, text=True, timeout=30)
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertIn('no older releases to remove', again.stdout)
+
+    # --- step 10: Firefox cache -----------------------------------------------
 
     FIREFOX = property(lambda self: section(
         "    # (N) again: this one works today only because", "\n  fi\n"))
@@ -266,7 +305,7 @@ class SyscleanTests(unittest.TestCase):
             self.NPM, setup)
         self.assertEqual(output, "")
 
-    # --- step 10: NVMe health -------------------------------------------------
+    # --- step 11: NVMe health -------------------------------------------------
 
     def _run_nvme(self, report, devices=True):
         """Source the whole file with only the device glob pointed at a fixture,
