@@ -66,10 +66,16 @@ and looks like a container refusing to die.
 
 ```bash
 systemctl --user status pg.service
+systemctl --user start pg.service   # on demand; also starts data-network.service
+systemctl --user stop pg.service    # when finished
 systemctl --user restart pg.service
 journalctl --user -u pg.service -n 50
 podman ps            # fine for inspection
 ```
+
+The Quadlet has no `[Install]` target, so it does not start with the graphical session.
+The enabled user `podman.socket` is socket-activated for clients such as `docker-compose`;
+it does not start Postgres.
 
 **Never `sudo podman`.** That uses a separate root-owned store in `/var/lib/containers`. If
 `sudo podman ps` is empty while `podman ps` shows `pg`, that is the reason and not a fault.

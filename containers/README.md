@@ -104,9 +104,12 @@ connected to the socket — and `--restart` is only honoured once the daemon run
 2026-09-01: **139 minutes** between boot and the daemon starting, during which the "always-on"
 database was simply down, until an unrelated `docker ps` woke it.
 
-The Quadlet unit is `WantedBy=graphical-session.target`, so it now comes up with the session
-alongside the `rclone@` mounts, and carries `OnFailure=notify-failure@%n.service` like every
-other service here.
+The Quadlet unit remains under systemd for health checks, restart on failure, and
+`OnFailure=notify-failure@%n.service`. It has no `[Install]` target, so login does not start
+Postgres. Start it explicitly with `systemctl --user start pg.service` when needed and stop it
+with `systemctl --user stop pg.service`. The generated `Requires=data-network.service` starts
+the network on demand too. The user `podman.socket` stays enabled for socket-activated
+`docker-compose`; it does not start Postgres.
 
 ## Shutdown ordering — `systemd/user/*-.scope.d/order.conf`
 
