@@ -102,8 +102,10 @@ while :; do
     if (( ac )); then
         IFS= read -r line || rc=$?
     else
-        (( SECONDS >= due )) && check_level
-        IFS= read -r -t $(( due - SECONDS )) line || rc=$?
+        # One reading of SECONDS: `read -t 0` returns 1, which would look like EOF.
+        left=$(( due - SECONDS ))
+        (( left > 0 )) || { check_level; left=$(( due - SECONDS )); }
+        IFS= read -r -t $(( left > 0 ? left : 1 )) line || rc=$?
     fi
     (( rc > 128 )) && continue      # timed out: time to read the level
     (( rc == 0 )) || break          # udevadm exited
