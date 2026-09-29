@@ -4,16 +4,18 @@ After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
 [Service]
+# Built from the net-notify submodule by install.sh (make install): a
+# freestanding C program that reads link changes from kernel netlink.
 ExecStart=%h/.local/bin/net-notify
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing, same profile as power-notify.service except the address families.
-# This unit is the reason the series exists: it parses SSIDs broadcast by nearby
-# access points, so hostile input reaches a bash script. The sandbox does not make
-# that parsing safe -- it decides what a parse bug could reach.
-# Since 2026-09-29: 2 processes (bash, dbus-monitor), no writes to disk, no device
-# access beyond /dev/null; it reads /sys/class/net once to find the wired link.
+# Sandboxing, same profile as power-notify.service.
+# This unit is the reason the series exists: it reads SSIDs broadcast by nearby
+# access points, so hostile input reaches it. The sandbox does not make that
+# parsing safe -- it decides what a parse bug could reach.
+# Since 2026-09-29 (C): 1 process, no writes to disk, no device access; it reads
+# /sys/class/net to tell physical links from virtual ones.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
@@ -34,13 +36,11 @@ MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 UMask=0077
 
-# AF_UNIX only: the system bus (dbus-monitor, iwctl) and the session bus
-# (notify-send). Ethernet state comes from systemd-networkd over D-Bus, so netlink
-# (`ip monitor`, and networkctl, which fails without it) is no longer needed.
-RestrictAddressFamilies=AF_UNIX
+# AF_NETLINK: link changes (route netlink) and the wifi network name (nl80211).
+# AF_UNIX: notify-send's session bus. No D-Bus of its own since 2026-09-29.
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
 
-# @system-service must permit fork/execve: each event shells out (iwctl, awk,
-# notify-send).
+# @system-service must permit fork/execve: notify-send runs on each change.
 SystemCallFilter=@system-service
 
 # Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with

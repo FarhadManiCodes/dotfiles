@@ -4,3 +4,6 @@
 [submodule "mic-notify"]
 	path = mic-notify
 	url = git@github.com:FarhadManiCodes/mic-notify.git
+[submodule "net-notify"]
+	path = net-notify
+	url = git@github.com:FarhadManiCodes/net-notify.git

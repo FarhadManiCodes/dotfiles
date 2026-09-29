@@ -234,9 +234,11 @@ link_glob "${DOTFILES}/bash/"* "${HOME}/.local/bin"
 # The custom sioyek build lives off PATH (sioyek/README.md). It finds its shaders
 # and prefs.config through /proc/self/exe, so a link is enough; skipped if unbuilt.
 link_glob "${HOME}/.local/share/sioyek/sioyek" "${HOME}/.local/bin"
-# mic-notify is a small C program, a submodule like nvim (fetched by the
-# `git submodule update` above); mic-notify.service runs the installed binary.
-make -s -C "${DOTFILES}/mic-notify" install || echo "⚠️  mic-notify: build failed, mic-notify.service will fail"
+# mic-notify and net-notify are small C programs, submodules like nvim (fetched
+# by the `git submodule update` above); their services run the installed binaries.
+for prog in mic-notify net-notify; do
+  make -s -C "${DOTFILES}/${prog}" install || echo "⚠️  ${prog}: build failed, ${prog}.service will fail"
+done
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================
