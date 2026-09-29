@@ -1,29 +1,52 @@
 #!/bin/bash
-# Event-based microphone active/released notifications via pactl subscribe.
-# Notifies on first source-output open and last close to avoid spam.
+# Microphone notices from pactl events: "active" while anything records from a
+# microphone, replaced in place by "released" when the last recording stops.
+# Recording a speaker monitor (what the laptop plays) is not the microphone and
+# stays silent.
+#
+# Measured 2026-09-29: each recording sends one 'new', ~5 'change' and one
+# 'remove' event on source-output. Only 'new' and 'remove' can change the
+# answer, so only those trigger a check.
 
-MIC=$(printf '')
-MIC_OFF=$(printf '')
-prev_active=false
+MIC=$'' MIC_OFF=$''
 
+# One notice, each replacing the last (-r).
+id=0
+show() { id=$(notify-send -p -r "${id:-0}" -a "" -u "$1" -- "$2"); }
+
+# Is anything recording from a source that is not a monitor?
+mic_in_use() {
+    local idx name rest monitors=' '
+    while IFS=$'\t' read -r idx name rest; do
+        [[ $name == *.monitor ]] && monitors+="$idx "
+    done < <(pactl list sources short)
+    # source-outputs short: index, source index, client, driver, sample spec
+    while IFS=$'\t' read -r idx name rest; do
+        [[ $monitors == *" $name "* ]] || return 0
+    done < <(pactl list source-outputs short)
+    return 1
+}
+
+active=0
+check() {
+    if mic_in_use; then
+        (( active )) || { active=1; show critical "${MIC} Microphone active"; }
+    elif (( active )); then
+        active=0; show normal "${MIC_OFF} Microphone released"
+    fi
+}
+
+check   # already in use when the service starts
 # pactl's stderr is deliberately NOT discarded. It used to be, and that hid the
 # real error on 2026-09-18 when the sandbox made $XDG_RUNTIME_DIR read-only:
 # "Failed to create secure directory (/run/user/1000/pulse)" never reached the
 # journal, so the unit looked like it had simply finished.
-pactl subscribe | while IFS= read -r line; do
-    [[ "$line" == *"on source-output"* ]] || continue
-    count=$(pactl list source-outputs short 2>/dev/null | wc -l)
-    if [ "$count" -gt 0 ] && [ "$prev_active" = false ]; then
-        prev_active=true
-        notify-send -a "" -u critical "${MIC} Microphone active"
-    elif [ "$count" -eq 0 ] && [ "$prev_active" = true ]; then
-        prev_active=false
-        notify-send -a "" -u normal "${MIC_OFF} Microphone released"
-    fi
-done
+while IFS= read -r line; do
+    case $line in
+        "Event 'new' on source-output"*|"Event 'remove' on source-output"*) check ;;
+    esac
+done < <(pactl subscribe)
 
-# There is no normal exit path: `pactl subscribe` runs until killed. Reaching
-# here means it died, so exit non-zero rather than reporting success. Without
-# this the script fell off the end with status 0, which systemd read as a clean
-# finish -- Restart=on-failure did not fire and OnFailure= did not notify.
+# pactl subscribe runs until killed, so reaching here is a failure: exit 1 lets
+# Restart= and OnFailure= fire (see docs/architecture/systemd-services.md).
 exit 1
