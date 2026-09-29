@@ -2,10 +2,11 @@
 
     python3 -B -m unittest discover -s tests -v
 
-dbus-monitor, ip, iwctl, networkctl and notify-send are fakes on a private PATH.
-The fake dbus-monitor replays iwd PropertiesChanged signals (in the format
-dbus-monitor prints them) with pauses in between, then exits, which ends the
-script. The fake notify-send logs its arguments and prints a new id, as `-p` does.
+dbus-monitor, iwctl and notify-send are fakes on a private PATH, and
+/sys/class/net is a fake directory. The fake dbus-monitor logs its match rules and
+replays iwd, networkd and logind signals (in the format dbus-monitor prints them,
+networkd's copied from a real cable plug/unplug) with pauses in between, then
+exits, which ends the script. The fake notify-send logs its arguments and prints a new id, as `-p` does.
 """
 from pathlib import Path
 import subprocess
@@ -35,6 +36,21 @@ def state(value):
 POWERED_OFF = signal("Device", "Powered", "boolean false")
 
 
+def carrier(value):
+    """networkd on the wired link: "carrier" on plug-in, "no-carrier" on unplug."""
+    return ("signal time=1.0 sender=:1.5 -> destination=(null destination) serial=3 "
+            "path=/org/freedesktop/network1/link/_32; interface=org.freedesktop.DBus.Properties; "
+            "member=PropertiesChanged\n"
+            '   string "org.freedesktop.network1.Link"\n'
+            "   array [\n      dict entry(\n"
+            '         string "CarrierState"\n'
+            f'         variant             string "{value}"\n'
+            "      )\n      dict entry(\n"
+            '         string "OperationalState"\n'
+            f'         variant             string "{value}"\n'
+            "      )\n   ]\n   array [\n   ]\n")
+
+
 def sleep_signal(going_to_sleep):
     """logind's PrepareForSleep: true before suspend, false after wake."""
     return ("signal time=1.0 sender=:1.3 -> destination=(null destination) serial=2 "
@@ -54,7 +70,8 @@ class NetNotifyTests(unittest.TestCase):
         # Each event file is replayed in name order; "N.sleep" files pause and
         # "N.ssid" files change the network iwctl reports.
         self.events.mkdir()
-        self.fake("dbus-monitor", 'for f in "$EVENTS"/*; do\n'
+        self.fake("dbus-monitor", 'printf "%s\\n" "$@" > "$LOG.rules"\n'
+                                  'for f in "$EVENTS"/*; do\n'
                                   '  case $f in *.sleep) sleep "$(cat "$f")" ;;\n'
                                   '    *.ssid) cp "$f" "$SSID" ;; *) cat "$f" ;; esac\n'
                                   'done')
@@ -65,12 +82,19 @@ class NetNotifyTests(unittest.TestCase):
                            '  "device list") printf "  wlan0  aa:bb  on  phy0  station\\n" ;;\n'
                            '  "station wlan0 show") printf "  Connected network     %s   \\n" "$(cat "$SSID")" ;;\n'
                            'esac')
-        self.fake("networkctl", 'printf "%s" "$NETWORKCTL"')
-        self.fake("ip", 'printf "%b" "$IP_LINES"; sleep "${IP_LIVES:-60}"')
+        # wlan0 (index 3) and a wired enp1s0f0 (index 2), as on this laptop.
+        self.sysfs = self.root / "net"
+        for name, index, wireless in (("wlan0", 3, True), ("enp1s0f0", 2, False)):
+            d = self.sysfs / name
+            (d / "device").mkdir(parents=True)
+            (d / "type").write_text("1\n")
+            (d / "ifindex").write_text(f"{index}\n")
+            if wireless:
+                (d / "wireless").mkdir()
         # Pinned, not inherited: the fakes shadow the real tools.
         self.env = {"PATH": f"{self.bin}:/usr/bin", "HOME": str(self.root), "LC_ALL": "C.UTF-8",
-                    "LOG": str(self.log), "EVENTS": str(self.events), "NETWORKCTL": "",
-                    "SSID": str(self.root / "ssid")}
+                    "LOG": str(self.log), "EVENTS": str(self.events),
+                    "SSID": str(self.root / "ssid"), "NET_SYSFS": str(self.sysfs)}
         (self.root / "ssid").write_text("Home Net")
         self.n = 0
 
@@ -154,25 +178,25 @@ class NetNotifyTests(unittest.TestCase):
         self.assertIn("-- ", self.notices()[0])
 
     def test_ethernet_notices_replace_each_other(self):
-        link = "2: enp1s0f0: <{}> mtu 1500 state {}\\n"
-        self.play(4)
-        self.run_script(NETWORKCTL="  2 enp1s0f0 ether no-carrier configuring\n",
-                        IP_LINES=link.format("NO-CARRIER,BROADCAST,UP", "DOWN")
-                        + link.format("BROADCAST,UP,LOWER_UP", "UP"), IP_LIVES="2")
+        self.play(carrier("carrier"), 0.2, carrier("no-carrier"))
+        self.run_script()
+        rules = Path(f"{self.log}.rules").read_text()
+        self.assertIn("path='/org/freedesktop/network1/link/_32'", rules)
         notices = self.notices()
         self.assertEqual(len(notices), 2, notices)
-        self.assertIn("-r 0 -a  -u critical -- \U000f0200  Ethernet disconnected", notices[0])
-        self.assertIn("-r 1 -a  -u normal -- \U000f0200  Ethernet connected", notices[1])
+        self.assertIn("-r 0 -a  -u normal -- \U000f0200  Ethernet connected", notices[0])
+        self.assertIn("-r 1 -a  -u critical -- \U000f0200  Ethernet disconnected", notices[1])
 
-    def test_ethernet_watcher_dying_ends_the_script_with_failure(self):
-        # Wifi keeps listening for 15 s; `ip monitor` dies after 1 s.
-        self.play(15)
-        start = time.monotonic()
-        rc = self.run_script(NETWORKCTL="  2 enp1s0f0 ether no-carrier configuring\n",
-                             IP_LINES="", IP_LIVES="1")
-        self.assertEqual(rc, 1)
-        self.assertLess(time.monotonic() - start, 10)
+    def test_no_wired_device_means_no_ethernet_rule(self):
+        import shutil
+        shutil.rmtree(self.sysfs / "enp1s0f0")
+        self.run_script()
+        self.assertNotIn("network1", Path(f"{self.log}.rules").read_text())
 
+    def test_listener_ending_is_a_failure(self):
+        # Under systemd, exit 1 is what makes Restart= and OnFailure= fire.
+        self.play(state("connected"))
+        self.assertEqual(self.run_script(), 1)
 
 if __name__ == "__main__":
     unittest.main()

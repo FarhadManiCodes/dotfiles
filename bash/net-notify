@@ -1,8 +1,9 @@
 #!/bin/bash
-# Network notices: wifi from iwd's D-Bus signals, ethernet from `ip monitor link`.
-# Both are event-driven: the script sleeps until something changes.
+# Network notices from one D-Bus listener: wifi from iwd, ethernet from
+# systemd-networkd, suspend/resume from logind. Event-driven: the script sleeps
+# until a signal arrives.
 
-WIFI=$'\uf1eb' ETH=$'\U000f0200' WARN='⚠'
+WIFI=$'' ETH=$'\U000f0200' WARN='⚠'
 
 # iwctl colours its output even into a pipe.
 wifi_iface() {
@@ -16,8 +17,17 @@ wifi_ssid() {
              sub(/^ *Connected network +/, "") { sub(/ +$/, ""); print; exit }'
 }
 
-eth_iface() {
-    networkctl list --no-legend 2>/dev/null | awk '$3 == "ether" { print $2; exit }'
+# networkd's D-Bus path for the first wired device (index 2 -> link/_32: the
+# leading digit is escaped). From sysfs, because networkctl needs netlink, which
+# the unit's sandbox does not allow.
+eth_path() {
+    local d i
+    for d in "${NET_SYSFS:-/sys/class/net}"/*; do
+        [[ -e $d/device && ! -e $d/wireless && $(<"$d/type") == 1 ]] || continue
+        i=$(<"$d/ifindex")
+        echo "/org/freedesktop/network1/link/_3${i:0:1}${i:1}"
+        return
+    done
 }
 
 # One notice per link, each replacing the last (-r), so mako shows the current state
@@ -29,103 +39,91 @@ show() {
     shown[$1]=$(notify-send -p -r "${shown[$1]:-0}" -a "" -u "$2" -- "$3")
 }
 
-wifi_monitor() {
-    # wifi: "" = connected (or not yet known), pending = dropped around a suspend,
-    # down = reported. iwd drops on every resume and is back in ~2 s (a month of
-    # journal: 104 of 104 during suspend, all but the real outages back within 11 s),
-    # so a drop while asleep or within 10 s of waking is reported only if it lasts
-    # until 10 s after wake. Any other drop is real (27 in that month, mostly 20-90 s)
-    # and reported at once. Failed reconnects repeat "disconnected": one notice each.
-    # A resume that rejoins the same network is silent; a different one is news.
-    local line next_line rc left deadline='' ssid wifi='' asleep=false woke=-100
-    local in_station=false in_device=false last
-    last=$(wifi_ssid "$(wifi_iface)")
-    dbus-monitor --system \
-        "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
-        "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'" \
-        | \
-    while :; do
-        rc=0
-        if [[ $wifi == pending && -n $deadline ]]; then
-            left=$(( deadline - SECONDS ))
-            if (( left > 0 )); then IFS= read -r -t "$left" line || rc=$?; else rc=142; fi
+# wifi: "" = connected (or not yet known), pending = dropped around a suspend,
+# down = reported. iwd drops on every resume and is back in ~2 s (a month of
+# journal: 104 of 104 during suspend, all but the real outages back within 11 s),
+# so a drop while asleep or within 10 s of waking is reported only if it lasts
+# until 10 s after wake. Any other drop is real (27 in that month, mostly 20-90 s)
+# and reported at once. Failed reconnects repeat "disconnected": one notice each.
+# A resume that rejoins the same network is silent; a different one is news.
+wifi='' deadline='' asleep=false woke=-100 eth='' block=''
+wlan=$(wifi_iface)             # looked up again only if iwd had no device yet
+last=$(wifi_ssid "$wlan")
+eth_link=$(eth_path)
+
+rules=("type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'"
+       "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'")
+[[ -n $eth_link ]] &&
+    rules+=("type='signal',interface='org.freedesktop.DBus.Properties',path='$eth_link'")
+
+while :; do
+    rc=0
+    if [[ $wifi == pending && -n $deadline ]]; then
+        left=$(( deadline - SECONDS ))
+        if (( left > 0 )); then IFS= read -r -t "$left" line || rc=$?; else rc=142; fi
+    else
+        IFS= read -r line || rc=$?
+    fi
+    if (( rc > 128 )); then     # read timed out: still down 10 s after wake
+        show wifi critical "${WARN}  WiFi disconnected"
+        wifi=down
+        continue
+    fi
+    (( rc == 0 )) || break      # dbus-monitor exited
+
+    # A signal's header line, then its interface name, then its properties.
+    case $line in
+        signal*member=PrepareForSleep*) block='sleep' ;;
+        signal*)                        block='' ;;
+        *'"net.connman.iwd.Station"'*)  block=station ;;
+        *'"net.connman.iwd.Device"'*)   block=device ;;
+        *'"org.freedesktop.network1.Link"'*) block=eth ;;
+    esac
+
+    if [[ $block == sleep && $line == *boolean* ]]; then
+        if [[ $line == *true* ]]; then
+            asleep=true deadline=''
         else
-            IFS= read -r line || rc=$?
+            asleep=false woke=$SECONDS
+            [[ $wifi == pending ]] && deadline=$(( woke + 10 ))
         fi
-        if (( rc > 128 )); then     # read timed out: still down 10 s after wake
-            show wifi critical "${WARN}  WiFi disconnected"
-            wifi=down
-            continue
-        fi
-        (( rc == 0 )) || break      # dbus-monitor exited
-
-        if [[ "$line" == signal* ]]; then
-            in_station=false; in_device=false
-        fi
-        if [[ "$line" == *"member=PrepareForSleep"* ]]; then
-            read -r next_line
-            if [[ "$next_line" == *true* ]]; then
-                asleep=true deadline=''
+    elif [[ $block == station && $line == *'"State"'* ]]; then
+        read -r line
+        if [[ $line == *'"connected"'* ]]; then
+            [[ -n $wlan ]] || wlan=$(wifi_iface)
+            ssid=$(wifi_ssid "$wlan")
+            if [[ $wifi != pending || $ssid != "$last" ]]; then
+                show wifi normal "${WIFI}  Connected — ${ssid:-WiFi}"
+            fi
+            last=$ssid wifi=''
+        elif [[ $line == *'"disconnected"'* && -z $wifi ]]; then
+            if $asleep; then
+                wifi=pending deadline=''
+            elif (( SECONDS < woke + 10 )); then
+                wifi=pending deadline=$(( woke + 10 ))
             else
-                asleep=false woke=$SECONDS
-                [[ $wifi == pending ]] && deadline=$(( woke + 10 ))
-            fi
-            continue
-        fi
-        if [[ "$line" == *'"net.connman.iwd.Station"'* ]]; then in_station=true; fi
-        if [[ "$line" == *'"net.connman.iwd.Device"'* ]];  then in_device=true;  fi
-
-        if $in_station && [[ "$line" == *'"State"'* ]]; then
-            read -r next_line
-            if [[ "$next_line" == *'"connected"'* ]]; then
-                ssid=$(wifi_ssid "$(wifi_iface)")
-                if [[ $wifi != pending || $ssid != "$last" ]]; then
-                    show wifi normal "${WIFI}  Connected — ${ssid:-WiFi}"
-                fi
-                last=$ssid wifi=
-            elif [[ "$next_line" == *'"disconnected"'* && -z $wifi ]]; then
-                if $asleep; then
-                    wifi=pending deadline=''
-                elif (( SECONDS < woke + 10 )); then
-                    wifi=pending deadline=$(( woke + 10 ))
-                else
-                    show wifi critical "${WARN}  WiFi disconnected"
-                    wifi=down
-                fi
-            fi
-            in_station=false
-        fi
-
-        if $in_device && [[ "$line" == *'"Powered"'* ]]; then
-            read -r next_line
-            if [[ "$next_line" == *"false"* ]]; then
-                show wifi critical "${WARN}  WiFi turned off"
+                show wifi critical "${WARN}  WiFi disconnected"
                 wifi=down
             fi
-            in_device=false
         fi
-    done
-}
-
-eth_monitor() {
-    local iface=$1 prev_eth=unknown
-    ip monitor link | while IFS= read -r line; do
-        [[ "$line" == *"$iface"* ]] || continue
-        if [[ "$line" == *LOWER_UP* ]] && [ "$prev_eth" != up ]; then
-            prev_eth=up
+    elif [[ $block == device && $line == *'"Powered"'* ]]; then
+        read -r line
+        if [[ $line == *false* ]]; then
+            show wifi critical "${WARN}  WiFi turned off"
+            wifi=down
+        fi
+    elif [[ $block == eth && $line == *'"CarrierState"'* ]]; then
+        read -r line        # carrier = cable linked; the address follows a few s later
+        if [[ $line == *'"carrier"'* && $eth != up ]]; then
+            eth=up
             show eth normal "${ETH}  Ethernet connected"
-        elif [[ "$line" == *NO-CARRIER* ]] && [ "$prev_eth" != down ]; then
-            prev_eth=down
+        elif [[ $line == *'"no-carrier"'* && $eth != down ]]; then
+            eth=down
             show eth critical "${ETH}  Ethernet disconnected"
         fi
-    done
-}
+    fi
+done < <(dbus-monitor --system "${rules[@]}")
 
-eth=$(eth_iface)
-if [[ -n $eth ]]; then eth_monitor "$eth" & fi
-wifi_monitor &
-
-# Both watchers run until killed, so either one ending is a failure: exit 1 lets
+# dbus-monitor runs until killed, so reaching here is a failure: exit 1 lets
 # Restart= and OnFailure= fire (see docs/architecture/systemd-services.md).
-wait -n
 exit 1

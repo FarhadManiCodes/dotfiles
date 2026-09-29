@@ -39,13 +39,15 @@ is a real device here. Losing `AF_UNIX` kills every notification; losing `AF_NET
 kills only the ethernet half, silently, while wifi keeps working (proven by A/B). Score
 9.4 → 3.3. Two probe traps: `ss -f netlink -apn | grep pid=<pid>` shows nothing for a
 process that demonstrably holds netlink sockets (match the fd inode against
-`/proc/net/netlink` instead), and `is-active` isn't evidence for this unit — it runs six
-processes, so count `cgroup.procs`.
+`/proc/net/netlink` instead), and `is-active` isn't evidence for this unit — it ran six
+processes, so count `cgroup.procs`. **Since 2026-09-29 it is `AF_UNIX` only**: one
+`dbus-monitor` carries iwd, systemd-networkd's wired `CarrierState` and logind's
+`PrepareForSleep`, so `ip monitor` and its netlink socket are gone (7 processes → 2).
 
 **`mic-notify` and `power-notify` completed the set**, both with trigger-level proof (a
 real capture stream, a real charger unplug/replug). `AF_UNIX` alone for
-`battery-watch`/`mic-notify`, plus `AF_NETLINK` for `net-notify`/`power-notify`
-(`udevadm monitor`). Scores 3.2/3.3. `power-notify`'s charging-complete branch is
+`battery-watch`/`mic-notify`, plus `AF_NETLINK` for `power-notify` (`udevadm monitor`;
+`net-notify` needed it too until 2026-09-29). Scores 3.2/3.3. `power-notify`'s charging-complete branch is
 untested (TLP's 80% cap means `BAT0` never reads that state). `PrivateDevices=yes` is
 safe even for process substitution — systemd's private `/dev` still provides
 `/dev/fd -> /proc/self/fd`, though `man systemd.exec` doesn't say so.
@@ -60,8 +62,8 @@ normal exit path. Verified by killing `pactl`/`udevadm` and watching the units r
 `Failed with result 'exit-code'`, trigger `OnFailure=`, and restart. `Restart=on-failure`
 was always correct; the bug was the exit status. `net-notify` still had a hole: its
 ethernet watcher ran in the background, and killing its `ip monitor` left the unit
-"running" with ethernet notices gone. Since 2026-09-29 both watchers run in the
-background and `wait -n` exits on the first one to die.
+"running" with ethernet notices gone. Since 2026-09-29 it has a single listener, so
+there is no second half left to die.
 
 **`ProtectSystem=strict` mounts `$XDG_RUNTIME_DIR` read-only, and `mic-notify` needed
 `ReadWritePaths=%t`.** Shipped broken 2026-09-18, caught only on the next reboot:
