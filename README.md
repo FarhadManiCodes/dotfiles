@@ -119,6 +119,7 @@ dotfiles/
 ├── foot/foot.ini
 ├── swaylock/config
 ├── mako/config
+├── wireplumber/            # Audio session rules (idle mic closes after 1 s)
 ├── wob/wob.ini             # overlay bar (volume/brightness)
 ├── fuzzel/fuzzel.ini
 ├── environment.d/          # User-service environment: paths, locale, apps, Wayland
