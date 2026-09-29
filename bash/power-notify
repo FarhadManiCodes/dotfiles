@@ -25,6 +25,7 @@ cap_now() { cat /sys/class/power_supply/BAT0/capacity 2>/dev/null; }
 # Seed previous states so the first event after start doesn't fire spuriously.
 prev_ac=$(cat /sys/class/power_supply/AC/online 2>/dev/null)
 prev_status=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null)
+end=$(cat /sys/class/power_supply/BAT0/charge_control_end_threshold 2>/dev/null || echo 100)
 
 name= ; online= ; status= ; cap=
 
@@ -42,7 +43,9 @@ flush() {   # called at each udev event boundary (blank line)
             Charging)
                 notify-send -a "" -u low    "${CHG} Charging started — ${cap:-$(cap_now)}%" ;;
             "Not charging"|Full)
-                [ "$prev_status" = Charging ] && \
+                # "Not charging" also shows for a moment when the cable is re-seated
+                # (seen at 64%); only at the TLP limit does it mean complete.
+                [ "$prev_status" = Charging ] && [ "${cap:-$(cap_now)}" -ge $(( end - 1 )) ] && \
                     notify-send -a "" -u normal "${FULL} Charging complete — ${cap:-$(cap_now)}%" ;;
         esac
         prev_status=$status
