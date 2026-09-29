@@ -43,7 +43,8 @@ process that demonstrably holds netlink sockets (match the fd inode against
 `/proc/net/netlink` instead), and `is-active` isn't evidence for this unit — it ran six
 processes, so count `cgroup.procs`. **Since 2026-09-29 it is `AF_UNIX` only**: one
 `dbus-monitor` carries iwd, systemd-networkd's wired `CarrierState` and logind's
-`PrepareForSleep`, so `ip monitor` and its netlink socket are gone (7 processes → 2).
+`PrepareForSleep`, so `ip monitor` and its netlink socket are gone (7 processes → 2). **The
+same day it became a C program** and `AF_NETLINK` came back, now as its only source.
 
 **`mic-notify` and `power-notify` completed the set**, both with trigger-level proof (a
 real capture stream, a real charger unplug/replug). `AF_UNIX` alone for
@@ -80,6 +81,22 @@ bash. Its sandbox keeps `PrivateDevices=yes` and binds `/dev/snd` back in read-o
 (score 3.2); the bound nodes remain openable, since a user manager doesn't enforce the
 device policy. A SIGTERM from `pkill` is a clean stop to systemd, so test the failure
 path with `systemctl --user kill -s SEGV`, not `pkill`.
+
+**`net-notify` became a C program watching the kernel (2026-09-29).** One route-netlink
+socket reports every link change: the interface's UP flag cleared is "WiFi turned off",
+the operational state UP is "connected" (iwd runs wifi in dormant mode, so UP comes only
+after the WPA handshake, when iwd says connected), anything else is a drop. The network
+name is one nl80211 query after a connect. Suspend needs no logind: `CLOCK_BOOTTIME`
+counts time asleep and `CLOCK_MONOTONIC` does not, and the kernel drops wifi inside its
+suspend step, so the drop is read only after waking, when the clock gap has already
+grown; the 10 s after-wake rule is kept on that basis. All of this was recorded with
+`ip monitor link` and `iw event` across a real suspend, wifi off/on and a manual
+disconnect before the code was written. Only interfaces with a `device` in sysfs count,
+so container and VPN links are ignored. Failed reconnects no longer repeat
+"disconnected": the link never reaches UP, so there is nothing to report until it does.
+The program (the `net-notify` submodule, developed in `~/projects/net-notify`, built by
+`install.sh`) is freestanding C: one process, 20-24 KB, no D-Bus, against 1.16 MB for bash +
+`dbus-monitor` and an `iwctl` + `awk` pair on every connect.
 
 ## Two things that shipped broken
 
