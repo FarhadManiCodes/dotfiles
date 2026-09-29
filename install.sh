@@ -272,6 +272,9 @@ units_to_enable=(
   net-notify.service
   power-notify.service
   swayidle.service
+  # The package's wob units plus our overrides create wobpipe for this session
+  # and start one persistent renderer on the first OSD update.
+  wob.socket
   rclone@gdrive.service
   rclone@Dropbox.service
   # shpool is socket-activated: enabling the socket is enough, and avoids

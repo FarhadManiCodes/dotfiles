@@ -32,13 +32,17 @@ The configuration is organized into these major sections:
 
 4. **Startup Programs** (niri `spawn-at-startup`)
    - swaybg (wallpaper)
-   - wob (on-screen display for volume/brightness via FIFO at $XDG_RUNTIME_DIR/wobpipe)
    - mate-polkit (authentication agent)
    - cliphist daemon (clipboard history)
    - wlsunset (screen temperature adjustment)
    - Note: idle management (swayidle) is **not** spawned here — it runs as a
      systemd user service (`systemd/user/swayidle.service`); rationale is in
      `config.kdl`'s startup comment block.
+   - wob runs through the packaged systemd user `wob.socket` and `wob.service`,
+     with tracked overrides in `systemd/user/wob.{socket,service}.d/`.
+     The graphical session creates `$XDG_RUNTIME_DIR/wobpipe`; the first update
+     starts one persistent renderer using `~/.config/wob/wob.ini`.
+     The separate `wob-control led-sync` startup command still synchronizes mute LEDs.
 
 5. **Window Rules**
    - Firefox picture-in-picture: floating

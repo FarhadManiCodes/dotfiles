@@ -10,6 +10,52 @@ which raises a mako notification *and* appends to
 machine. `notify-failure@.service` has no `OnFailure` of its own, and the script always
 exits 0, so a failing notifier can't loop. Check remotely with `systemctl --user --failed`.
 
+## wob: socket activation in the graphical session
+
+The installed wob package supplies `wob.socket` and `wob.service`; tracked overrides
+in `systemd/user/wob.socket.d/` and `wob.service.d/` keep the existing
+`$XDG_RUNTIME_DIR/wobpipe` interface. Only `wob.socket` is enabled, under
+`graphical-session.target` instead of the package's `sockets.target`. Both units are
+ordered after and part of the graphical session, so they stop with it. The socket
+inherits `SocketMode=0600`, `RemoveOnStop=yes` and `FlushPending=yes` from the package.
+
+The first update from `wob-control` starts `/usr/bin/wob` with socket input; systemd
+holds the FIFO open, so individual writers closing it do not end the renderer.
+One wob process stays resident after first use. Its standard configuration lookup
+finds the live `~/.config/wob/wob.ini` symlink; keybindings, styles and the separate
+Niri `wob-control led-sync` startup command are unchanged. Both units report failures,
+and the service restarts after 5 s on failure. Niri no longer starts a shell and
+`tail -f` pipeline. The installer already maps drop-ins; the only enable-list addition
+is `wob.socket`.
+
+Live migration verified 2026-09-29 without restarting Niri: the socket was listening
+with the service inactive before the first write; the write started exactly one wob
+process. Real volume, brightness, speaker-mute and microphone-mute controls worked,
+with LED state checked and original control settings restored. Narrow screenshots
+confirmed the same 400×24 bar at the top, 50 px margin, blue/yellow/red/green styles,
+and disappearance after the 1000 ms timeout. Successive writes after 2 s idle periods
+and 100 rapid writes, each closing its writer, kept the same PID. SIGKILL produced a
+failure-log entry and a mako notification, restarted the renderer after 5 s, and a
+subsequent write rendered successfully.
+
+Idle PSS snapshots used the `Pss:` line of each process's `/proc/<pid>/smaps_rollup`
+after showing `50 volume` and letting the bar disappear. Immediately before switching,
+the old scope held shell PID 1698 (587 KiB), tail PID 1732 (267 KiB), and wob PID 1733
+(334 KiB): three processes, 1188 KiB total. After recovery, the service cgroup held only
+wob PID 209111 (326 KiB): one process, an observed reduction of 862 KiB. The removed
+helpers accounted for 854 KiB of that snapshot. PSS varies with shared mappings;
+these totals cover the renderer chain, excluding changes to the existing user manager.
+
+Bash syntax, ShellCheck, Niri validation and verification of the merged package units
+and overrides passed. Effective paths, FIFO mode, ordering and restart policy were
+checked after reload. `config-drift` reported zero items needing attention and three
+access exclusions (two unreadable snapper configs and an incomplete root-only directory
+scan). The full repository test suites were not run for this configuration change.
+
+Fresh-login behavior remains untested until the next natural graphical login.
+Then check that the socket is listening and the service inactive before the first
+OSD update, and that the first volume or brightness key starts the renderer.
+
 ## Sandboxing: the notifiers, one pattern
 
 **`battery-watch.service` was the first sandboxed unit** (2026-09-18) and the pattern for
