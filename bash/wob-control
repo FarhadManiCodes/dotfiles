@@ -1,7 +1,10 @@
 #!/bin/bash
-# Volume, brightness and mute keys (niri): show the level on wob's bar (the pipe
-# niri's config starts wob on) and keep the ThinkPad mute LEDs in step.
+# Volume, brightness and mute keys (niri): show the level on wob's bar (the FIFO
+# wob.socket listens on) and keep the ThinkPad mute LEDs in step.
 pipe=$XDG_RUNTIME_DIR/wobpipe
+# Without the socket, `> "$pipe"` would create a plain file there, and wob.socket
+# then fails with "File exists" until it is removed: skip the bar instead.
+[ -p "$pipe" ] || pipe=/dev/null
 sink=@DEFAULT_AUDIO_SINK@ source=@DEFAULT_AUDIO_SOURCE@
 
 muted() { wpctl get-volume "$1" | grep -q MUTED; }
