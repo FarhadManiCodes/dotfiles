@@ -95,7 +95,7 @@ disconnect before the code was written. Only interfaces with a `device` in sysfs
 so container and VPN links are ignored. Failed reconnects no longer repeat
 "disconnected": the link never reaches UP, so there is nothing to report until it does.
 The program (the `net-notify` submodule, developed in `~/projects/net-notify`, built by
-`install.sh`) is freestanding C: one process, 20 KB, no D-Bus, against 1.16 MB for bash +
+`install.sh`) is freestanding C: one process, 20-24 KB, no D-Bus, against 1.16 MB for bash +
 `dbus-monitor` and an `iwctl` + `awk` pair on every connect.
 
 ## Two things that shipped broken
