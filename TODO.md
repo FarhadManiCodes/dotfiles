@@ -19,6 +19,7 @@ Off-machine backup remains deferred.
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
 | 4. Alt+p resolves citations from refinery | Proposed 2026-09-27; after the audit branch merges | User agrees scope; own branch |
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
+| 7. Router drops wifi every ~8 h | Found 2026-09-29 | Check the router's schedule |
 
 ## 1. Off-machine backup
 
@@ -261,3 +262,20 @@ Nothing reads the copy any more: `fbook`/`rgbook` (`zsh/functions/pdf.zsh`, mirr
 whose page labels cannot be used to open physical PDF pages reliably. Run refinery for
 those four when the API cost is acceptable; each finished review copy will then appear in
 `rgbook` without a config change.
+
+## 7. The router drops wifi every ~8 hours
+
+Found while fixing `net-notify` (2026-09-29). Since at least 2026-09-18 the 5 GHz access
+point (BSS `dc:a6:33:87:41:fb`, SSID Vodafone-6139) deauthenticates the laptop at about
+05:10, 13:15 and 21:15, drifting a couple of minutes later each day. Reason 3,
+`DEAUTH_LEAVING`, means the access point itself is going away, not a client problem. The
+first reconnect attempt times out, and wifi is back after 20-90 s, usually ~44 s. That is
+most of the 27 drops logged while the machine was awake that month.
+
+Check the router for a scheduled restart, a WiFi on/off timer, or automatic 5 GHz channel
+changes. It is the router's behaviour, so there is nothing to change on this machine.
+`net-notify` reports these drops as they happen. To see the pattern:
+
+```bash
+journalctl -u iwd --since -7d | grep 'from_ap: true'   # the router's drops; resume drops say false
+```
