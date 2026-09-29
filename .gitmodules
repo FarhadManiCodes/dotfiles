@@ -1,3 +1,6 @@
 [submodule "nvim"]
 	path = nvim
 	url = git@github.com:FarhadManiCodes/nvim-config.git
+[submodule "mic-notify"]
+	path = mic-notify
+	url = git@github.com:FarhadManiCodes/mic-notify.git

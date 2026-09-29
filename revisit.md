@@ -840,3 +840,20 @@ installations that still have it, since removing it from the enable list does no
 - **Decision:** no migration code; it would stay in `install.sh` for a unit that no longer
   exists anywhere.
 - **Recheck:** if the dotfiles start being installed on a second machine.
+
+---
+
+## WirePlumber timeout config "not tracked or mapped" — REJECTED (2026-09-29)
+
+A review of `audit-2026-09` said the WirePlumber rule behind mic-notify's ~1.3 s
+"released" is neither tracked nor installed, and that the live link points into a
+scratch directory.
+
+- **Evidence:** the rule is tracked and mapped on its own branch, as AGENTS.md requires
+  for a new config: `add-wireplumber-config` (6563b81) adds
+  `wireplumber/wireplumber.conf.d/51-mic-suspend.conf` and its line in `install.sh`'s
+  config list. The review looked at `audit-2026-09` only. The scratch link was the live
+  test of that branch's worktree, to be re-pointed at `~/dotfiles` after the merge.
+- **Decision:** no change; merge `add-wireplumber-config` together with the mic-notify
+  work, since the docs on `audit-2026-09` refer to its file.
+- **Recheck:** if `audit-2026-09` is ever merged without `add-wireplumber-config`.

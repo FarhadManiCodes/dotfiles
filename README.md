@@ -86,6 +86,7 @@ dotfiles/
 ├── docs/                   # architecture.md, system-notes.md — detailed reference
 │
 ├── nvim/                   # Neovim config (git submodule → FarhadManiCodes/nvim-config)
+├── mic-notify/             # Microphone notifier in C (git submodule → FarhadManiCodes/mic-notify)
 ├── vim/                    # Vim config (lightweight editing)
 │   ├── vimrc
 │   └── config/             # basic, plugins, mappings, autocmds, languages
