@@ -8,6 +8,15 @@
 # stops at its limit. The level is not: 40 min on battery, zero events. So the
 # level is read on a timer, and only while unplugged.
 
+# Settings. The charge limit (81% here) is not one: it is read from TLP's
+# charge_control_end_threshold, so it follows the TLP config.
+LOW_AT=30 CRITICAL_AT=10 DANGER_AT=5   # alert levels, %
+ASSUMED_W=30      # drain the level timer plans for; full CPU load on battery
+                  # measured 35.4 W (TLP low-power, no boost), rarely sustained
+MAX_WAIT=1200     # s between level checks at most: timers don't count suspend,
+                  # and waking up sends no event
+PLUG_WINDOW=5     # s: "Charging" this soon after plug-in updates the plug notice
+
 PLUG=$'\U000f06a5' CHG=$'\U000f0084' FULL=$'\U000f0079'
 LOW=$'\U000f007b' CRIT=$'\U000f0083' DANG=$'\U000f008e'
 sys=${POWER_SYSFS:-/sys/class/power_supply}
@@ -29,29 +38,32 @@ read -r ac < "$sys/AC/online"
 read -r bstat < "$sys/BAT0/status"
 read -r end < "$sys/BAT0/charge_control_end_threshold" 2>/dev/null || end=100
 
-# Seconds per 1% of battery at a 30 W drain. Full CPU load on battery measured
-# 35.4 W (TLP low-power, no boost); 30 W is the chosen middle ground, since the
-# laptop rarely runs flat out. batsignal's `-m 300` assumed 9 W (300 s per 1%)
-# and at 81% waited 4.25 h, longer than the battery lasts at full load.
+# Seconds per 1% of battery at ASSUMED_W (energy_full is in µWh). batsignal's
+# `-m 300` assumed 9 W (300 s per 1%) and at 81% waited 4.25 h, longer than the
+# battery lasts at full load.
 read -r energy_full < "$sys/BAT0/energy_full"
-spp=$(( energy_full * 3600 / (100 * 30000000) ))
+spp=$(( energy_full * 3600 / (100 * ASSUMED_W * 1000000) ))
 (( spp > 0 )) || spp=1
 
 # alerted: the lowest level already announced this discharge (100 = none yet).
 # due: when to read the level next ($SECONDS). The wait is the time to the next
-# alert level at 30 W, plus 1% so it lands just past it; at most 20 min, because
-# a timer does not count suspend and waking up sends no event.
+# alert level at ASSUMED_W, plus 1% so it lands just past it; at most MAX_WAIT.
 alerted=100 due=0 plugged=-100
 check_level() {
     local cap next=0 t
-    read -r cap < "$sys/BAT0/capacity" || { due=$(( SECONDS + 1200 )); return; }
-    if   (( cap <= 5  && alerted > 5  )); then alerted=5;  show critical "${DANG}  Battery danger — ${cap}%, PLUG IN NOW!"
-    elif (( cap <= 10 && alerted > 10 )); then alerted=10; show critical "${CRIT}  Battery critical — ${cap}%"
-    elif (( cap <= 30 && alerted > 30 )); then alerted=30; show normal "${LOW}  Battery low — ${cap}%"
+    read -r cap < "$sys/BAT0/capacity" || { due=$(( SECONDS + MAX_WAIT )); return; }
+    if (( cap <= DANGER_AT && alerted > DANGER_AT )); then
+        alerted=$DANGER_AT; show critical "${DANG}  Battery danger — ${cap}%, PLUG IN NOW!"
+    elif (( cap <= CRITICAL_AT && alerted > CRITICAL_AT )); then
+        alerted=$CRITICAL_AT; show critical "${CRIT}  Battery critical — ${cap}%"
+    elif (( cap <= LOW_AT && alerted > LOW_AT )); then
+        alerted=$LOW_AT; show normal "${LOW}  Battery low — ${cap}%"
     fi
-    for t in 30 10 5; do (( t < alerted && t < cap )) && { next=$t; break; }; done
-    t=$(( next ? (cap - next + 1) * spp : 1200 ))
-    due=$(( SECONDS + (t < 1200 ? t : 1200) ))
+    for t in "$LOW_AT" "$CRITICAL_AT" "$DANGER_AT"; do
+        (( t < alerted && t < cap )) && { next=$t; break; }
+    done
+    t=$(( next ? (cap - next + 1) * spp : MAX_WAIT ))
+    due=$(( SECONDS + (t < MAX_WAIT ? t : MAX_WAIT) ))
 }
 
 name='' online='' status='' cap=''
@@ -69,7 +81,7 @@ flush() {   # at each udev event boundary (blank line)
     elif [[ $name == BAT0 && -n $status && $status != "$bstat" ]]; then
         case $status in
             Charging)
-                if (( SECONDS - plugged <= 5 )); then
+                if (( SECONDS - plugged <= PLUG_WINDOW )); then
                     show normal "${PLUG}  Plugged in — ${cap}%, charging"
                 else
                     show low "${CHG}  Charging — ${cap}%"
