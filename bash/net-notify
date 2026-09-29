@@ -30,30 +30,45 @@ show() {
 }
 
 wifi_monitor() {
-    # wifi: "" = connected (or not yet known), pending = dropped less than 10 s ago,
-    # down = reported down. Every resume drops and is back in ~2 s, and each failed
-    # reconnect says "disconnected" again, so only a drop that lasts gets a notice.
-    local line next_line rc left deadline ssid wifi='' in_station=false in_device=false
+    # wifi: "" = connected (or not yet known), pending = dropped around a suspend,
+    # down = reported. iwd drops on every resume and is back in ~2 s (a month of
+    # journal: 104 of 104 during suspend, all but the real outages back within 11 s),
+    # so a drop while asleep or within 10 s of waking is reported only if it lasts
+    # until 10 s after wake. Any other drop is real (27 in that month, mostly 20-90 s)
+    # and reported at once. Failed reconnects repeat "disconnected": one notice each.
+    local line next_line rc left deadline='' ssid wifi='' asleep=false woke=-100
+    local in_station=false in_device=false
     dbus-monitor --system \
         "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
+        "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'" \
         | \
     while :; do
         rc=0
-        if [[ $wifi == pending ]]; then
+        if [[ $wifi == pending && -n $deadline ]]; then
             left=$(( deadline - SECONDS ))
             if (( left > 0 )); then IFS= read -r -t "$left" line || rc=$?; else rc=142; fi
         else
             IFS= read -r line || rc=$?
         fi
-        if (( rc > 128 )); then     # read timed out: still down after 10 s
+        if (( rc > 128 )); then     # read timed out: still down 10 s after wake
             show wifi critical "${WARN}  WiFi disconnected"
             wifi=down
             continue
         fi
         (( rc == 0 )) || break      # dbus-monitor exited
 
-        if [[ "$line" == *"member=PropertiesChanged"* ]]; then
+        if [[ "$line" == signal* ]]; then
             in_station=false; in_device=false
+        fi
+        if [[ "$line" == *"member=PrepareForSleep"* ]]; then
+            read -r next_line
+            if [[ "$next_line" == *true* ]]; then
+                asleep=true deadline=''
+            else
+                asleep=false woke=$SECONDS
+                [[ $wifi == pending ]] && deadline=$(( woke + 10 ))
+            fi
+            continue
         fi
         if [[ "$line" == *'"net.connman.iwd.Station"'* ]]; then in_station=true; fi
         if [[ "$line" == *'"net.connman.iwd.Device"'* ]];  then in_device=true;  fi
@@ -67,7 +82,14 @@ wifi_monitor() {
                 fi
                 wifi=
             elif [[ "$next_line" == *'"disconnected"'* && -z $wifi ]]; then
-                wifi=pending deadline=$(( SECONDS + 10 ))
+                if $asleep; then
+                    wifi=pending deadline=''
+                elif (( SECONDS < woke + 10 )); then
+                    wifi=pending deadline=$(( woke + 10 ))
+                else
+                    show wifi critical "${WARN}  WiFi disconnected"
+                    wifi=down
+                fi
             fi
             in_station=false
         fi

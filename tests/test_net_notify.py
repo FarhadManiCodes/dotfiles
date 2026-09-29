@@ -35,6 +35,13 @@ def state(value):
 POWERED_OFF = signal("Device", "Powered", "boolean false")
 
 
+def sleep_signal(going_to_sleep):
+    """logind's PrepareForSleep: true before suspend, false after wake."""
+    return ("signal time=1.0 sender=:1.3 -> destination=(null destination) serial=2 "
+            "path=/org/freedesktop/login1; interface=org.freedesktop.login1.Manager; "
+            f"member=PrepareForSleep\n   boolean {str(going_to_sleep).lower()}\n")
+
+
 class NetNotifyTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix="net-notify-test-")
@@ -50,7 +57,8 @@ class NetNotifyTests(unittest.TestCase):
                                   '  case $f in *.sleep) sleep "$(cat "$f")" ;; *) cat "$f" ;; esac\n'
                                   'done')
         self.fake("notify-send", 'n=$(( $(cat "$LOG.id" 2>/dev/null || echo 0) + 1 ))\n'
-                                 'echo "$n" > "$LOG.id"; echo "notify $*" >> "$LOG"; echo "$n"')
+                                 'echo "$n" > "$LOG.id"; echo "notify $*" >> "$LOG"; echo "$n"\n'
+                                 'date +%s.%N >> "$LOG.time"')
         self.fake("iwctl", 'case $* in\n'
                            '  "device list") printf "  wlan0  aa:bb  on  phy0  station\\n" ;;\n'
                            '  "station wlan0 show") printf "  Connected network     Home Net   \\n" ;;\n'
@@ -87,31 +95,40 @@ class NetNotifyTests(unittest.TestCase):
         return self.log.read_text().splitlines() if self.log.exists() else []
 
     def test_resume_blip_says_nothing(self):
-        # Every resume: disconnected, then connected again ~2 s later.
-        self.play(state("disconnected"), 2, state("connecting"), state("connected"))
+        # Order seen at every resume: sleep, iwd drops, wake, back ~2 s later.
+        self.play(sleep_signal(True), state("disconnected"), sleep_signal(False), 2,
+                  state("connecting"), state("connected"))
         self.run_script()
         self.assertEqual(self.notices(), [])
 
-    def test_a_drop_that_lasts_gives_one_notice_then_connected(self):
-        # Failed reconnect attempts report "disconnected" again and again.
-        self.play(state("disconnected"), 4, state("disconnected"), 4, state("disconnected"),
-                  4, state("connected"))
+    def test_still_down_10s_after_wake_gives_one_notice_then_connected(self):
+        self.play(sleep_signal(True), state("disconnected"), sleep_signal(False), 5,
+                  state("disconnected"), 6, state("connected"))
         self.run_script()
         notices = self.notices()
         self.assertEqual(len(notices), 2, notices)
-        self.assertIn("-u critical", notices[0])
-        self.assertIn("WiFi disconnected", notices[0])
-        self.assertIn("Connected — Home Net", notices[1])
+        self.assertIn("-r 0 -a  -u critical -- ⚠  WiFi disconnected", notices[0])
         # "Connected" takes the sticky notice's place (fake ids count from 1).
-        self.assertIn("-r 0 ", notices[0])
         self.assertIn("-r 1 ", notices[1])
+        self.assertIn("Connected — Home Net", notices[1])
 
-    def test_turning_wifi_off_gives_only_that_notice(self):
-        self.play(state("disconnected"), POWERED_OFF, 11)
+    def test_drop_while_awake_is_reported_at_once_and_once(self):
+        # Failed reconnect attempts report "disconnected" again and again.
+        self.play(state("disconnected"), state("disconnected"), 3, state("disconnected"))
+        start = time.time()
         self.run_script()
         notices = self.notices()
         self.assertEqual(len(notices), 1, notices)
-        self.assertIn("WiFi turned off", notices[0])
+        self.assertIn("WiFi disconnected", notices[0])
+        sent = float(Path(f"{self.log}.time").read_text().split()[0])
+        self.assertLess(sent - start, 2)
+
+    def test_turning_wifi_off_replaces_the_disconnect_notice(self):
+        self.play(state("disconnected"), POWERED_OFF)
+        self.run_script()
+        notices = self.notices()
+        self.assertEqual(len(notices), 2, notices)
+        self.assertIn("-r 1 -a  -u critical -- ⚠  WiFi turned off", notices[1])
 
     def test_hostile_ssid_is_text_not_an_option(self):
         self.fake("iwctl", 'case $* in\n'
