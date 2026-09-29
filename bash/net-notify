@@ -14,7 +14,15 @@ eth_iface() {
     networkctl list --no-legend 2>/dev/null | awk '$3 == "ether" {print $2}' | head -1
 }
 
-# Every notify-send below passes `--` before the summary. The SSID is broadcast
+# One notice per link, each replacing the last (-r), so mako shows the current state
+# rather than a history. A dismissed id just gets a new notice.
+#   show wifi|eth <urgency> <text>
+declare -A shown
+show() {
+    shown[$1]=$(notify-send -p -r "${shown[$1]:-0}" -a "" -u "$2" -- "$3")
+}
+
+# The notify-send in show() passes `--` before the summary. The SSID is broadcast
 # by whatever access point is nearby, so it is hostile input, and notify-send
 # parses options anywhere in its argv: an AP named `--hint=string:image-path:...`
 # would otherwise be read as flags rather than text. Verified both ways --
@@ -41,7 +49,7 @@ wifi_monitor() {
             IFS= read -r line || rc=$?
         fi
         if (( rc > 128 )); then     # read timed out: still down after 10 s
-            notify-send -a "" -u critical -- "${WARN}  WiFi disconnected"
+            show wifi critical "${WARN}  WiFi disconnected"
             wifi=down
             continue
         fi
@@ -59,7 +67,7 @@ wifi_monitor() {
                 if [[ $wifi != pending ]]; then
                     iface=$(wifi_iface)
                     ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
-                    notify-send -a "" -u normal -- "${WIFI}  Connected — ${ssid:-WiFi}"
+                    show wifi normal "${WIFI}  Connected — ${ssid:-WiFi}"
                 fi
                 wifi=
             elif [[ "$next_line" == *'"disconnected"'* && -z $wifi ]]; then
@@ -71,7 +79,7 @@ wifi_monitor() {
         if $in_device && [[ "$line" == *'"Powered"'* ]]; then
             read -r next_line
             if [[ "$next_line" == *"false"* ]]; then
-                notify-send -a "" -u critical -- "${WARN}  WiFi turned off"
+                show wifi critical "${WARN}  WiFi turned off"
                 wifi=down
             fi
             in_device=false
@@ -85,10 +93,10 @@ eth_monitor() {
         [[ "$line" == *"$iface"* ]] || continue
         if [[ "$line" == *LOWER_UP* ]] && [ "$prev_eth" != up ]; then
             prev_eth=up
-            notify-send -a "" -u normal -- "${ETH}  Ethernet connected"
+            show eth normal "${ETH}  Ethernet connected"
         elif [[ "$line" == *NO-CARRIER* ]] && [ "$prev_eth" != down ]; then
             prev_eth=down
-            notify-send -a "" -u critical -- "${ETH}  Ethernet disconnected"
+            show eth critical "${ETH}  Ethernet disconnected"
         fi
     done
 }
