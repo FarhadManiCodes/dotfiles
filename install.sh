@@ -117,6 +117,7 @@ simple_configs=(
   # comments in the file itself.
   neocmakelsp/config.toml
   mako/config
+  wireplumber/wireplumber.conf.d/51-mic-suspend.conf
   vifm/vifmrc
   vifm/colors/catppuccin-mocha.vifm
   vifm/colors/zenburn-rich.vifm
