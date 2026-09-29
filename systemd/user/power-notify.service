@@ -1,5 +1,5 @@
 [Unit]
-Description=Battery charger plug/unplug notifications
+Description=Power notifications: charger, charge state and battery level
 After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
@@ -8,7 +8,7 @@ ExecStart=%h/.local/bin/power-notify
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing, same profile as battery-watch.service. Measured before writing
+# Sandboxing, the notifier profile (docs/architecture/systemd-services.md). Measured
 # this: 2 processes (bash, udevadm monitor), no writes to disk, no device access
 # beyond /dev/null.
 NoNewPrivileges=yes

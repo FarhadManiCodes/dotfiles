@@ -8,7 +8,7 @@ ExecStart=%h/.local/bin/net-notify
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing, same profile as battery-watch.service except the address families.
+# Sandboxing, same profile as power-notify.service except the address families.
 # This unit is the reason the series exists: it parses SSIDs broadcast by nearby
 # access points, so hostile input reaches a bash script. The sandbox does not make
 # that parsing safe -- it decides what a parse bug could reach.

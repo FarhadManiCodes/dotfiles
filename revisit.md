@@ -561,7 +561,9 @@ activity. These five looked stale; none warranted a change once checked individu
   Backs the bootloader and the USB mounting already in `docs/architecture/usb-media.md`.
 - **batsignal** — quiet since 2024-06, but the obvious alternative `poweralertd` is worse
   on every axis checked (less active upstream, 17 vs 233 stars, needs `upower` as an extra
-  daemon). Kept.
+  daemon). Kept. **Superseded 2026-09-29:** replaced by `power-notify`'s own level check,
+  not by another package — batsignal's `-m 300` assumed a ≤ 9 W drain and would miss every
+  alert under load (see `docs/architecture/systemd-services.md`).
 - **brightnessctl** — last pushed 2024-12 but the de facto Wayland standard; `light` isn't
   meaningfully better maintained and would just be a config rewrite for no gain.
 - **wlsunset** — upstream moved to sourcehut (not `emersion`, corrected during the check),
@@ -666,7 +668,7 @@ breaking a cloud mount.
   attacker-broadcast SSIDs in bash; rclone is a maintained Go binary, not hostile-input
   shell code.
 - **If ever attempted:** design a bespoke profile from a measured inventory, don't copy
-  `battery-watch.service`. `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality`,
+  `power-notify.service` (battery-watch's profile). `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality`,
   `UMask=0077` would transfer cheaply.
 - **Still easy, low value:** `notify-failure@.service` only needs
   `ReadWritePaths=%h/.local/state/service-failures` — though breaking the failure notifier
@@ -803,3 +805,38 @@ inputs, so the `.monitor_source == ""` filter would hide every microphone.
 - **Decision:** keep the real environment and Niri's default logging. Do not set a
   dummy `DISPLAY` or disable `--session` to hide one notice. Recheck the notice after a
   Niri update that changes the import list.
+
+---
+
+## `power-notify` misses alerts after an unplug during suspend — REJECTED (2026-09-29)
+
+A review claimed that unplugging the charger while suspended produces no AC event on
+resume, so `power-notify` would stay in plugged-in mode, never start the level timer and
+miss every battery alert. It proposed re-reading the AC state periodically while plugged in.
+
+- **Evidence:** the charger is driven by the kernel's ACPI `ac` driver, whose
+  `acpi_ac_resume()` re-reads the state on wake and calls `power_supply_changed()` when it
+  differs. Tested on this machine: suspended while plugged in at 15:48:48, charger pulled
+  while asleep, resume at 15:49:07.10; udev delivered `AC ONLINE=0` and `BAT0 Discharging`
+  at 15:49:07 and mako showed "Unplugged — 81%" from `power-notify`.
+- **Decision:** no periodic AC check. It would put a timer back on the plugged-in states,
+  which are deliberately event-only.
+- **Recheck:** if a kernel or firmware change stops the resume event (a suspend-unplug-wake
+  without an "Unplugged" notice), or if `acpi_ac_get_state()` errors at resume, which makes
+  the driver skip the event.
+
+---
+
+## No `install.sh` migration for the removed `battery-watch` — REJECTED (2026-09-29)
+
+A review asked for `install.sh` to stop, disable and unlink `battery-watch.service` on
+installations that still have it, since removing it from the enable list does not.
+
+- **Evidence:** these dotfiles run on this machine only (user, 2026-09-29), where the unit
+  was disabled and its three links removed in the same change (b712cc3). The previous unit
+  removal, `study-library-sync` (0caac98), was handled the same way, by hand, without
+  migration code. `config-drift`'s symlink check flags any dangling link under
+  `~/.config` and `~/.local/bin`, including a leftover `*.target.wants/` entry.
+- **Decision:** no migration code; it would stay in `install.sh` for a unit that no longer
+  exists anywhere.
+- **Recheck:** if the dotfiles start being installed on a second machine.

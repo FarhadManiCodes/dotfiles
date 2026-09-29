@@ -10,10 +10,10 @@ which raises a mako notification *and* appends to
 machine. `notify-failure@.service` has no `OnFailure` of its own, and the script always
 exits 0, so a failing notifier can't loop. Check remotely with `systemctl --user --failed`.
 
-## Sandboxing: four notifiers, one pattern
+## Sandboxing: the notifiers, one pattern
 
-**`battery-watch.service` is the first sandboxed unit** (2026-09-18) and the pattern for
-the rest. Its profile came from a measured inventory, not a template: `/proc/<pid>/fd`
+**`battery-watch.service` was the first sandboxed unit** (2026-09-18) and the pattern for
+the rest; it was merged into `power-notify` on 2026-09-29 (below), which keeps the profile. Its profile came from a measured inventory, not a template: `/proc/<pid>/fd`
 showed only `/dev/null`, the journald sockets and one session D-Bus socket — no network,
 no disk writes. Denying everything else took it from 9.4 UNSAFE to 3.2 OK on
 `systemd-analyze security --user`.
@@ -26,7 +26,7 @@ the service without failing it, the worst outcome for a battery warning), and
 user service has no effective capabilities and `NoNewPrivileges` blocks acquiring any,
 the same reasoning `containers/pg.container` uses for `DropCapability`.
 
-**Do not use `batsignal -o` to test this.** It looks like the obvious harness and isn't:
+**Did not use `batsignal -o` to test this** (batsignal is gone since 2026-09-29). It looks like the obvious harness and isn't:
 it hangs instead of exiting, with or without the sandbox (verified by A/B), and rejects
 `-d` above `-c` outright. Test the *mechanism* instead: a transient `systemd-run --user`
 carrying the same properties running `sh -c 'notify-send …'` proves fork+exec+D-Bus
@@ -47,10 +47,21 @@ processes, so count `cgroup.procs`. **Since 2026-09-29 it is `AF_UNIX` only**: o
 **`mic-notify` and `power-notify` completed the set**, both with trigger-level proof (a
 real capture stream, a real charger unplug/replug). `AF_UNIX` alone for
 `battery-watch`/`mic-notify`, plus `AF_NETLINK` for `power-notify` (`udevadm monitor`;
-`net-notify` needed it too until 2026-09-29). Scores 3.2/3.3. `power-notify`'s charging-complete branch is
-untested (TLP's 80% cap means `BAT0` never reads that state). `PrivateDevices=yes` is
+`net-notify` needed it too until 2026-09-29). Scores 3.2/3.3. `PrivateDevices=yes` is
 safe even for process substitution — systemd's private `/dev` still provides
 `/dev/fd -> /proc/self/fd`, though `man systemd.exec` doesn't say so.
+
+**`power-notify` absorbed `battery-watch` (2026-09-29).** Measured with a udev recorder
+on a real unplug, suspend, cable re-seat and charge to the limit: plug/unplug and `BAT0`
+status changes are events, including `Not charging` + `CAPACITY=81` when TLP stops at
+its limit; the battery level is not (40 min on battery, zero events), and resume sends
+none either. batsignal's `-m 300` turned out to be a multiplier (wait = (level − next
+alert) × 300 s, i.e. it assumes ≤ 9 W): at 81% it waited 4.25 h, while full CPU load on
+battery measures 35.4 W and empties it in 1.8 h. `power-notify` now reads the level only
+while unplugged, waiting the time to the next alert at an assumed 30 W (+1%), capped at
+20 min because timers don't count suspend. The same test found the old charging-complete
+rule firing at 64% when the cable was re-seated (BAT0 says `Not charging` for a moment);
+"complete" now also requires the capacity to be at `charge_control_end_threshold` − 1.
 
 ## Two things that shipped broken
 
