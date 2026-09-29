@@ -561,7 +561,9 @@ activity. These five looked stale; none warranted a change once checked individu
   Backs the bootloader and the USB mounting already in `docs/architecture/usb-media.md`.
 - **batsignal** — quiet since 2024-06, but the obvious alternative `poweralertd` is worse
   on every axis checked (less active upstream, 17 vs 233 stars, needs `upower` as an extra
-  daemon). Kept.
+  daemon). Kept. **Superseded 2026-09-29:** replaced by `power-notify`'s own level check,
+  not by another package — batsignal's `-m 300` assumed a ≤ 9 W drain and would miss every
+  alert under load (see `docs/architecture/systemd-services.md`).
 - **brightnessctl** — last pushed 2024-12 but the de facto Wayland standard; `light` isn't
   meaningfully better maintained and would just be a config rewrite for no gain.
 - **wlsunset** — upstream moved to sourcehut (not `emersion`, corrected during the check),
@@ -666,7 +668,7 @@ breaking a cloud mount.
   attacker-broadcast SSIDs in bash; rclone is a maintained Go binary, not hostile-input
   shell code.
 - **If ever attempted:** design a bespoke profile from a measured inventory, don't copy
-  `battery-watch.service`. `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality`,
+  `power-notify.service` (battery-watch's profile). `NoNewPrivileges`, `RestrictRealtime`, `LockPersonality`,
   `UMask=0077` would transfer cheaply.
 - **Still easy, low value:** `notify-failure@.service` only needs
   `ReadWritePaths=%h/.local/state/service-failures` — though breaking the failure notifier
