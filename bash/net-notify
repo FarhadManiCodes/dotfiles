@@ -1,42 +1,39 @@
 #!/bin/bash
-# Network notifications: WiFi via iwd D-Bus (event-based), Ethernet via ip monitor (event-based).
-# Interface names are discovered dynamically at runtime.
+# Network notices: wifi from iwd's D-Bus signals, ethernet from `ip monitor link`.
+# Both are event-driven: the script sleeps until something changes.
 
-WIFI=$(printf '')
-ETH=$(printf '\U000f0200')
-WARN='⚠'
+WIFI=$'\uf1eb' ETH=$'\U000f0200' WARN='⚠'
 
+# iwctl colours its output even into a pipe.
 wifi_iface() {
-    iwctl device list 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | awk '/station/{print $1}' | head -1
+    iwctl device list 2>/dev/null |
+        awk '{ gsub(/\033\[[0-9;]*[mGKH]/, "") } /station/ { print $1; exit }'
+}
+
+wifi_ssid() {
+    iwctl station "$1" show 2>/dev/null |
+        awk '{ gsub(/\033\[[0-9;]*[mGKH]/, "") }
+             sub(/^ *Connected network +/, "") { sub(/ +$/, ""); print; exit }'
 }
 
 eth_iface() {
-    networkctl list --no-legend 2>/dev/null | awk '$3 == "ether" {print $2}' | head -1
+    networkctl list --no-legend 2>/dev/null | awk '$3 == "ether" { print $2; exit }'
 }
 
 # One notice per link, each replacing the last (-r), so mako shows the current state
-# rather than a history. A dismissed id just gets a new notice.
-#   show wifi|eth <urgency> <text>
+# rather than a history. A dismissed id just gets a new notice. `--` because the
+# SSID is broadcast by any nearby access point: notify-send would parse "--hint=..."
+# anywhere in its argv as an option.   show wifi|eth <urgency> <text>
 declare -A shown
 show() {
     shown[$1]=$(notify-send -p -r "${shown[$1]:-0}" -a "" -u "$2" -- "$3")
 }
 
-# The notify-send in show() passes `--` before the summary. The SSID is broadcast
-# by whatever access point is nearby, so it is hostile input, and notify-send
-# parses options anywhere in its argv: an AP named `--hint=string:image-path:...`
-# would otherwise be read as flags rather than text. Verified both ways --
-# without `--` a leading-dash summary produces "No summary specified"; with it,
-# the same string arrives as literal text.
-#
-# Today the glyph happens to come first, so the SSID never leads the argument
-# and the hole is not reachable. That is an accident of the format string, not a
-# property of the code -- reorder it and the hole opens. `--` makes it structural.
 wifi_monitor() {
     # wifi: "" = connected (or not yet known), pending = dropped less than 10 s ago,
     # down = reported down. Every resume drops and is back in ~2 s, and each failed
     # reconnect says "disconnected" again, so only a drop that lasts gets a notice.
-    local line next_line rc left deadline wifi='' in_station=false in_device=false
+    local line next_line rc left deadline ssid wifi='' in_station=false in_device=false
     dbus-monitor --system \
         "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
         | \
@@ -65,8 +62,7 @@ wifi_monitor() {
             read -r next_line
             if [[ "$next_line" == *'"connected"'* ]]; then
                 if [[ $wifi != pending ]]; then
-                    iface=$(wifi_iface)
-                    ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
+                    ssid=$(wifi_ssid "$(wifi_iface)")
                     show wifi normal "${WIFI}  Connected — ${ssid:-WiFi}"
                 fi
                 wifi=
@@ -105,10 +101,7 @@ eth=$(eth_iface)
 if [[ -n $eth ]]; then eth_monitor "$eth" & fi
 wifi_monitor &
 
-# There is no normal exit path: both watchers block until killed. Reaching here
-# means one of them died (a background half used to die unnoticed), so exit
-# non-zero: status 0 would read as a clean finish, and neither Restart=on-failure
-# nor OnFailure= would fire. Same defect that hid the mic-notify breakage on
-# 2026-09-18. dbus-monitor's stderr is deliberately not discarded, for the same reason.
+# Both watchers run until killed, so either one ending is a failure: exit 1 lets
+# Restart= and OnFailure= fire (see docs/architecture/systemd-services.md).
 wait -n
 exit 1
