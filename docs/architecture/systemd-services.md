@@ -13,7 +13,8 @@ exits 0, so a failing notifier can't loop. Check remotely with `systemctl --user
 ## Sandboxing: the notifiers, one pattern
 
 **`battery-watch.service` was the first sandboxed unit** (2026-09-18) and the pattern for
-the rest; it was merged into `power-notify` on 2026-09-29 (below), which keeps the profile. Its profile came from a measured inventory, not a template: `/proc/<pid>/fd`
+the rest; it was merged into `power-notify` on 2026-09-29 (below), whose unit has the same profile plus
+`AF_NETLINK` for `udevadm`. Its profile came from a measured inventory, not a template: `/proc/<pid>/fd`
 showed only `/dev/null`, the journald sockets and one session D-Bus socket — no network,
 no disk writes. Denying everything else took it from 9.4 UNSAFE to 3.2 OK on
 `systemd-analyze security --user`.
@@ -26,7 +27,7 @@ the service without failing it, the worst outcome for a battery warning), and
 user service has no effective capabilities and `NoNewPrivileges` blocks acquiring any,
 the same reasoning `containers/pg.container` uses for `DropCapability`.
 
-**Did not use `batsignal -o` to test this** (batsignal is gone since 2026-09-29). It looks like the obvious harness and isn't:
+**`batsignal -o` was not usable to test this** (batsignal is gone since 2026-09-29). It looked like the obvious harness and wasn't:
 it hangs instead of exiting, with or without the sandbox (verified by A/B), and rejects
 `-d` above `-c` outright. Test the *mechanism* instead: a transient `systemd-run --user`
 carrying the same properties running `sh -c 'notify-send …'` proves fork+exec+D-Bus
