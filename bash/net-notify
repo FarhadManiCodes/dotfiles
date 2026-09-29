@@ -57,9 +57,7 @@ wifi_monitor() {
 }
 
 eth_monitor() {
-    local iface prev_eth=unknown
-    iface=$(eth_iface)
-    [ -z "$iface" ] && return
+    local iface=$1 prev_eth=unknown
     ip monitor link | while IFS= read -r line; do
         [[ "$line" == *"$iface"* ]] || continue
         if [[ "$line" == *LOWER_UP* ]] && [ "$prev_eth" != up ]; then
@@ -72,13 +70,14 @@ eth_monitor() {
     done
 }
 
-eth_monitor &
-wifi_monitor
+eth=$(eth_iface)
+if [[ -n $eth ]]; then eth_monitor "$eth" & fi
+wifi_monitor &
 
-# There is no normal exit path: wifi_monitor blocks on dbus-monitor until killed.
-# Reaching here means that monitor died, so exit non-zero. Without this the script
-# fell off the end with status 0, which systemd reads as a clean finish --
-# Restart=on-failure would not fire and OnFailure= would not notify, leaving the
-# service silently dead. Same defect that hid the mic-notify breakage on
+# There is no normal exit path: both watchers block until killed. Reaching here
+# means one of them died (a background half used to die unnoticed), so exit
+# non-zero: status 0 would read as a clean finish, and neither Restart=on-failure
+# nor OnFailure= would fire. Same defect that hid the mic-notify breakage on
 # 2026-09-18. dbus-monitor's stderr is deliberately not discarded, for the same reason.
+wait -n
 exit 1

@@ -58,7 +58,10 @@ the end with status 0, and systemd read it as a clean finish — no restart, no
 `bash/net-notify`, `bash/power-notify`): each now ends in `exit 1`, since none has a
 normal exit path. Verified by killing `pactl`/`udevadm` and watching the units report
 `Failed with result 'exit-code'`, trigger `OnFailure=`, and restart. `Restart=on-failure`
-was always correct; the bug was the exit status.
+was always correct; the bug was the exit status. `net-notify` still had a hole: its
+ethernet watcher ran in the background, and killing its `ip monitor` left the unit
+"running" with ethernet notices gone. Since 2026-09-29 both watchers run in the
+background and `wait -n` exits on the first one to die.
 
 **`ProtectSystem=strict` mounts `$XDG_RUNTIME_DIR` read-only, and `mic-notify` needed
 `ReadWritePaths=%t`.** Shipped broken 2026-09-18, caught only on the next reboot:
