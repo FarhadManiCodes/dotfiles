@@ -262,7 +262,6 @@ systemctl --user daemon-reload
 # two ways: `enable rclone@.service` fails because a template cannot be enabled,
 # and the instances we actually mount are never enabled.
 units_to_enable=(
-  battery-watch.service
   mic-notify.service
   net-notify.service
   power-notify.service

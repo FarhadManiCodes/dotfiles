@@ -8,7 +8,7 @@ ExecStart=%h/.local/bin/mic-notify
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing, same profile as battery-watch.service. Measured before writing
+# Sandboxing, same profile as power-notify.service. Measured before writing
 # this: 3 processes (2x bash, pactl subscribe), one socket, no writes to disk,
 # no device access beyond /dev/null.
 NoNewPrivileges=yes

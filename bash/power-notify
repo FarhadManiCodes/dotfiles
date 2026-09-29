@@ -1,71 +1,109 @@
 #!/bin/bash
-# Charge notifications via udev (event-based, zero polling):
-#   - AC plugged in / unplugged            (POWER_SUPPLY_NAME=AC, ONLINE)
-#   - Charging started / Charging complete (BAT0 POWER_SUPPLY_STATUS transitions)
-# Battery LEVEL alerts (low/critical/danger) are handled by batsignal (battery-watch).
-# BAT0 *does* emit STATUS udev events on real charge transitions (verified); it just
-# looks static because the 80% TLP cap means it rarely charges once topped off.
+# Power notices: charger and charge state from udev events, battery level on a
+# timer that runs only on battery. One notice, replaced in place, shows the
+# current state. Replaces batsignal (battery-watch) since 2026-09-29.
+#
+# Measured on this laptop (2026-09-29): plug/unplug (AC ONLINE) and BAT0 STATUS
+# changes are udev events, including "Not charging" with CAPACITY=81 when TLP
+# stops at its limit. The level is not: 40 min on battery, zero events. So the
+# level is read on a timer, and only while unplugged.
 
-PLUGIN=$(printf '\U000f06a5')   # 󰚥 power-plug
-CHG=$(printf '\U000f0084')      # 󰂄 battery-charging
-FULL=$(printf '\U000f0079')     # 󰁹 battery full
+PLUG=$'\U000f06a5' CHG=$'\U000f0084' FULL=$'\U000f0079'
+LOW=$'\U000f007b' CRIT=$'\U000f0083' DANG=$'\U000f008e'
+sys=${POWER_SYSFS:-/sys/class/power_supply}
 
 bat_icon() {   # battery glyph by level, used when unplugged
-    local pct=$1
-    if   [ "$pct" -ge 90 ]; then printf '\U000f0079'
-    elif [ "$pct" -ge 70 ]; then printf '\U000f0081'
-    elif [ "$pct" -ge 50 ]; then printf '\U000f007e'
-    elif [ "$pct" -ge 30 ]; then printf '\U000f007b'
-    else                         printf '\U000f007a'
+    if   (( $1 >= 90 )); then printf '\U000f0079'
+    elif (( $1 >= 70 )); then printf '\U000f0081'
+    elif (( $1 >= 50 )); then printf '\U000f007e'
+    elif (( $1 >= 30 )); then printf '\U000f007b'
+    else                      printf '\U000f007a'
     fi
 }
 
-cap_now() { cat /sys/class/power_supply/BAT0/capacity 2>/dev/null; }
+# One notice for everything power, each replacing the last (-r).
+id=0
+show() { id=$(notify-send -p -r "${id:-0}" -a "" -u "$1" -- "$2"); }
 
-# Seed previous states so the first event after start doesn't fire spuriously.
-prev_ac=$(cat /sys/class/power_supply/AC/online 2>/dev/null)
-prev_status=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null)
-end=$(cat /sys/class/power_supply/BAT0/charge_control_end_threshold 2>/dev/null || echo 100)
+read -r ac < "$sys/AC/online"
+read -r bstat < "$sys/BAT0/status"
+read -r end < "$sys/BAT0/charge_control_end_threshold" 2>/dev/null || end=100
 
-name= ; online= ; status= ; cap=
+# Seconds per 1% of battery at a 30 W drain. Full CPU load on battery measured
+# 35.4 W (TLP low-power, no boost); 30 W is the chosen middle ground, since the
+# laptop rarely runs flat out. batsignal's `-m 300` assumed 9 W (300 s per 1%)
+# and at 81% waited 4.25 h, longer than the battery lasts at full load.
+read -r energy_full < "$sys/BAT0/energy_full"
+spp=$(( energy_full * 3600 / (100 * 30000000) ))
+(( spp > 0 )) || spp=1
 
-flush() {   # called at each udev event boundary (blank line)
-    if [ "$name" = AC ] && [ -n "$online" ] && [ "$online" != "$prev_ac" ]; then
-        if [ "$online" = 1 ]; then
-            notify-send -a "" -u normal   "${PLUGIN} Plugged in — $(cap_now)%"
-        else
-            notify-send -a "" -u critical "$(bat_icon "$(cap_now)") Unplugged — $(cap_now)%"
-        fi
-        prev_ac=$online
+# alerted: the lowest level already announced this discharge (100 = none yet).
+# due: when to read the level next ($SECONDS). The wait is the time to the next
+# alert level at 30 W, plus 1% so it lands just past it; at most 20 min, because
+# a timer does not count suspend and waking up sends no event.
+alerted=100 due=0 plugged=-100
+check_level() {
+    local cap next=0 t
+    read -r cap < "$sys/BAT0/capacity" || { due=$(( SECONDS + 1200 )); return; }
+    if   (( cap <= 5  && alerted > 5  )); then alerted=5;  show critical "${DANG}  Battery danger — ${cap}%, PLUG IN NOW!"
+    elif (( cap <= 10 && alerted > 10 )); then alerted=10; show critical "${CRIT}  Battery critical — ${cap}%"
+    elif (( cap <= 30 && alerted > 30 )); then alerted=30; show normal "${LOW}  Battery low — ${cap}%"
     fi
-    if [ "$name" = BAT0 ] && [ -n "$status" ] && [ "$status" != "$prev_status" ]; then
-        case "$status" in
+    for t in 30 10 5; do (( t < alerted && t < cap )) && { next=$t; break; }; done
+    t=$(( next ? (cap - next + 1) * spp : 1200 ))
+    due=$(( SECONDS + (t < 1200 ? t : 1200) ))
+}
+
+name='' online='' status='' cap=''
+flush() {   # at each udev event boundary (blank line)
+    [[ -n $cap ]] || read -r cap < "$sys/BAT0/capacity"
+    if [[ $name == AC && -n $online && $online != "$ac" ]]; then
+        ac=$online
+        if (( ac )); then
+            alerted=100 plugged=$SECONDS
+            show normal "${PLUG}  Plugged in — ${cap}%"
+        else
+            show normal "$(bat_icon "$cap")  Unplugged — ${cap}%"
+            check_level
+        fi
+    elif [[ $name == BAT0 && -n $status && $status != "$bstat" ]]; then
+        case $status in
             Charging)
-                notify-send -a "" -u low    "${CHG} Charging started — ${cap:-$(cap_now)}%" ;;
+                if (( SECONDS - plugged <= 5 )); then
+                    show normal "${PLUG}  Plugged in — ${cap}%, charging"
+                else
+                    show low "${CHG}  Charging — ${cap}%"
+                fi ;;
             "Not charging"|Full)
                 # "Not charging" also shows for a moment when the cable is re-seated
                 # (seen at 64%); only at the TLP limit does it mean complete.
-                [ "$prev_status" = Charging ] && [ "${cap:-$(cap_now)}" -ge $(( end - 1 )) ] && \
-                    notify-send -a "" -u normal "${FULL} Charging complete — ${cap:-$(cap_now)}%" ;;
+                [[ $bstat == Charging ]] && (( cap >= end - 1 )) &&
+                    show normal "${FULL}  Charging complete — ${cap}%" ;;
         esac
-        prev_status=$status
+        bstat=$status
     fi
-    name= ; online= ; status= ; cap=
+    name='' online='' status='' cap=''
 }
 
-while IFS= read -r line; do
-    case "$line" in
-        "")                       flush ;;
-        POWER_SUPPLY_NAME=*)      name=${line#POWER_SUPPLY_NAME=} ;;
-        POWER_SUPPLY_ONLINE=*)    online=${line#POWER_SUPPLY_ONLINE=} ;;
-        POWER_SUPPLY_STATUS=*)    status=${line#POWER_SUPPLY_STATUS=} ;;
-        POWER_SUPPLY_CAPACITY=*)  cap=${line#POWER_SUPPLY_CAPACITY=} ;;
+while :; do
+    rc=0
+    if (( ac )); then
+        IFS= read -r line || rc=$?
+    else
+        (( SECONDS >= due )) && check_level
+        IFS= read -r -t $(( due - SECONDS )) line || rc=$?
+    fi
+    (( rc > 128 )) && continue      # timed out: time to read the level
+    (( rc == 0 )) || break          # udevadm exited
+    case $line in
+        '')                      flush ;;
+        POWER_SUPPLY_NAME=*)     name=${line#*=} ;;
+        POWER_SUPPLY_ONLINE=*)   online=${line#*=} ;;
+        POWER_SUPPLY_STATUS=*)   status=${line#*=} ;;
+        POWER_SUPPLY_CAPACITY=*) cap=${line#*=} ;;
     esac
 done < <(udevadm monitor --subsystem-match=power_supply --udev --property)
 
-# There is no normal exit path: udevadm monitor runs until killed. Reaching here
-# means it died, so exit non-zero. Without this the script fell off the end with
-# status 0, which systemd reads as a clean finish -- Restart=on-failure would not
-# fire and OnFailure= would not notify. Same defect that hid the mic-notify
-# breakage on 2026-09-18.
+# udevadm runs until killed, so reaching here is a failure: exit 1 lets
+# Restart= and OnFailure= fire (see docs/architecture/systemd-services.md).
 exit 1
