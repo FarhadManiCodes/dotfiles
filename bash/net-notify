@@ -25,11 +25,28 @@ eth_iface() {
 # and the hole is not reachable. That is an accident of the format string, not a
 # property of the code -- reorder it and the hole opens. `--` makes it structural.
 wifi_monitor() {
-    local in_station=false in_device=false
+    # wifi: "" = connected (or not yet known), pending = dropped less than 10 s ago,
+    # down = reported down. Every resume drops and is back in ~2 s, and each failed
+    # reconnect says "disconnected" again, so only a drop that lasts gets a notice.
+    local line next_line rc left deadline wifi='' in_station=false in_device=false
     dbus-monitor --system \
         "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
         | \
-    while IFS= read -r line; do
+    while :; do
+        rc=0
+        if [[ $wifi == pending ]]; then
+            left=$(( deadline - SECONDS ))
+            if (( left > 0 )); then IFS= read -r -t "$left" line || rc=$?; else rc=142; fi
+        else
+            IFS= read -r line || rc=$?
+        fi
+        if (( rc > 128 )); then     # read timed out: still down after 10 s
+            notify-send -a "" -u critical -- "${WARN}  WiFi disconnected"
+            wifi=down
+            continue
+        fi
+        (( rc == 0 )) || break      # dbus-monitor exited
+
         if [[ "$line" == *"member=PropertiesChanged"* ]]; then
             in_station=false; in_device=false
         fi
@@ -39,18 +56,24 @@ wifi_monitor() {
         if $in_station && [[ "$line" == *'"State"'* ]]; then
             read -r next_line
             if [[ "$next_line" == *'"connected"'* ]]; then
-                iface=$(wifi_iface)
-                ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
-                notify-send -a "" -u normal -- "${WIFI}  Connected — ${ssid:-WiFi}"
-            elif [[ "$next_line" == *'"disconnected"'* ]]; then
-                notify-send -a "" -u critical -- "${WARN}  WiFi disconnected"
+                if [[ $wifi != pending ]]; then
+                    iface=$(wifi_iface)
+                    ssid=$(iwctl station "$iface" show 2>/dev/null | sed 's/\x1b\[[0-9;]*[mGKH]//g' | grep -oP 'Connected network\s+\K.*' | sed 's/[[:space:]]*$//')
+                    notify-send -a "" -u normal -- "${WIFI}  Connected — ${ssid:-WiFi}"
+                fi
+                wifi=
+            elif [[ "$next_line" == *'"disconnected"'* && -z $wifi ]]; then
+                wifi=pending deadline=$(( SECONDS + 10 ))
             fi
             in_station=false
         fi
 
         if $in_device && [[ "$line" == *'"Powered"'* ]]; then
             read -r next_line
-            [[ "$next_line" == *"false"* ]] && notify-send -a "" -u critical -- "${WARN}  WiFi turned off"
+            if [[ "$next_line" == *"false"* ]]; then
+                notify-send -a "" -u critical -- "${WARN}  WiFi turned off"
+                wifi=down
+            fi
             in_device=false
         fi
     done
