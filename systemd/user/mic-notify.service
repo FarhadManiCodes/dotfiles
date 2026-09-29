@@ -9,8 +9,8 @@ Restart=on-failure
 RestartSec=5
 
 # Sandboxing, same profile as power-notify.service. Measured before writing
-# this: 3 processes (2x bash, pactl subscribe), one socket, no writes to disk,
-# no device access beyond /dev/null.
+# this: one socket, no writes to disk, no device access beyond /dev/null.
+# 2 processes (bash, pactl subscribe) since 2026-09-29, 3 before.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
@@ -53,8 +53,8 @@ RestrictAddressFamilies=AF_UNIX
 # is the mkdir that fails.
 ReadWritePaths=%t
 
-# @system-service must permit fork/execve: the event loop runs
-# `pactl list source-outputs short | wc -l` on every source-output change.
+# @system-service must permit fork/execve: each recording's start and end runs
+# `pactl list sources short` and `pactl list source-outputs short`.
 SystemCallFilter=@system-service
 
 # Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with

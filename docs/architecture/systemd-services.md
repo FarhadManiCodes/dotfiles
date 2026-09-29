@@ -64,6 +64,12 @@ while unplugged, waiting the time to the next alert at an assumed 30 W (+1%), ca
 rule firing at 64% when the cable was re-seated (BAT0 says `Not charging` for a moment);
 "complete" now also requires the capacity to be at `charge_control_end_threshold` − 1.
 
+**`mic-notify` was simplified the same day.** One recording sends `new`, ~5 `change` and
+`remove` on source-output, and the old loop ran `pactl list` for all of them, left every
+sticky "Microphone active" on screen, and counted a speaker-monitor recording as the
+microphone. It now checks only on `new`/`remove`, ignores `.monitor` sources, replaces one
+notice in place, and reads `pactl subscribe` in the main shell (3 processes → 2).
+
 ## Two things that shipped broken
 
 **The silent-exit bug.** If a monitor died, the pipeline reached EOF, the script fell off
