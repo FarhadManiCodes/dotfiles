@@ -112,7 +112,7 @@ check_symlink_integrity() {
         zathura/zathurarc|sioyek/prefs_user.config|sioyek/keys_user.config|vimb/config|\
         clangd/config.yaml|spotify-player/theme.toml|handlr/handlr.toml|ccache/ccache.conf|wob/wob.ini|\
         latexmk/latexmkrc|mimeapps.list|papis/config|containers/containers.conf|\
-        containers/storage.conf)
+        containers/storage.conf|wireplumber/wireplumber.conf.d/51-mic-suspend.conf)
           livef=$config_home/$rel ;;
         *) continue ;;
       esac
