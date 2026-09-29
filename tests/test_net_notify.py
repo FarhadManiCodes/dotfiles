@@ -51,23 +51,27 @@ class NetNotifyTests(unittest.TestCase):
         self.bin.mkdir()
         self.log = self.root / "log"
         self.events = self.root / "events"
-        # Each event file is replayed in name order; "sleep N" files pause.
+        # Each event file is replayed in name order; "N.sleep" files pause and
+        # "N.ssid" files change the network iwctl reports.
         self.events.mkdir()
         self.fake("dbus-monitor", 'for f in "$EVENTS"/*; do\n'
-                                  '  case $f in *.sleep) sleep "$(cat "$f")" ;; *) cat "$f" ;; esac\n'
+                                  '  case $f in *.sleep) sleep "$(cat "$f")" ;;\n'
+                                  '    *.ssid) cp "$f" "$SSID" ;; *) cat "$f" ;; esac\n'
                                   'done')
         self.fake("notify-send", 'n=$(( $(cat "$LOG.id" 2>/dev/null || echo 0) + 1 ))\n'
                                  'echo "$n" > "$LOG.id"; echo "notify $*" >> "$LOG"; echo "$n"\n'
                                  'date +%s.%N >> "$LOG.time"')
         self.fake("iwctl", 'case $* in\n'
                            '  "device list") printf "  wlan0  aa:bb  on  phy0  station\\n" ;;\n'
-                           '  "station wlan0 show") printf "  Connected network     Home Net   \\n" ;;\n'
+                           '  "station wlan0 show") printf "  Connected network     %s   \\n" "$(cat "$SSID")" ;;\n'
                            'esac')
         self.fake("networkctl", 'printf "%s" "$NETWORKCTL"')
         self.fake("ip", 'printf "%b" "$IP_LINES"; sleep "${IP_LIVES:-60}"')
         # Pinned, not inherited: the fakes shadow the real tools.
         self.env = {"PATH": f"{self.bin}:/usr/bin", "HOME": str(self.root), "LC_ALL": "C.UTF-8",
-                    "LOG": str(self.log), "EVENTS": str(self.events), "NETWORKCTL": ""}
+                    "LOG": str(self.log), "EVENTS": str(self.events), "NETWORKCTL": "",
+                    "SSID": str(self.root / "ssid")}
+        (self.root / "ssid").write_text("Home Net")
         self.n = 0
 
     def fake(self, name, body):
@@ -79,7 +83,9 @@ class NetNotifyTests(unittest.TestCase):
         """Queue signals (str) and pauses (seconds, number) for the fake dbus-monitor."""
         for step in steps:
             self.n += 1
-            if isinstance(step, str):
+            if isinstance(step, dict):
+                (self.events / f"{self.n:03}.ssid").write_text(step["ssid"])
+            elif isinstance(step, str):
                 (self.events / f"{self.n:03}").write_text(step)
             else:
                 (self.events / f"{self.n:03}.sleep").write_text(str(step))
@@ -100,6 +106,14 @@ class NetNotifyTests(unittest.TestCase):
                   state("connecting"), state("connected"))
         self.run_script()
         self.assertEqual(self.notices(), [])
+
+    def test_waking_up_on_a_different_network_says_so(self):
+        self.play(sleep_signal(True), state("disconnected"), sleep_signal(False),
+                  {"ssid": "Office"}, state("connected"))
+        self.run_script()
+        notices = self.notices()
+        self.assertEqual(len(notices), 1, notices)
+        self.assertIn("Connected — Office", notices[0])
 
     def test_still_down_10s_after_wake_gives_one_notice_then_connected(self):
         self.play(sleep_signal(True), state("disconnected"), sleep_signal(False), 5,

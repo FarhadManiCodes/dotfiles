@@ -36,8 +36,10 @@ wifi_monitor() {
     # so a drop while asleep or within 10 s of waking is reported only if it lasts
     # until 10 s after wake. Any other drop is real (27 in that month, mostly 20-90 s)
     # and reported at once. Failed reconnects repeat "disconnected": one notice each.
+    # A resume that rejoins the same network is silent; a different one is news.
     local line next_line rc left deadline='' ssid wifi='' asleep=false woke=-100
-    local in_station=false in_device=false
+    local in_station=false in_device=false last
+    last=$(wifi_ssid "$(wifi_iface)")
     dbus-monitor --system \
         "type='signal',interface='org.freedesktop.DBus.Properties',path_namespace='/net/connman/iwd'" \
         "type='signal',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'" \
@@ -76,11 +78,11 @@ wifi_monitor() {
         if $in_station && [[ "$line" == *'"State"'* ]]; then
             read -r next_line
             if [[ "$next_line" == *'"connected"'* ]]; then
-                if [[ $wifi != pending ]]; then
-                    ssid=$(wifi_ssid "$(wifi_iface)")
+                ssid=$(wifi_ssid "$(wifi_iface)")
+                if [[ $wifi != pending || $ssid != "$last" ]]; then
                     show wifi normal "${WIFI}  Connected — ${ssid:-WiFi}"
                 fi
-                wifi=
+                last=$ssid wifi=
             elif [[ "$next_line" == *'"disconnected"'* && -z $wifi ]]; then
                 if $asleep; then
                     wifi=pending deadline=''
