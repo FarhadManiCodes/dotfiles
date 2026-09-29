@@ -233,6 +233,13 @@ link_glob "${DOTFILES}/bash/"* "${HOME}/.local/bin"
 # The custom sioyek build lives off PATH (sioyek/README.md). It finds its shaders
 # and prefs.config through /proc/self/exe, so a link is enough; skipped if unbuilt.
 link_glob "${HOME}/.local/share/sioyek/sioyek" "${HOME}/.local/bin"
+# mic-notify is a small C program with its own repository (mic-notify.service
+# runs it); without it the unit fails and reports that.
+if [ -d "${HOME}/projects/mic-notify" ]; then
+  make -s -C "${HOME}/projects/mic-notify" install || echo "⚠️  mic-notify: build failed"
+else
+  echo "⚠️  mic-notify: ~/projects/mic-notify not found, mic-notify.service will fail"
+fi
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================

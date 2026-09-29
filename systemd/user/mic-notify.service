@@ -1,21 +1,22 @@
 [Unit]
 Description=Microphone active notifications
-After=graphical-session.target pipewire-pulse.service
+After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
 [Service]
+# Built from ~/projects/mic-notify (make install): a freestanding C program
+# that watches /dev/snd capture devices with inotify. 1 process, ~20 KB.
 ExecStart=%h/.local/bin/mic-notify
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing, same profile as power-notify.service. Measured before writing
-# this: one socket, no writes to disk, no device access beyond /dev/null.
-# 2 processes (bash, pactl subscribe) since 2026-09-29, 3 before.
+# Sandboxing, same profile as power-notify.service, plus /dev/snd (below).
+# It reads /dev/snd (directory and inotify watches) and /proc/asound, and
+# writes nothing.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
 PrivateTmp=yes
-PrivateDevices=yes
 ProtectProc=invisible
 ProtectKernelTunables=yes
 ProtectKernelModules=yes
@@ -31,30 +32,18 @@ MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 UMask=0077
 
-# AF_UNIX only, and verified rather than assumed: pactl's single socket was
-# checked against /proc/net/netlink and is NOT netlink -- it reaches
-# pipewire-pulse over a unix socket, the same family notify-send uses.
-# PrivateDevices is safe despite the audio subject matter: pactl talks to the
-# pipewire daemon, it does not open /dev/snd itself.
+# PrivateDevices=yes gives a /dev without /dev/snd, so the real one is bound in,
+# read-only. inotify watches the device node itself, so opens by PipeWire outside
+# the sandbox still arrive. The bound nodes CAN be opened (a user manager does
+# not enforce the device policy; verified 2026-09-29), but the program never
+# opens one, and could reach PipeWire's socket anyway, as the pactl version did.
+PrivateDevices=yes
+BindReadOnlyPaths=/dev/snd
+
+# AF_UNIX for notify-send's session bus; the program itself opens no socket.
 RestrictAddressFamilies=AF_UNIX
 
-# REQUIRED, and the reason is a real 2026-09-18 regression, not caution.
-# ProtectSystem=strict mounts $XDG_RUNTIME_DIR read-only (verified in
-# /proc/self/mountinfo: "ro,nosuid,nodev"), and libpulse creates/validates
-# /run/user/1000/pulse before connecting. Without this the unit dies at every
-# boot with "Failed to create secure directory (/run/user/1000/pulse):
-# Read-only file system", exits 0, and is therefore NOT restarted by
-# Restart=on-failure and NOT reported by OnFailure=.
-#
-# It is invisible twice over: the script pipes pactl's stderr to /dev/null, and
-# the first sandbox test passed only because it ran hours into a boot where the
-# directory already existed. A reboot is the only thing that exposes it.
-# D-Bus is not affected -- connect() to an existing socket works read-only; it
-# is the mkdir that fails.
-ReadWritePaths=%t
-
-# @system-service must permit fork/execve: each recording's start and end runs
-# `pactl list sources short` and `pactl list source-outputs short`.
+# @system-service must permit fork/execve: notify-send runs on each change.
 SystemCallFilter=@system-service
 
 # Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with

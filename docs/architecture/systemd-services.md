@@ -64,11 +64,18 @@ while unplugged, waiting the time to the next alert at an assumed 30 W (+1%), ca
 rule firing at 64% when the cable was re-seated (BAT0 says `Not charging` for a moment);
 "complete" now also requires the capacity to be at `charge_control_end_threshold` − 1.
 
-**`mic-notify` was simplified the same day.** One recording sends `new`, ~5 `change` and
-`remove` on source-output, and the old loop ran `pactl list` for all of them, left every
-sticky "Microphone active" on screen, and counted a speaker-monitor recording as the
-microphone. It now checks only on `new`/`remove`, ignores `.monitor` sources, replaces one
-notice in place, and reads `pactl subscribe` in the main shell (3 processes → 2).
+**`mic-notify` became a C program watching the kernel (2026-09-29).** A recording
+opens an ALSA capture device (`/dev/snd/pcmC2D0c` is the built-in mic, `pcmC1D0c` the
+headset jack), and inotify reports the open and the close; `/proc/asound/card*/pcm*c/sub*/status`
+says whether each is open. A speaker-monitor recording opens only a playback device and
+never counts; Bluetooth mics bypass `/dev/snd` and are not seen (accepted). "Released"
+comes ~5 s after the app stops: PipeWire keeps the device open that long. The program
+(`~/projects/mic-notify`, built by `install.sh`) is freestanding C with no libc: one
+process, ~20 KB, against 3.3 MB for `pactl subscribe` + bash. Its sandbox keeps
+`PrivateDevices=yes` and binds `/dev/snd` back in read-only (score 3.2); the bound nodes
+remain openable, since a user manager doesn't enforce the device policy. A SIGTERM from
+`pkill` is a clean stop to systemd, so test the failure path with `systemctl --user kill
+-s SEGV`, not `pkill`.
 
 ## Two things that shipped broken
 
@@ -84,7 +91,7 @@ ethernet watcher ran in the background, and killing its `ip monitor` left the un
 there is no second half left to die.
 
 **`ProtectSystem=strict` mounts `$XDG_RUNTIME_DIR` read-only, and `mic-notify` needed
-`ReadWritePaths=%t`.** Shipped broken 2026-09-18, caught only on the next reboot:
+`ReadWritePaths=%t`** (until it stopped using libpulse, 2026-09-29). Shipped broken 2026-09-18, caught only on the next reboot:
 `libpulse` creates/validates `/run/user/1000/pulse` before connecting, so `pactl
 subscribe` died on the `mkdir` (D-Bus itself is unaffected — connecting to an existing
 socket works read-only). Invisible for three reasons: the script's own
