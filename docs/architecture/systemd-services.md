@@ -73,13 +73,13 @@ keeps an idle device open 5 s by default, so "released" came ~5 s late;
 `wireplumber/wireplumber.conf.d/51-mic-suspend.conf` closes idle inputs after 1 s. When
 WirePlumber starts it probes each capture device (~10 open/close pairs in ~60 ms), so
 the program checks only after 300 ms without events. "Active" shows ~0.3 s after the
-open and "released" ~1.3 s after the app stops (measured). The program
-(`~/projects/mic-notify`, built by `install.sh`) is freestanding C with no libc: one
-process, ~20 KB, against 3.3 MB for `pactl subscribe` + bash. Its sandbox keeps
-`PrivateDevices=yes` and binds `/dev/snd` back in read-only (score 3.2); the bound nodes
-remain openable, since a user manager doesn't enforce the device policy. A SIGTERM from
-`pkill` is a clean stop to systemd, so test the failure path with `systemctl --user kill
--s SEGV`, not `pkill`.
+open and "released" ~1.3 s after the app stops (measured). The program (the
+`mic-notify` submodule, developed in `~/projects/mic-notify`, built by `install.sh`) is
+freestanding C with no libc: one process, 16 KB, against 3.3 MB for `pactl subscribe` +
+bash. Its sandbox keeps `PrivateDevices=yes` and binds `/dev/snd` back in read-only
+(score 3.2); the bound nodes remain openable, since a user manager doesn't enforce the
+device policy. A SIGTERM from `pkill` is a clean stop to systemd, so test the failure
+path with `systemctl --user kill -s SEGV`, not `pkill`.
 
 ## Two things that shipped broken
 

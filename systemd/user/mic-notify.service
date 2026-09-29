@@ -4,8 +4,9 @@ After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
 [Service]
-# Built from ~/projects/mic-notify (make install): a freestanding C program
-# that watches /dev/snd capture devices with inotify. 1 process, ~20 KB.
+# Built from the mic-notify submodule by install.sh (make install): a
+# freestanding C program that watches /dev/snd capture devices with inotify.
+# 1 process, 16 KB.
 ExecStart=%h/.local/bin/mic-notify
 Restart=on-failure
 RestartSec=5
