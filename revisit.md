@@ -869,17 +869,3 @@ state, so two wired adapters would replace each other's notices.
 - **Decision:** keep one notice per kind; the README and source now say so instead of
   "one per link".
 - **Recheck:** if a dock or USB adapter becomes a regular second wired link.
-
-## `net-notify` waits for `notify-send` — ACCEPTED (2026-09-29)
-
-The same review said a hung `notify-send` stops network monitoring, since the program
-waits for it without a timeout.
-
-- **Evidence:** against a fake notification daemon that owns the name and never
-  replies (private `dbus-run-session`), `notify-send` gave up by itself with "Timeout
-  was reached" in both runs; the exact wait was not recorded, and it is bounded by the
-  D-Bus call timeout. Link events wait in the socket meanwhile, and an overflow is
-  recovered by re-reading every link. `mic-notify` and the bash versions wait the same
-  way.
-- **Decision:** no change.
-- **Recheck:** if a notice is ever seen arriving much later than its event.
