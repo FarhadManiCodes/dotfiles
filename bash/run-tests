@@ -42,6 +42,12 @@ suite() {
 
 suite unittest python3 -B -m unittest discover -s "$root/tests"
 suite skills bash "$root/bash/check-skills"
+# The C notifiers are submodules with their own suites (net-notify and
+# power-notify run theirs in a private network namespace). A submodule that was
+# never fetched is an empty directory, where make fails: a FAIL, not a pass.
+for sub in mic-notify net-notify power-notify; do
+  suite "$sub" make -s -C "$root/$sub" check
+done
 
 printf '\n\033[1m== summary ==\033[0m\n'
 printf '   %s\n' "${results[@]}"

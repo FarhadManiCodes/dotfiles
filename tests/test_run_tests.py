@@ -3,8 +3,9 @@
     python3 -B -m unittest discover -s tests
 
 The repository's own suites are never invoked: each fixture checkout supplies its
-own tests/ directory and a fake check-skills that records its invocation, so a
-failure here is the runner's and cannot recurse into this file.
+own tests/ directory, a fake check-skills that records its invocation and fake
+submodule directories whose Makefile `check` just exits, so a failure here is the
+runner's and cannot recurse into this file.
 """
 import os
 from pathlib import Path
@@ -19,6 +20,8 @@ SOURCE = Path(__file__).resolve().parents[1] / "bash/run-tests"
 ANSI = re.compile(r"\033\[[0-9;]*m")
 
 PASSING = "import unittest\n\n\nclass Fixture(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
+SUBMODULES = ("mic-notify", "net-notify", "power-notify")
+ALL_PASS = ["pass  unittest", "pass  skills"] + [f"pass  {s}" for s in SUBMODULES]
 FAILING = (
     "import unittest\n\n\nclass Fixture(unittest.TestCase):\n"
     "    def test_bad(self):\n        self.fail('deliberate fixture failure')\n"
@@ -37,7 +40,7 @@ class RunTestsTests(unittest.TestCase):
         shutil.copy(SOURCE, self.runner)
         self.skills_log = self.base / "skills-ran"
 
-    def fixture(self, unittest_body=PASSING, skills_exit=0):
+    def fixture(self, unittest_body=PASSING, skills_exit=0, submodule_exit=0):
         if unittest_body is not None:
             (self.checkout / "tests/test_fixture.py").write_text(unittest_body)
         fake = self.checkout / "bash/check-skills"
@@ -47,6 +50,9 @@ class RunTestsTests(unittest.TestCase):
             f"exit {skills_exit}\n"
         )
         fake.chmod(0o755)
+        for sub in SUBMODULES:
+            (self.checkout / sub).mkdir(exist_ok=True)
+            (self.checkout / sub / "Makefile").write_text(f"check:\n\t@exit {submodule_exit}\n")
 
     def run_runner(self, command=None, cwd=None):
         result = subprocess.run(
@@ -64,20 +70,34 @@ class RunTestsTests(unittest.TestCase):
         self.fixture()
         code, out = self.run_runner()
         self.assertEqual(code, 0)
-        self.assertEqual(self.summary(out), ["pass  unittest", "pass  skills"])
+        self.assertEqual(self.summary(out), ALL_PASS)
 
     def test_failing_suite_does_not_stop_later_suites(self):
         self.fixture(unittest_body=FAILING)
         code, out = self.run_runner()
         self.assertEqual(code, 1)
-        self.assertEqual(self.summary(out), ["FAIL  unittest", "pass  skills"])
+        self.assertEqual(self.summary(out), ["FAIL  unittest"] + ALL_PASS[1:])
         self.assertTrue(self.skills_log.exists(), "later suite did not run after a failure")
 
     def test_failing_later_suite_fails_the_run(self):
         self.fixture(skills_exit=1)
         code, out = self.run_runner()
         self.assertEqual(code, 1)
-        self.assertEqual(self.summary(out), ["pass  unittest", "FAIL  skills"])
+        self.assertEqual(self.summary(out), ["pass  unittest", "FAIL  skills"] + ALL_PASS[2:])
+
+    def test_a_failing_submodule_suite_fails_the_run(self):
+        self.fixture(submodule_exit=1)
+        code, out = self.run_runner()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.summary(out), ALL_PASS[:2] + [f"FAIL  {s}" for s in SUBMODULES])
+
+    def test_an_unfetched_submodule_is_not_a_pass(self):
+        # Before `git submodule update`, the directory exists but is empty.
+        self.fixture()
+        (self.checkout / "power-notify/Makefile").unlink()
+        code, out = self.run_runner()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.summary(out), ALL_PASS[:4] + ["FAIL  power-notify"])
 
     def test_missing_suite_is_not_a_pass(self):
         self.fixture()
@@ -85,7 +105,7 @@ class RunTestsTests(unittest.TestCase):
         shutil.rmtree(self.checkout / "tests")
         code, out = self.run_runner()
         self.assertEqual(code, 1)
-        self.assertEqual(self.summary(out), ["FAIL  unittest", "FAIL  skills"])
+        self.assertEqual(self.summary(out)[:2], ["FAIL  unittest", "FAIL  skills"])
 
     def test_runs_through_an_installed_symlink_from_outside_the_checkout(self):
         self.fixture()
@@ -95,7 +115,7 @@ class RunTestsTests(unittest.TestCase):
         link.symlink_to(self.runner)
         code, out = self.run_runner(command=link, cwd=Path("/"))
         self.assertEqual(code, 0)
-        self.assertEqual(self.summary(out), ["pass  unittest", "pass  skills"])
+        self.assertEqual(self.summary(out), ALL_PASS)
 
 
 if __name__ == "__main__":
