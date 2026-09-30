@@ -116,9 +116,16 @@ check_root_configs() {
   check_root "$df_dir/pam/swaylock"               /etc/pam.d/swaylock
   check_root "$df_dir/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf
   check_root "$df_dir/zram/zram-generator.conf"   /etc/systemd/zram-generator.conf
-  for f in "$df_dir"/system-sleep/*; do
-    check_root "$f" "/usr/lib/systemd/system-sleep/${f##*/}"
-  done
+  # nullglob: a missing or unreadable system-sleep/ would expand to nothing and
+  # compare nothing, silently. unblock-fuse at least is always tracked.
+  local -a hooks=("$df_dir"/system-sleep/*)
+  if ((${#hooks[@]})); then
+    for f in "${hooks[@]}"; do
+      check_root "$f" "/usr/lib/systemd/system-sleep/${f##*/}"
+    done
+  else
+    warn "no system-sleep/ hooks found (missing or unreadable) — none compared"; drift=1
+  fi
 
   ((drift)) || ok "all compared root configs match (access exclusions listed above)"
 }
@@ -187,18 +194,29 @@ check_privileged_configs() {
   priv=0
   declare -A parent_seen=()
 
-  while IFS= read -r src; do
-    [[ -n $src ]] && check_privileged "/etc${src#"$df_dir"/etc}"
-  done < <(find "$df_dir/etc" -type f \
-      ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null)
+  # As in check_root_configs: a failed enumeration is reported, not taken for
+  # "nothing to check".
+  if root_files=$(find "$df_dir/etc" -type f \
+      ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null); then
+    while IFS= read -r src; do
+      [[ -n $src ]] && check_privileged "/etc${src#"$df_dir"/etc}"
+    done <<<"$root_files"
+  else
+    warn "cannot enumerate tracked etc/ configs"; priv=1
+  fi
   check_privileged /etc/pam.d/swaylock
   check_privileged /etc/sysctl.d/99-performance.conf
   check_privileged /etc/systemd/zram-generator.conf
   check_privileged /usr/share/wayland-sessions/niri-isolated.desktop
   check_privileged /usr/local/bin/niri-session-isolated exec
-  for f in "$df_dir"/system-sleep/*; do
-    check_privileged "/usr/lib/systemd/system-sleep/${f##*/}" exec
-  done
+  local -a hooks=("$df_dir"/system-sleep/*)
+  if ((${#hooks[@]})); then
+    for f in "${hooks[@]}"; do
+      check_privileged "/usr/lib/systemd/system-sleep/${f##*/}" exec
+    done
+  else
+    warn "no system-sleep/ hooks found (missing or unreadable) — none checked"; priv=1
+  fi
   ((priv)) || ok "root-owned, not writable by others, under root-owned directories"
 }
 
