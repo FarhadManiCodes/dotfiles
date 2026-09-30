@@ -885,9 +885,9 @@ there would be the notice, with no timer.
   the kernel reports `capacity_level` as Low and raises a wakeup event on each battery
   update. And it is root-only, so it needs a udev rule to hand it to the user. Nothing here
   reads it today (TLP doesn't; `systemd-battery-check` uses the capacity).
-- **Decision:** power-notify only reads. 30 and 15% come from a `CLOCK_BOOTTIME` timer
-  planned at 30 W; 5% is the firmware's own untouched alarm, read as `energy_now` ≤
-  `alarm`, with a warning if the alarm is off or at 15% or above.
+- **Decision:** power-notify only reads. Low (33–27%) and critical (15–10%) come from a
+  `CLOCK_BOOTTIME` timer planned at 30 W; 5% is the firmware's own untouched alarm, read as
+  `energy_now` ≤ `alarm`, with a warning if the alarm is off.
 - **Recheck:** only if the timer proves inadequate, or if the firmware's alarm stops
   sending its event.
 

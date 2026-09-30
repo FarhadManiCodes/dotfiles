@@ -147,20 +147,27 @@ The program (the `net-notify` submodule, developed in `~/projects/net-notify`, b
 
 **`power-notify` became a C program that only reads (2026-09-30).** Recorded first: the
 kernel's own uevents (netlink group 1, no udevd) carry every `POWER_SUPPLY_*` property udev
-passes on, so the charger and charge state come from its uevent socket. The level is still
-not an event. Setting the firmware's battery alarm (`BAT0/alarm`, ACPI `_BTP`) per level
-would make it one, and works, but crossed in sleep it wakes the laptop and it is shared,
-root-only state, so it was rejected (`revisit.md`). Instead 30 and 15% come from a timer
-that runs only on battery, planned at 30 W to the charge where the capacity first reads the
-level (the kernel rounds, so (t + ½)% of `energy_full`), at least 0.1% of the battery apart
-(9 s). It runs on `CLOCK_BOOTTIME`, which counts suspend, so the 20 min cap is gone: a timer
-due in sleep fires on waking. 5% is the firmware's own alarm (5.0%, untouched): its event
-arrives when the charge crosses it, and danger is `energy_now` ≤ `alarm`; an alarm that is
-off or at 15% or above gets a warning notice and a journal line. Level notices say the time
-left. The program (the `power-notify` submodule, developed in `~/projects/power-notify`,
-built by `install.sh`) is freestanding C: one process, 24 KB, against about 2.0 MB for bash +
-`udevadm monitor`. 24 tests inject uevents into a private network namespace and read the
-planned timer from `/proc/<pid>/fdinfo`.
+passes on. An event only says something changed; the state is read from sysfs, so
+start-up, events and lost events share one path. The level is still not an event. Setting
+the firmware's battery alarm (`BAT0/alarm`, ACPI `_BTP`) per level would make it one, and
+works, but crossed in sleep it wakes the laptop and it is shared, root-only state, so it was
+rejected (`revisit.md`). An alert says a threshold was passed, not an exact number: low is
+announced anywhere in 33–27%, critical in 15–10%, decided on the charge in whole percents
+(`capacity` is not read). A timer that runs only on battery aims at the next window's
+bottom at 30 W, so it is inside the window at or below 30 W; checks are at least 9 min
+apart, about 15 a discharge at 6.5 W. It runs on `CLOCK_BOOTTIME`, which counts suspend, so
+the 20 min cap is gone: a timer due in sleep fires on waking. 5% is the firmware's own
+alarm (5.0%, untouched): its event arrives when the charge crosses it, and danger is
+`energy_now` ≤ `alarm`; an alarm that is off gets a warning notice and a journal line.
+Battery warnings are retried every 10 s until notify-send exits 0 with an id (libnotify
+prints the id even when it fails); a failed energy read or an unreadable `AC/online` (kept
+as last known, never taken as an unplug) is retried the same way. The charger notice says
+the state now and is sent once. Level notices say the time left from the drain right
+now. Reviewed in three rounds (2026-09-30). The program (the `power-notify` submodule,
+developed in `~/projects/power-notify`, built by `install.sh`) is freestanding C: one
+process, 24 KB, against about 2.0 MB for bash + `udevadm monitor`. 45 tests inject uevents
+into a private network namespace, read the planned timer from `/proc/<pid>/fdinfo`, and
+build the real source under UBSan for the arithmetic.
 
 ## Two things that shipped broken
 
