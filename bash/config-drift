@@ -116,7 +116,9 @@ check_root_configs() {
   check_root "$df_dir/pam/swaylock"               /etc/pam.d/swaylock
   check_root "$df_dir/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf
   check_root "$df_dir/zram/zram-generator.conf"   /etc/systemd/zram-generator.conf
-  check_root "$df_dir/system-sleep/unblock-fuse"  /usr/lib/systemd/system-sleep/unblock-fuse
+  for f in "$df_dir"/system-sleep/*; do
+    check_root "$f" "/usr/lib/systemd/system-sleep/${f##*/}"
+  done
 
   ((drift)) || ok "all compared root configs match (access exclusions listed above)"
 }
