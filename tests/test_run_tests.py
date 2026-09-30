@@ -55,10 +55,14 @@ class RunTestsTests(unittest.TestCase):
             (self.checkout / sub / "Makefile").write_text(f"check:\n\t@exit {submodule_exit}\n")
 
     def run_runner(self, command=None, cwd=None):
+        # make reads these from the environment: MAKEFLAGS=-n, say, would print the
+        # fixture recipes instead of running them, and every submodule would pass.
+        env = {k: v for k, v in os.environ.items()
+               if k not in ("MAKEFLAGS", "MFLAGS", "MAKELEVEL", "MAKEFILES", "GNUMAKEFLAGS")}
         result = subprocess.run(
             [str(command or self.runner)],
             cwd=str(cwd or self.base), capture_output=True, text=True, timeout=120,
-            env=dict(os.environ, SKILLS_LOG=str(self.skills_log)),
+            env=dict(env, SKILLS_LOG=str(self.skills_log)),
         )
         return result.returncode, ANSI.sub("", result.stdout)
 
