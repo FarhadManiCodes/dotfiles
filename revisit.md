@@ -869,3 +869,25 @@ state, so two wired adapters would replace each other's notices.
 - **Decision:** keep one notice per kind; the README and source now say so instead of
   "one per link".
 - **Recheck:** if a dock or USB adapter becomes a regular second wired link.
+
+---
+
+## `power-notify` sets the battery alarm per level — REJECTED (2026-09-29)
+
+The level notices could all be events: power-notify would set the firmware's battery
+alarm (ACPI `_BTP`, `BAT0/alarm`) just below the next level, and the firmware's event
+there would be the notice, with no timer.
+
+- **Evidence:** it works. With the alarm set just below the charge, a BAT0 uevent came as
+  soon as it was crossed (38.40 → 38.39 Wh). But the alarm is firmware state the system
+  shares. Crossed in sleep, it woke the laptop (s2idle, no lid event, IRQ 9, 4 min after
+  suspending), so it needs a sleep hook to reset it. While the charge is at or below it,
+  the kernel reports `capacity_level` as Low and raises a wakeup event on each battery
+  update. And it is root-only, so it needs a udev rule to hand it to the user. Nothing here
+  reads it today (TLP doesn't; `systemd-battery-check` uses the capacity).
+- **Decision:** power-notify only reads. Low (33–27%) and critical (15–10%) come from a
+  `CLOCK_BOOTTIME` timer planned at 30 W; 5% is the firmware's own untouched alarm, read as
+  `energy_now` ≤ `alarm`, with a warning if the alarm is off.
+- **Recheck:** only if the timer proves inadequate, or if the firmware's alarm stops
+  sending its event.
+

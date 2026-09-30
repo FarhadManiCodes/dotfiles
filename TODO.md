@@ -20,6 +20,7 @@ Off-machine backup remains deferred.
 | 4. Alt+p resolves citations from refinery | Proposed 2026-09-27; after the audit branch merges | User agrees scope; own branch |
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
 | 7. Router drops wifi every ~8 h | Found 2026-09-29 | Check the router's schedule |
+| 8. Battery alarm wakes the laptop at 5% | Found 2026-09-29 | Decide whether to keep the wake |
 
 ## 1. Off-machine backup
 
@@ -279,3 +280,18 @@ changes. It is the router's behaviour, so there is nothing to change on this mac
 ```bash
 journalctl -u iwd --since -7d | grep 'from_ap: true'   # the router's drops; resume drops say false
 ```
+
+## 8. The battery alarm wakes the laptop from sleep at 5%
+
+Found while redoing `power-notify` (2026-09-29). The firmware's battery alarm (`BAT0/alarm`,
+3791000 µWh = 5%) makes the kernel wake a suspended laptop when the charge crosses it:
+measured with an alarm set just below the charge, which woke the laptop from s2idle about
+4 min later, without a lid event (EC interrupt, IRQ 9). This is the firmware and kernel
+default, with or without `power-notify`. There is no hibernation here (swap is zram only),
+so the wake has nothing to save: in a bag it only shows the danger notice to nobody, and
+lid-closed re-suspend after this kind of wake was not tested.
+
+The knob is the battery device's wakeup setting,
+`/sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/PNP0C0A:00/power/wakeup` (now `enabled`),
+set to `disabled` by a root udev rule. Untested whether that stops this wake. Decide whether
+to keep the wake; the alarm itself should stay, since `power-notify` reads it for 5%.
