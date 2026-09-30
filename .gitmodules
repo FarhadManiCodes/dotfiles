@@ -7,3 +7,6 @@
 [submodule "net-notify"]
 	path = net-notify
 	url = git@github.com:FarhadManiCodes/net-notify.git
+[submodule "power-notify"]
+	path = power-notify
+	url = git@github.com:FarhadManiCodes/power-notify.git

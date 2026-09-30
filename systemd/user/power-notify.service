@@ -4,13 +4,15 @@ After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
 [Service]
+# Built from the power-notify submodule by install.sh (make install): a
+# freestanding C program that reads kernel uevents and sysfs, and writes nothing.
 ExecStart=%h/.local/bin/power-notify
 Restart=on-failure
 RestartSec=5
 
-# Sandboxing, the notifier profile (docs/architecture/systemd-services.md). Measured
-# before writing it: 2 processes (bash, udevadm monitor), no writes to disk, no device access
-# beyond /dev/null.
+# Sandboxing, the notifier profile (docs/architecture/systemd-services.md). Since
+# 2026-09-30 (C): 1 process, no writes to disk, no device access; it reads
+# /sys/class/power_supply.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=read-only
@@ -31,20 +33,15 @@ MemoryDenyWriteExecute=yes
 SystemCallArchitectures=native
 UMask=0077
 
-# AF_NETLINK is mandatory here: `udevadm monitor --udev` receives kernel uevents
-# over a netlink socket, confirmed by matching its fd inode against
-# /proc/net/netlink (ss reports nothing for netlink and gives a false negative).
-# Without it this unit sees no power events at all. AF_UNIX carries notify-send.
+# AF_NETLINK is mandatory here: the program's only event source is the kernel's
+# uevent socket (NETLINK_KOBJECT_UEVENT). Without it the socket fails and the unit
+# fails with it. AF_UNIX carries notify-send.
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 
-# @system-service must permit fork/execve: the flush() path shells out to
-# notify-send and reads capacity via $(cat ...) on every event.
+# @system-service must permit fork/execve (notify-send runs on each notice),
+# pidfd_open (@process: the 5 s limit on notify-send) and timerfd (@timer: the
+# level timer).
 SystemCallFilter=@system-service
-
-# PrivateDevices is safe despite this script reading process substitution:
-# `done < <(udevadm monitor ...)` needs /dev/fd, and systemd's private /dev does
-# provide /dev/fd -> /proc/self/fd. Verified, because man systemd.exec lists only
-# /dev/null, /dev/zero, /dev/random and the pty subsystem and does not say so.
 
 # Deliberately NOT set: CapabilityBoundingSet=. A user service already runs with
 # no effective capabilities and NoNewPrivileges blocks acquiring any, so it would

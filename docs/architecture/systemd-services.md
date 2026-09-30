@@ -60,7 +60,7 @@ OSD update, and that the first volume or brightness key starts the renderer.
 
 **`battery-watch.service` was the first sandboxed unit** (2026-09-18) and the pattern for
 the rest; it was merged into `power-notify` on 2026-09-29 (below), whose unit has the same profile plus
-`AF_NETLINK` for `udevadm`. Its profile came from a measured inventory, not a template: `/proc/<pid>/fd`
+`AF_NETLINK` (first for `udevadm`, since 2026-09-30 for its own kernel uevent socket). Its profile came from a measured inventory, not a template: `/proc/<pid>/fd`
 showed only `/dev/null`, the journald sockets and one session D-Bus socket — no network,
 no disk writes. Denying everything else took it from 9.4 UNSAFE to 3.2 OK on
 `systemd-analyze security --user`.
@@ -94,7 +94,8 @@ same day it became a C program** and `AF_NETLINK` came back, now as its only sou
 
 **`mic-notify` and `power-notify` completed the set**, both with trigger-level proof (a
 real capture stream, a real charger unplug/replug). `AF_UNIX` alone for
-`battery-watch`/`mic-notify`, plus `AF_NETLINK` for `power-notify` (`udevadm monitor`;
+`battery-watch`/`mic-notify`, plus `AF_NETLINK` for `power-notify` (`udevadm monitor`, now its
+own uevent socket;
 `net-notify` needed it too until 2026-09-29). Scores 3.2/3.3. `PrivateDevices=yes` is
 safe even for process substitution — systemd's private `/dev` still provides
 `/dev/fd -> /proc/self/fd`, though `man systemd.exec` doesn't say so.
@@ -105,7 +106,7 @@ status changes are events, including `Not charging` + `CAPACITY=81` when TLP sto
 its limit; the battery level is not (40 min on battery, zero events), and resume sends
 none either. batsignal's `-m 300` turned out to be a multiplier (wait = (level − next
 alert) × 300 s, i.e. it assumes ≤ 9 W): at 81% it waited 4.25 h, while full CPU load on
-battery measures 35.4 W and empties it in 1.8 h. `power-notify` now reads the level only
+battery measures 35.4 W and empties it in 1.8 h. The bash `power-notify` read the level only
 while unplugged, waiting the time to the next alert at an assumed 30 W (+1%), capped at
 20 min because timers don't count suspend. The same test found the old charging-complete
 rule firing at 64% when the cable was re-seated (BAT0 says `Not charging` for a moment);
@@ -143,6 +144,23 @@ so container and VPN links are ignored. Failed reconnects no longer repeat
 The program (the `net-notify` submodule, developed in `~/projects/net-notify`, built by
 `install.sh`) is freestanding C: one process, 20-24 KB, no D-Bus, against 1.16 MB for bash +
 `dbus-monitor` and an `iwctl` + `awk` pair on every connect.
+
+**`power-notify` became a C program that only reads (2026-09-30).** Recorded first: the
+kernel's own uevents (netlink group 1, no udevd) carry every `POWER_SUPPLY_*` property udev
+passes on, so the charger and charge state come from its uevent socket. The level is still
+not an event. Setting the firmware's battery alarm (`BAT0/alarm`, ACPI `_BTP`) per level
+would make it one, and works, but crossed in sleep it wakes the laptop and it is shared,
+root-only state, so it was rejected (`revisit.md`). Instead 30 and 15% come from a timer
+that runs only on battery, planned at 30 W to the charge where the capacity first reads the
+level (the kernel rounds, so (t + ½)% of `energy_full`), at least 0.1% of the battery apart
+(9 s). It runs on `CLOCK_BOOTTIME`, which counts suspend, so the 20 min cap is gone: a timer
+due in sleep fires on waking. 5% is the firmware's own alarm (5.0%, untouched): its event
+arrives when the charge crosses it, and danger is `energy_now` ≤ `alarm`; an alarm that is
+off or at 15% or above gets a warning notice and a journal line. Level notices say the time
+left. The program (the `power-notify` submodule, developed in `~/projects/power-notify`,
+built by `install.sh`) is freestanding C: one process, 24 KB, against about 2.0 MB for bash +
+`udevadm monitor`. 24 tests inject uevents into a private network namespace and read the
+planned timer from `/proc/<pid>/fdinfo`.
 
 ## Two things that shipped broken
 

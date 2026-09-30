@@ -88,6 +88,7 @@ dotfiles/
 ├── nvim/                   # Neovim config (git submodule → FarhadManiCodes/nvim-config)
 ├── mic-notify/             # Microphone notifier in C (git submodule → FarhadManiCodes/mic-notify)
 ├── net-notify/             # Network notifier in C (git submodule → FarhadManiCodes/net-notify)
+├── power-notify/           # Power notifier in C (git submodule → FarhadManiCodes/power-notify)
 ├── vim/                    # Vim config (lightweight editing)
 │   ├── vimrc
 │   └── config/             # basic, plugins, mappings, autocmds, languages
