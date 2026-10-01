@@ -158,13 +158,19 @@ _cached_eval starship starship init zsh
 
 # Prompt segments computed with builtins, handed to starship as env vars: a
 # starship custom module forks a shell on every prompt, even where it is empty.
+zmodload -F zsh/stat b:zstat
+typeset -gA _git_host_cache   # repo root -> "config stamp|icon"
+
 _prompt_env() {
   typeset -gx STARSHIP_VENV=${VIRTUAL_ENV:t}
 
-  # Icon for origin's host: read .git/config here instead of `git remote get-url`.
+  # Icon for origin's host. git does the parsing (insteadOf and all); the answer
+  # is cached per repo and fetched again when the repo's config file changes
+  # (remote add, set-url, rename; nanosecond mtime also sees same-second edits).
   typeset -gx STARSHIP_GIT_HOST=
   [[ $PWD == $HOME/Cloud/* ]] && return
-  local p=$PWD line g cfg url in_origin=0
+  local p=$PWD line g cfg url icon
+  local -a st
   while [[ -n $p && ! -e $p/.git ]]; do p=${p%/*}; done
   [[ -n $p ]] || return
   cfg=$p/.git/config
@@ -173,21 +179,18 @@ _prompt_env() {
     [[ $g == /* ]] || g=$p/$g
     cfg=$g/config
   fi
-  if [[ -r $cfg ]]; then
-    while IFS= read -r line; do
-      case $line in
-        '[remote "origin"]') in_origin=1 ;;
-        '['*) in_origin=0 ;;
-        *) (( in_origin )) && [[ $line == [[:space:]]#url[[:space:]]#=* ]] && { url=${line#*=}; break } ;;
-      esac
-    done < $cfg
+  zstat -F %s.%N -A st +mtime -- $cfg 2>/dev/null
+  if [[ -z $st || ${_git_host_cache[$p]%%|*} != $st ]]; then
+    url=$(command git -C $p remote get-url origin 2>/dev/null)
+    case $url in
+      *github.com*)    icon=$'\uf408' ;;
+      *gitlab.com*)    icon=$'\uf296' ;;
+      *bitbucket.org*) icon=$'\uf171' ;;
+      *)               icon=$'\uf1d3' ;;
+    esac
+    _git_host_cache[$p]="$st|$icon"
   fi
-  case $url in
-    *github.com*)    STARSHIP_GIT_HOST=$'\uf408' ;;
-    *gitlab.com*)    STARSHIP_GIT_HOST=$'\uf296' ;;
-    *bitbucket.org*) STARSHIP_GIT_HOST=$'\uf171' ;;
-    *)               STARSHIP_GIT_HOST=$'\uf1d3' ;;
-  esac
+  STARSHIP_GIT_HOST=${_git_host_cache[$p]#*|}
 }
 
 # Zoxide (better cd)
