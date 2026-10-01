@@ -686,6 +686,9 @@ if (( $+functions[compdef] )); then
   }
   # vc takes its arguments in any order, so a template is valid at any position.
   _venv_create() { _describe -t templates template _VENV_TEMPLATES; }
+  _venv_sync() { _arguments '--prune[also remove unlisted packages]'; }
   compdef _venv_envs va vr
   compdef _venv_create vc
+  compdef _venv_sync vs
+  compdef _nothing vf
 fi
