@@ -40,3 +40,8 @@ text-color=#cdd6f4
 border-color=#f38ba8
 border-size=2
 default-timeout=0
+
+# --- service-failed-notify: repeated failures of one unit show as one "(N)" popup ---
+[app-name=service-failed-notify]
+group-by=summary
+on-button-left=dismiss-group
