@@ -27,6 +27,7 @@ safe_source() {
     touch "$cache_file"
   fi
 
+  (( $+functions[_zcompile_stale] )) && _zcompile_stale "$file"
   if source "$file" 2>/dev/null; then
     return 0
   else

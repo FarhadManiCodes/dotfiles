@@ -10,6 +10,17 @@
 [[ $- != *i* ]] && return
 
 # ============================================================================
+# COMPILED COPIES
+# ============================================================================
+# zsh loads FILE.zwc instead of parsing FILE when the .zwc is not older, 2-4x faster.
+# Compile when the .zwc is missing or older than the file (after an edit or a plugin
+# update). A stale .zwc is ignored by zsh, so a missed recompile only loses the speedup.
+_zcompile_stale() {
+  [[ -e $1.zwc && ! $1 -nt $1.zwc ]] || zcompile -- "$1" 2>/dev/null
+  return 0
+}
+
+# ============================================================================
 # CACHED TOOL INIT
 # ============================================================================
 # Several tools (starship, zoxide, direnv, fzf, dircolors) ship their shell
@@ -30,6 +41,7 @@ _cached_eval() {
   fi
   # 2>/dev/null: fzf's integration emits a benign "can't change option: zle"
   # under non-tty `zsh -i -c`; the old `source <(fzf --zsh) 2>/dev/null` hid it.
+  _zcompile_stale "$cache"
   source "$cache" 2>/dev/null
 }
 
@@ -127,6 +139,7 @@ bindkey '^e' end-of-line
 
 # 1. Autosuggestions
 if [[ -f ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; then
+  _zcompile_stale ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
   source ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
   ZSH_AUTOSUGGEST_STRATEGY=(history completion)
   ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=30
@@ -142,11 +155,13 @@ fi
 # falls back to this very path with a `mkdir -p` that forks on every shell start.
 FAST_WORK_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fsh"
 if [[ -f ~/.config/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ]]; then
+  _zcompile_stale ~/.config/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
   source ~/.config/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
 fi
 
 # 3. History Substring Search
 if [[ -f ~/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh ]]; then
+  _zcompile_stale ~/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
   source ~/.config/zsh/plugins/zsh-history-substring-search/zsh-history-substring-search.zsh
   bindkey '^[[A' history-substring-search-up
   bindkey '^[[B' history-substring-search-down
@@ -260,9 +275,9 @@ add-zsh-hook precmd _prompt_env
 # LOAD MODULAR COMPONENTS
 # ============================================================================
 # Load core helpers first
-[[ -f ~/.config/zsh/helpers.zsh ]] && source ~/.config/zsh/helpers.zsh
+[[ -f ~/.config/zsh/helpers.zsh ]] && _zcompile_stale ~/.config/zsh/helpers.zsh && source ~/.config/zsh/helpers.zsh
 # Load aliases
-[[ -f ~/.config/zsh/aliases ]] && source ~/.config/zsh/aliases
+[[ -f ~/.config/zsh/aliases ]] && _zcompile_stale ~/.config/zsh/aliases && source ~/.config/zsh/aliases
 
 # Load function modules (if any exist)
 for func in ~/.config/zsh/functions/*.zsh(N); do
