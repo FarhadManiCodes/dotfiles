@@ -77,4 +77,4 @@ and their limitations.
 ## Reusable procedures
 
 Read the matching `skills/<name>/SKILL.md`: `diagnose-boot-or-suspend`, `systemd-user-units`,
-`local-postgres`, `python-venv`, `papers-and-pdfs`, `screenshot`.
+`local-postgres`, `python-venv`, `papers-and-pdfs`, `screenshot`, `measure-performance`.
