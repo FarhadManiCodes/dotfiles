@@ -62,8 +62,8 @@ for dir in "$skills_dir"/*/; do
   fi
 
   # --- description ---------------------------------------------------------
-  # Folded block: every line after `description: >` that is indented.
-  desc=$(awk '/^description:[[:space:]]*>/{f=1;next} f&&/^[[:space:]]+/{print} f&&!/^[[:space:]]/{exit}' \
+  # Folded block: every indented line after `description: >`, past blank lines.
+  desc=$(awk '/^description:[[:space:]]*>/{f=1;next} f&&/^[[:space:]]+/{print} f&&/^[^[:space:]]/{exit}' \
            <<<"$fm" | sed 's/^[[:space:]]*//' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
   checked=$((checked+1))
   if [[ -z $desc ]]; then
