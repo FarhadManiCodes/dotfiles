@@ -901,3 +901,22 @@ there would be the notice, with no timer.
 - **Recheck:** only if the timer proves inadequate, or if the firmware's alarm stops
   sending its event.
 
+
+---
+
+## zsh prompt and startup: accepted costs and limits — ACCEPTED
+
+Details in `docs/architecture/zsh.md` ("Startup and prompt cost").
+
+- **`git_status` ~16 ms in this repo** (2 submodules ≈ 9 ms of it). Submodule status is
+  kept on purpose; the rest of the prompt is ~3 ms. Untested: `core.untrackedCache`.
+- **Git host icon cache** watches the repo's own `.git/config` only: a change to global
+  config (`url.*.insteadOf`) shows after a new shell, and a linked worktree (config via
+  `commondir`) re-asks git every prompt (correct, ~3 ms). No `insteadOf`, no worktrees here.
+- **Autosuggestions bind once**, at the first prompt. A plugin sourced or a widget defined
+  later in a live shell is not re-wrapped until a new shell (`exec zsh`, as `helpers.zsh` does).
+- **`compinit -C` refresh** is daily: a package that ships completions appears after the
+  next refresh. Deferred: rebuild when an `fpath` directory is newer than the dump (0.2 ms).
+- **`fast-syntax-highlighting`** costs ~14 ms to load and is not helped by compiling.
+  Lazy-loading it only moves the work after the first prompt.
+- **Recheck:** if startup or prompt time regresses, or after a zsh or plugin upgrade.

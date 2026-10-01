@@ -85,3 +85,28 @@ Refuses a dirty worktree, **checking untracked files too** — `make install` ru
 modified one. Both directories are passed as arguments because `make install` runs
 `uv venv --clear`, which would wipe a live prefix. Exists because the launcher sat three
 months stale on 2026-09-17 while starting and running fine.
+
+## Startup and prompt cost
+
+Measured 2026-10: a new interactive shell ~44 ms (bare zsh 3 ms), a prompt ~3 ms outside git.
+What keeps it there, and what not to undo:
+
+- **No forks on the hot paths.** `.zshenv` is read by every zsh, scripts included, so it
+  forks nothing (`OPENBLAS_NUM_THREADS=8` is hardcoded, machine-specific); variables only
+  an interactive tool reads (`_ZO_*`, `FAST_WORK_DIR`) live in `.zshrc`, **exported** when an
+  external program reads them. No `$(basename …)` in loops: use `${f:t}`.
+- **Prompt segments come from a hook, not starship custom modules.** A custom module with
+  `when=` ignores `detect_*` and forks a shell on every prompt in every directory. The
+  `_prompt_env` precmd hook sets `STARSHIP_VENV` and `STARSHIP_GIT_HOST` (`env_var`
+  modules); the host icon is git's answer cached per repo, refetched when its `.git/config`
+  mtime changes. `cmake_build_type` uses `detect_files` (project root only). `direnv` runs
+  only where an `.envrc` exists above or one is loaded.
+- **`ZSH_AUTOSUGGEST_MANUAL_REBIND=1`**: the default re-binds every zle widget before each
+  prompt (~13 ms).
+- **`_zcompile_stale`** keeps `.zwc` copies of everything sourced at startup (beside the
+  sources in `~/.config/zsh`, `~/.cache`; never in the repo). A stale `.zwc` is ignored, so
+  a missed recompile only costs speed. `compinit` touches and compiles its dump daily.
+- **Caps:** `HISTSIZE=SAVEHIST=10000` (~195 B per entry); tmux `history-limit` and foot
+  scrollback 10000 (~540 B per tmux line per pane).
+- **Probe from `/tmp`.** An interactive probe shell saves its directory as the last working
+  directory on exit (`last_working_dir.zsh`).
