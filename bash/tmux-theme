@@ -47,20 +47,3 @@ tmux set -g @tmux_power_g4    "$g0"
 tmux set -g @tmux_power_theme "$tc"
 tmux run-shell "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/plugins/tmux-power/tmux-power.tmux"
 
-# Restore the clock and date formats. tmux-power honoured
-# @tmux_power_{time,date}_format until upstream 4add525 ("perf: batch option
-# loading for 13x faster startup"), which hardcoded ' %T' and ' %F' and silently
-# turned both options into dead settings -- the bar started showing seconds and
-# ISO dates. Re-apply them here from those same options, so tmux.conf stays the
-# single place they are configured.
-time_fmt=$(tmux show -gv @tmux_power_time_format 2>/dev/null)
-date_fmt=$(tmux show -gv @tmux_power_date_format 2>/dev/null)
-[ -n "$time_fmt" ] || time_fmt='%H:%M'
-[ -n "$date_fmt" ] || date_fmt='%d-%b'
-right=$(tmux show -gv status-right 2>/dev/null)
-case "$right" in
-    *%T*|*%F*)
-        tmux set -g status-right \
-            "$(printf '%s' "$right" | sed "s|%T|${time_fmt}|g; s|%F|${date_fmt}|g")"
-        ;;
-esac
