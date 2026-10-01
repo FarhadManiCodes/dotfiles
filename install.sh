@@ -68,6 +68,7 @@ echo "🖥️  Setting up Tmux..."
 mkdir -p "$XDG_CONFIG_HOME/tmux"
 ln -sf "${DOTFILES}/tmux/tmux.conf" "${XDG_CONFIG_HOME}/tmux/tmux.conf"
 link_glob "${DOTFILES}/tmux/layouts/"*.sh "${XDG_CONFIG_HOME}/tmux/layouts"
+link_glob "${DOTFILES}/tmux/themes/"*.conf "${XDG_CONFIG_HOME}/tmux/themes"
 echo "✅ Tmux configured"
 
 # ============ nvim ==============================

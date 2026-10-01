@@ -226,7 +226,7 @@ writing a grep for each. See `revisit.md`, "Test runner follow-on scope".
 | `install.sh` never executes sudo | Holds — its two mentions are a comment and a printed instruction. No assertion |
 | No user unit orders against `network-online.target` | Holds — current matches are comments. Unit verification exists but does not enforce this rule |
 | Installed user-config links keep their intended mapping | **Asserted** since item B |
-| `bash/tmux-theme` uses explicit background hex in the relevant slots, never `default` | Holds, **nothing asserts it** — the status-rendering check and its test were removed in `939f89d`, and they did not cover this rule anyway |
+| `tmux/themes/*.conf` (was `bash/tmux-theme`) use explicit background hex in the relevant slots, never `default` | Holds, **nothing asserts it** — the status-rendering check and its test were removed in `939f89d`, and they did not cover this rule anyway |
 
 ## Parked — each needs its own session
 
