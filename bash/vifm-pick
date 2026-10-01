@@ -170,8 +170,7 @@ case "$cmd" in
         -e pkl -e pickle -e joblib \
         -e h5 -e hdf5 \
         -e pt -e pth -e onnx \
-        --exclude __pycache__ --exclude .git --exclude node_modules \
-        --exclude .venv --exclude venv \
+        --exclude __pycache__ --exclude node_modules --exclude venv \
         2>/dev/null \
         | fzf \
             --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \

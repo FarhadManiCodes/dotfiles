@@ -81,8 +81,7 @@ fdata() {
     -e pkl -e pickle -e joblib \
     -e h5 -e hdf5 \
     -e pt -e pth -e onnx \
-    --exclude __pycache__ --exclude .git --exclude node_modules --exclude .venv --exclude venv \
-    --exclude "*.tmp" --exclude "*.cache" |
+    --exclude __pycache__ --exclude node_modules --exclude venv |
     fzf --preview='echo "📁 $(basename {})" && echo "📊 $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "" &&
                    if command -v bat >/dev/null 2>&1; then
                      bat --color=always --style=plain --line-range=:12 {} 2>/dev/null || head -8 {} 2>/dev/null
