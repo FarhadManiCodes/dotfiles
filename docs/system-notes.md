@@ -184,7 +184,7 @@ dotfiles file IS the live file, so this is only needed if symlinks were bypassed
 | `XDG_STATE_HOME` | `~/.local/state` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `XDG_CACHE_HOME` | `~/.cache` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `EDITOR`, `VISUAL` | `vim` | `environment.d/defaults.conf`, `zsh/.zshenv` |
-| `OPENBLAS_NUM_THREADS` | `8` in user-service defaults; `nproc / 2` in Zsh | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `OPENBLAS_NUM_THREADS` | `8` in user-service defaults and in Zsh (machine-specific) | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `OPENBLAS_MAIN_FREE` | `1` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `IPYTHONDIR` | `~/.config/ipython` | `zsh/.zshenv` |
 | `CENTRAL_VENVS` | `~/.central_venvs` | `zsh/.zshenv` |
@@ -212,8 +212,9 @@ overhead; no memory reduction has been measured here. `OPENBLAS_MAIN_FREE=1` dis
 OpenBLAS automatic affinity where enabled. `OPENBLAS_NUM_THREADS` applies to non-OpenMP
 builds; it does not cap every possible OpenBLAS build. See the
 [OpenBLAS runtime-variable reference](https://www.openmathlib.org/OpenBLAS/docs/runtime_variables/).
-The shell's `nproc / 2` is an existing machine-specific approximation, not a physical-core
-topology query; changing shell computation is a separate step.
+The shell's `8` is hardcoded and machine-specific (it was `nproc / 2`, which forked on every
+zsh start): it is not a physical-core topology query, so change it on a machine with another
+core count.
 
 The isolated Niri session forwards only validated login metadata and does not read or
 duplicate `environment.d`; `IPYTHONDIR` and the Cargo PATH addition stay on the shell side.
