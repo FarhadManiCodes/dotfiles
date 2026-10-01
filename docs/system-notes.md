@@ -263,6 +263,9 @@ System-level choices that aren't captured in any config file:
   (only optional for `layer-shell-qt`) because `~/.local/bin/sioyek` is a local build that no
   package owns, but it links `libQt6Qml`/`libQt6Quick` (`ldd` confirms). Removing it breaks
   sioyek. Don't suggest it as an orphan.
+- **`linux-firmware-atheros` (explicit) is the Wi-Fi firmware**: nothing requires it, but the
+  card is a Qualcomm QCNFA765 driven by `ath11k_pci` (`lspci -nnk`). Removing it breaks Wi-Fi
+  on the next boot. Don't suggest it as an orphan.
 - **Go toolchain intentionally not installed**: `go` was removed (unused, ~215 MiB). The nvim
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
