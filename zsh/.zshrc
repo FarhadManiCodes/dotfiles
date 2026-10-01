@@ -257,5 +257,5 @@ add-zsh-hook precmd _prompt_env
 
 # Load function modules (if any exist)
 for func in ~/.config/zsh/functions/*.zsh(N); do
-  safe_source "$func" "$(basename "$func")"
+  safe_source "$func" "${func:t}"
 done
