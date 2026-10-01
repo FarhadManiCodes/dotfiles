@@ -121,13 +121,9 @@ for d in build cmake-build cmake-build-debug cmake-build-release _build; do
   [ -f "$f" ] && grep 'CMAKE_BUILD_TYPE:STRING=' "$f" | cut -d= -f2 && break
 done
 """
-when = """
-case "$PWD" in /home/farhad/Cloud/*) exit 1;; esac
-for d in build cmake-build cmake-build-debug cmake-build-release _build; do
-  [ -f "$d/CMakeCache.txt" ] && exit 0
-done
-exit 1
-"""
+# detect_files, not when=: a custom module with when= ignores detect_* and forks a
+# shell on every prompt in every directory.
+detect_files = ["CMakeLists.txt", "CMakeCache.txt"]
 format = "[$output]($style) "
 style = "bold purple"
 
