@@ -255,6 +255,10 @@ System-level choices that aren't captured in any config file:
   packages, ~190 MiB). `shellcheck-bin` is the official upstream static binary (sourced from
   `koalaman/shellcheck` releases, checksum-pinned) with zero Haskell deps. Don't suggest
   switching back to the repo build.
+- **`pandoc-bin` (AUR), not repo `pandoc-cli`**: same reason. The repo package pulls in
+  `ghc-libs` and the `haskell-*` set (236 packages, 74 MiB download) and is older (3.11 vs
+  3.12); `pandoc-bin` is the static upstream binary with no dependencies. Only the papers
+  converter uses it. Don't suggest switching to the repo build.
 - **Go toolchain intentionally not installed**: `go` was removed (unused, ~215 MiB). The nvim
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
