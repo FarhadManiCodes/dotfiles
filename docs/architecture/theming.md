@@ -14,7 +14,8 @@ Tools follow in one of two ways, **preferring the first**:
    picks onedark/PaperColor at `VimEnter` (`<leader>tt` still cycles manually); `nvim`
    maps it to onedark/newpaper at startup via `config.themes.from_desktop()`, with
    `<leader>th` as a session override and `last_theme.txt` only as fallback; and
-   `bash/tmux-theme` sets the status bar, called after tpm and again by the toggle script.
+   `tmux.conf` sources `tmux/themes/<theme>.conf` before tpm, and the toggle script
+   sources it again and re-runs tmux-power.
 
    **tmux's colours must be real hex, never `default` or a palette index.** tmux-power
    uses its `g0`/`g2`/`g4` values in *foreground* slots — active-label text, the inactive
