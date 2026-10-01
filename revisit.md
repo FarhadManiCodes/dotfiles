@@ -112,8 +112,9 @@ gap — an audit will keep proposing a fix for it.
 
 - **Investigated:** the AUR adapter `blas-aocl-gcc` (16 symlinks, 0 bytes of code) was the
   only package filling that slot. It was orphaned and dangling after AOCL 5.3.0 moved its
-  trees to `MT/`; removed 2026-08-14. AOCL itself (maintained) is untouched and still this
-  machine's BLAS — projects link it via CMake's `BLA_VENDOR=AOCL_mt`, which is *better*
+  trees to `MT/`; removed 2026-08-14. AOCL itself (maintained) was then still this
+  machine's BLAS (the package was later removed, 2026-10-01; see
+  `docs/architecture/aocl.md`) — projects linked it via CMake's `BLA_VENDOR=AOCL_mt`, which is *better*
   than the symlinks were (supplies `-fopenmp`, picks MT/ST + LP64/ILP64 correctly).
 - **Why nothing replaced it:** no installed package declares a `blas` dependency.
   `blas-openblas` would fill the slot but would only ever serve a hypothetical consumer.
@@ -124,7 +125,7 @@ gap — an audit will keep proposing a fix for it.
 - **Recheck:** if `blas-aocl` is ever revived on the AUR for the `MT/` layout, or a wanted
   package starts depending on `blas`.
 
-## AOCL `.pc` files hardcode a nonexistent prefix — ACCEPTED (upstream packaging bug)
+## AOCL `.pc` files hardcode a nonexistent prefix — ACCEPTED (upstream packaging bug; moot while `aocl-gcc` is uninstalled)
 
 `pkg-config --libs blis-mt` emits `-L/opt/aocl/5.3.0/gcc/MT/lib`, a path that does not exist
 (`/opt/aocl/` contains only `gcc/`). Affects every AOCL module: `blis-mt`, `flame`,

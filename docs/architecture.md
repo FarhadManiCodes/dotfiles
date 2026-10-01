@@ -31,4 +31,4 @@ state before acting. Read the file for the app you're touching before changing i
   remote
 - [btrfs subvolumes](architecture/btrfs.md) — snapshot exclusion, the two snapper configs
 - [Containers](architecture/containers.md) — rootless podman, Postgres as a Quadlet unit
-- [AOCL](architecture/aocl.md) — linking without hijacking system FFTW, BLIS thread count
+- [AOCL](architecture/aocl.md) — package removed 2026-10-01; how to reinstall and link without hijacking system FFTW

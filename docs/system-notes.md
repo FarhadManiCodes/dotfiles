@@ -184,7 +184,7 @@ dotfiles file IS the live file, so this is only needed if symlinks were bypassed
 | `XDG_STATE_HOME` | `~/.local/state` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `XDG_CACHE_HOME` | `~/.cache` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `EDITOR`, `VISUAL` | `vim` | `environment.d/defaults.conf`, `zsh/.zshenv` |
-| `OPENBLAS_NUM_THREADS`, `BLIS_NUM_THREADS` | `8` in user-service defaults; `nproc / 2` in Zsh | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `OPENBLAS_NUM_THREADS` | `8` in user-service defaults; `nproc / 2` in Zsh | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `OPENBLAS_MAIN_FREE` | `1` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `IPYTHONDIR` | `~/.config/ipython` | `zsh/.zshenv` |
 | `CENTRAL_VENVS` | `~/.central_venvs` | `zsh/.zshenv` |
@@ -260,15 +260,13 @@ System-level choices that aren't captured in any config file:
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
   files and are kept on purpose for if Go is picked up later. Not a misconfiguration; leave
   them.
-- **`aocl-gcc` (1.6 GiB at 5.3.0) is load-bearing — do not flag it as unused.** Nothing
-  declares a dependency on it (`Required By: None`) and numpy ignores it entirely (wheels
-  bundle their own OpenBLAS — see `uv/README.md`), so an audit will keep concluding it is dead
-  weight. It is not: C++ projects here link it for BLAS/LAPACK. Measured on this machine it
-  beats OpenBLAS on DTRSM by 43–213% — the routine direct solvers live on — and ties on large
-  DGEMM (`~/learning/playground/blas_bench/RESULTS_SUMMARY.md`). No system `blas` provider
-  exists deliberately — see [AOCL](architecture/aocl.md) for why, and for how to link it
-  (CMake pattern, RPATH ordering against the FFTW soname collision, `PKG_CONFIG_PATH`, BLIS
-  thread-count interaction) without breaking anything else on the machine.
+- **`aocl-gcc` was removed 2026-10-01** (1.7 GiB; no current use, not a verdict against it).
+  While installed it was the BLAS/LAPACK for C++ projects here — it beat OpenBLAS on DTRSM by
+  43–213% and tied on large DGEMM (`~/learning/playground/blas_bench/RESULTS_SUMMARY.md`) —
+  and numpy never used it (wheels bundle their own OpenBLAS, `uv/README.md`). Nothing
+  depended on it. To bring it back: `paru -S aocl-gcc`, then follow the checklist in
+  [AOCL](architecture/aocl.md). Without it a CMake `BLA_VENDOR=AOCL_mt` project will not
+  configure.
 - **`rust` (303 MiB) is not removable like Go was**: `paru` is written in Rust and depends on
   `libalpm.so>=14`, so it needs rebuilding whenever pacman bumps that soname. Keeping rust
   installed avoids re-fetching it each time.
