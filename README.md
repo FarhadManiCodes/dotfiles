@@ -150,7 +150,8 @@ dotfiles/
 ├── xdg/user-dirs.dirs
 ├── bash/                   # Helper scripts linked to ~/.local/bin/
 ├── applications/           # Custom .desktop files linked to ~/.local/share/applications/
-└── duckdb/.duckdbrc
+├── duckdb/.duckdbrc
+└── npm/.npmrc              # global installs to ~/.local, not /usr
 ```
 
 ## What is not tracked
