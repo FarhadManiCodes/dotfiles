@@ -1,25 +1,14 @@
 #!/bin/bash
 # Rank Arch mirrors by measured speed from THIS machine, and optionally install
-# the fastest few.
+# the fastest few. Why each choice is what it is: docs/architecture/mirrorlist-rank.md.
 #
 #   mirrorlist-rank                 # show the fastest 20; changes nothing
 #   mirrorlist-rank --install       # install them, keeping a .bak
 #   mirrorlist-rank -n 5 -c AT      # five fastest Austrian mirrors
 #   mirrorlist-rank --min-completion 1  # only mirrors with a perfect check record
 #
-# Ranking is a measurement, not a lookup. rankmirrors downloads from each
-# candidate and orders by observed speed from here, so the answer is specific to
-# this machine, this connection and this moment. `use_mirror_status=on` asks
-# Arch to drop mirrors it already knows are out of sync, so only healthy
-# candidates are timed.
-#
-# This exists instead of the pipeline it replaces because that pipeline has a
-# trap in it: `rankmirrors ... | sudo tee /etc/pacman.d/mirrorlist` truncates the
-# target when the shell BUILDS the pipeline, before curl or rankmirrors has
-# produced a byte. A failed fetch then leaves an empty mirrorlist and pacman with
-# nowhere to go -- verified on a scratch file, where a failing producer left it
-# at 0 bytes. Everything here stages to a temp file, refuses to install a list
-# that came back short, and keeps a rollback copy.
+# Everything stages to a temp file: never `rankmirrors | sudo tee`, which empties
+# the mirrorlist before a byte is produced, so a failed fetch leaves pacman none.
 
 set -uo pipefail
 
@@ -48,36 +37,9 @@ command -v jq          >/dev/null || die "jq not found"
 tmp=$(mktemp -d) || die "could not create a temp directory"
 trap 'rm -rf "$tmp"' EXIT
 
-# Candidates come from the status API rather than the mirrorlist generator, so
-# the filter is ours to state. The generator's use_mirror_status=on turns out to
-# mean "active, and not more than 24 h behind" -- for DE it returns exactly the
-# 54 this query returns with no completion filter -- and it offers no way to
-# exclude a mirror that keeps failing checks.
-#
-# completion_pct is the fraction of Arch's 96 checks per rolling 24 h that a
-# mirror answered, so >= 0.98 means it missed at most two. Filtering here rather
-# than warning later is the point: a mirror that would trip sysup's validity
-# check should never have been ranked into the list in the first place. For DE
-# today: 54 unfiltered, 51 at 0.95, 49 at 0.98, 44 at a perfect 100.
-#
-# https only, and IPv4 required. Both measured on 2026-09-09 against the 152
-# active DE mirrors:
-#
-#   https 58, http-only 53, rsync 41. Packages and databases are signed, so
-#   plain http is not a tampering risk for content -- but https hides WHICH
-#   packages this machine downloads from anyone on the path, and keeps meddling
-#   middleboxes and captive portals out of the transfer. 58 candidates is far
-#   more than the ten needed, so the privacy is free.
-#
-#   Of those 58: 50 dual-stack, 8 IPv4-only, and ZERO IPv6-only. This machine
-#   has no global IPv6 address and an IPv6 fetch fails outright, so an
-#   IPv6-only mirror would be unreachable -- and requiring .ipv4 costs nothing,
-#   because no DE https mirror is IPv6-only. It also stays correct if IPv6
-#   arrives later, since every dual-stack mirror still matches.
-#
-# Deliberately NOT filtered on Arch's own score or duration_avg. Those are timed
-# from Arch's infrastructure, not from here, and speed from this machine is the
-# one thing this script exists to measure.
+# Candidates from Arch's status API, filtered here: https, IPv4, active, at most
+# 24 h behind, and answering >= min_completion of Arch's checks (sysup warns
+# below 0.95). Not Arch's score: speed from here is what this measures.
 curl -fsS --max-time 20 'https://archlinux.org/mirrors/status/json/' -o "$tmp/status" ||
   die "could not reach archlinux.org for the mirror status — nothing was changed"
 
@@ -93,25 +55,8 @@ jq -r --arg cc "$country" --argjson minc "$min_completion" '
 candidates=$(grep -c '^Server' "$tmp/all")
 ((candidates)) || die "no ${country} mirror is https, IPv4, active and >= $(awk -v m="$min_completion" 'BEGIN{printf "%d", m*100}')% complete — check the country code"
 
-# ONE timing pass by default, and the reason is a measurement, not laziness.
-#
-# Averaging was tried and does not work here. Two median-of-3 runs back to back
-# shared 6 of their top 10 -- the same overlap as two single-pass runs. The
-# arithmetic says why: ten repeated fetches from one mirror spread over 54 ms
-# (median 0.167), while adjacent ranks differ by about 3 ms. Averaging cuts noise
-# by sqrt(n), so separating neighbours would take on the order of 300 passes.
-# Membership at the boundary is not determinable at any sane sample size.
-#
-# The response is to stop trying to resolve it and take a longer list instead:
-# 20 entries rather than 10, so the cut-off falls somewhere that does not matter.
-# pacman uses the first working server and falls down the list only on failure,
-# so the extra ten cost nothing while the top of the list is healthy -- and the
-# whole top forty here sits within a factor of two of each other anyway.
-#
-# The measurement could be made sharp by timing extra.db (8.9 MB) instead of
-# core.db (129 KB), where throughput would dominate latency jitter. Rejected: one
-# pass over 51 mirrors would pull ~450 MB off other people's mirrors to reorder
-# a set that is within 25 ms of itself.
+# One timed pass. Neighbours differ by less than run-to-run noise, so no number
+# of passes settles the order; 20 entries put the cut-off where it does not matter.
 printf 'timing %d healthy %s mirrors for the fastest %d...\n' "$candidates" "$country" "$count" >&2
 rankmirrors -r core -w -t -n 0 "$tmp/all" 2>/dev/null |
   sed -n 's/^\(https\?:[^ ]*\) : \([0-9.]*\)$/\2 \1/p' | sort -g > "$tmp/times" ||
@@ -129,14 +74,8 @@ installed=$(wc -l < "$tmp/top")
 } > "$tmp/final"
 cat "$tmp/final"
 
-# Say whether this would actually change anything. Without it the output is just
-# ten URLs and the reader still has to eyeball them against the live file to
-# answer the only question that matters -- is my list still the right one?
-# Everything here goes to stderr so stdout stays a clean mirrorlist.
-#
-# Compared on the base url with the $repo/os/$arch suffix stripped, because that
-# is the part identifying the mirror; both files come from Arch's generator, but
-# normalising costs nothing and survives a hand-edited entry.
+# Say whether this changes anything, on stderr so stdout stays a clean
+# mirrorlist. Compared on the base url, with the $repo/os/$arch suffix stripped.
 bases() {
   # shellcheck disable=SC2016  # $repo is a literal pacman placeholder, not a shell variable
   sed -n 's/^[[:space:]]*Server[[:space:]]*=[[:space:]]*//p' "$1" | sed 's/\$repo.*//' | sort -u
