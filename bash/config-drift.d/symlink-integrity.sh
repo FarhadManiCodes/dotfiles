@@ -61,9 +61,8 @@ check_symlink_integrity() {
           # ${0:A:h}, straight through its own symlink to the real checkout.
           continue ;;
         bash/config-drift.d/*.sh)
-          # Not individually symlinked either: install.sh's helper-script loop
-          # symlinks config-drift.d/ as one directory (same as nvim above), so
-          # each file inside is reached through that, never its own link.
+          # Not symlinked at all: config-drift finds config-drift.d/ through
+          # its own realpath, and install.sh links only the scripts in bash/.
           continue ;;
         bash/.*)
           # install.sh's bash/* glob skips hidden helper files.
