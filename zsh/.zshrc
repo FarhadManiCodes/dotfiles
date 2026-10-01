@@ -156,6 +156,43 @@ fi
 # Starship prompt
 _cached_eval starship starship init zsh
 
+# Prompt segments computed with builtins, handed to starship as env vars: a
+# starship custom module forks a shell on every prompt, even where it is empty.
+zmodload -F zsh/stat b:zstat
+typeset -gA _git_host_cache   # repo root -> "config stamp|icon"
+
+_prompt_env() {
+  typeset -gx STARSHIP_VENV=${VIRTUAL_ENV:t}
+
+  # Icon for origin's host. git does the parsing (insteadOf and all); the answer
+  # is cached per repo and fetched again when the repo's config file changes
+  # (remote add, set-url, rename; nanosecond mtime also sees same-second edits).
+  typeset -gx STARSHIP_GIT_HOST=
+  [[ $PWD == $HOME/Cloud/* ]] && return
+  local p=$PWD line g cfg url icon
+  local -a st
+  while [[ -n $p && ! -e $p/.git ]]; do p=${p%/*}; done
+  [[ -n $p ]] || return
+  cfg=$p/.git/config
+  if [[ -f $p/.git ]]; then   # submodule: .git is a "gitdir: <path>" file
+    read -r line < $p/.git; g=${line#gitdir: }
+    [[ $g == /* ]] || g=$p/$g
+    cfg=$g/config
+  fi
+  zstat -F %s.%N -A st +mtime -- $cfg 2>/dev/null
+  if [[ -z $st || ${_git_host_cache[$p]%%|*} != $st ]]; then
+    url=$(command git -C $p remote get-url origin 2>/dev/null)
+    case $url in
+      *github.com*)    icon=$'\uf408' ;;
+      *gitlab.com*)    icon=$'\uf296' ;;
+      *bitbucket.org*) icon=$'\uf171' ;;
+      *)               icon=$'\uf1d3' ;;
+    esac
+    _git_host_cache[$p]="$st|$icon"
+  fi
+  STARSHIP_GIT_HOST=${_git_host_cache[$p]#*|}
+}
+
 # Zoxide (better cd)
 _cached_eval zoxide zoxide init zsh
 
@@ -164,8 +201,15 @@ _cached_eval direnv direnv hook zsh
 # Skip direnv inside cloud FUSE mounts — stat calls are slow over rclone, no .envrc needed there
 if typeset -f _direnv_hook >/dev/null 2>&1; then
   eval "_direnv_hook_base() { ${functions[_direnv_hook]} }"
+  # direnv forks on every prompt (~5 ms). It is needed only where an .envrc exists
+  # above us, or while one is loaded (DIRENV_DIR) so that leaving it can unload.
   _direnv_hook() {
     [[ $PWD == $HOME/Cloud || $PWD == $HOME/Cloud/* ]] && return 0
+    if [[ -z $DIRENV_DIR ]]; then
+      local p=$PWD
+      while [[ -n $p ]]; do [[ -e $p/.envrc ]] && break; p=${p%/*}; done
+      [[ -n $p ]] || return 0
+    fi
     _direnv_hook_base
   }
 fi
@@ -201,6 +245,7 @@ add-zle-hook-widget -Uz zle-line-init _foot_osc133b
 
 add-zsh-hook preexec foot_cmd_start
 add-zsh-hook precmd foot_cmd_end
+add-zsh-hook precmd _prompt_env
 
 # ============================================================================
 # LOAD MODULAR COMPONENTS
