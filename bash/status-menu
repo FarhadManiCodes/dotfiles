@@ -44,11 +44,27 @@ case "$choice" in
         esac
         body="${cap}% — ${status}"
         # Under 1 W is a reading not yet settled, as just after resume (0.2 W: "~109 h").
+        if (( w >= 1000000 )); then
+            body+=" at $(( (w + 500000) / 1000000 )) W"
+        fi
         if (( w >= 1000000 && togo > 0 )); then
             m=$(( togo * 60 / w ))
             (( m < 60 )) && t="$m min" || t="$(( (m + 30) / 60 )) h"
             body+=", ~${t}${what}"
         fi
+        # What a charger offers: its best fixed USB-C PD profile, volts × amps. Not the
+        # UCSI power_supply's voltage_max × current_max, which mixes profiles (60 W for 27).
+        for port in /sys/class/typec/port*-partner; do
+            [[ -e $port && $(<"${port%-partner}/power_role") == *'[sink]'* ]] || continue
+            best=0
+            for pdo in "$port"/usb_power_delivery/source-capabilities/*:fixed_supply; do
+                [[ -e $pdo ]] || continue
+                v=$(<"$pdo/voltage") a=$(<"$pdo/maximum_current")
+                watts=$(( ${v%mV} * ${a%mA} / 1000000 ))
+                (( watts > best )) && best=$watts
+            done
+            (( best > 0 )) && body+=" · charger $best W" || body+=" · charger without USB PD"
+        done
         notify-send -u low "${icon} Battery" "$body"
         ;;
     *Internet*)
