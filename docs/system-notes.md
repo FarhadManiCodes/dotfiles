@@ -266,6 +266,9 @@ System-level choices that aren't captured in any config file:
 - **`linux-firmware-atheros` (explicit) is the Wi-Fi firmware**: nothing requires it, but the
   card is a Qualcomm QCNFA765 driven by `ath11k_pci` (`lspci -nnk`). Removing it breaks Wi-Fi
   on the next boot. Don't suggest it as an orphan.
+- **`spdlog` (explicit) is needed by `~/learning/SciCpp`**: nothing in this repo or the package
+  database requires it, but chapter 1 of SciCore has `find_package(spdlog REQUIRED)` (the `basics/` and
+  `benchmarks/` `spdlog_*` examples), so configure fails without it. Don't suggest it as an orphan.
 - **Go toolchain intentionally not installed**: `go` was removed (unused, ~215 MiB). The nvim
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
