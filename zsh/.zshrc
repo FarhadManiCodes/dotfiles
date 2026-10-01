@@ -164,8 +164,15 @@ _cached_eval direnv direnv hook zsh
 # Skip direnv inside cloud FUSE mounts — stat calls are slow over rclone, no .envrc needed there
 if typeset -f _direnv_hook >/dev/null 2>&1; then
   eval "_direnv_hook_base() { ${functions[_direnv_hook]} }"
+  # direnv forks on every prompt (~5 ms). It is needed only where an .envrc exists
+  # above us, or while one is loaded (DIRENV_DIR) so that leaving it can unload.
   _direnv_hook() {
     [[ $PWD == $HOME/Cloud || $PWD == $HOME/Cloud/* ]] && return 0
+    if [[ -z $DIRENV_DIR ]]; then
+      local p=$PWD
+      while [[ -n $p ]]; do [[ -e $p/.envrc ]] && break; p=${p%/*}; done
+      [[ -n $p ]] || return 0
+    fi
     _direnv_hook_base
   }
 fi
