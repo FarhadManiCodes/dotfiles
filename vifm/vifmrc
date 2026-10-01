@@ -96,10 +96,10 @@ fileviewer {*.md,*.markdown} bat --color=always --plain --language=markdown %c
 " Directories — eza tree (depth 2, colours preserved)
 fileviewer */ eza --tree --color=always --level=2 %c
 
-" Archives — atool lists all common formats (zip, tar.*, rar, gz, bz2, xz…)
+" Archives — bsdtar (libarchive) lists zip, tar.*, rar and 7z
 fileviewer {*.zip,*.tar,*.tar.gz,*.tgz,*.tar.bz2,*.tbz2,*.tar.xz,*.txz,
-           \*.tar.zst,*.tzst,*.rar,*.gz,*.bz2,*.xz,*.zst,*.7z}
-         \ als %f
+           \*.tar.zst,*.tzst,*.rar,*.7z}
+         \ bsdtar -tf %c
 
 " SVG — render to PNG via resvg, then chafa
 fileviewer *.svg resvg -w 800 --background "#3a3a3a" %c -c 2>/dev/null
