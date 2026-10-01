@@ -66,10 +66,12 @@ fpath=(~/.config/zsh/completions $fpath)
 # -------------
 autoload -Uz compinit
 
-# Smart compinit - only dump once per day for speed
+# Smart compinit - full check once per day, compiled dump and -C otherwise.
+# A valid dump is not rewritten by compinit, so touch it or the check re-runs
+# in every shell after day one; the .zwc halves the -C load time.
 _zcompdump="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/zcompdump"
-if [[ -n ${_zcompdump}(#qN.mh+24) ]]; then
-  compinit -d "$_zcompdump"
+if [[ ! -s $_zcompdump || -n ${_zcompdump}(#qN.mh+24) ]]; then
+  compinit -d "$_zcompdump" && touch "$_zcompdump" && zcompile "$_zcompdump"
 else
   compinit -C -d "$_zcompdump"
 fi
