@@ -90,7 +90,7 @@ rgpy() { _rg_live "--type py" "$@"; }
 # Keys: Enter → open | Ctrl-d → cd | Ctrl-o → open folder
 # ----------------------------------------------------------------------------
 ff() {
-  local result=$(fd --type f "$@" 2>/dev/null | \
+  local result=$(fd --one-file-system --type f "$@" 2>/dev/null | \
     fzf --preview 'bat --color=always --line-range=:100 {}' \
         --preview-window='hidden,right:60%' \
         --bind 'ctrl-p:toggle-preview' \
@@ -135,7 +135,7 @@ ff() {
 # Keys: Enter → cd, Ctrl-o → open in file manager
 # ----------------------------------------------------------------------------
 fdir() {
-  local result=$(fd --type d "$@" 2>/dev/null | \
+  local result=$(fd --one-file-system --type d "$@" 2>/dev/null | \
     fzf --preview 'eza -la --color=always {}' \
         --preview-window='hidden,right:60%' \
         --bind 'ctrl-p:toggle-preview' \
@@ -176,7 +176,7 @@ rgt() {
 fgit() {
   local search_path="${1:-$HOME}"
 
-  local result=$(fd --type d --hidden '^\.git$' "$search_path" 2>/dev/null | \
+  local result=$(fd --one-file-system --type d --hidden '^\.git$' "$search_path" 2>/dev/null | \
     sed 's|/\.git$||' | \
     fzf --preview 'git -C {} log --oneline -10 2>/dev/null; echo ""; git -C {} status -s 2>/dev/null' \
         --preview-window='right:50%:hidden' \
