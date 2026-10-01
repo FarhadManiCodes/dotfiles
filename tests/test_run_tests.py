@@ -3,9 +3,9 @@
     python3 -B -m unittest discover -s tests
 
 The repository's own suites are never invoked: each fixture checkout supplies its
-own tests/ directory, a fake check-skills that records its invocation and fake
-submodule directories whose Makefile `check` just exits, so a failure here is the
-runner's and cannot recurse into this file.
+own tests/ directory, a fake check-skills that records its invocation and a fake
+notifiers submodule whose Makefile check targets just exit, so a failure here is
+the runner's and cannot recurse into this file.
 """
 import os
 from pathlib import Path
@@ -20,7 +20,7 @@ SOURCE = Path(__file__).resolve().parents[1] / "bash/run-tests"
 ANSI = re.compile(r"\033\[[0-9;]*m")
 
 PASSING = "import unittest\n\n\nclass Fixture(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
-SUBMODULES = ("mic-notify", "net-notify", "power-notify")
+SUBMODULES = ("mic-notify", "net-notify", "power-notify")  # suites from the notifiers submodule
 ALL_PASS = ["pass  unittest", "pass  skills"] + [f"pass  {s}" for s in SUBMODULES]
 FAILING = (
     "import unittest\n\n\nclass Fixture(unittest.TestCase):\n"
@@ -40,7 +40,7 @@ class RunTestsTests(unittest.TestCase):
         shutil.copy(SOURCE, self.runner)
         self.skills_log = self.base / "skills-ran"
 
-    def fixture(self, unittest_body=PASSING, skills_exit=0, submodule_exit=0):
+    def fixture(self, unittest_body=PASSING, skills_exit=0, submodule_exit=0, net_exit=None):
         if unittest_body is not None:
             (self.checkout / "tests/test_fixture.py").write_text(unittest_body)
         fake = self.checkout / "bash/check-skills"
@@ -50,9 +50,13 @@ class RunTestsTests(unittest.TestCase):
             f"exit {skills_exit}\n"
         )
         fake.chmod(0o755)
-        for sub in SUBMODULES:
-            (self.checkout / sub).mkdir(exist_ok=True)
-            (self.checkout / sub / "Makefile").write_text(f"check:\n\t@exit {submodule_exit}\n")
+        # One target per suite, as in the real notifiers Makefile; net_exit
+        # overrides check-net's exit alone.
+        (self.checkout / "notifiers").mkdir(exist_ok=True)
+        exits = {"mic": submodule_exit, "power": submodule_exit,
+                 "net": submodule_exit if net_exit is None else net_exit}
+        (self.checkout / "notifiers/Makefile").write_text(
+            "".join(f"check-{p}:\n\t@exit {e}\n" for p, e in exits.items()))
 
     def run_runner(self, command=None, cwd=None):
         # make reads these from the environment: MAKEFLAGS=-n, say, would print the
@@ -95,13 +99,21 @@ class RunTestsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(self.summary(out), ALL_PASS[:2] + [f"FAIL  {s}" for s in SUBMODULES])
 
+    def test_one_failing_notifier_suite_does_not_hide_the_others(self):
+        # Each program is its own suite: `make check` would stop at net-notify.
+        self.fixture(net_exit=1)
+        code, out = self.run_runner()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.summary(out),
+                         ALL_PASS[:2] + ["pass  mic-notify", "FAIL  net-notify", "pass  power-notify"])
+
     def test_an_unfetched_submodule_is_not_a_pass(self):
         # Before `git submodule update`, the directory exists but is empty.
         self.fixture()
-        (self.checkout / "power-notify/Makefile").unlink()
+        (self.checkout / "notifiers/Makefile").unlink()
         code, out = self.run_runner()
         self.assertEqual(code, 1)
-        self.assertEqual(self.summary(out), ALL_PASS[:4] + ["FAIL  power-notify"])
+        self.assertEqual(self.summary(out), ALL_PASS[:2] + [f"FAIL  {s}" for s in SUBMODULES])
 
     def test_missing_suite_is_not_a_pass(self):
         self.fixture()
