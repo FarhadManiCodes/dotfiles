@@ -160,6 +160,34 @@ _cached_eval starship starship init zsh
 # starship custom module forks a shell on every prompt, even where it is empty.
 _prompt_env() {
   typeset -gx STARSHIP_VENV=${VIRTUAL_ENV:t}
+
+  # Icon for origin's host: read .git/config here instead of `git remote get-url`.
+  typeset -gx STARSHIP_GIT_HOST=
+  [[ $PWD == $HOME/Cloud/* ]] && return
+  local p=$PWD line g cfg url in_origin=0
+  while [[ -n $p && ! -e $p/.git ]]; do p=${p%/*}; done
+  [[ -n $p ]] || return
+  cfg=$p/.git/config
+  if [[ -f $p/.git ]]; then   # submodule: .git is a "gitdir: <path>" file
+    read -r line < $p/.git; g=${line#gitdir: }
+    [[ $g == /* ]] || g=$p/$g
+    cfg=$g/config
+  fi
+  if [[ -r $cfg ]]; then
+    while IFS= read -r line; do
+      case $line in
+        '[remote "origin"]') in_origin=1 ;;
+        '['*) in_origin=0 ;;
+        *) (( in_origin )) && [[ $line == [[:space:]]#url[[:space:]]#=* ]] && { url=${line#*=}; break } ;;
+      esac
+    done < $cfg
+  fi
+  case $url in
+    *github.com*)    STARSHIP_GIT_HOST=$'\uf408' ;;
+    *gitlab.com*)    STARSHIP_GIT_HOST=$'\uf296' ;;
+    *bitbucket.org*) STARSHIP_GIT_HOST=$'\uf171' ;;
+    *)               STARSHIP_GIT_HOST=$'\uf1d3' ;;
+  esac
 }
 
 # Zoxide (better cd)

@@ -5,7 +5,7 @@ command_timeout = 2000
 format = """
 [│ ](bold green)\
 $directory \
-${custom.git_host} \
+${env_var.STARSHIP_GIT_HOST} \
 $git_branch\
 $git_status\
 $python\
@@ -37,24 +37,10 @@ disabled = false
 format = "[$status]($style) "
 style = "bold red"
 
-[custom.git_host]
-command = """
-URL=$(git remote get-url origin 2>/dev/null)
-if [[ $URL =~ "github.com" ]]; then
-    printf ""
-elif [[ $URL =~ "gitlab.com" ]]; then
-    printf ""
-elif [[ $URL =~ "bitbucket.org" ]]; then
-    printf ""
-else
-    printf ""
-fi
-"""
-directories = [".git"]
-when = 'case "$PWD" in /home/farhad/Cloud/*) exit 1;; esac; git rev-parse --is-inside-work-tree 2>/dev/null'
-format = "[$output]($style)"
+# Set by the _prompt_env precmd hook in zsh/.zshrc (a custom module forks a shell).
+[env_var.STARSHIP_GIT_HOST]
+format = "[$env_value]($style)"
 style = "bold purple"
-
 
 # Set by the _prompt_env precmd hook in zsh/.zshrc (a custom module forks a shell).
 [env_var.STARSHIP_VENV]
