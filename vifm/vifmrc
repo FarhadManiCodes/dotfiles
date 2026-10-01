@@ -65,7 +65,7 @@ command! gst    :!git -C %d status; read -k1 "?Press any key to continue"
 " here concatenates a filename into a command, because a filename may contain
 " quotes, backticks or semicolons. The helper clears both files as it starts, so
 " a cancelled pick leaves nothing to act on and needs no cleanup here.
-command! fbook : let $DUMMY = term('vifm-pick fbook')
+command! vpick : let $DUMMY = term('vifm-pick %a')
               \| let $VPACT  = system('cat "$XDG_RUNTIME_DIR/vifm-pick/action" 2>/dev/null | tr -d "\n"')
               \| let $VPPATH = system('cat "$XDG_RUNTIME_DIR/vifm-pick/path" 2>/dev/null | tr -d "\n"')
               \| if $VPACT == 'cd'
@@ -73,33 +73,10 @@ command! fbook : let $DUMMY = term('vifm-pick fbook')
               \| elseif $VPACT == 'goto'
               \|   execute 'goto' fnameescape($VPPATH)
               \| endif
-
-command! rgbook : let $DUMMY = term('vifm-pick rgbook')
-               \| let $VPACT  = system('cat "$XDG_RUNTIME_DIR/vifm-pick/action" 2>/dev/null | tr -d "\n"')
-               \| let $VPPATH = system('cat "$XDG_RUNTIME_DIR/vifm-pick/path" 2>/dev/null | tr -d "\n"')
-               \| if $VPACT == 'cd'
-               \|   execute 'cd' fnameescape($VPPATH)
-               \| elseif $VPACT == 'goto'
-               \|   execute 'goto' fnameescape($VPPATH)
-               \| endif
-
-command! fdata : let $DUMMY = term('vifm-pick fdata')
-              \| let $VPACT  = system('cat "$XDG_RUNTIME_DIR/vifm-pick/action" 2>/dev/null | tr -d "\n"')
-              \| let $VPPATH = system('cat "$XDG_RUNTIME_DIR/vifm-pick/path" 2>/dev/null | tr -d "\n"')
-              \| if $VPACT == 'cd'
-              \|   execute 'cd' fnameescape($VPPATH)
-              \| elseif $VPACT == 'goto'
-              \|   execute 'goto' fnameescape($VPPATH)
-              \| endif
-
-command! fnb : let $DUMMY = term('vifm-pick fnb')
-            \| let $VPACT  = system('cat "$XDG_RUNTIME_DIR/vifm-pick/action" 2>/dev/null | tr -d "\n"')
-            \| let $VPPATH = system('cat "$XDG_RUNTIME_DIR/vifm-pick/path" 2>/dev/null | tr -d "\n"')
-            \| if $VPACT == 'cd'
-            \|   execute 'cd' fnameescape($VPPATH)
-            \| elseif $VPACT == 'goto'
-            \|   execute 'goto' fnameescape($VPPATH)
-            \| endif
+command! fbook  :vpick fbook
+command! rgbook :vpick rgbook
+command! fdata  :vpick fdata
+command! fnb    :vpick fnb
 
 " ------------------------------------------------------------------------------
 " File openers  (xdg-open as catch-all; specific openers added per need)
