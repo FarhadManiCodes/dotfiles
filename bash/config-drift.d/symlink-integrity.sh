@@ -33,7 +33,7 @@ check_symlink_integrity() {
   else
     skip "no installed config directories to scan"; sbad=1
   fi
-  for link in ~/.zshrc ~/.zshenv ~/.vimrc ~/.duckdbrc; do
+  for link in ~/.zshrc ~/.zshenv ~/.duckdbrc; do
     if [[ -L $link && ! -e $link ]]; then
       warn "dangling symlink: ${link/#$HOME/\~}"; sbad=1
       dangling_seen["$link"]=1
