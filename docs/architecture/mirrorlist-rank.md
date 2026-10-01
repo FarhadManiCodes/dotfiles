@@ -66,9 +66,9 @@ pacman uses the first working server and descends only on failure, so the extra 
 while the top is healthy, and the whole top forty is within a factor of two anyway. A single
 pass over ~50 mirrors takes about 15 s.
 
-`--passes N` remains and takes the median (not the mean — one stalled fetch moves a mean far
-more than the middle value). Its benefit is narrow: it stops a single fluke evicting a good
-mirror. With 20 slots that eviction is inconsequential, which is why it is not the default.
+A `--passes N` option (median of N passes) existed until 2026-10-01 and was removed: its only
+benefit was stopping a single fluke from evicting a good mirror, which with 20 slots does not
+matter, and nothing used it.
 
 Rejected: timing `extra.db` (8.9 MB) rather than `core.db` (129 KB) would make throughput
 dominate the latency jitter and give a sharp ranking — at ~450 MB pulled off other people's

@@ -5,7 +5,6 @@
 #   mirrorlist-rank                 # show the fastest 20; changes nothing
 #   mirrorlist-rank --install       # install them, keeping a .bak
 #   mirrorlist-rank -n 5 -c AT      # five fastest Austrian mirrors
-#   mirrorlist-rank --passes 3      # median of three passes instead of one
 #   mirrorlist-rank --min-completion 1  # only mirrors with a perfect check record
 #
 # Ranking is a measurement, not a lookup. rankmirrors downloads from each
@@ -27,21 +26,18 @@ set -uo pipefail
 target=/etc/pacman.d/mirrorlist
 country=DE
 count=20
-passes=1
 min_completion=0.98
 do_install=0
-method=
 
 die() { printf 'mirrorlist-rank: %s\n' "$1" >&2; exit 1; }
 
 while (($#)); do
   case $1 in
     -n|--count)   [[ ${2:-} =~ ^[0-9]+$ ]] || die "-n needs a number"; count=$2; shift 2 ;;
-    --passes)     [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || die "--passes needs a positive number"; passes=$2; shift 2 ;;
     --min-completion) [[ ${2:-} =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] || die "--min-completion needs 0..1"; min_completion=$2; shift 2 ;;
     -c|--country) [[ ${2:-} =~ ^[A-Za-z]{2}$ ]] || die "-c needs a 2-letter country code"; country=${2^^}; shift 2 ;;
     --install)    do_install=1; shift ;;
-    -h|--help)    sed -n '2,9p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    -h|--help)    sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0 ;;
     *)            die "unknown argument: $1" ;;
   esac
 done
@@ -112,58 +108,26 @@ candidates=$(grep -c '^Server' "$tmp/all")
 # so the extra ten cost nothing while the top of the list is healthy -- and the
 # whole top forty here sits within a factor of two of each other anyway.
 #
-# --passes N is kept for anyone who wants it and takes the MEDIAN, not the mean,
-# since one stalled fetch moves a mean far more than the middle value. Its real
-# benefit is narrow: it stops a single fluke from evicting a good mirror. At one
-# pass that eviction is possible, and with 20 slots it is also inconsequential.
-#
 # The measurement could be made sharp by timing extra.db (8.9 MB) instead of
 # core.db (129 KB), where throughput would dominate latency jitter. Rejected: one
 # pass over 51 mirrors would pull ~450 MB off other people's mirrors to reorder
 # a set that is within 25 ms of itself.
-printf 'timing %d healthy %s mirrors, %d pass(es), for the fastest %d...\n' \
-  "$candidates" "$country" "$passes" "$count" >&2
-: > "$tmp/times"
-for ((pass = 1; pass <= passes; pass++)); do
-  ((passes > 1)) && printf '  pass %d/%d\n' "$pass" "$passes" >&2
-  rankmirrors -r core -w -t -n 0 "$tmp/all" 2>/dev/null |
-    sed -n 's/^\(https\?:[^ ]*\) : \([0-9.]*\)$/\1 \2/p' >> "$tmp/times" ||
-    die "rankmirrors failed — nothing was changed"
-done
-[[ -s $tmp/times ]] || die "no mirror responded in any pass — nothing was changed"
+printf 'timing %d healthy %s mirrors for the fastest %d...\n' "$candidates" "$country" "$count" >&2
+rankmirrors -r core -w -t -n 0 "$tmp/all" 2>/dev/null |
+  sed -n 's/^\(https\?:[^ ]*\) : \([0-9.]*\)$/\2 \1/p' | sort -g > "$tmp/times" ||
+  die "rankmirrors failed — nothing was changed"
+ranked=$(wc -l < "$tmp/times")
+((ranked)) || die "no mirror responded — nothing was changed"
+((ranked >= count)) || printf 'note: asked for %d, only %d answered\n' "$count" "$ranked" >&2
 
-# Group by url, times ascending, and keep only mirrors that answered in EVERY
-# pass: one that drops out intermittently is not one to put in a fallback chain.
-sort -k1,1 -k2,2g "$tmp/times" | awk -v passes="$passes" '
-  function emit() {
-    if (url != "" && n == passes)
-      printf "%.6f %s %.3f %.3f\n", t[int((n + 1) / 2)], url, t[1], t[n]
-  }
-  $1 != url { emit(); url = $1; n = 0; delete t }
-  { t[++n] = $2 }
-  END { emit() }
-' | sort -g > "$tmp/median"
-
-ranked=$(wc -l < "$tmp/median")
-((ranked)) || die "no mirror answered in all $passes passes — nothing was changed"
-((ranked >= count)) || printf 'note: asked for %d, only %d answered every pass\n' "$count" "$ranked" >&2
-
-head -n "$count" "$tmp/median" > "$tmp/top"
+head -n "$count" "$tmp/times" > "$tmp/top"
 installed=$(wc -l < "$tmp/top")
-if ((passes > 1)); then method="median of $passes timed passes"; else method="one timed pass"; fi
 {
-  printf '## Ranked by mirrorlist-rank on %s — %s, top %d by %s\n##\n' \
-    "$(date +%F)" "$country" "$installed" "$method"
+  printf '## Ranked by mirrorlist-rank on %s — %s, top %d by one timed pass\n##\n' \
+    "$(date +%F)" "$country" "$installed"
   awk '{print "Server = " $2}' "$tmp/top"
 } > "$tmp/final"
 cat "$tmp/final"
-
-# Show the spread, so the noise is visible rather than implied: a mirror whose
-# fastest and slowest pass straddle its neighbours was ordered by chance.
-if ((passes > 1)); then
-  printf '\nmedian / fastest / slowest per pass (seconds):\n' >&2
-  awk '{printf "  %.3f  %.3f-%.3f  %s\n", $1, $3, $4, $2}' "$tmp/top" >&2
-fi
 
 # Say whether this would actually change anything. Without it the output is just
 # ten URLs and the reader still has to eyeball them against the live file to
