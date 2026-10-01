@@ -17,4 +17,5 @@ for pid in $(pgrep -x -u "$(id -u)" swaylock 2>/dev/null); do
         *)    exit 0 ;;     # live swaylock: already locked
     esac
 done
-exec swaylock -f
+# Before sleep, swayidle suspends anyway when this fails: say so.
+swaylock -f || notify-send -a "" -u critical "Screen lock failed" "swaylock exited $?"

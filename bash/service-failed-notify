@@ -1,16 +1,7 @@
 #!/bin/bash
-# Desktop notification + persistent breadcrumb when a systemd user unit fails.
-#
-# Invoked by notify-failure@.service, which services reference as
-#   OnFailure=notify-failure@%n.service
-# so $1 arrives as the full failed unit name, e.g. "rclone@gdrive.service".
-#
-# A mako popup is ephemeral and useless if nobody is at the machine, so this
-# also appends to a breadcrumb file. The authoritative record is still
-# `systemctl --user --failed`; this just makes it human-readable after the fact.
-#
-# Never exits non-zero: notify-failure@.service deliberately carries no
-# OnFailure of its own, and a notifier that fails must not become noise.
+# Popup + breadcrumb log when a user unit fails. Run by notify-failure@.service
+# (units set OnFailure=notify-failure@%n.service), so $1 is the failed unit name.
+# Always exits 0: the notifier has no OnFailure of its own, so it cannot loop.
 
 set -u
 unit="${1:-unknown.service}"
@@ -32,5 +23,7 @@ case "$unit" in
 esac
 
 printf '%s  %s\n' "$(date -Is)" "$unit" >> "$state_dir/failures.log"
-notify-send -a "" -u critical "$title" "$body" 2>/dev/null || true
+# OnFailure= fires on every failure, retries included: mako/config groups this
+# app's popups by title, so one unit's repeats show as one "(N)" popup.
+notify-send -a service-failed-notify -u critical "$title" "$body" || true
 exit 0
