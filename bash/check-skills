@@ -1,23 +1,10 @@
 #!/bin/bash
-# Assert what every SKILL.md in skills/ must satisfy.
-#
-# These checks exist because prose cannot be trusted to stay consistent with
-# itself. A skill is 100% text -- it has no code to contradict -- so the
-# tmux-theme failure mode (a header stating the opposite of its own behaviour)
-# cannot even be *detected* there. What can be checked mechanically is that the
-# skill points at things which exist, and that its frontmatter is the shape
-# Claude Code will actually load.
-#
-# Written after the same checks had been retyped inline five times in one
-# session, slightly differently each time. The fifth run caught a real defect
-# (a description reading "Use before..." rather than "Use when...") that four
-# hand-reviews had missed -- which is the argument for it being code.
-#
-# Read-only. No dependencies beyond coreutils. Exit 0 = all pass.
+# Assert what every SKILL.md in skills/ must satisfy: frontmatter Claude Code
+# will load, and that every references/ file and bash/ tool it names exists.
+# Read-only. The checkout comes from this script's real path, since install.sh
+# links it into ~/.local/bin.
 
 set -uo pipefail
-# Resolved from this script's own real path: install.sh symlinks bash/ into
-# ~/.local/bin, so neither $PWD nor the invocation path locates the checkout.
 df_dir=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd)
 skills_dir="$df_dir/skills"
 fail=0
@@ -62,8 +49,8 @@ for dir in "$skills_dir"/*/; do
   fi
 
   # --- description ---------------------------------------------------------
-  # Folded block: every line after `description: >` that is indented.
-  desc=$(awk '/^description:[[:space:]]*>/{f=1;next} f&&/^[[:space:]]+/{print} f&&!/^[[:space:]]/{exit}' \
+  # Folded block: every indented line after `description: >`, past blank lines.
+  desc=$(awk '/^description:[[:space:]]*>/{f=1;next} f&&/^[[:space:]]+/{print} f&&/^[^[:space:]]/{exit}' \
            <<<"$fm" | sed 's/^[[:space:]]*//' | tr '\n' ' ' | sed 's/[[:space:]]*$//')
   checked=$((checked+1))
   if [[ -z $desc ]]; then

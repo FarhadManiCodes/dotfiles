@@ -84,6 +84,14 @@ class CheckSkillsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must state the trigger", out)
 
+    def test_description_is_read_past_a_blank_line(self):
+        body = VALID.format(name="fixture-skill").replace(
+            "real skills directory.\n", "real skills directory.\n\n  A second <paragraph>.\n")
+        self.skill("fixture-skill", body=body)
+        code, out = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertIn("angle bracket", out)
+
     def test_checkout_is_located_through_an_installed_symlink(self):
         self.skill("fixture-skill")
         bindir = self.base / "bin"
