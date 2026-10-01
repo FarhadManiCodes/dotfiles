@@ -2,6 +2,8 @@
 
 ## AOCL BLIS for numpy — evaluated, not adopted (2026-06-17)
 
+*`aocl-gcc` was uninstalled 2026-10-01; reproducing the build below needs it reinstalled first (`docs/architecture/aocl.md`).*
+
 **Decision: numpy stays on the stock OpenBLAS PyPI wheel.** We tried forcing `uv` to
 source-build numpy against AOCL BLIS + libFLAME (Zen 4 kernels) instead of the OpenBLAS that
 ships inside the wheel. Benchmarked on this machine — not worth the complexity. The `uv.toml` here only sets

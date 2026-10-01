@@ -46,9 +46,10 @@ For Omarchy pull comparisons, read `docs/omarchy-review-local.md` if it exists. 
   through `systemctl --user`. Read `containers/README.md` before changing it.
 - Do not order user services against the system `network-online.target`; preserve retries,
   explicit enable lists and failure notification behavior.
-- AOCL, Rust, qpdf, the locally built mutool and `shellcheck-bin` have deliberate roles —
-  read the package notes before suggesting a removal. Keep Tor Browser unconfigured. Do not
-  expose AOCL libraries or pkg-config paths globally.
+- Rust, qpdf, the locally built mutool and `shellcheck-bin` have deliberate roles —
+  read the package notes before suggesting a removal. Keep Tor Browser unconfigured. AOCL was
+  removed 2026-10-01; if it returns, follow `docs/architecture/aocl.md` and do not expose its
+  libraries or pkg-config paths globally.
 
 ## Validation
 

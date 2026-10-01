@@ -1,7 +1,17 @@
 # AOCL — linking it without hijacking system FFTW
 
-Why `aocl-gcc` is installed and benchmarked against OpenBLAS: see the package notes in
-`docs/system-notes.md`. This file covers how to link it safely.
+**Status: `aocl-gcc` was removed 2026-10-01** (1.7 GiB, no current use). Everything below is
+kept as the recipe for bringing it back; the measurements and traps stay valid for 5.3.0.
+Why it was worth having (DTRSM +43–213% over OpenBLAS): `docs/system-notes.md`.
+
+**To reinstall:** `paru -S aocl-gcc`, then
+1. Do *not* follow the install scriptlet's advice to add `/etc/ld.so.conf.d/aocl-gcc.conf`
+   (FFTW hijack, below) or a global `AOCL_ROOT`.
+2. Link with the CMake pattern below; `~/learning/playground/aocl-check` verifies it end to end.
+3. Re-add the thread-count policy: `export BLIS_NUM_THREADS=$(( $(nproc) / 2 ))` in
+   `zsh/.zshenv` and `BLIS_NUM_THREADS=8` in `environment.d/defaults.conf` (reasoning in the
+   BLIS bullet below).
+4. Check `/usr/lib/libflame.so` is not a stale hand-made symlink.
 
 - **There is deliberately no system `blas` provider.** The AUR adapter `blas-aocl-gcc`, which
   symlinked `/usr/lib/lib{blas,cblas,lapack,lapacke}.so` at AOCL, was **removed 2026-08-14**:
@@ -40,9 +50,11 @@ Why `aocl-gcc` is installed and benchmarked against OpenBLAS: see the package no
   `blis`/`blis-mt`/`flame` modules). The `.pc` files are also **broken out of the box**: they
   hardcode `prefix=/opt/aocl/5.3.0/gcc/MT`, which does not exist. Override it with
   `pkg-config --define-variable=prefix=/opt/aocl/gcc/MT --libs flame`.
-- BLIS worker count is set to 8 in `environment.d/defaults.conf`, matching the physical-core
-  worker policy in `docs/system-notes.md`. With both thread-count overrides unset, BLIS was
-  measured using all 16 logical CPUs. `BLIS_NUM_THREADS` **outranks** `OMP_NUM_THREADS`
+- BLIS worker count was set to 8 (`nproc / 2`) while installed, matching the physical-core
+  worker policy in `docs/system-notes.md`; both exports were removed with the package. With both
+  thread-count overrides unset, BLIS was measured using all 16 logical CPUs; 8 threads cost
+  about 7.6% on an idle-machine 2000³ dgemm (469 vs 433 GFLOP/s, 5 runs each, non-overlapping
+  ranges), accepted because interactive headroom is a policy goal, not CPU isolation. `BLIS_NUM_THREADS` **outranks** `OMP_NUM_THREADS`
   (measured), so a project setting `OMP_NUM_THREADS` for its own parallel regions will not
   resize BLIS.
 - **Don't wrap BLAS calls in an `omp parallel` region.** `omp_max_active_levels` is 1 by

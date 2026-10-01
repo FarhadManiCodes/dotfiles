@@ -68,15 +68,6 @@ export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 # Applies to non-OpenMP OpenBLAS builds, including those bundled in numpy/scipy wheels.
 export OPENBLAS_NUM_THREADS=$(( $(nproc) / 2 ))
 
-# AOCL BLIS — the same worker count for C++ projects linking AOCL explicitly
-# (see docs/system-notes.md; there is no global -lblas adapter). With neither
-# BLIS_NUM_THREADS nor OMP_NUM_THREADS, it used all 16 logical CPUs (measured).
-# Matching the physical-core count aims to reduce contention, but does not pin
-# workers or reserve CPUs. Costs about 7.6% on an idle-machine 2000^3 dgemm: 5 runs each gave
-# 469 GFLOP/s at 16 threads vs 433 at 8, with non-overlapping ranges. Accepted
-# deliberately — SMT won throughput in that test; interactive headroom is a
-# policy goal, not guaranteed CPU isolation.
-export BLIS_NUM_THREADS=$(( $(nproc) / 2 ))
 # Disable OpenBLAS automatic CPU affinity where enabled; does not reserve a main CPU.
 export OPENBLAS_MAIN_FREE=1
 
