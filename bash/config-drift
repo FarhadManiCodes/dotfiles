@@ -265,7 +265,7 @@ check_plugin_staleness() {
 
 check_systemd_units() {
   hdr "systemd user units verify"
-  units=("$df_dir"/systemd/user/*.{service,timer})
+  units=("$df_dir"/systemd/user/*.{service,timer,socket})
   if ((${#units[@]} == 0)); then
     skip "no user unit files to verify"
   else
