@@ -74,11 +74,13 @@ audit will keep suggesting.
 - **marksman** (markdown LSP) — **declined on cost/benefit.** 21 MiB plus a 70 MiB .NET
   runtime, for a link graph between files. Measured: 2 markdown links, 1 papis note, 0
   wiki-links, 0 cross-links across the whole repo. Not a prose linter — link integrity only.
-- **CMake LSP** — **reversed on evidence, 2026-08-13: `neocmakelsp` went in.** 27 of 37
-  CMake files are authored, not vendored, and the package needs only `cmake` at runtime plus
-  the rust already installed for paru; `cmake-language-server` was 18 months idle, which is
-  what "unmaintained" was guessing at. `neocmakelsp stdio`; formatting is external via
-  `gersemi` (`python-gersemi`).
+- **CMake LSP** — **`neocmakelsp` adopted 2026-08-13, REMOVED 2026-10-01.** It went in when
+  27 of 37 CMake files on the machine were authored; by October none were left (only the
+  sioyek build and one playground project), and the LSP log showed two server starts in
+  seven weeks. Treesitter `cmake` still highlights. `python-gersemi` existed only as its
+  formatter. To bring it back: `paru -S neocmakelsp python-gersemi`, a `neocmake` server
+  file in nvim, and a `[format]` TOML whose gersemi args end in `-` (without it gersemi
+  prints nothing and exits 0, and `<leader>cf` blanked the buffer).
 - **`taplo`** (TOML) — **tried and REMOVED, 2026-08-13.** Installed and verified working,
   then dropped: its pitch ("catches config that silently does nothing") only held for
   `uv.toml` — ruff already refuses to start on a bad `pyproject.toml` key, and taplo missed

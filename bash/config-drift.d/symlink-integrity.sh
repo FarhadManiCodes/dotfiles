@@ -107,7 +107,7 @@ check_symlink_integrity() {
         zsh/functions/*.zsh|tmux/tmux.conf|tmux/layouts/*.sh|tmux/themes/*.conf|niri/config.kdl|\
         environment.d/defaults.conf|environment.d/wayland.conf|paru/paru.conf|swaylock/config|\
         glow/glow.yml|mpv/mpv.conf|yt-dlp/config|cmus/rc|direnv/direnvrc|uv/uv.toml|gh/config.yml|\
-        neocmakelsp/config.toml|mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
+        mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
         vifm/colors/zenburn-rich.vifm|tridactyl/tridactylrc|fuzzel/fuzzel.ini|bat/config|\
         btop/btop.conf|starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
         zathura/zathurarc|sioyek/prefs_user.config|sioyek/keys_user.config|vimb/config|\
