@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2154  # df_dir: set by config-drift, which sources this file
 # User configs installed as links should retain their intended repo targets.
 # Root copies, generated files and optional installs have separate rules. Two
 # common failures:
@@ -32,7 +33,7 @@ check_symlink_integrity() {
   else
     skip "no installed config directories to scan"; sbad=1
   fi
-  for link in ~/.zshrc ~/.zshenv ~/.vimrc ~/.duckdbrc; do
+  for link in ~/.zshrc ~/.zshenv ~/.duckdbrc; do
     if [[ -L $link && ! -e $link ]]; then
       warn "dangling symlink: ${link/#$HOME/\~}"; sbad=1
       dangling_seen["$link"]=1
@@ -69,7 +70,7 @@ check_symlink_integrity() {
           continue ;;
         bash/*) livef=$HOME/.local/bin/${rel#bash/} ;;
         applications/*.desktop) livef=$HOME/.local/share/applications/${rel##*/} ;;
-        ptpython/config.py|ipython/profile_default/ipython_config.py|ipython/profile_default/startup/*.py|systemd/user/*.service|systemd/user/*.timer|systemd/user/*.d/*.conf)
+        ptpython/config.py|ipython/profile_default/ipython_config.py|ipython/profile_default/startup/*.py|systemd/user/*)
           livef=$HOME/.config/$rel ;;
         pcmanfm-qt/settings.conf|pcmanfm-qt/bookmarks.xml)
           livef=$config_home/pcmanfm-qt/default/${rel##*/} ;;

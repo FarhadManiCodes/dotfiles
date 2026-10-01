@@ -400,8 +400,9 @@ pacman() {
     def test_user_units_batched_and_status_checked(self):
         self.write('systemd/user/a.service', '[Service]\nExecStart=/bin/true\n')
         self.write('systemd/user/b.timer', '[Timer]\nOnBootSec=1\n')
-        stub = 'systemd-analyze() { [[ $1 == --user && $2 == verify && $# == 4 ]]; }'
-        self.assertIn('2 user unit files verify clean', self.run_check('check_systemd_units', stub))
+        self.write('systemd/user/c.socket', '[Socket]\nListenStream=%t/c\n')
+        stub = 'systemd-analyze() { [[ $1 == --user && $2 == verify && $# == 5 ]]; }'
+        self.assertIn('3 user unit files verify clean', self.run_check('check_systemd_units', stub))
         output = self.run_check('check_systemd_units', 'systemd-analyze() { return 1; }')
         self.assertIn('verification needs attention (exit 1)', output)
         self.assertNotIn('verify clean', output)

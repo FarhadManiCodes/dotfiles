@@ -99,34 +99,40 @@ check_root() {   # $1 repo path, $2 installed path
   esac
 }
 
-check_root_configs() {
-  hdr "Root configs match the repo"
-  drift=0
+# The files install-root.sh copies, root_src[i] in the repo to root_dst[i], built
+# once for both checks below. A source set that cannot be listed is a warning
+# (root_list_bad), never "nothing to check".
+root_copies() {
+  root_src=() root_dst=() root_list_bad=0
+  local f files
   # README.md documents the tree; unowned.txt and modified.txt are baselines for
-  # the sweep above. All three are repo metadata that installs nowhere -- without
-  # excluding them this check demands /etc/unowned.txt and never goes green.
-  if root_files=$(find "$df_dir/etc" -type f \
+  # the /etc sweep. Repo metadata that installs nowhere -- without excluding them
+  # the comparison demands /etc/unowned.txt and never goes green.
+  if files=$(find "$df_dir/etc" -type f \
       ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null); then
-    while IFS= read -r src; do
-      [[ -n $src ]] && check_root "$src" "/etc${src#"$df_dir"/etc}"
-    done <<<"$root_files"
+    while IFS= read -r f; do
+      [[ -n $f ]] && root_src+=("$f") root_dst+=("/etc${f#"$df_dir"/etc}")
+    done <<<"$files"
   else
-    warn "cannot enumerate tracked etc/ configs"; drift=1
+    warn "cannot enumerate tracked etc/ configs"; root_list_bad=1
   fi
-  check_root "$df_dir/pam/swaylock"               /etc/pam.d/swaylock
-  check_root "$df_dir/sysctl/99-performance.conf" /etc/sysctl.d/99-performance.conf
-  check_root "$df_dir/zram/zram-generator.conf"   /etc/systemd/zram-generator.conf
+  root_src+=("$df_dir/pam/swaylock" "$df_dir/sysctl/99-performance.conf" "$df_dir/zram/zram-generator.conf")
+  root_dst+=(/etc/pam.d/swaylock /etc/sysctl.d/99-performance.conf /etc/systemd/zram-generator.conf)
   # nullglob: a missing or unreadable system-sleep/ would expand to nothing and
   # compare nothing, silently. unblock-fuse at least is always tracked.
   local -a hooks=("$df_dir"/system-sleep/*)
-  if ((${#hooks[@]})); then
-    for f in "${hooks[@]}"; do
-      check_root "$f" "/usr/lib/systemd/system-sleep/${f##*/}"
-    done
-  else
-    warn "no system-sleep/ hooks found (missing or unreadable) — none compared"; drift=1
-  fi
+  ((${#hooks[@]})) || { warn "no system-sleep/ hooks found (missing or unreadable) — none checked"; root_list_bad=1; }
+  for f in "${hooks[@]}"; do
+    root_src+=("$f") root_dst+=("/usr/lib/systemd/system-sleep/${f##*/}")
+  done
+}
 
+check_root_configs() {
+  hdr "Root configs match the repo"
+  root_copies
+  drift=$root_list_bad
+  local i
+  for i in "${!root_src[@]}"; do check_root "${root_src[i]}" "${root_dst[i]}"; done
   ((drift)) || ok "all compared root configs match (access exclusions listed above)"
 }
 
@@ -191,32 +197,18 @@ check_privileged() {
 
 check_privileged_configs() {
   hdr "Root configs are root-owned and unwritable by others"
-  priv=0
+  [[ -v root_dst ]] || root_copies   # standalone (e.g. sourced) use
+  priv=$root_list_bad
   declare -A parent_seen=()
-
-  # As in check_root_configs: a failed enumeration is reported, not taken for
-  # "nothing to check".
-  if root_files=$(find "$df_dir/etc" -type f \
-      ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null); then
-    while IFS= read -r src; do
-      [[ -n $src ]] && check_privileged "/etc${src#"$df_dir"/etc}"
-    done <<<"$root_files"
-  else
-    warn "cannot enumerate tracked etc/ configs"; priv=1
-  fi
-  check_privileged /etc/pam.d/swaylock
-  check_privileged /etc/sysctl.d/99-performance.conf
-  check_privileged /etc/systemd/zram-generator.conf
+  local dest
+  for dest in "${root_dst[@]}"; do
+    case $dest in   # a sleep hook is only useful if it is executable
+      /usr/lib/systemd/system-sleep/*) check_privileged "$dest" exec ;;
+      *) check_privileged "$dest" ;;
+    esac
+  done
   check_privileged /usr/share/wayland-sessions/niri-isolated.desktop
   check_privileged /usr/local/bin/niri-session-isolated exec
-  local -a hooks=("$df_dir"/system-sleep/*)
-  if ((${#hooks[@]})); then
-    for f in "${hooks[@]}"; do
-      check_privileged "/usr/lib/systemd/system-sleep/${f##*/}" exec
-    done
-  else
-    warn "no system-sleep/ hooks found (missing or unreadable) — none checked"; priv=1
-  fi
   ((priv)) || ok "root-owned, not writable by others, under root-owned directories"
 }
 
@@ -265,7 +257,7 @@ check_plugin_staleness() {
 
 check_systemd_units() {
   hdr "systemd user units verify"
-  units=("$df_dir"/systemd/user/*.{service,timer})
+  units=("$df_dir"/systemd/user/*.{service,timer,socket})
   if ((${#units[@]} == 0)); then
     skip "no user unit files to verify"
   else
