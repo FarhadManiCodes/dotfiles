@@ -4,7 +4,7 @@ After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
 [Service]
-# Built from the power-notify submodule by install.sh (make install): a
+# Built from the notifiers submodule (power-notify/) by install.sh (make install): a
 # freestanding C program that reads kernel uevents and sysfs, and writes nothing.
 ExecStart=%h/.local/bin/power-notify
 Restart=on-failure

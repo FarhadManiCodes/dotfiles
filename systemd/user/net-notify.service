@@ -4,7 +4,7 @@ After=graphical-session.target
 OnFailure=notify-failure@%n.service
 
 [Service]
-# Built from the net-notify submodule by install.sh (make install): a
+# Built from the notifiers submodule (net-notify/) by install.sh (make install): a
 # freestanding C program that reads link changes from kernel netlink.
 ExecStart=%h/.local/bin/net-notify
 Restart=on-failure
