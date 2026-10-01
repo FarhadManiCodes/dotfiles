@@ -222,6 +222,11 @@ echo "Setting up DuckDB..."
 ln -sf "${DOTFILES}/duckdb/.duckdbrc" "${HOME}/.duckdbrc"
 echo "DuckDB configured"
 
+# =========== npm ===============
+# Global installs go to ~/.local, not /usr (which pacman owns).
+ln -sf "${DOTFILES}/npm/.npmrc" "${HOME}/.npmrc"
+echo "npm configured"
+
 # No font step: the fonts in use (FiraCode Nerd Font, JetBrains Mono) come from
 # packages. This used to copy 15MB of unreferenced Inconsolata/MesloLGS without
 # running fc-cache, so fontconfig never saw them anyway.

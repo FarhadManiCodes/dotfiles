@@ -33,7 +33,7 @@ check_symlink_integrity() {
   else
     skip "no installed config directories to scan"; sbad=1
   fi
-  for link in ~/.zshrc ~/.zshenv ~/.duckdbrc; do
+  for link in ~/.zshrc ~/.zshenv ~/.duckdbrc ~/.npmrc; do
     if [[ -L $link && ! -e $link ]]; then
       warn "dangling symlink: ${link/#$HOME/\~}"; sbad=1
       dangling_seen["$link"]=1
@@ -54,6 +54,7 @@ check_symlink_integrity() {
       case $rel in
         zsh/.zshrc|zsh/.zshenv) livef=$HOME/${rel##*/} ;;
         duckdb/.duckdbrc) livef=$HOME/.duckdbrc ;;
+        npm/.npmrc) livef=$HOME/.npmrc ;;
         ssh/config) livef=$HOME/.ssh/config ;;
         nvim) livef=$config_home/nvim ;;
         vim/vimrc) livef=$config_home/vim; expected=$df_dir/vim ;;
