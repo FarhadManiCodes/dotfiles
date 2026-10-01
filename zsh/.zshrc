@@ -135,6 +135,9 @@ if [[ -f ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; t
 fi
 
 # 2. Fast Syntax Highlighting
+# Unset, the plugin looks for ~/.cache/fast-syntax-highlighting, finds it missing and
+# falls back to this very path with a `mkdir -p` that forks on every shell start.
+FAST_WORK_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/fsh"
 if [[ -f ~/.config/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ]]; then
   source ~/.config/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
 fi
@@ -193,7 +196,10 @@ _prompt_env() {
   STARSHIP_GIT_HOST=${_git_host_cache[$p]#*|}
 }
 
-# Zoxide (better cd)
+# Zoxide (better cd). Its hook is the only reader of these, so interactive-only.
+export _ZO_ECHO=1
+export _ZO_RESOLVE_SYMLINKS=1
+export _ZO_EXCLUDE_DIRS="/tmp:/proc:/sys:/dev:/run:$HOME:$HOME/Downloads"
 _cached_eval zoxide zoxide init zsh
 
 # Direnv

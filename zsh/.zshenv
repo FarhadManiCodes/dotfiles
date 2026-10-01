@@ -78,8 +78,3 @@ export LESS="-RF"
 # Bat
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"
 export MANROFFOPT="-c"
-
-# Zoxide
-export _ZO_ECHO=1
-export _ZO_RESOLVE_SYMLINKS=1
-export _ZO_EXCLUDE_DIRS="/tmp:/proc:/sys:/dev:/run:$HOME:$HOME/Downloads"
