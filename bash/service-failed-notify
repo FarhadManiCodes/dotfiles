@@ -32,5 +32,12 @@ case "$unit" in
 esac
 
 printf '%s  %s\n' "$(date -Is)" "$unit" >> "$state_dir/failures.log"
-notify-send -a "" -u critical "$title" "$body" 2>/dev/null || true
+
+# OnFailure= fires on every failure, retries included, and critical popups never
+# time out: replace this unit's last popup instead of stacking a new one.
+id_file="$state_dir/$unit.id"
+id=$(cat "$id_file" 2>/dev/null)
+[[ $id =~ ^[0-9]+$ ]] || id=0
+id=$(notify-send -p -r "$id" -a "" -u critical "$title" "$body" 2>/dev/null) &&
+    printf '%s\n' "$id" > "$id_file"
 exit 0
