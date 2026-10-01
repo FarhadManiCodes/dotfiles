@@ -137,7 +137,6 @@ simple_configs=(
   vimb/config
   clangd/config.yaml
   spotify-player/theme.toml
-  handlr/handlr.toml
   ccache/ccache.conf
   # GTK appearance is not configured here: the xdg-desktop-portal Settings
   # interface overrides gtk-{3,4}.0/settings.ini for every key it serves

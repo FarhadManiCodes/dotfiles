@@ -13,7 +13,7 @@ PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 
 # Open by type: sioyek for PDF — it is the only one taking --page, which is the
 # point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
-# mimeapps.list, dispatched here because handlr cannot carry a page number.
+# mimeapps.list, dispatched here because xdg-open cannot carry a page number.
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
 
@@ -34,7 +34,7 @@ _open_book() {
       ;;
     *.djvu) zathura "$file" 2>/dev/null & ;;
     *.epub) foliate "$file" 2>/dev/null & ;;
-    *)      handlr open "$file" 2>/dev/null & ;;
+    *)      open-detached "$file" ;;
   esac
 }
 

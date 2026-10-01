@@ -85,7 +85,7 @@ rgtex() { _rg_live "-g '*.tex' -g '*.sty' -g '*.cls' -g '*.bib'" "$@"; }
 rgpy() { _rg_live "--type py" "$@"; }
 
 # ----------------------------------------------------------------------------
-# ff - find file by name → open with handlr (xdg-open fallback)
+# ff - find file by name → open with xdg-open
 # Usage: ff [pattern]
 # Keys: Enter → open | Ctrl-d → cd | Ctrl-o → open folder
 # ----------------------------------------------------------------------------
@@ -108,7 +108,7 @@ ff() {
       builtin cd "$(dirname "$file")"
       ;;
     ctrl-o)
-      xdg-open "$(dirname "$file")" 2>/dev/null &
+      open-detached "$(dirname "$file")"
       ;;
     *)
       case "$file" in
@@ -121,7 +121,7 @@ ff() {
           if [[ "$mime" == text/* ]]; then
             xdg-open "$file"
           else
-            xdg-open "$file" 2>/dev/null &
+            open-detached "$file"
           fi
           ;;
       esac
@@ -150,7 +150,7 @@ fdir() {
 
   case "$key" in
     ctrl-o)
-      xdg-open "$dir" 2>/dev/null &
+      open-detached "$dir"
       ;;
     *)
       builtin cd "$dir"

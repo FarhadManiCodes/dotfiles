@@ -142,7 +142,6 @@ dotfiles/
 ├── direnv/direnvrc
 ├── clangd/config.yaml
 ├── ccache/ccache.conf
-├── handlr/handlr.toml
 ├── latexmk/latexmkrc
 ├── vifm/                   # vifm file manager config & colors
 ├── pcmanfm-qt/default/     # settings & bookmarks

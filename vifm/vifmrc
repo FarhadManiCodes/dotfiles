@@ -84,7 +84,7 @@ command! fnb    :vpick fnb
 
 " setsid -f detaches the opener into its own session so the viewer survives
 " closing vifm (otherwise it shares vifm's session and dies on the terminal's SIGHUP)
-filetype * setsid -f handlr open %f
+filetype * open-detached %f
 
 " ------------------------------------------------------------------------------
 " File previewers  (most-specific first, catch-all last)

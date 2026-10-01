@@ -44,5 +44,5 @@ case $choice in
     '') exit 0 ;;
     browse:*)
         err=$(papis browse "ref:${choice#browse:}" 2>&1) || notify "Could not open it: ${err##*$'\n'}" ;;
-    *) setsid -f xdg-open "$choice" >/dev/null 2>&1 ;;
+    *) open-detached "$choice" ;;
 esac

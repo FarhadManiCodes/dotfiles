@@ -3,7 +3,7 @@
     python3 -B -m unittest discover -s tests -v
 
 The script runs for real against a throwaway papis library with real yq and
-awk. fuzzel, xdg-open, papis and notify-send are fakes on a private PATH; the
+awk. fuzzel, open-detached, papis and notify-send are fakes on a private PATH; the
 fake fuzzel records the menu and picks the line matching $PICK.
 """
 from pathlib import Path
@@ -32,7 +32,7 @@ class PapisFuzzelTests(unittest.TestCase):
         self.entry("web", "ref: Web_2021\nyear: 2021\nauthor: Web\ntitle: No file here\n")
         self.fake("fuzzel", f'cat > {self.menu}; [ -n "$PICK" ] || exit 1\n'
                             f'grep -m1 -- "$PICK" {self.menu} | cut -f1')
-        for name in ("xdg-open", "papis", "notify-send"):
+        for name in ("open-detached", "papis", "notify-send"):
             self.fake(name, f'echo "{name} $*" >> {self.log}')
         self.fake("setsid", 'shift; exec "$@"')  # setsid -f <cmd>
         # Pinned, not inherited: the fakes shadow the real tools.
@@ -74,7 +74,7 @@ class PapisFuzzelTests(unittest.TestCase):
 
     def test_pick_opens_the_recorded_file(self):
         self.run_script(PICK="Control notes")
-        self.assertEqual(self.logged(), f"xdg-open {self.papers}/smith/paper.pdf\n")
+        self.assertEqual(self.logged(), f"open-detached {self.papers}/smith/paper.pdf\n")
 
     def test_entry_without_a_file_opens_in_the_browser(self):
         self.run_script(PICK="No file here")
