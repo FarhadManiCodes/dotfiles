@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2154  # df_dir: set by config-drift, which sources this file
 # User configs installed as links should retain their intended repo targets.
 # Root copies, generated files and optional installs have separate rules. Two
 # common failures:

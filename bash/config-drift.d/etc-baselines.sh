@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+# shellcheck disable=SC2154  # verbose: set by config-drift, which sources this file
 # Two sweeps that used to be prose in etc/README.md, which is why `pacman -Qkk`
 # was only ever run against `nftables` for four months. Prose does not run.
 #
