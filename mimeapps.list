@@ -1,7 +1,7 @@
 [Default Applications]
 application/epub+zip=com.github.johnfactotum.Foliate.desktop;
 application/json=nvim.desktop;
-application/pdf=sioyek.desktop;firefox.desktop;
+application/pdf=sioyek.desktop;
 application/toml=vim.desktop;
 application/x-ipynb+json=vim.desktop;
 application/msword=gdocs-open.desktop;
