@@ -81,6 +81,11 @@ audit will keep suggesting.
   formatter. To bring it back: `paru -S neocmakelsp python-gersemi`, a `neocmake` server
   file in nvim, and a `[format]` TOML whose gersemi args end in `-` (without it gersemi
   prints nothing and exits 0, and `<leader>cf` blanked the buffer).
+- **`wike`** (GNOME Wikipedia reader) — **REMOVED 2026-10-01.** Only sioyek's `sw` search used
+  it, rarely. `sw` now opens the Wikipedia search in the default browser (Firefox) via
+  `open-detached`; `vimb` stays for the `ss` Scholar search. Removing it frees no
+  `webkitgtk-6.0`, which `foliate` still needs. To bring it back: `paru -S wike` and set
+  `open=(wike -u)` for `wikipedia` in `bash/sioyek-search`.
 - **`taplo`** (TOML) — **tried and REMOVED, 2026-08-13.** Installed and verified working,
   then dropped: its pitch ("catches config that silently does nothing") only held for
   `uv.toml` — ruff already refuses to start on a bad `pyproject.toml` key, and taplo missed
