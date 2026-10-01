@@ -448,8 +448,9 @@ correctly — it describes the server's startup context, not an individual pane'
 destination.
 
 For persistent VM work, a separate plugin-free server config displays `user@hostname`,
-installed and confirmed on the VM. Testing `bash/tmux-identity` from an inbound-SSH tmux
-server would exercise a supported edge case but isn't the chosen workflow, so it's not an
+installed and confirmed on the VM. Testing the identity logic (an `%if` block in
+`tmux.conf` since 2026-10-01, `bash/tmux-identity` before) from an inbound-SSH tmux server
+would exercise a supported edge case but isn't the chosen workflow, so it's not an
 open TODO — its four branches remain fair regression-test scope if one is ever written.
 
 ---
@@ -459,7 +460,8 @@ open TODO — its four branches remain fair regression-test scope if one is ever
 `bash/run-tests` was delivered. Three planned increments were dropped with the item and
 should **not** be re-raised as gaps: invariant greps (no sudo in `install.sh`, no user unit
 ordered against `network-online.target`, explicit background hex in `bash/tmux-theme`), a
-fake-`tmux` test of `bash/tmux-identity`'s branches, and a process-state test of
+fake-`tmux` test of the identity branches (`bash/tmux-identity`, now a `tmux.conf` `%if`
+block), and a process-state test of
 `bash/lock-once`. All three conventions still hold; per `docs/omarchy-comparison.md`, write
 a test for a concrete regression, not to match a count.
 
