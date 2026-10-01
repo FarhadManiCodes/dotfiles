@@ -1,5 +1,6 @@
 set home-page=about:blank
-set download-path=~/Downloads
+# download-path is left at its default, $HOME/Downloads: 4.0 rejects ~ and $HOME here
+# (the value must start with /), and the default is already this directory.
 set editor-command=footclient --app-id vimb-editor vim %s
 
 set input-autohide=true
