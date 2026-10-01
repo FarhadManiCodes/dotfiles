@@ -112,11 +112,6 @@ simple_configs=(
   direnv/direnvrc
   uv/uv.toml
   gh/config.yml
-  # neocmakelsp: the trailing "-" in its [format] args is load-bearing --
-  # gersemi with no file operand exits 0 printing nothing, which neocmakelsp
-  # applies as a successful empty format and blanks the buffer. See the
-  # comments in the file itself.
-  neocmakelsp/config.toml
   mako/config
   wireplumber/wireplumber.conf.d/51-mic-suspend.conf
   vifm/vifmrc
