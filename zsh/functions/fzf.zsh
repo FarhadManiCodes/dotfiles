@@ -20,15 +20,17 @@ export FZF_DEFAULT_OPTS="
 [[ -n "$TMUX" ]] && export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --tmux center,80%"
 
 # Default command for bare `fzf` and Ctrl+T
-# Uses fd: fast, respects .gitignore, excludes .git
-export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+# Uses fd: fast, respects .gitignore, excludes .git. --one-file-system (here and in
+# every finder below, search.zsh and vifm-pick) keeps fd out of the ~/Cloud rclone
+# mounts: from ~ it walked the whole Drive (minutes) instead of 0.3 s locally.
+export FZF_DEFAULT_COMMAND='fd --one-file-system --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 
 # Ctrl+T — file search with bat preview
 export FZF_CTRL_T_OPTS="--preview 'bat --color=always --line-range :50 {}'"
 
 # Alt+C — directory jump with eza tree preview
-export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+export FZF_ALT_C_COMMAND='fd --one-file-system --type d --hidden --follow --exclude .git'
 export FZF_ALT_C_OPTS="--preview 'eza --tree --icons --level=2 {}'"
 
 # Ctrl+R — history search; exact match + full command preview
@@ -48,7 +50,7 @@ export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wra
 # branches only ever printed "not available". Opens in $EDITOR instead, matching
 # fdata and the application/x-ipynb+json -> vim.desktop mapping in mimeapps.list.
 fnb() {
-  local result=$(fd --type f --extension ipynb 2>/dev/null |
+  local result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null |
     fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
       --preview-window='right:30%' \
       --expect 'ctrl-d' \
@@ -71,7 +73,7 @@ fnb() {
 # Data/model file finder — Enter: edit, Ctrl+D: cd, Ctrl+V: copy path
 fdata() {
   local result
-  result=$(fd --type f \
+  result=$(fd --one-file-system --type f \
     -e csv -e tsv -e jsonl -e ndjson \
     -e json -e yaml -e yml \
     -e parquet -e avro -e orc -e feather \

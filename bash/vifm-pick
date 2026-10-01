@@ -162,7 +162,7 @@ case "$cmd" in
     ;;
 
   fdata)
-    result=$(fd --type f \
+    result=$(fd --one-file-system --type f \
         -e csv -e tsv -e jsonl -e ndjson \
         -e json -e yaml -e yml \
         -e parquet -e avro -e orc -e feather \
@@ -193,7 +193,7 @@ case "$cmd" in
     ;;
 
   fnb)
-    result=$(fd --type f --extension ipynb 2>/dev/null \
+    result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null \
         | fzf \
             --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
             --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
