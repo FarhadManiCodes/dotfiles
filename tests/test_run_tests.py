@@ -80,6 +80,16 @@ class RunTestsTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(self.summary(out), ALL_PASS)
 
+    def test_skips_are_flagged_even_beside_expected_failures(self):
+        # unittest prints "OK (skipped=1, expected failures=1)" here.
+        self.fixture(unittest_body=(
+            "import unittest\n\n\nclass Fixture(unittest.TestCase):\n"
+            "    @unittest.skip('deliberate')\n    def test_skip(self):\n        pass\n\n"
+            "    @unittest.expectedFailure\n    def test_xfail(self):\n        self.fail()\n"))
+        code, out = self.run_runner()
+        self.assertEqual(code, 0)
+        self.assertEqual(self.summary(out), ["pass, skips  unittest"] + ALL_PASS[1:])
+
     def test_failing_suite_does_not_stop_later_suites(self):
         self.fixture(unittest_body=FAILING)
         code, out = self.run_runner()
