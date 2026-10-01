@@ -237,9 +237,9 @@ link_glob "${HOME}/.local/share/sioyek/sioyek" "${HOME}/.local/bin"
 # mic-notify, net-notify and power-notify are small C programs in one submodule,
 # notifiers, like nvim (fetched by the `git submodule update` above); their
 # services run the installed binaries. make builds all three before installing
-# any, so a failed build installs none.
+# any, so a failed build installs none; a failed install can leave one missing.
 make -s -C "${DOTFILES}/notifiers" install ||
-  echo "⚠️  notifiers: build failed, none installed; mic-notify, net-notify and power-notify keep the old binaries (or fail without one)"
+  echo "⚠️  notifiers: build or install failed (see above); a notifier service without its binary in ~/.local/bin will fail"
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================
