@@ -184,7 +184,7 @@ dotfiles file IS the live file, so this is only needed if symlinks were bypassed
 | `XDG_STATE_HOME` | `~/.local/state` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `XDG_CACHE_HOME` | `~/.cache` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `EDITOR`, `VISUAL` | `vim` | `environment.d/defaults.conf`, `zsh/.zshenv` |
-| `OPENBLAS_NUM_THREADS` | `8` in user-service defaults; `nproc / 2` in Zsh | `environment.d/defaults.conf`, `zsh/.zshenv` |
+| `OPENBLAS_NUM_THREADS` | `8` in user-service defaults and in Zsh (machine-specific) | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `OPENBLAS_MAIN_FREE` | `1` | `environment.d/defaults.conf`, `zsh/.zshenv` |
 | `IPYTHONDIR` | `~/.config/ipython` | `zsh/.zshenv` |
 | `CENTRAL_VENVS` | `~/.central_venvs` | `zsh/.zshenv` |

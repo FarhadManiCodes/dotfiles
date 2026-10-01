@@ -64,9 +64,10 @@ export CMAKE_CXX_COMPILER_LAUNCHER=ccache
 export CMAKE_EXPORT_COMPILE_COMMANDS=ON
 
 # OpenBLAS — match worker count to this machine's 8 physical cores, not its 16
-# logical CPUs. nproc / 2 is a machine-specific approximation, not a topology query.
+# logical CPUs. MACHINE-SPECIFIC: change this number on a machine with another core
+# count (it was `$(( $(nproc) / 2 ))`, which forked on every zsh start, ~2 ms).
 # Applies to non-OpenMP OpenBLAS builds, including those bundled in numpy/scipy wheels.
-export OPENBLAS_NUM_THREADS=$(( $(nproc) / 2 ))
+export OPENBLAS_NUM_THREADS=8
 
 # Disable OpenBLAS automatic CPU affinity where enabled; does not reserve a main CPU.
 export OPENBLAS_MAIN_FREE=1
