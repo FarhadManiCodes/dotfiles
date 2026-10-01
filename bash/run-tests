@@ -42,14 +42,15 @@ suite() {
 
 suite unittest python3 -B -m unittest discover -s "$root/tests"
 suite skills bash "$root/bash/check-skills"
-# The C notifiers are submodules with their own suites (net-notify and
-# power-notify run theirs in a private network namespace). A submodule that was
-# never fetched is an empty directory, where make fails: a FAIL, not a pass.
-# make's own variables are dropped: an inherited MAKEFLAGS=-n would print the
-# recipes instead of running them, and pass.
-for sub in mic-notify net-notify power-notify; do
-  suite "$sub" env -u MAKEFLAGS -u MFLAGS -u GNUMAKEFLAGS -u MAKEFILES -u MAKELEVEL \
-    make -s -C "$root/$sub" check
+# The C notifiers are one submodule, notifiers, with a suite per program (net-notify
+# and power-notify run theirs in a private network namespace). Each runs as its
+# own suite: `make check` would stop at the first that fails. A submodule that
+# was never fetched is an empty directory, where make fails: all three FAIL, not
+# pass. make's own variables are dropped: an inherited MAKEFLAGS=-n would print
+# the recipes instead of running them, and pass.
+for prog in mic net power; do
+  suite "$prog-notify" env -u MAKEFLAGS -u MFLAGS -u GNUMAKEFLAGS -u MAKEFILES -u MAKELEVEL \
+    make -s -C "$root/notifiers" "check-$prog"
 done
 
 printf '\n\033[1m== summary ==\033[0m\n'
