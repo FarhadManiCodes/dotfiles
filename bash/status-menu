@@ -22,36 +22,29 @@ choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s CPU Temp\n%s Memory\n%s 
 
 case "$choice" in
     *Battery*)
-        cap=$(cat /sys/class/power_supply/BAT0/capacity)
-        status=$(cat /sys/class/power_supply/BAT0/status)
-        energy_now=$(cat /sys/class/power_supply/BAT0/energy_now 2>/dev/null || echo 0)
-        energy_full=$(cat /sys/class/power_supply/BAT0/energy_full 2>/dev/null || echo 0)
-        power_now=$(cat /sys/class/power_supply/BAT0/power_now 2>/dev/null || echo 0)
-
-        if [[ "$status" == "Full" ]]; then
-            icon="$BAT_FULL"
-            body="${cap}% — Full"
-        elif [[ "$status" == "Charging" ]]; then
-            icon="$BOLT"
-            if (( power_now > 0 && energy_full > energy_now )); then
-                mins=$(( (energy_full - energy_now) * 60 / power_now ))
-                body="${cap}% — Charging • ~$(( mins / 60 ))h $(( mins % 60 ))m to full"
-            else
-                body="${cap}% — Charging"
-            fi
-        else
-            if (( cap >= 80 )); then icon="$BAT_FULL"
-            elif (( cap >= 60 )); then icon="$BAT_THREE"
-            elif (( cap >= 40 )); then icon="$BAT_HALF"
-            elif (( cap >= 20 )); then icon="$BAT_QUARTER"
-            else icon="$BAT_EMPTY"
-            fi
-            if (( power_now > 0 )); then
-                mins=$(( energy_now * 60 / power_now ))
-                body="${cap}% — ${status} • ~$(( mins / 60 ))h $(( mins % 60 ))m remaining"
-            else
-                body="${cap}% — ${status}"
-            fi
+        # power-notify's rules, so the two agree: percent from energy, rounded down;
+        # "~N min" under an hour, else whole hours; charging stops at TLP's limit.
+        b=/sys/class/power_supply/BAT0
+        status=$(<"$b/status") e=$(<"$b/energy_now") full=$(<"$b/energy_full")
+        w=$(<"$b/power_now") limit=$(<"$b/charge_control_end_threshold")
+        (( full > 0 )) || { notify-send "${BAT_EMPTY} Battery" "Charge not readable"; exit 0; }
+        cap=$(( e * 100 / full ))
+        if (( cap >= 80 )); then icon=$BAT_FULL
+        elif (( cap >= 60 )); then icon=$BAT_THREE
+        elif (( cap >= 40 )); then icon=$BAT_HALF
+        elif (( cap >= 20 )); then icon=$BAT_QUARTER
+        else icon=$BAT_EMPTY
+        fi
+        case $status in
+            Charging) icon=$BOLT; togo=$(( full * ${limit:-100} / 100 - e )); what=" to ${limit:-100}%" ;;
+            Discharging) togo=$e what=" left" ;;
+            *) togo=0 ;;
+        esac
+        body="${cap}% — ${status}"
+        if (( w > 0 && togo > 0 )); then
+            m=$(( togo * 60 / w ))
+            (( m < 60 )) && t="$m min" || t="$(( (m + 30) / 60 )) h"
+            body+=", ~${t}${what}"
         fi
         notify-send -u low "${icon} Battery" "$body"
         ;;
