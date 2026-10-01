@@ -27,7 +27,9 @@ case "$choice" in
         b=/sys/class/power_supply/BAT0
         status=$(<"$b/status") e=$(<"$b/energy_now") full=$(<"$b/energy_full")
         w=$(<"$b/power_now") limit=$(<"$b/charge_control_end_threshold")
-        (( full > 0 )) || { notify-send "${BAT_EMPTY} Battery" "Charge not readable"; exit 0; }
+        if [[ -z $e ]] || (( full <= 0 )); then   # the controller can time out
+            notify-send "${BAT_EMPTY} Battery" "Charge not readable"; exit 0
+        fi
         cap=$(( e * 100 / full ))
         if (( cap >= 80 )); then icon=$BAT_FULL
         elif (( cap >= 60 )); then icon=$BAT_THREE
