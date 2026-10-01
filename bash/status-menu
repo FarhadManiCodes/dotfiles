@@ -43,7 +43,8 @@ case "$choice" in
             *) togo=0 ;;
         esac
         body="${cap}% — ${status}"
-        if (( w > 0 && togo > 0 )); then
+        # Under 1 W is a reading not yet settled, as just after resume (0.2 W: "~109 h").
+        if (( w >= 1000000 && togo > 0 )); then
             m=$(( togo * 60 / w ))
             (( m < 60 )) && t="$m min" || t="$(( (m + 30) / 60 )) h"
             body+=", ~${t}${what}"
