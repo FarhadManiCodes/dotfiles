@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# open-detached — open files with their default app, detached, output in the journal.
+# A viewer started from vifm or a shell otherwise writes its warnings into that
+# terminal (the sioyek startup dump garbles vifm) and dies with it. The journal keeps
+# them: launcher errors under `journalctl --user -t open`, the app's own output under
+# its desktop id (`-t sioyek.desktop`).
+# `gio open` rather than xdg-open: same mimeapps.list answer, but ~45 ms faster
+# (xdg-open is a long shell script) and no desktop-environment detection.
+exec setsid -f systemd-cat -t open gio open "$@"

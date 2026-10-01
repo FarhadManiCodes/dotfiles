@@ -138,13 +138,11 @@ command -v ncdu >/dev/null 2>&1 && alias ncdu='ncdu -x'
 command -v pavucontrol >/dev/null 2>&1 && alias pavucontrol='GTK_THEME=Adwaita:dark GTK_A11Y=none pavucontrol'
 
 # ============================================================================
-# HANDLR (File Opening)
+# File opening
 # ============================================================================
-if command -v handlr >/dev/null 2>&1; then
-  alias o="handlr open"
-  alias xdg-open="handlr open"
-  compdef _files o xdg-open
-fi
+# open-detached: xdg-open in its own session, output to the journal.
+alias o="open-detached"
+(( $+functions[compdef] )) && compdef _files o
 
 # ============================================================================
 # EDITOR FALLBACKS
