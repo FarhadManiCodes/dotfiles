@@ -9,7 +9,7 @@ ${custom.git_host} \
 $git_branch\
 $git_status\
 $python\
-${custom.virtualenv}\
+${env_var.STARSHIP_VENV}\
 $golang\
 $cmake\
 ${custom.cmake_build_type}\
@@ -56,11 +56,9 @@ format = "[$output]($style)"
 style = "bold purple"
 
 
-[custom.virtualenv]
-command = "basename \"$VIRTUAL_ENV\""
-when = "test -n \"$VIRTUAL_ENV\""
-symbol = ""
-format = "([$output]($style)) "
+# Set by the _prompt_env precmd hook in zsh/.zshrc (a custom module forks a shell).
+[env_var.STARSHIP_VENV]
+format = "([$env_value]($style)) "
 style = "yellow bold"
 
 [character]

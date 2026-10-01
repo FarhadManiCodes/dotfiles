@@ -156,6 +156,12 @@ fi
 # Starship prompt
 _cached_eval starship starship init zsh
 
+# Prompt segments computed with builtins, handed to starship as env vars: a
+# starship custom module forks a shell on every prompt, even where it is empty.
+_prompt_env() {
+  typeset -gx STARSHIP_VENV=${VIRTUAL_ENV:t}
+}
+
 # Zoxide (better cd)
 _cached_eval zoxide zoxide init zsh
 
@@ -208,6 +214,7 @@ add-zle-hook-widget -Uz zle-line-init _foot_osc133b
 
 add-zsh-hook preexec foot_cmd_start
 add-zsh-hook precmd foot_cmd_end
+add-zsh-hook precmd _prompt_env
 
 # ============================================================================
 # LOAD MODULAR COMPONENTS
