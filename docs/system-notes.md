@@ -259,6 +259,10 @@ System-level choices that aren't captured in any config file:
   `ghc-libs` and the `haskell-*` set (236 packages, 74 MiB download) and is older (3.11 vs
   3.12); `pandoc-bin` is the static upstream binary with no dependencies. Only the papers
   converter uses it. Don't suggest switching to the repo build.
+- **`qt6-declarative` (explicit) is needed by sioyek**: pacman shows it as required by nothing
+  (only optional for `layer-shell-qt`) because `~/.local/bin/sioyek` is a local build that no
+  package owns, but it links `libQt6Qml`/`libQt6Quick` (`ldd` confirms). Removing it breaks
+  sioyek. Don't suggest it as an orphan.
 - **Go toolchain intentionally not installed**: `go` was removed (unused, ~215 MiB). The nvim
   config still carries dormant Go entries (treesitter parser, `init.lua` formatting block,
   `autocmds.lua` indent rule) plus a `[golang]` starship module — these only activate on `.go`
