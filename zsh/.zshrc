@@ -130,6 +130,9 @@ if [[ -f ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]]; t
   source ~/.config/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
   ZSH_AUTOSUGGEST_STRATEGY=(history completion)
   ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=30
+  # Default re-binds every zle widget before each prompt (~13 ms). Bind once at the
+  # first prompt, after all plugins are loaded, so its wrappers stay outermost.
+  ZSH_AUTOSUGGEST_MANUAL_REBIND=1
   ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#5c6370,underline"
   bindkey '^ ' autosuggest-accept  # Ctrl+Space
 fi
