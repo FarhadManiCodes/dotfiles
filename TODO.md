@@ -17,7 +17,7 @@ Off-machine backup remains deferred.
 | 3a. Sensitive-site Tridactyl rules | Applied; pending user verification | Reload Tridactyl, check each site's login flow |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
-| 4. Alt+p resolves citations from refinery | Proposed 2026-09-27; after the audit branch merges | User agrees scope; own branch |
+| 4. Alt+p resolves citations from refinery | Built 2026-10-02 on `sioyek-citation-lookup`; pending real-sioyek check | Restart sioyek, try it, merge |
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
 | 7. Router drops wifi every ~8 h | Found 2026-09-29 | Check the router's schedule |
 | 8. Battery alarm wakes the laptop at 5% | Found 2026-09-29 | Decide whether to keep the wake |
@@ -211,33 +211,17 @@ tab open/close/switch behave normally with containers in use. No extension neede
 
 ## 4. Alt+p resolves citations from refinery's `citations.json`
 
-**Proposed 2026-09-27** during the bash/ scripts audit. A new feature, kept off `audit-2026-09`.
+**Built 2026-10-02** on `sioyek-citation-lookup` (scope agreed with the user: numbered and
+author-year markers both, several references in one fuzzel picker, OpenAlex as the backup
+to Crossref). Behaviour and its limits are in `sioyek/README.md`, "`<A-p>` citations";
+`tests/test_sioyek_papis.py` covers it with fakes.
 
-**Problem:** `sioyek-papis` knows only the selected text. A reference with no DOI or arXiv id
-printed goes to Crossref, which costs a network round trip and a pick from up to 8 guesses,
-and an in-text marker such as `[10]` cannot be resolved at all.
+**Next step (user, interactive):** restart sioyek (the `_papis` command changed) and, in a
+library paper, select `[10]` or `(Zhou et al., 2023)` and press Alt+p; check a reference with
+a DOI opens or adds with no network, several references show the picker with the printed
+labels, and one without a DOI reaches Crossref. Then merge.
 
-**What exists already:** refinery writes `<pdf-stem>.citations.json` next to each refined PDF
-(48 of 56 papers on 2026-09-27). `references[]` holds `citation_key`, `title`, `authors`,
-`year`, `page` and, for 3626 of 4843 references, a verified `doi`. `linking.markers[]` maps
-each in-text marker to reference indexes, ranges expanded (`[6-10]` -> 6..10). Styles:
-32 numbered-bracket, 15 author-year, 1 numbered-paren.
-
-**Proposal:** add `%{file_path}` to the `_papis` command in `sioyek/prefs_user.config`
-(placeholders are one argv each), and before the Crossref step look the selection up in the
-current paper's `citations.json`: a marker (`[10]`) or a reference entry resolves to its DOI,
-then opens it if it is in the library or adds it. Fall back to today's path when there is no
-file, no match, or no identifier. One jq lookup takes about 3 ms. No separately rebuilt
-cross-reference map: refinery already keeps these files current, and a hand-run map would go
-stale.
-
-**Scope order:** numbered markers and reference entries first; author-year selections
-("Smith et al., 2020") need fuzzy matching on authors and year and come second. A library-wide
-"which of my papers cite this one" view is a separate feature.
-
-**Done when:** selecting `[10]` on page 12 of leng-2023 opens malitsky-2018 with no network,
-references without a DOI still reach Crossref, and tests in `tests/test_sioyek_papis.py` cover
-markers, reference entries and the fallback.
+**Done when:** the check above passes in real sioyek.
 
 ## 5. Move the useful study-library books into papis, then drop the copy
 

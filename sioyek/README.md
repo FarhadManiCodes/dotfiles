@@ -50,7 +50,7 @@ shells out to a script in `dotfiles/bash/` (symlinked into `~/.local/bin`).
 | Key | Action | Script |
 |---|---|---|
 | `<A-n>` | Append a note for this page + selection to the document's papis `notes.md`, then open it in nvim | `sioyek-papis-note` |
-| `<A-p>` | Upsert a selected DOI / title into papis — opens the entry if present, else adds it | `sioyek-papis` |
+| `<A-p>` | Upsert a selected DOI / title / citation marker into papis — opens the entry if present, else adds it | `sioyek-papis` |
 | `i` | Jump to the end of the selection in nvim (SyncTeX) | `sioyek-to-source` |
 | `<A-i>` | SyncTeX at the mouse cursor, no selection needed | built-in `synctex_under_cursor` |
 | `ss` | Search the selection on Google Scholar (vimb) | `sioyek-search scholar` |
@@ -61,6 +61,17 @@ position is stored as an HTML comment, so that papis-ask can strip both before
 embedding — the paper's own text is already indexed from the PDF, and embedding it a
 second time from a note would crowd out other sources. A selection is optional; with
 none you get just the page heading to write a page-level thought under.
+
+**`<A-p>` citations.** With a marker selected (`[10]`, `[3,5]`, `[6-10]`, `(Zhou et al.,
+2023)`) it reads refinery's `<pdf-stem>.citations.json` beside the open PDF, so a reference
+that has a DOI needs no network. Several references are offered in fuzzel with their printed
+label, a ✓ marking those already in the library. A reference is matched in the library by
+DOI, then by exact title, because the library may hold the preprint of a paper cited under
+its published DOI. One with neither goes to Crossref by title, first author and year, with
+OpenAlex as the backup (key in refinery's `openalex.env`, passed to curl on stdin; about
+$0.001 a request, so only asked when Crossref has nothing). No `citations.json`, or no
+match: the selection is searched as plain text, as before. Author-year selections match the
+first author's surname and year, so extraction noise in `references[]` can make one miss.
 
 **Two placeholder facts, verified in sioyek's source, that cost a broken note before they
 were found** (`pdf_viewer/main_widget.cpp`):
