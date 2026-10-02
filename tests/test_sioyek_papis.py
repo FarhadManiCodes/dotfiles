@@ -224,6 +224,18 @@ class SioyekPapisTests(unittest.TestCase):
         self.select("[1]", pdf, CURL_OUT='{"message":{"items":[]}}')
         self.assertIn("query.bibliographic=Shielded Kay 2020\n", self.read("curl"))
 
+    def test_reference_doi_must_equal_a_library_doi_not_be_a_prefix_of_one(self):
+        self.paper("novak-2-2019", doi="10.1000/novak2", title="Something else")
+        self.select("[3]")                    # reference doi 10.1000/novak, title "Unknown operators"
+        self.assertEqual(self.read("papis"), "add --from doi 10.1000/novak --no-edit --batch\n")
+        self.assertEqual(self.read("sioyek"), "")
+
+    def test_picked_search_result_doi_must_equal_a_library_doi_not_be_a_prefix_of_one(self):
+        self.paper("a2-2020", doi="10.1000/a2", title="Other")
+        crossref = '{"message":{"items":[{"DOI":"10.1000/a","title":["A"]}]}}'
+        self.run_script("Some", "title", CURL_OUT=crossref, PICK="1")
+        self.assertEqual(self.read("papis"), "add --from doi 10.1000/a --no-edit --batch\n")
+
     def test_range_is_offered_with_printed_labels_and_library_marks(self):
         self.select("[1-3]", PICK="3")
         self.assertEqual([line.split("\t", 1)[1] for line in self.read("fuzzel").splitlines()],

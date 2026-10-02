@@ -117,7 +117,7 @@ add() {
 # Open the library entry holding DOI, else add it.
 open_or_add_doi() {
     local M
-    mapfile -t M < <(lookup 1 "$1")
+    mapfile -t M < <(lookup 1 "$1" exact)
     if (( ${#M[@]} )); then open_file "${M[0]%%$'\t'*}"; else add doi "$1"; fi
 }
 
@@ -173,7 +173,7 @@ US=$'\x1f'
 # may hold the preprint of a paper the reference cites under its published DOI.
 find_reference() {
     local m=
-    [[ -n $1 ]] && m=$(lookup 1 "$1")
+    [[ -n $1 ]] && m=$(lookup 1 "$1" exact)
     [[ -n $m ]] || m=$(lookup 4 "$2" exact)
     [[ -z $m ]] || printf '%s\n' "$m"
 }
