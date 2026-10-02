@@ -72,7 +72,8 @@ config or keys, makes no network or OCR call, reads `refinery.md` without writin
 touches nothing else (`chunks.json`, `citations.json` stay as they are). It fails if
 `refinery.md` is missing, and the batch form reports and skips such a paper. Use it after
 `--from chunk` on an imported or hand-corrected `refinery.md`; `--from chunk` does not write
-the review copy and a full run would replace the corrections. Requires refinery 0.3.16.
+the review copy and a full run would replace the corrections. Needs the installed refinery to
+list `review` under `--from` (0.3.16 or newer; see "Installed refinery" in `SKILL.md`).
 
 Chunking leaves out reference lists and back-of-book indexes (`[chunk] drop_back_matter`,
 default on), which would otherwise be retrieved and cited as evidence. A headed section is
