@@ -28,6 +28,7 @@ while `refinery-typeset` only runs OCR.
 | **A general PDF as markdown** | `refinery-typeset <pdf>`, then read `<pdf-stem>.refinery/parsed.md` | OCR backend only |
 | A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | OCR backend only |
 | A paper as enriched markdown | `refinery <pdf>` → sibling `<stem>.md` for review | OCR backend + Gemini + providers |
+| The review copy only, from an existing `refinery.md` (imported or hand-corrected books) | `refinery --from review <pdf>` | None |
 
 "OCR backend only" excludes Gemini and citation lookups. Default `maas` needs
 `ZHIPU_API_KEY` and network; `selfhosted` runs locally. Markdown input skips OCR.
@@ -37,9 +38,9 @@ For PDF input, `refinery-typeset` writes OCR to `<stem>.refinery/parsed.md`. A f
 `refinery` run writes enriched `<stem>.refinery/refinery.md` for chunking and a sibling
 `<stem>.md` review copy with math collapsed. `rgbook` searches the sibling, excluding
 `notes.md`; its markers identify one-based physical PDF pages. `--from chunk` does not
-refresh the review copy; `refinery --from review <pdf>` (also `refinery-batch`, refinery
-0.3.16) writes only that copy from an existing `refinery.md`, with no keys, network or OCR,
-and never touches `refinery.md`. It is the way to give an imported or hand-corrected book a
+refresh the review copy; `refinery --from review <pdf>` (also `refinery-batch --from review`;
+since refinery 0.3.16) writes only that copy from an existing `refinery.md`, with no keys,
+network or OCR, and never touches `refinery.md`. It is the way to give an imported or hand-corrected book a
 review copy: a full `refinery` run on one would replace the corrected `refinery.md` and pay
 for OCR again.
 
@@ -113,6 +114,10 @@ Reinstall only when no refinery process is running:
 ```bash
 uv tool install --force --from ~/projects/paper-refinery paper-refinery
 ```
+
+`--from review` exists only in a snapshot of 0.3.16 or newer: if `refinery --help` does not list
+`review` under `--from`, the installed tool is older than the source, so compare and reinstall
+as above. `uv tool list` shows the installed version.
 
 `papis` is also a uv tool, but its papis-ask dependency is editable.
 
