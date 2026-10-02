@@ -130,14 +130,14 @@ open_or_add_doi() {
 # around an empty doi.
 read -r -d '' CITE_JQ <<'JQ'
 def flat: gsub("\\s+"; "") | ascii_downcase | gsub("[‐-―−]"; "-");
-def alnum: ascii_downcase | gsub("[^a-z0-9]"; "");
+def words: ascii_downcase | gsub("[^a-z0-9]+"; " ") | sub("^ +"; "") | sub(" +$"; "");
 def clean: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "");
 (.references // []) as $refs
 | ($sel | flat) as $s
 | ($s | gsub("[\\[\\]()]"; "")) as $n
 | [ $sel | gsub("^[\\s(\\[]+|[\\s)\\]]+$"; "") | split(";")[]
     | capture("^\\s*(?<name>[^0-9;]*[A-Za-z][^0-9;]*?)[\\s,]*(?<year>(?:19|20)[0-9]{2})[a-z]?\\s*$")?
-    | {tok: (.name | ascii_downcase | sub("( and | & |,| et al).*$"; "") | alnum),
+    | {tok: (.name | ascii_downcase | sub("( and | & |,| et al).*$"; "") | words),
        year: (.year | tonumber)}
     | select(.tok | length >= 2) ] as $pieces
 | (
@@ -153,9 +153,10 @@ def clean: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "");
       else
           [ $refs | to_entries[] | . as $e
             | select(any($pieces[]; . as $p
-                | ($e.value.authors[0].family // "" | alnum) as $f
+                | ($e.value.authors[0].family // "" | words) as $f
                 | $e.value.year == $p.year and $f != ""
-                  and ($p.tok == $f or ($p.tok | endswith($f)) or ($f | endswith($p.tok))))) | .key ]
+                  # whole words only: "van der Berg" matches "Berg" and back, "Li" not "Ali"
+                  and ((" " + $p.tok) | endswith(" " + $f) or . == (" " + $f) or ((" " + $f) | endswith(" " + $p.tok))))) | .key ]
       end
   )
 | unique[] | . as $i | $refs[$i] | select(. != null)

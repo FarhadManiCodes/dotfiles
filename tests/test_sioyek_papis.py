@@ -245,6 +245,17 @@ class SioyekPapisTests(unittest.TestCase):
         self.select("(Novak et al., 2019)")
         self.assertEqual(self.read("papis"), "add --from doi 10.1000/novak --no-edit --batch\n")
 
+    def test_author_year_matches_whole_surnames_not_the_tail_of_a_longer_one(self):
+        refs = [{"number": str(i), "title": t, "year": 2020, "authors": [{"family": f}], "doi": f"10.1000/{t}"}
+                for i, (f, t) in enumerate([("Ali", "ali"), ("Goldsmith", "gold"),
+                                            ("van der Berg", "berg")], 1)]
+        pdf = self.host(references=refs, markers=[])
+        for selection in ("(Li, 2020)", "(Smith, 2020)"):
+            self.select(selection, pdf, CURL_OUT='{"message":{"items":[]}}')
+        self.assertEqual(self.read("papis") + self.read("fuzzel"), "")       # Ali / Goldsmith not taken
+        self.select("(Berg et al., 2020)", pdf)                              # a compound surname still is
+        self.assertEqual(self.read("papis"), "add --from doi 10.1000/berg --no-edit --batch\n")
+
     def test_several_author_year_pieces_share_one_menu(self):
         self.select("(Smith and Jones, 2020; Novak et al., 2019)", PICK="2")
         self.assertEqual(len(self.read("fuzzel").splitlines()), 2)
