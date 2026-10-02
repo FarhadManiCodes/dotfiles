@@ -12,7 +12,8 @@ refinery-typeset paper-or-book.pdf
 
 Two things come out of that: a typeset PDF at `<stem>.typeset.pdf`, and — the part usually
 wanted — the parsed markdown at `<stem>.refinery/parsed.md`. This does not create the sibling
-`<stem>.md` review copy that `rgbook` searches; only a full `refinery` run does.
+`<stem>.md` review copy that `rgbook` searches; a full `refinery` run does, and so does
+`refinery --from review` once a `refinery.md` exists (below).
 
 There is no parse-only entry point. `refinery-typeset` is the closest thing to one, and the
 markdown is a by-product of it rather than its advertised output. Take the file and ignore the
@@ -58,6 +59,20 @@ refinery --from chunk paper.pdf
 
 Re-chunks the saved `refinery.md` only. Instant, no OCR, no network — for tuning chunk policy.
 `refinery-batch --from chunk` does the same across many.
+
+## Writing only the review copy
+
+```bash
+refinery --from review paper.pdf        # or: refinery-batch --from review a.pdf b.pdf
+```
+
+Writes the sibling `<stem>.md` that `rgbook` searches (display math collapsed to one line)
+from the saved `<stem>.refinery/refinery.md`, using the same code as a full run. It loads no
+config or keys, makes no network or OCR call, reads `refinery.md` without writing it and
+touches nothing else (`chunks.json`, `citations.json` stay as they are). It fails if
+`refinery.md` is missing, and the batch form reports and skips such a paper. Use it after
+`--from chunk` on an imported or hand-corrected `refinery.md`; `--from chunk` does not write
+the review copy and a full run would replace the corrections. Requires refinery 0.3.16.
 
 Chunking leaves out reference lists and back-of-book indexes (`[chunk] drop_back_matter`,
 default on), which would otherwise be retrieved and cited as evidence. A headed section is

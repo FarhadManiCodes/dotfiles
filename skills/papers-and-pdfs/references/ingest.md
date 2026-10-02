@@ -148,8 +148,10 @@ config misses without any message and pays for full OCR. Compare `sha256sum`s fi
 split followed by `done` within seconds.
 
 **Import the markdown** when only the conversion survived. Write a `refinery.md` into the
-library PDF's `<stem>.refinery/` and run `refinery --from chunk <pdf>` (see `convert.md`). The
-chunker reads `<page_number>N</page_number>` markers, which must be **PDF page numbers**, so
+library PDF's `<stem>.refinery/` and run `refinery --from chunk <pdf>`, then
+`refinery --from review <pdf>` so `rgbook` can search it (both in `convert.md`). Never run a
+full `refinery` on an imported book: it replaces the corrected `refinery.md` (an import has no
+checksum to stop it) and pays for OCR. The chunker reads `<page_number>N</page_number>` markers, which must be **PDF page numbers**, so
 check what the markers mean before trusting them:
 
 | Source | Markers | Fix |
