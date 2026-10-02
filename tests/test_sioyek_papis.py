@@ -268,6 +268,18 @@ class SioyekPapisTests(unittest.TestCase):
         self.select("(Berg et al., 2020)", pdf)                              # a compound surname still is
         self.assertEqual(self.read("papis"), "add --from doi 10.1000/berg --no-edit --batch\n")
 
+    def test_author_year_keeps_non_ascii_letters_so_distinct_surnames_stay_distinct(self):
+        refs = [{"number": str(i), "title": t, "year": 2020, "authors": [{"family": f}], "doi": f"10.1000/{t}"}
+                for i, (f, t) in enumerate([("Møller", "moller"), ("Åström", "astrom"),
+                                            ("Gell\u2010Mann", "gm")], 1)]
+        pdf = self.host(references=refs, markers=[])
+        self.select("(Müller, 2020)", pdf, CURL_OUT='{"message":{"items":[]}}')
+        self.assertEqual(self.read("papis") + self.read("fuzzel"), "")       # Møller is not Müller
+        self.select("(Åström et al., 2020)", pdf)                            # but a name still matches itself
+        self.assertEqual(self.read("papis"), "add --from doi 10.1000/astrom --no-edit --batch\n")
+        self.select("(Mann, 2020)", pdf)                                     # a non-ASCII hyphen splits words
+        self.assertIn("add --from doi 10.1000/gm --no-edit --batch\n", self.read("papis"))
+
     def test_several_author_year_pieces_share_one_menu(self):
         self.select("(Smith and Jones, 2020; Novak et al., 2019)", PICK="2")
         self.assertEqual(len(self.read("fuzzel").splitlines()), 2)

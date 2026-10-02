@@ -130,7 +130,7 @@ open_or_add_doi() {
 # around an empty doi.
 read -r -d '' CITE_JQ <<'JQ'
 def flat: gsub("\\s+"; "") | ascii_downcase | gsub("[‐-―−]"; "-");
-def words: ascii_downcase | gsub("[^a-z0-9]+"; " ") | sub("^ +"; "") | sub(" +$"; "");
+def words: ascii_downcase | gsub("[^\\p{L}\\p{N}]+"; " ") | sub("^ +"; "") | sub(" +$"; "");
 def clean: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "");
 (.references // []) as $refs
 | ($sel | flat) as $s
