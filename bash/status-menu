@@ -10,14 +10,16 @@ BOLT=$'⚡'
 CLOCK=$''
 THERM=$''
 CHIP=$''
+OPENAI=$'\uec81'    # nf-cod-openai
+CLAUDE=$'\uec82'    # nf-cod-claude
 
 WORLD=$(printf '\U000f01e7')
 NET=$(printf '\U000f059f')    # nf-md-web (globe)
 WIFI=$(printf '\U000f05a9')   # nf-md-wifi
 ETH=$(printf '\U000f0200')    # nf-md-ethernet
-choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s CPU Temp\n%s Memory\n%s Time' \
-    "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" \
-    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 6)
+choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s CPU Temp\n%s Memory\n%s Time\n%s Codex\n%s Claude' \
+    "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" "$OPENAI" "$CLAUDE" \
+    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 8)
 [[ -z "$choice" ]] && exit 0
 
 case "$choice" in
@@ -129,5 +131,23 @@ case "$choice" in
         body+="\nIran       $(TZ=Asia/Tehran date '+%a %H:%M')"
         body+="\nVancouver  $(TZ=America/Vancouver date '+%a %H:%M')"
         notify-send -u low "${WORLD} World Clock" "$body"
+        ;;
+    *Codex*)
+        # Asks the Codex app server (the protocol the TUI uses) for the account's live
+        # limits; the sleep keeps stdin open until the reply is in (~0.3 s).
+        body=$({ printf '%s\n' \
+                '{"id":1,"method":"initialize","params":{"clientInfo":{"name":"status-menu","version":"0"}}}' \
+                '{"method":"initialized"}' '{"id":2,"method":"account/rateLimits/read"}'; sleep 2; } \
+            | timeout 8 codex app-server 2>/dev/null \
+            | jq -n -r 'first(inputs | select(.id == 2)) | .result.rateLimits
+                | [.primary, .secondary][] | select(. != null)
+                | "\(if .windowDurationMins >= 10080 then "Week" else "\(.windowDurationMins / 60 | floor) h" end): \(.usedPercent | floor)% used, resets \(.resetsAt | strflocaltime("%a %H:%M"))"' 2>/dev/null)
+        notify-send -u low "${OPENAI} Codex limits" "${body:-Codex did not answer}"
+        ;;
+    *Claude*)
+        # /usage is answered locally by the CLI with live numbers (~3 s); the two
+        # "Current ..." lines are the limits, the rest is a breakdown.
+        body=$(timeout 20 claude -p /usage 2>/dev/null | grep '^Current')
+        notify-send -u low "${CLAUDE} Claude limits" "${body:-Claude did not answer}"
         ;;
 esac
