@@ -4,8 +4,9 @@ Open work and decisions that need the user. Planning clarified 2026-09-11; renum
 2026-09-16 when the test runner was delivered and closed. Item 4, the ath11k regulatory-domain
 error, was closed to `revisit.md` on 2026-09-18 once 5GHz was tested and the error confirmed
 cosmetic. Item 5, removing `mate-polkit`, was run by the user and closed to `revisit.md` the
-same day. Accepted findings remain in `revisit.md`; the runner's dropped follow-on scope is
-recorded there.
+same day. Item 4, Alt+p resolving citations from refinery, was built and verified 2026-10-02 and
+closed to `revisit.md`; the remaining numbers are kept. Accepted findings remain in
+`revisit.md`; the runner's dropped follow-on scope is recorded there.
 
 Suggested order: agree the editor + agent layout first. Browser work needs specific use cases.
 Off-machine backup remains deferred.
@@ -17,7 +18,6 @@ Off-machine backup remains deferred.
 | 3a. Sensitive-site Tridactyl rules | Applied; pending user verification | Reload Tridactyl, check each site's login flow |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
-| 4. Alt+p resolves citations from refinery | Built 2026-10-02 on `sioyek-citation-lookup`; pending real-sioyek check | Restart sioyek, try it, merge |
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
 | 7. Router drops wifi every ~8 h | Found 2026-09-29 | Check the router's schedule |
 | 8. Battery alarm wakes the laptop at 5% | Found 2026-09-29 | Decide whether to keep the wake |
@@ -208,20 +208,6 @@ selection doesn't touch link-opening behavior.
 **Verified 2026-09-16 (user, interactive):** enabled the pref, confirmed Personal/Work cookie
 separation, confirmed both container tabs survive a full restart, confirmed Tridactyl hinting,
 tab open/close/switch behave normally with containers in use. No extension needed.
-
-## 4. Alt+p resolves citations from refinery's `citations.json`
-
-**Built 2026-10-02** on `sioyek-citation-lookup` (scope agreed with the user: numbered and
-author-year markers both, several references in one fuzzel picker, OpenAlex as the backup
-to Crossref). Behaviour and its limits are in `sioyek/README.md`, "`<A-p>` citations";
-`tests/test_sioyek_papis.py` covers it with fakes.
-
-**Next step (user, interactive):** restart sioyek (the `_papis` command changed) and, in a
-library paper, select `[10]` or `(Zhou et al., 2023)` and press Alt+p; check a reference with
-a DOI opens or adds with no network, several references show the picker with the printed
-labels, and one without a DOI reaches Crossref. Then merge.
-
-**Done when:** the check above passes in real sioyek.
 
 ## 5. Move the useful study-library books into papis, then drop the copy
 

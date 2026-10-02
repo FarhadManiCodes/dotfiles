@@ -937,3 +937,27 @@ Details in `docs/architecture/zsh.md` ("Startup and prompt cost").
 - **`fast-syntax-highlighting`** costs ~14 ms to load and is not helped by compiling.
   Lazy-loading it only moves the work after the first prompt.
 - **Recheck:** if startup or prompt time regresses, or after a zsh or plugin upgrade.
+
+
+---
+
+## Alt+p citation lookup: accepted limits — ACCEPTED (2026-10-02)
+
+Closed from `TODO.md` item 4; behaviour in `sioyek/README.md` ("`<A-p>` citations").
+Verified in real sioyek by the user, numbered and author-year, and by a fresh-agent review
+whose one finding (surname suffix matching) was fixed with a test.
+
+- **Author-year misses follow refinery's extraction.** The match is the first author's
+  surname and year against `references[]`; a noisy first author ("Act, E. A. I.") makes it
+  miss and the selection falls back to the plain text search. Surnames match as whole
+  words, so "Berg" and "van der Berg" match each other but "Li" never matches "Ali".
+- **One match goes straight through, with no picker.** A wrong single match would add a
+  paper, visible in the "Added to papis" notification. Two papers sharing surname and year
+  in one reference list both match and so do get the picker.
+- **A bare number resolves to that reference.** Selecting `10` anywhere in a paper with a
+  `citations.json` opens or adds reference 10; the old text search never saw bare numbers.
+- **OpenAlex is only the backup.** It runs when Crossref errors or finds nothing; its key is
+  paid and shared with refinery's batches, and refinery already searched OpenAlex for
+  references it left without a DOI, so it mostly helps free-text selections.
+- **Recheck:** if refinery's `citations.json` schema changes (`linking.markers[]`, 0-based
+  `refs`), or wrong single matches are noticed in use.
