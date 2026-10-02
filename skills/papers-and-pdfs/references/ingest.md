@@ -170,6 +170,15 @@ stage.
 
 Each refine writes `<stem>.refinery/resolution_report.txt` and `<stem>.citations.json`.
 
+**Alt+p reads `citations.json`.** In sioyek, `bash/sioyek-papis` resolves a selected marker
+(`[10]`, `[3,5]`, `[6-10]`, `(Zhou et al., 2023)`) through the JSON beside the open PDF, with
+no network when the reference has a DOI. It depends on `linking.markers[]` (`text` and
+**0-based** `refs` indexes into `references[]`) and on each reference's `doi`, `title`,
+`year`, `authors[].family`, `number` and `citation_key`. A refinery change to that schema, or
+a re-refine that drops the file, breaks Alt+p quietly: the selection falls back to a Crossref
+text search. A document without a `citations.json` (an imported book) just gets that fallback.
+Details in `sioyek/README.md`; tests in `tests/test_sioyek_papis.py`.
+
 **Reading the report.** The first line gives the verified count, split by the route that
 verified each reference: `resolved 157/937 references (crossref: 154, openalex: 2,
 semanticscholar: 1)`. `crossref`, `semanticscholar` and `openalex` are title searches, tried in
@@ -316,7 +325,7 @@ Checklist for re-refining several documents:
 - [ ] No refinery process running; installed refinery matches the source (SKILL.md)
 - [ ] Back up each document's citations.json, chunks.json, .md and .refinery/ outside the library
 - [ ] Note each document's current verified count (first line of resolution_report.txt)
-- [ ] Decide on hand-edited documents: --from chunk to keep the edits, --overwrite-edits to drop them
+- [ ] Decide on hand-edited documents: --from chunk (then --from review for the .md) to keep the edits, --overwrite-edits to drop them
 - [ ] Refine one PDF at a time: refinery-batch --workers 1 [--meta-map map.json] PDF
 - [ ] After each refine, pause, then index that ref alone:
       ( source ~/.config/secrets/papis.env; papis ask index "ref:^X$" )
