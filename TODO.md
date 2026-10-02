@@ -10,14 +10,13 @@ by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/conv
 remaining numbers are kept. Accepted findings remain in
 `revisit.md`; the runner's dropped follow-on scope is recorded there.
 
-Suggested order: agree the editor + agent layout first. Browser work needs specific use cases.
-Off-machine backup remains deferred.
+Suggested order: agree the editor + agent layout first. Off-machine backup remains deferred.
 
 | Item | Status | Next requirement |
 |---|---|---|
 | 1. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
 | 2. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
-| 3a. Sensitive-site Tridactyl rules | Applied; pending user verification | Reload Tridactyl, check each site's login flow |
+| 3a. Sensitive-site Tridactyl rules | **Closed 2026-10-02, verified** | — |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
@@ -152,31 +151,22 @@ Two corrections to make when writing ours, both verified 2026-09-08:
 
 Moved from `firefox/firefox-notes.md` on 2026-09-09. These are independent tasks; browser
 preferences remain documented there and tracked Tridactyl settings in `tridactyl/tridactylrc`.
-3b and 3c closed 2026-09-16; only 3a remains open.
+3b and 3c closed 2026-09-16 and 3a on 2026-10-02; nothing under this heading remains open.
 
-### 3a. Sensitive-site Tridactyl rules
+### 3a. Sensitive-site Tridactyl rules — closed 2026-10-02
 
-**Decided 2026-09-18.** Domains and mode supplied by the user: `blacklistadd` (avoid shortcut
-interference; content script still runs, a few keys stay bound) on the user's Sparkasse branch
-(wildcarded in `tridactylrc` as `https://www.sparkasse-*.de/*` rather than named literally,
-since this repo is public), `https://app.n26.com/*` and `https://passwords.google.com/*`.
-Added to `tridactylrc`, live via the existing symlink — no separate login-redirect domain was
-reported for any of the three.
+**Decided 2026-09-18, verified by the user 2026-10-02.** `blacklistadd` (avoid shortcut
+interference; the content script still runs and a few keys stay bound) for the user's
+Sparkasse branch (wildcarded in `tridactylrc` as `https://www.sparkasse-*.de/*` rather than
+named literally, since this repo is public), `https://app.n26.com/*` and
+`https://passwords.google.com/*`. Live via the existing symlink. The user reloaded Tridactyl
+and confirmed each login flow works.
 
-**Next step (user, interactive):** reload Tridactyl config and check each site's login flow —
-forms, redirects and (for the Google entry) password-manager interaction — then confirm
-ordinary sites remain unaffected.
-
-**Done when:** the agreed behavior is confirmed across each site's login flow.
-
-**Feasibility:** small once the domains and behavior are chosen. The mechanism already exists:
-`blacklistadd` entries cover `drive.google.com` and `docs.google.com`.
-
-**Important distinction:** Tridactyl 1.25.0 help, inspected 2026-09-09, describes `blacklistadd`
-as a DocStart autocmd entering ignore mode. The content script still runs, and `<C-o>`,
-`<S-Insert>`, `<S-Escape>`, `<AC-Escape>` and ``<AC-`>`` remain bound. For a more thorough
-disable, upstream documents `seturl <url-regex> superignore true`. These are different behaviors;
-see [Tridactyl's documentation](https://github.com/tridactyl/tridactyl).
+**Mechanism note kept for a later change:** Tridactyl 1.25.0 describes `blacklistadd` as a
+DocStart autocmd entering ignore mode, so `<C-o>`, `<S-Insert>`, `<S-Escape>`, `<AC-Escape>`
+and ``<AC-`>`` remain bound. A more thorough disable is `seturl <url-regex> superignore
+true` (see [Tridactyl's documentation](https://github.com/tridactyl/tridactyl)); switch only
+if a site misbehaves.
 
 ### 3b. Tridactyl workflow review — closed 2026-09-16
 
