@@ -110,6 +110,23 @@ jupyter is handled generally — `.ipynb` opening as raw JSON is expected withou
 fault. `uv pip install jupytext` in the venv, then `:restart`. Confirmed working 2026-09-09;
 the health warning is permanent by design and should not be re-raised as a finding.
 
+
+## nvim startup audit (2026-10) — measured decisions
+
+Fixes are in the `startup-audit-2026-10` commits; what was left alone, and why:
+
+- **Pure-C `.h` opens as cpp — ACCEPTED.** nvim has no content check, so
+  `notifiers/common.h` pays ~130 ms for the C++ grammar. A modeline makes it worse (it
+  applies after detection, so both parsers start); `g:c_syntax_for_h` would break C++
+  `.h` headers. If it ever matters: a one-line `vim.filetype.add` path rule.
+- **REJECTED, measured:** deferring treesitter/LSP (changes the first frame); GC tuning
+  (only defers work); eager render-markdown (md -8 ms, bare +5, python +10); dropping
+  the latex injection (math stops rendering, -52 ms); cpp qualified-name patterns
+  below four deep (-35/-46 ms, but call names lose their highlight); trimming zsh/bash
+  highlights (cost is flat, no dominant pattern); typst-preview on demand (~4 ms).
+- **Query trims are patched at runtime** (`lua/config/ts_queries.lua`): a
+  `queries/<lang>/*.scm` override is appended to upstream's, never replaces it.
+
 ---
 
 ## No system `blas` provider — ACCEPTED (2026-08-14)
