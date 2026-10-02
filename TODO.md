@@ -5,7 +5,9 @@ Open work and decisions that need the user. Planning clarified 2026-09-11; renum
 error, was closed to `revisit.md` on 2026-09-18 once 5GHz was tested and the error confirmed
 cosmetic. Item 5, removing `mate-polkit`, was run by the user and closed to `revisit.md` the
 same day. Item 4, Alt+p resolving citations from refinery, was built and verified 2026-10-02 and
-closed to `revisit.md`; the remaining numbers are kept. Accepted findings remain in
+closed to `revisit.md`; item 6, review copies for four imported books, was delivered 2026-10-02
+by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/convert.md`); the
+remaining numbers are kept. Accepted findings remain in
 `revisit.md`; the runner's dropped follow-on scope is recorded there.
 
 Suggested order: agree the editor + agent layout first. Browser work needs specific use cases.
@@ -225,14 +227,6 @@ Nothing reads the copy any more: `fbook`/`rgbook` (`zsh/functions/pdf.zsh`, mirr
 `bash/vifm-pick`) search the papis library since 2026-09-27.
 
 **Done when:** the kept books open from Mod+z and `~/.local/share/study-library` is deleted.
-
-## 6. Finish refinery review copies for four books
-
-`rgbook` searches sibling `<stem>.md` review copies. The papis library has them for 52 of
-56 PDFs. Barroso, Hey, Kleppmann, and Reis currently have only refinery working copies,
-whose page labels cannot be used to open physical PDF pages reliably. Run refinery for
-those four when the API cost is acceptable; each finished review copy will then appear in
-`rgbook` without a config change.
 
 ## 7. The router drops wifi every ~8 hours
 
