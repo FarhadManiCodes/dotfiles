@@ -37,7 +37,11 @@ For PDF input, `refinery-typeset` writes OCR to `<stem>.refinery/parsed.md`. A f
 `refinery` run writes enriched `<stem>.refinery/refinery.md` for chunking and a sibling
 `<stem>.md` review copy with math collapsed. `rgbook` searches the sibling, excluding
 `notes.md`; its markers identify one-based physical PDF pages. `--from chunk` does not
-refresh the review copy.
+refresh the review copy; `refinery --from review <pdf>` (also `refinery-batch`, refinery
+0.3.16) writes only that copy from an existing `refinery.md`, with no keys, network or OCR,
+and never touches `refinery.md`. It is the way to give an imported or hand-corrected book a
+review copy: a full `refinery` run on one would replace the corrected `refinery.md` and pay
+for OCR again.
 
 `fbook` finds library files by name. `pdf-meta preview FILE` shows embedded title, author,
 page count and first-page text without papis metadata or OCR.
