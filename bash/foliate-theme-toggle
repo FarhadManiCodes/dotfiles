@@ -1,7 +1,0 @@
-#!/bin/bash
-current=$(gsettings get com.github.johnfactotum.Foliate.viewer.view theme)
-if [[ "$current" == "'groovebox.json'" ]]; then
-    gsettings set com.github.johnfactotum.Foliate.viewer.view theme 'default'
-else
-    gsettings set com.github.johnfactotum.Foliate.viewer.view theme 'groovebox.json'
-fi

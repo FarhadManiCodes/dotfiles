@@ -45,5 +45,5 @@ and a commit intending `Noto Sans 11` never took effect (GTK apps render in `Adw
 
 To change GTK appearance: `gsettings set org.gnome.desktop.interface font-name '<font>'`
 (same for `gtk-theme`, `icon-theme`, `cursor-theme`, `color-scheme`). `color-scheme` stays
-`default` on purpose — GTK apps are always light and don't follow the foot/foliate theme
-toggles.
+`default` on purpose — GTK apps are always light and don't follow the foot theme
+toggle.

@@ -128,8 +128,7 @@ dotfiles/
 ├── starship.toml
 ├── bat/config
 ├── btop/btop.conf
-├── sioyek/                 # Sioyek PDF reader config
-├── foliate/                # Foliate e-book reader themes & settings
+├── sioyek/                 # Sioyek PDF/EPUB reader config
 ├── papis/                  # Bibliography manager config
 ├── mpv/mpv.conf
 ├── yt-dlp/config

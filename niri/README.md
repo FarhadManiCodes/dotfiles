@@ -49,7 +49,7 @@ The configuration is organized into these major sections:
    - vifm file manager (launched in foot terminal via Mod+E)
    - Password managers (KeePassXC, GNOME Secrets, Bitwarden, 1Password): blocked from screen capture
    - Global 5px rounded corners for all windows
-   - Default column width (50%): Firefox, Zathura (DjVu), foot
+   - Default column width (50%): Firefox, foot
 
 6. **Keybindings**
    - Vim-style navigation (Mod+H/J/K/L)

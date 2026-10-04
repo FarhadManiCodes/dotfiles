@@ -282,7 +282,7 @@ class ConfigDriftTests(unittest.TestCase):
         self.env['HOME'] = str(self.root / 'home')
         (self.root / 'live').mkdir()
         names = ['spotify-player/app.toml', 'etc/vconsole.conf', 'pam/swaylock',
-                 'README.md', 'foliate/settings.dconf', 'firefox/userChrome.css']
+                 'README.md', 'TODO.md', 'firefox/userChrome.css']
         for rel in names:
             self.write(rel, 'config')
         self.write('home/.vimrc', 'generated bootstrap')
