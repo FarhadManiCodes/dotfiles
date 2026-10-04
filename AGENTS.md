@@ -36,6 +36,8 @@ For Omarchy pull comparisons, read `docs/omarchy-review-local.md` if it exists. 
 - Audits use `audit-<yyyy-mm>` branches, one evidence-backed commit per finding, and a
   `--no-ff` merge. Route every finding to a fix, `TODO.md` for user action, or `revisit.md`
   for accepted behavior — rejected ones too, with the reason.
+- Do unit and sizing arithmetic with `qalc -t '1 TiB / (200 MB/s) to hours'`, not by hand.
+  Prefixes are exact: TB is 10^12 bytes and TiB is 2^40, and they give different answers.
 
 ## Credentials and deliberate system choices
 
