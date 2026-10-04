@@ -5,6 +5,22 @@
   `environment.d`; only named login metadata is forwarded. Implementation and remaining
   live checks: [isolated session](../../niri/isolated-session.md).
 - `niri/config.kdl` — keybindings, workspaces, window rules
+- Shift+Print runs `flameshot gui`: select a region and annotate it in place on the dimmed
+  screen. Flameshot works on Niri without a wrapper. `flameshot gui` starts a background
+  `flameshot` daemon (about 40 MB) that stays alive and **owns the clipboard**, so the copied
+  image survives the editor closing (verified 2026-10-04 with `wl-paste --type image/png`
+  after the window was gone); killing the daemon empties the clipboard.
+  The UI colour is Catppuccin blue, matching niri's focus border, set once with
+  `flameshot config -m '#89b4fa'` (it writes `uiColor` to `~/.config/flameshot/flameshot.ini`).
+  That file is deliberately **not tracked**: Flameshot also writes `drawColor`, the last
+  colour you drew with, on every use, so a tracked copy would be dirty after almost any
+  annotation. Ctrl+S saves straight to `~/Pictures/Screenshots/` with no dialog, named
+  `annotated_%Y-%m-%d_%H-%M` (`flameshot config -f '<pattern>'`, plus `savePath` and
+  `savePathFixed=true` in the ini; Flameshot appends `_1` to a name already taken, tested, so
+  two saves in one minute do not overwrite), so edited captures sort beside niri's own
+  `Screenshot from …` files but are told apart. The help card stays on for now
+  (`flameshot config -s false` hides it), and the daemon starts on first use rather than
+  at login.
 - `mako/config` — notification daemon
 - `fuzzel/fuzzel.ini` — app launcher
 - `swaylock/config` — lock screen. `daemonize` is **required** (swayidle runs with `-w`,

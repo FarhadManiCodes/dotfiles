@@ -961,3 +961,17 @@ whose one finding (surname suffix matching) was fixed with a test.
   references it left without a DOI, so it mostly helps free-text selections.
 - **Recheck:** if refinery's `citations.json` schema changes (`linking.markers[]`, 0-based
   `refs`), or wrong single matches are noticed in use.
+
+## Flameshot for screenshot annotation — ACCEPTED (2026-10-04)
+
+TODO item 9. `Shift+Print` runs `flameshot gui`. It works on Niri without a wrapper, where
+Satty needed a script to size and place its window.
+
+- **Cost:** a background daemon of about 40 MB that owns the clipboard image.
+- **Settings changed from the defaults:** UI colour `#89b4fa`; Ctrl+S saves directly into
+  `~/Pictures/Screenshots/` as `annotated_%Y-%m-%d_%H-%M`. **Left on purpose:** the
+  help card (the user turns it off with `flameshot config -s false` once comfortable) and
+  the daemon starting on first use rather than at login.
+- **`flameshot.ini` is not tracked:** it carries `drawColor`, rewritten on every use. A
+  symlink into the repo does survive Flameshot's writes (tested), so tracking is possible,
+  but the file would be dirty after almost every annotation.

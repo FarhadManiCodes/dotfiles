@@ -6,8 +6,9 @@ error, was closed to `revisit.md` on 2026-09-18 once 5GHz was tested and the err
 cosmetic. Item 5, removing `mate-polkit`, was run by the user and closed to `revisit.md` the
 same day. Item 4, Alt+p resolving citations from refinery, was built and verified 2026-10-02 and
 closed to `revisit.md`; item 6, review copies for four imported books, was delivered 2026-10-02
-by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/convert.md`); the
-remaining numbers are kept. Accepted findings remain in
+by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/convert.md`); item 9,
+screenshot annotation, was delivered 2026-10-04 with Flameshot on Shift+Print. The remaining
+numbers are kept. Accepted findings remain in
 `revisit.md`; the runner's dropped follow-on scope is recorded there.
 
 Suggested order: agree the editor + agent layout first. Off-machine backup remains deferred.
@@ -22,7 +23,6 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
 | 7. Router drops wifi every ~8 h | Found 2026-09-29 | Check the router's schedule |
 | 8. Battery alarm wakes the laptop at 5% | Found 2026-09-29 | Decide whether to keep the wake |
-| 9. Screenshot annotation with Satty | Open 2026-10-02 | Choose a Print Screen key combination |
 | 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
 | 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
@@ -253,18 +253,6 @@ The knob is the battery device's wakeup setting,
 `/sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/PNP0C0A:00/power/wakeup` (now `enabled`),
 set to `disabled` by a root udev rule. Untested whether that stops this wake. Decide whether
 to keep the wake; the alarm itself should stay, since `power-notify` reads it for 5%.
-
-## 9. A Print Screen shortcut for Satty
-
-**Requested 2026-10-02.** Add a Niri shortcut that captures a screenshot and opens it in
-the installed Satty for annotation, with copying the edited image to the clipboard supported.
-
-**Proposed binding:** `Shift+Print`, currently unused. Keep the existing `Print` picker,
-`Ctrl+Print` screen capture, `Alt+Print` window capture and Mod-based OCR shortcuts.
-Choose the binding and capture scope before implementation.
-
-**Done when:** the shortcut opens the new capture in Satty without a manual clipboard pipe;
-cancelling capture does not open an old image; the annotated result can be copied or saved.
 
 ## 10. Evaluate pv, entr and strace
 

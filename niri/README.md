@@ -58,6 +58,7 @@ The configuration is organized into these major sections:
    - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private, Mod+E vifm file manager in foot)
    - System controls (volume, brightness, screenshots)
    - Screen text (Mod+Print copies it exactly, falling back to local GLM-OCR when Gemini is unreachable; Mod+Shift+Print translates it to English, or English to German; `bash/capture-ocr`)
+   - Screenshot annotation (Shift+Print opens Flameshot's region selector and editor; Ctrl+C copies the result)
    - Voice dictation (Mod+Shift+D toggle, Mod+Shift+Escape cancel; not installed by this repo: `uv tool install --editable ~/projects/audio_text`)
 
 ## Common Commands
