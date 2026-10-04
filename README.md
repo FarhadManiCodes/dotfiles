@@ -19,7 +19,7 @@ retained Claude configuration and the separate user-wide skill setup.
 | Terminal | Foot |
 | Compositor | Niri |
 | Multiplexer | Tmux |
-| Browser | Firefox (userChrome) + Tridactyl · vimb |
+| Browser | Firefox (userChrome) + Tridactyl |
 | File Manager | vifm (TUI) · pcmanfm-qt (GUI) |
 | Launcher | Fuzzel |
 | Notifications | Mako |
@@ -109,7 +109,6 @@ dotfiles/
 │
 ├── firefox/                # Firefox userChrome.css
 ├── tridactyl/              # Firefox vim bindings config
-├── vimb/                   # vimb browser config
 ├── uv/                     # uv configuration
 ├── pam/                    # PAM config for Swaylock (root-owned)
 ├── system-sleep/           # systemd sleep hooks (root-owned)

@@ -195,12 +195,6 @@ window-rule {
     default-column-width { proportion 0.5; }
 }
 
-window-rule {
-    match app-id="vimb"
-    default-column-width { proportion 0.5; }
-    open-maximized false
-}
-
 // ── Keybindings ──────────────────────────────────────────────────────────────
 // "Mod" = Super on a TTY, Alt when running as a winit window.
 binds {

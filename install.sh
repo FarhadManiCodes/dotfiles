@@ -129,7 +129,6 @@ simple_configs=(
   zathura/zathurarc
   sioyek/prefs_user.config
   sioyek/keys_user.config
-  vimb/config
   clangd/config.yaml
   spotify-player/theme.toml
   ccache/ccache.conf

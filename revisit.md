@@ -83,9 +83,13 @@ audit will keep suggesting.
   prints nothing and exits 0, and `<leader>cf` blanked the buffer).
 - **`wike`** (GNOME Wikipedia reader) — **REMOVED 2026-10-01.** Only sioyek's `sw` search used
   it, rarely. `sw` now opens the Wikipedia search in the default browser (Firefox) via
-  `open-detached`; `vimb` stays for the `ss` Scholar search. Removing it frees no
-  `webkitgtk-6.0`, which `foliate` still needs. To bring it back: `paru -S wike` and set
-  `open=(wike -u)` for `wikipedia` in `bash/sioyek-search`.
+  `open-detached`. To bring it back: `paru -S wike` and set `open=(wike -u)` for
+  `wikipedia` in `bash/sioyek-search`.
+- **`vimb`** (GTK/WebKit vim-key browser) — **REMOVED 2026-10-04** with the move off GTK4.
+  It served the sioyek `ss` Scholar search and local HTML files; both now open in Firefox
+  (`open-detached` and `text/html=firefox.desktop`). The only difference is a tab instead of
+  a small separate window. To bring it back: `paru -S vimb`, restore `vimb/config`,
+  `applications/vimb.desktop` and the niri window rule from git history.
 - **`taplo`** (TOML) — **tried and REMOVED, 2026-08-13.** Installed and verified working,
   then dropped: its pitch ("catches config that silently does nothing") only held for
   `uv.toml` — ruff already refuses to start on a bad `pyproject.toml` key, and taplo missed
