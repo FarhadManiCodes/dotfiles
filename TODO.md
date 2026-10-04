@@ -22,6 +22,10 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 5. Move useful study-library books into papis | Open 2026-09-27 | User picks the books |
 | 7. Router drops wifi every ~8 h | Found 2026-09-29 | Check the router's schedule |
 | 8. Battery alarm wakes the laptop at 5% | Found 2026-09-29 | Decide whether to keep the wake |
+| 9. Screenshot annotation with Satty | Open 2026-10-02 | Choose a Print Screen key combination |
+| 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
+| 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
+| 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
 
 ## 1. Off-machine backup
 
@@ -249,3 +253,67 @@ The knob is the battery device's wakeup setting,
 `/sys/devices/pci0000:00/0000:00:14.3/PNP0C09:00/PNP0C0A:00/power/wakeup` (now `enabled`),
 set to `disabled` by a root udev rule. Untested whether that stops this wake. Decide whether
 to keep the wake; the alarm itself should stay, since `power-notify` reads it for 5%.
+
+## 9. A Print Screen shortcut for Satty
+
+**Requested 2026-10-02.** Add a Niri shortcut that captures a screenshot and opens it in
+the installed Satty for annotation, with copying the edited image to the clipboard supported.
+
+**Proposed binding:** `Shift+Print`, currently unused. Keep the existing `Print` picker,
+`Ctrl+Print` screen capture, `Alt+Print` window capture and Mod-based OCR shortcuts.
+Choose the binding and capture scope before implementation.
+
+**Done when:** the shortcut opens the new capture in Satty without a manual clipboard pipe;
+cancelling capture does not open an old image; the annotated result can be copied or saved.
+
+## 10. Evaluate pv, entr and strace
+
+**Requested 2026-10-02.** Look at `pv` for progress and throughput reporting in data
+pipelines, `entr` for rerunning commands when selected files change, and `strace` for
+diagnosing system calls, failed file access and subprocess behavior.
+
+**Audit scope:** identify concrete uses in the current workflow, compare with existing tools
+and scripts (including `inotify-tools`), and check package size plus any additional
+dependencies. Try representative examples before deciding which tools are worth installing.
+
+**State 2026-10-04:** `pv` is installed for the trial; `entr` and `strace` are not.
+`inotify-tools` is already installed, so it is the baseline for the `entr` comparison.
+
+**Done when:** record an evidence-backed keep-or-skip decision for each tool and the reason.
+
+## 11. Install qalc and VisiData for the study books
+
+**Requested 2026-10-03.** Two small tools for reading DDIA and *Fundamentals of Data
+Engineering* (`~/projects/DDIA_study`, `~/projects/DataEngineering_study`):
+
+- `libqalculate` (16 MB, ships the `qalc` command) for unit-aware sizing arithmetic such
+  as `1 TB / (200 MB/s) to hours`. `numbat` is the smaller alternative; `qalc` was preferred
+  for its larger unit database. **Installed 2026-10-04**, with `qalculate-qt` (4 MB on top of
+  Qt libraries already present) as the GUI.
+- `visidata` for browsing CSV, JSON, SQLite and Postgres, installed as a uv tool rather than
+  from pacman, like `jupytext`: `uv tool install visidata --with pyarrow`. Parquet needs
+  `pyarrow` in the environment `vd` runs from, so it goes into the tool's own environment
+  and `vd` reads Parquet from any directory. `sysup` upgrades uv tools.
+
+Skipped on purpose: Miller (overlaps DuckDB, no Parquet), Graphviz (the books carry their
+own figures; revisit if redrawing topologies), `qalculate-gtk`.
+
+**Done when:** `uv tool install visidata --with pyarrow` has been run and `qalc` and `vd`
+both open, `vd` on a Parquet file.
+
+## 12. Python venv for the study-book experiments
+
+**Requested 2026-10-03.** Libraries for small experiments while reading DDIA and
+*Fundamentals of Data Engineering*, not system tools:
+
+- `pyarrow`, `fastavro`, `protobuf`: write one record as Parquet, Avro and Protobuf and
+  compare the bytes with `xxd` (DDIA ch. 5). VisiData has its own `pyarrow` (item 11), so
+  this venv is only for the experiments.
+- `numpy`, optionally `matplotlib`: simulate tail latency and why averaging percentiles is
+  wrong (DDIA ch. 2).
+- Later, optionally `dbt-duckdb`: local transformation practice against DuckDB.
+
+**Decide:** which of the three environment locations to use; read `skills/python-venv`
+first and do not create a new environment as a side effect. Nothing is installed yet.
+
+**Done when:** the packages import from the chosen venv and one encoding comparison runs.
