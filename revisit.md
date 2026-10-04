@@ -968,8 +968,10 @@ TODO item 9. `Shift+Print` runs `flameshot gui`. It works on Niri without a wrap
 Satty needed a script to size and place its window.
 
 - **Cost:** a background daemon of about 40 MB that owns the clipboard image.
-- **Left at defaults on purpose:** saving stays Ctrl+S with a file dialog, and the daemon is
-  not started at login. Only the UI colour is set, to `#89b4fa`.
+- **Settings changed from the defaults:** UI colour `#89b4fa`; Ctrl+S saves directly into
+  `~/Pictures/Screenshots/` as `annotated_%Y-%m-%d_%H-%M`. **Left on purpose:** the
+  help card (the user turns it off with `flameshot config -s false` once comfortable) and
+  the daemon starting on first use rather than at login.
 - **`flameshot.ini` is not tracked:** it carries `drawColor`, rewritten on every use. A
   symlink into the repo does survive Flameshot's writes (tested), so tracking is possible,
   but the file would be dirty after almost every annotation.
