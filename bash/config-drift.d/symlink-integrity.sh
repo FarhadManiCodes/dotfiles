@@ -110,7 +110,7 @@ check_symlink_integrity() {
         mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
         vifm/colors/zenburn-rich.vifm|tridactyl/tridactylrc|fuzzel/fuzzel.ini|bat/config|\
         btop/btop.conf|starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
-        zathura/zathurarc|sioyek/prefs_user.config|sioyek/keys_user.config|\
+        sioyek/prefs_user.config|sioyek/keys_user.config|\
         clangd/config.yaml|spotify-player/theme.toml|ccache/ccache.conf|wob/wob.ini|\
         latexmk/latexmkrc|mimeapps.list|papis/config|containers/containers.conf|\
         containers/storage.conf|wireplumber/wireplumber.conf.d/51-mic-suspend.conf)

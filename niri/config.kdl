@@ -186,11 +186,6 @@ window-rule {
 }
 
 window-rule {
-    match app-id="org.pwmt.zathura"
-    default-column-width { proportion 0.5; }
-}
-
-window-rule {
     match app-id="foot"
     default-column-width { proportion 0.5; }
 }

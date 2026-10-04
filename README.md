@@ -28,7 +28,7 @@ retained Claude configuration and the separate user-wide skill setup.
 | Git TUI | Lazygit |
 | Python REPL | ptpython |
 | Data | Polars · DuckDB (CLI + Python) · psql · sqlite3 |
-| PDF / Reading | Zathura · Sioyek · Foliate · Papis |
+| PDF / Reading | Sioyek · Papis |
 | Video | mpv |
 | Music | spotify-player · cmus |
 | AUR Helper | paru |
@@ -128,7 +128,6 @@ dotfiles/
 ├── starship.toml
 ├── bat/config
 ├── btop/btop.conf
-├── zathura/zathurarc
 ├── sioyek/                 # Sioyek PDF reader config
 ├── foliate/                # Foliate e-book reader themes & settings
 ├── papis/                  # Bibliography manager config

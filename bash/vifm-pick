@@ -61,7 +61,6 @@ open_book() {
                 setsid -f sioyek "$file" >/dev/null 2>&1
             fi
             ;;
-        *.djvu) setsid -f zathura "$file" >/dev/null 2>&1 ;;
         *)      open-detached "$file" ;;
     esac
 }
@@ -71,7 +70,7 @@ case "$cmd" in
   fbook)
     sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
     export SP="$sp"
-    result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu . "$sp" 2>/dev/null \
+    result=$(fd --type f --max-depth 2 -e pdf -e epub . "$sp" 2>/dev/null \
         | sed "s|^$sp/||" \
         | fzf \
             --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \

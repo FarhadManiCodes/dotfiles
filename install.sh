@@ -126,7 +126,6 @@ simple_configs=(
   git/config
   git/ignore
   lazygit/config.yml
-  zathura/zathurarc
   sioyek/prefs_user.config
   sioyek/keys_user.config
   clangd/config.yaml

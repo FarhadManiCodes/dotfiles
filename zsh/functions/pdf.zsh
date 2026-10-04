@@ -31,7 +31,6 @@ _open_book() {
         sioyek "$file" 2>/dev/null &
       fi
       ;;
-    *.djvu) zathura "$file" 2>/dev/null & ;;
     *)      open-detached "$file" ;;
   esac
 }
@@ -141,14 +140,14 @@ rgbook() {
 # ----------------------------------------------------------------------------
 # fbook - find book by filename
 # Usage: fbook [pattern]
-# Keys: Enter → open (sioyek/zathura by type), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
+# Keys: Enter → open (sioyek), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 fbook() {
   local search_path="${PAPIS_PAPERS}"
   local pattern="${*:-.}"
 
   local -x SP="$search_path"
-  local result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
+  local result=$(fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null | \
     sed "s|^$search_path/||" | \
     fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
         --preview-window='hidden,right:40%' \
