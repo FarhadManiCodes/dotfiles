@@ -122,7 +122,7 @@ fileviewer *.pdf pdf-meta preview %c 2>/dev/null || echo "No info available"
 
 " Office / eBook binaries — file info only
 fileviewer {*.doc,*.dot,*.docx,*.docm,*.xls,*.xlt,*.xlsx,*.xlsm,*.xltx,
-           \*.ppt,*.pot,*.pptx,*.pptm,*.potx,*.epub,*.djvu,*.fb2}
+           \*.ppt,*.pot,*.pptx,*.pptm,*.potx,*.epub,*.fb2}
          \ file --brief %c
 
 " JSON — jq pretty-print with colour
@@ -270,7 +270,7 @@ set classify+=' ::*.tex,,*.bib,,*.sty,,*.cls::'
 set classify+=' ::*.pdf::'
 
 " eBook / document
-set classify+=' ::*.epub,,*.djvu,,*.fb2::'
+set classify+=' ::*.epub,,*.fb2::'
 
 " Office documents
 set classify+=' ::*.doc,,*.dot,,*.docx,,*.docm,,*.adoc::'
