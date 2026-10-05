@@ -205,8 +205,9 @@ already does).
   printer advertising over mDNS would need it closed first.
 - **Documentation drift (7)** — both originally cited discrepancies were already fixed by the
   time they were rechecked. Nothing to do.
-- **Links open in Firefox, local HTML files open in `vimb` — by design, not a defect.**
-  `mimeapps.list` maps `x-scheme-handler/http(s)` to Firefox and `text/html` to `vimb.desktop`.
+- **Links and local HTML files both open in Firefox.** Local HTML opened in `vimb` until it
+  was removed on 2026-10-04; `mimeapps.list` now maps `x-scheme-handler/http(s)` and
+  `text/html` to Firefox.
   These are two independent mechanisms: changing `environment.d`'s `BROWSER` alone switches only
   the CLI half (`gh`, python's `webbrowser`, xdg-open's generic path), while GUI links and
   portals follow `mimeapps.list`. A future browser switch has to edit both, by hand — see 28.

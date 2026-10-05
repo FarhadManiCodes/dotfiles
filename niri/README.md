@@ -49,7 +49,7 @@ The configuration is organized into these major sections:
    - vifm file manager (launched in foot terminal via Mod+E)
    - Password managers (KeePassXC, GNOME Secrets, Bitwarden, 1Password): blocked from screen capture
    - Global 5px rounded corners for all windows
-   - Default column width (50%): Firefox, Zathura (DjVu), foot
+   - Default column width (50%): Firefox, foot
 
 6. **Keybindings**
    - Vim-style navigation (Mod+H/J/K/L)
@@ -129,7 +129,7 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `/usr/share/backgrounds/fsi-zen.png`
 - Book picker (Mod+z): `papis-fuzzel --books` lists entries tagged `book`; type an
-  author, title, or tag to narrow them. Files open via xdg-open (sioyek/zathura/foliate).
+  author, title, or tag to narrow them. Files open via xdg-open (sioyek).
 - No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for
   are in `docs/architecture/git.md`.
 - Foot theme toggle: `~/.local/bin/toggle-foot-theme.sh`

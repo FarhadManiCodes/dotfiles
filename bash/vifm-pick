@@ -39,9 +39,8 @@ reply() {
     return 0
 }
 
-# Open by type: sioyek for PDF — it is the only one taking --page, which is the
-# point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
-# mimeapps.list, dispatched here because xdg-open cannot carry a page number.
+# Open by type: sioyek for PDF and EPUB, dispatched here rather than via xdg-open
+# because xdg-open cannot carry a page number (--page, the point of rgbook).
 # setsid detaches the viewer from vifm's term() window, which closes on exit.
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
@@ -49,7 +48,7 @@ reply() {
 open_book() {
     local file="$1" page="${2:-}"
     case "${file,,}" in
-        *.pdf)
+        *.pdf|*.epub)
             if [[ -n "$page" ]]; then
                 local yloc
                 yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
@@ -62,8 +61,6 @@ open_book() {
                 setsid -f sioyek "$file" >/dev/null 2>&1
             fi
             ;;
-        *.djvu) setsid -f zathura "$file" >/dev/null 2>&1 ;;
-        *.epub) setsid -f foliate "$file" >/dev/null 2>&1 ;;
         *)      open-detached "$file" ;;
     esac
 }
@@ -73,7 +70,7 @@ case "$cmd" in
   fbook)
     sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
     export SP="$sp"
-    result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu . "$sp" 2>/dev/null \
+    result=$(fd --type f --max-depth 2 -e pdf -e epub . "$sp" 2>/dev/null \
         | sed "s|^$sp/||" \
         | fzf \
             --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \

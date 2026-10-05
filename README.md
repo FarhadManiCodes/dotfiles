@@ -19,7 +19,7 @@ retained Claude configuration and the separate user-wide skill setup.
 | Terminal | Foot |
 | Compositor | Niri |
 | Multiplexer | Tmux |
-| Browser | Firefox (userChrome) + Tridactyl · vimb |
+| Browser | Firefox (userChrome) + Tridactyl |
 | File Manager | vifm (TUI) · pcmanfm-qt (GUI) |
 | Launcher | Fuzzel |
 | Notifications | Mako |
@@ -28,7 +28,7 @@ retained Claude configuration and the separate user-wide skill setup.
 | Git TUI | Lazygit |
 | Python REPL | ptpython |
 | Data | Polars · DuckDB (CLI + Python) · psql · sqlite3 |
-| PDF / Reading | Zathura · Sioyek · Foliate · Papis |
+| PDF / Reading | Sioyek · Papis |
 | Video | mpv |
 | Music | spotify-player · cmus |
 | AUR Helper | paru |
@@ -109,7 +109,6 @@ dotfiles/
 │
 ├── firefox/                # Firefox userChrome.css
 ├── tridactyl/              # Firefox vim bindings config
-├── vimb/                   # vimb browser config
 ├── uv/                     # uv configuration
 ├── pam/                    # PAM config for Swaylock (root-owned)
 ├── system-sleep/           # systemd sleep hooks (root-owned)
@@ -129,9 +128,7 @@ dotfiles/
 ├── starship.toml
 ├── bat/config
 ├── btop/btop.conf
-├── zathura/zathurarc
-├── sioyek/                 # Sioyek PDF reader config
-├── foliate/                # Foliate e-book reader themes & settings
+├── sioyek/                 # Sioyek PDF/EPUB reader config
 ├── papis/                  # Bibliography manager config
 ├── mpv/mpv.conf
 ├── yt-dlp/config

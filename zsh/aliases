@@ -150,10 +150,6 @@ alias o="open-detached"
 alias nano='vim'
 
 # ============================================================================
-# ZATHURA
-# ============================================================================
-alias zhist='sqlite3 ~/.local/share/zathura/bookmarks.sqlite "SELECT file FROM fileinfo" | fzf | xargs -r zathura'
-# ============================================================================
 # YT-DLP
 # ============================================================================
 # Lean audio download: bestaudio only (no fetch-then-discard), no subtitles,

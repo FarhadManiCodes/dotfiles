@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Search the papis library with fuzzel and open the pick: its first file with
-# xdg-open (PDF in sioyek, DjVu in zathura, EPUB in Foliate; `papis open` sends
-# everything to sioyek), or its DOI/URL in the browser when it has no file (↗).
+# xdg-open (PDF and EPUB in sioyek; `papis open` sends everything to sioyek), or its
+# DOI/URL in the browser when it has no file (↗).
 # `papis-fuzzel --books` (Mod+z) lists entries tagged `book`.
 #
 # Entries are read straight from info.yaml with yq: accurate list handling for

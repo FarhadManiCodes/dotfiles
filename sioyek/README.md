@@ -1,6 +1,6 @@
 # Sioyek
 
-User config for [sioyek](https://github.com/ahrm/sioyek) — vim-flavored PDF reader for research papers and technical books. Replaces Zathura.
+User config for [sioyek](https://github.com/ahrm/sioyek) — vim-flavored PDF reader for research papers and technical books.
 
 ## Files
 
@@ -28,7 +28,7 @@ See `~/Installs/sioyek/CLAUDE.md` for the full build/flag rationale.
 
 | Key | Action | Notes |
 |---|---|---|
-| `<right>` / `<left>` | next / previous page | Zathura-style. Overrides upstream's odd default (arrow keys do horizontal pan). |
+| `<right>` / `<left>` | next / previous page | Overrides upstream's odd default (arrow keys do horizontal pan). |
 | `<f8>` | Toggle gruvbox custom-color mode | Background `#282828`, text `#ebdbb2`. Off by default. |
 | `<f7>` | Toggle visual (smooth) scroll | Upstream default. Smooth scroll is enabled on startup. |
 | `F` | Keyboard smart-jump | Vimium-style hint overlay on every citation / fig-ref. Type the hint letter to jump. |
@@ -53,7 +53,7 @@ shells out to a script in `dotfiles/bash/` (symlinked into `~/.local/bin`).
 | `<A-p>` | Upsert a selected DOI / title / citation marker into papis — opens the entry if present, else adds it | `sioyek-papis` |
 | `i` | Jump to the end of the selection in nvim (SyncTeX) | `sioyek-to-source` |
 | `<A-i>` | SyncTeX at the mouse cursor, no selection needed | built-in `synctex_under_cursor` |
-| `ss` | Search the selection on Google Scholar (vimb) | `sioyek-search scholar` |
+| `ss` | Search the selection on Google Scholar (default browser) | `sioyek-search scholar` |
 | `sw` | Search the selection on Wikipedia (Firefox) | `sioyek-search wikipedia` |
 
 **`<A-n>` note format.** Quotes are wrapped in `<!--quote-->` fences and the page
@@ -125,7 +125,7 @@ Editing a note re-embeds only that note (`determine_file_status` keys on mtime),
 | `custom_background_color` | `0.157 0.157 0.157` | Gruvbox `#282828` — used by toggle_custom_color (F8). |
 | `custom_text_color` | `0.922 0.859 0.698` | Gruvbox `#ebdbb2` — same. |
 | `startup_commands` | `toggle_visual_scroll` | Smooth scroll on by default. |
-| `fit_to_page_width_ratio` | `1.0` | Fit-to-width uses full window width (zathura `adjust-open width` equivalent). |
+| `fit_to_page_width_ratio` | `1.0` | Fit-to-width uses full window width. |
 | `smartcase_search` | `1` | Case-insensitive search unless query has uppercase. |
 | `should_highlight_unselected_search` | `1` | Highlight every search match, not just the current. |
 | `wheel_zoom_on_cursor` | `1` | Zoom toward cursor on scroll (not viewport center). |
@@ -154,16 +154,3 @@ install -m 755 build-cmake/sioyek ~/.local/share/sioyek/sioyek
 ```
 
 If upstream's `development` branch has new commits, see the commit log on the `personal` branch — each commit explains *why* its hunk exists, which is the only thing that matters during a rebase conflict.
-
-## Migrated-from-zathura mapping
-
-| Zathura | Sioyek |
-|---|---|
-| `recolor true` + `recolor-lightcolor #282828` + `recolor-darkcolor #ebdbb2` | `toggle_custom_color` (F8) with the `custom_background_color` / `custom_text_color` set above |
-| `recolor-keephue true` | No 1-to-1 — closest is regular `toggle_dark_mode` (hue-preserving invert), or `preserve_image_colors_in_dark_mode 1` for raster images only |
-| `map <Right> navigate next` | `next_page <right>` in keys_user.config |
-| `map <Left> navigate previous` | `previous_page <left>` |
-| `adjust-open "width"` | `fit_to_page_width_ratio 1.0` |
-| `synctex-editor-command "... %{input} %{line}"` | `inverse_search_command ... %1 %2` (Qt placeholder syntax) |
-| `selection-clipboard clipboard` | Default behavior, no setting needed |
-| `statusbar-basename true` / `window-title-basename true` | Not configurable in sioyek |

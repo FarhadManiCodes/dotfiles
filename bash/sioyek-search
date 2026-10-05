@@ -1,13 +1,13 @@
 #!/bin/bash
 # Look the sioyek selection up on the web (sioyek/prefs_user.config):
-#   sioyek-search scholar   %{selected_text}   `ss`, Google Scholar in vimb
+#   sioyek-search scholar   %{selected_text}   `ss`, Google Scholar in the default browser
 #   sioyek-search wikipedia %{selected_text}   `sw`, Wikipedia in the default browser
 # sioyek's built-in external_search would open the default browser instead.
 # The selection is percent-encoded: pasted raw, "C++ & Rust #1" searches for "C".
 site=${1:-}
 shift
 case $site in
-    scholar)   open=(vimb --no-maximize -i) url='https://scholar.google.com/scholar?q=' ;;
+    scholar)   open=(open-detached) url='https://scholar.google.com/scholar?q=' ;;
     wikipedia) open=(open-detached) url='https://en.wikipedia.org/wiki/Special:Search?search=' ;;
     *) notify-send sioyek-search "Unknown site: $site"; exit 2 ;;
 esac

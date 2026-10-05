@@ -11,16 +11,15 @@
 # would list each book twice and give the part's page numbers, not the book's.
 PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 
-# Open by type: sioyek for PDF — it is the only one taking --page, which is the
-# point of rgbook — zathura for DjVu, Foliate for EPUB. Same mapping as
-# mimeapps.list, dispatched here because xdg-open cannot carry a page number.
+# Open by type: sioyek for PDF and EPUB, dispatched here rather than via xdg-open
+# because xdg-open cannot carry a page number (--page, the point of rgbook).
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
 
 _open_book() {
   local file="$1" page="${2:-}"
   case "${file:l}" in
-    *.pdf)
+    *.pdf|*.epub)
       if [[ -n "$page" ]]; then
         local yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
         if [[ -n "$yloc" ]]; then
@@ -32,8 +31,6 @@ _open_book() {
         sioyek "$file" 2>/dev/null &
       fi
       ;;
-    *.djvu) zathura "$file" 2>/dev/null & ;;
-    *.epub) foliate "$file" 2>/dev/null & ;;
     *)      open-detached "$file" ;;
   esac
 }
@@ -143,14 +140,14 @@ rgbook() {
 # ----------------------------------------------------------------------------
 # fbook - find book by filename
 # Usage: fbook [pattern]
-# Keys: Enter → open (sioyek/zathura/Foliate by type), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
+# Keys: Enter → open (sioyek), Ctrl-d → cd to folder, Ctrl-o → open folder in vifm
 # ----------------------------------------------------------------------------
 fbook() {
   local search_path="${PAPIS_PAPERS}"
   local pattern="${*:-.}"
 
   local -x SP="$search_path"
-  local result=$(fd --type f --max-depth 2 -e pdf -e epub -e djvu "$pattern" "$search_path" 2>/dev/null | \
+  local result=$(fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null | \
     sed "s|^$search_path/||" | \
     fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
         --preview-window='hidden,right:40%' \

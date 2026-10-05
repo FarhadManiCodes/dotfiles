@@ -126,10 +126,8 @@ simple_configs=(
   git/config
   git/ignore
   lazygit/config.yml
-  zathura/zathurarc
   sioyek/prefs_user.config
   sioyek/keys_user.config
-  vimb/config
   clangd/config.yaml
   spotify-player/theme.toml
   ccache/ccache.conf
@@ -172,11 +170,6 @@ ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/def
 ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml"  "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
 echo "pcmanfm-qt configured"
 
-# ============ foliate ==============================
-echo "Setting up Foliate..."
-link_glob "${DOTFILES}/foliate/themes/"*.json "${XDG_CONFIG_HOME}/com.github.johnfactotum.Foliate/themes"
-dconf load /com/github/johnfactotum/Foliate/ < "${DOTFILES}/foliate/settings.dconf"
-echo "Foliate configured"
 
 # ============ xdg user dirs ==============================
 echo "Setting up XDG user dirs..."

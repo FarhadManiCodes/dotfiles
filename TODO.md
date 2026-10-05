@@ -26,6 +26,8 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
 | 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
+| 13. Rewrite sysup's yts step for the C++ rewrite | Blocked 2026-10-05 on the yts C++ rewrite | Rewrite the step and its doc once the CMake install exists |
+| 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
 
 ## 1. Off-machine backup
 
@@ -305,3 +307,67 @@ both open, `vd` on a Parquet file.
 first and do not create a new environment as a side effect. Nothing is installed yet.
 
 **Done when:** the packages import from the chosen venv and one encoding comparison runs.
+
+## 13. Rewrite sysup's yts step for the C++ rewrite
+
+**Found 2026-10-05**, while moving off GTK4. `yts` is being rewritten from Python/GTK4 to
+C++ with Qt 6 (one `yts-core` library, the fuzzel menu and a Qt Widgets window), done in
+`~/projects/yts` by the user. `_sysup_yts` in `zsh/functions/sysup.zsh` and the "yts, the one
+locally-built app" section of `docs/architecture/zsh.md` describe the Python install and
+will be wrong after it:
+
+- `make test` and `make install`, which run pytest and `uv pip install .` into a venv under
+  `~/.local/share/yts-gui/`, become a CMake configure, build, `ctest` and install into
+  `~/.local`. Build with `-j8`, the physical core count.
+- The proof that the result works is an import of the Python package; it becomes running the
+  installed binary, for example its `--version`.
+- `.installed-commit` and the refusal of a dirty worktree, untracked files included, still
+  apply and are worth keeping. The `uv venv --clear` caveat goes away with the venv.
+- The step is non-fatal by design: a stale launcher is an older working app.
+
+**Today:** the installed `yts-gui` has not started since `python-gobject` was removed as an
+orphan on 2026-10-01. The step does not notice because it only runs when the repo's HEAD
+differs from the installed commit; if that happens before the rewrite lands, it will run
+the Python `make install`, fail its import check and warn without stopping `sysup`.
+
+**Done when:** the step builds and installs the C++ version, a failed build leaves the
+previous binary in place, and `docs/architecture/zsh.md` describes the new flow.
+
+## 14. Image viewer and Qt icon theme
+
+**Raised 2026-10-05**, while moving off GTK4. The two are linked: any Qt viewer shows its
+menu and toolbar icons from the system icon theme, and Qt applications here have none yet.
+
+**Image viewer.** `gthumb` (GTK3) opens ten image types in `mimeapps.list` and stays until
+a replacement is chosen. GTK3 stays installed regardless (Firefox, `xdg-desktop-portal-gtk`;
+see the GTK3 entry in `revisit.md`), so replacing it is for consistency, not to free GTK.
+
+- `imv`: tried and does not do what the user wants. `exec` bindings and auto-reload would
+  allow saved rotation with `jpegtran` or `magick`, but crop has no way to learn the
+  image's position in the window.
+- `gwenview`: crop and rotate, official, but a long list of KDE Frameworks dependencies.
+- `qimgv-git` (AUR): the one Qt viewer documented with crop, rotate and resize and saving.
+  Upstream is slow (last release 2021, commits through January 2026) and it builds from git.
+- `qView` (AUR only): Qt 6, minimal, maintained (7.1, commits through April 2026). Rotate,
+  mirror, flip, rename, trash, slideshow and sorting; **no crop**. Needs `qt6-imageformats`
+  (72 KB) for WebP and TIFF and `kimageformats` (0.66 MB, depends only on `qt6-base`) for
+  AVIF, HEIC and JXL. A local crop patch was floated: a rubber-band selection in
+  `qvgraphicsview.cpp` using `mapToScene`, built from a local PKGBUILD or `~/Installs/qview`
+  like sioyek. The build needs `qt6-tools` (6.9 MB download).
+- `swayimg` (`extra`, no toolkit): rotate and flip of the view only, no crop or save
+  documented.
+
+**Qt icon theme.** `QT_QPA_PLATFORMTHEME` is unset in `environment.d/wayland.conf`, so Qt
+falls back to `hicolor` and every icon looked up by name is missing. Tested 2026-10-05 with a
+small Qt 6 program under Wayland: `QT_QPA_PLATFORMTHEME=gtk3` gives Adwaita (the current
+GTK setting) with all five icons found; `xdgdesktopportal` gives `hicolor` again. Papirus is
+installed and has those icons; getting it means
+`gsettings set org.gnome.desktop.interface icon-theme Papirus` as well, which also changes
+Firefox's and gthumb's icons. `pcmanfm-qt` already sets `FallbackIconThemeName=Papirus` itself.
+
+**Decide:** the viewer (or keep `gthumb`), whether to add the crop patch to `qView`, and
+Adwaita or Papirus for the machine. Setting the platform theme is a change to
+`environment.d/wayland.conf` and needs its own branch.
+
+**Done when:** one viewer opens the ten image types with crop and rotate working, and a Qt
+application shows icons from the chosen theme.

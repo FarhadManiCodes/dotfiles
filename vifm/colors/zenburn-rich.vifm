@@ -57,7 +57,7 @@ highlight {*[^0-9].[1-9]}
 
 " documents and text-based formats that need special handling
 highlight {*.doc,*.docx,*.xls,*.xlsm,*.xlsx,*.mobi,*.rtf,*.ppt,*.pptx,*.pdf,
-          \*.epub,*.fb2,*.djvu,*.djv,*.htm,*.html,*.shtml,*.xhtml,*.desktop,
+          \*.epub,*.fb2,*.htm,*.html,*.shtml,*.xhtml,*.desktop,
           \*.odg,*.odt,*.ods}
         \ cterm=none ctermfg=218 ctermbg=default
 

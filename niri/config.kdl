@@ -186,19 +186,8 @@ window-rule {
 }
 
 window-rule {
-    match app-id="org.pwmt.zathura"
-    default-column-width { proportion 0.5; }
-}
-
-window-rule {
     match app-id="foot"
     default-column-width { proportion 0.5; }
-}
-
-window-rule {
-    match app-id="vimb"
-    default-column-width { proportion 0.5; }
-    open-maximized false
 }
 
 // ── Keybindings ──────────────────────────────────────────────────────────────
@@ -245,7 +234,6 @@ binds {
     Mod+z hotkey-overlay-title="Search Books: papis" { spawn "papis-fuzzel" "--books"; }
 
     Mod+Alt+T hotkey-overlay-title="Toggle Foot Theme" { spawn "toggle-foot-theme.sh"; }
-    Mod+F8 hotkey-overlay-title="Toggle Foliate Theme" { spawn "foliate-theme-toggle"; }
 
     // Audio (wob + wpctl) — work while locked.
     XF86AudioRaiseVolume allow-when-locked=true { spawn "wob-control" "volume-up"; }

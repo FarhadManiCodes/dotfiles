@@ -75,8 +75,6 @@ check_symlink_integrity() {
           livef=$HOME/.config/$rel ;;
         pcmanfm-qt/settings.conf|pcmanfm-qt/bookmarks.xml)
           livef=$config_home/pcmanfm-qt/default/${rel##*/} ;;
-        foliate/themes/*.json)
-          livef=$config_home/com.github.johnfactotum.Foliate/themes/${rel##*/} ;;
         containers/*.container|containers/*.network)
           livef=$config_home/containers/systemd/${rel##*/} ;;
         xdg/user-dirs.dirs) livef=$config_home/user-dirs.dirs ;;
@@ -110,7 +108,7 @@ check_symlink_integrity() {
         mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
         vifm/colors/zenburn-rich.vifm|tridactyl/tridactylrc|fuzzel/fuzzel.ini|bat/config|\
         btop/btop.conf|starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
-        zathura/zathurarc|sioyek/prefs_user.config|sioyek/keys_user.config|vimb/config|\
+        sioyek/prefs_user.config|sioyek/keys_user.config|\
         clangd/config.yaml|spotify-player/theme.toml|ccache/ccache.conf|wob/wob.ini|\
         latexmk/latexmkrc|mimeapps.list|papis/config|containers/containers.conf|\
         containers/storage.conf|wireplumber/wireplumber.conf.d/51-mic-suspend.conf)
