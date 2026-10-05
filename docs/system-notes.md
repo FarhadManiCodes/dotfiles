@@ -143,7 +143,7 @@ because a stale or absent plugin never errors — it just quietly does less.
 5. Findings go to exactly one of three places: fixed in place (a commit), needs a decision from
    me (`TODO.md`), or investigated and accepted (`revisit.md`). **Record rejected findings too**,
    with the reason — the same false positive gets re-raised every audit otherwise.
-6. `git merge --no-ff` back, so the audit stays one reviewable unit in the history.
+6. Leave the commits on the audit branch for PR review. Only after review, merge with `git merge --no-ff` so the audit stays one reviewable unit in the history. An implementation plan's merge step does not bypass PR review.
    If a branch's history itself cannot be published, **rebuild** it rather than filtering it —
    filtering leaves the removed text in the commit *messages*. Tag the original before deleting
    it, and note **tags are not pushed by default**. Done once, 2026-09-09:
