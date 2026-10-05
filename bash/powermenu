@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# Validate the internal action before opening Fuzzel or running system commands.
+if (( $# > 0 )); then
+    if (( $# != 2 )) || [[ $1 != "--inhibited" ]] || [[ $2 != "poweroff" && $2 != "reboot" ]]; then
+        printf 'Usage: powermenu [--inhibited <poweroff|reboot>]\n' >&2
+        exit 2
+    fi
+fi
+
+# --- Pre-shutdown teardown ---
+# The foot server is a niri-spawned scope, torn down when niri quits / the session
+# ends — nothing to stop here. Only rclone mounts need an explicit graceful stop.
+# systemctl expands the pattern over loaded units; one matching none is not an error.
+pre_shutdown() { systemctl --user stop 'rclone@*'; }
+
+# systemd-inhibit holds the locks for this child, releasing them when it exits.
+if (( $# == 2 )); then
+    if pre_shutdown; then
+        systemctl "$2"
+        exit $?
+    else
+        exit $?
+    fi
+fi
+
 # --- Styling (Catppuccin Mocha / Danger context) ---
 FUZZEL_ARGS=(
     --dmenu
@@ -32,17 +56,29 @@ confirm() {
     printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1"
 }
 
-# --- Pre-shutdown teardown ---
-# The foot server is a niri-spawned scope, torn down when niri quits / the session
-# ends — nothing to stop here. Only rclone mounts need an explicit graceful stop.
-# systemctl expands the pattern over loaded units; one matching none is not an error.
-pre_shutdown() { systemctl --user stop 'rclone@*'; }
+# --- Protected power request ---
+request_power() {
+    local action=$1 diagnostic status script
+    if diagnostic=$(
+        {
+            script=$(realpath -- "${BASH_SOURCE[0]}") || exit $?
+            systemd-inhibit --what=sleep:idle:handle-lid-switch --mode=block "$script" --inhibited "$action"
+        } 2>&1
+    ); then
+        return 0
+    else
+        status=$?
+        printf '%s\n' "$diagnostic" >&2
+        notify-send -u critical "Power request failed" "$action canceled (exit $status): ${diagnostic:-No diagnostic output}"
+        return "$status"
+    fi
+}
 
 # --- Logic ---
 case "$selected" in
     "🔒 Lock")     loginctl lock-session ;;
     "💤 Suspend")  systemctl suspend ;;
     "🚪 Logout")   [[ "$(confirm 'Logout? ')"  == "Yes" ]] && { pre_shutdown; niri msg action quit; } ;;
-    "🔄 Reboot")   [[ "$(confirm 'Reboot? ')"   == "Yes" ]] && { pre_shutdown; systemctl reboot; } ;;
-    "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && { pre_shutdown; systemctl poweroff; } ;;
+    "🔄 Reboot")   [[ "$(confirm 'Reboot? ')"   == "Yes" ]] && request_power reboot ;;
+    "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && request_power poweroff ;;
 esac

@@ -81,3 +81,11 @@ but repairing it would switch on behaviour absent for a thousand resumes, not re
 
 Note the lid only suspends on battery — `HandleLidSwitchExternalPower=lock` means closing
 it on AC just locks. Reproducing anything here requires being unplugged.
+
+## Power menu shutdown protection
+
+Confirmed Shutdown and Reboot in `bash/powermenu` acquire blocking `sleep:idle:handle-lid-switch` inhibitors before stopping `rclone@*` through the user manager. The inhibited child requests `systemctl poweroff` or `systemctl reboot` only after teardown succeeds. Protection lasts from inhibitor acquisition through acceptance of that request; successful submission does not prove that shutdown has completed. The locks are released when the child exits.
+
+If acquiring the inhibitors, stopping rclone, or submitting the final request fails, the menu cancels the operation, preserves its nonzero status and diagnostic, and reports a critical notification. A notification failure does not replace the operation's exit status. Teardown is not rolled back if the final request fails; rclone mounts may already be stopped. Logout, Lock, Suspend, and the confirmation dialogs retain their existing behavior. `~/.local/bin/powermenu` symlinks into this checkout, so editing the script activates the change before branch merge.
+
+Validation uses isolated command substitutes in `tests/test_powermenu.py`; no test stops real mounts or requests a power action. The earlier harmless live inhibitor probe succeeded without root. **Pending hardware verification:** on battery, confirm Shutdown and immediately close the lid, then verify the laptop completes shutdown rather than suspending. Closing the lid on AC only locks and cannot exercise the battery lid-suspend path.
