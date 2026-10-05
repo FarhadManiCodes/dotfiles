@@ -216,10 +216,11 @@ GTK3 remains, and it cannot go while these are installed:
 
 - **Firefox** links GTK3 directly. Replacing the browser would cost far more than the
   tidiness is worth.
-- **`xdg-desktop-portal-gtk`**, which `niri-portals.conf` (`default=gnome;gtk`) makes the
-  backend for file dialogs, app chooser, notifications, print, inhibit and the Settings
-  interface. `xdg-desktop-portal-wlr` provides only screenshot and screencast, so nothing
-  else answers those. The Qt-world alternative, `xdg-desktop-portal-kde`, drags in KDE
+- **`xdg-desktop-portal-gtk`**, which the live, untracked
+  `~/.config/xdg-desktop-portal/niri-portals.conf` (`default=gtk`) makes the backend for
+  file dialogs, app chooser, notifications, print, inhibit and the Settings interface.
+  `xdg-desktop-portal-wlr` provides only screenshot and screencast, so nothing else answers
+  those. The Qt-world alternative, `xdg-desktop-portal-kde`, drags in KDE
   Frameworks.
 - **`gthumb`** (GTK3 image viewer) is a choice rather than a requirement. Replacing it with
   `qimgv-git` (AUR, slow upstream) or `gwenview` (official, KDE dependencies) would drop it
