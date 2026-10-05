@@ -21,7 +21,7 @@ The checker reports differing root copies without using mtimes to recommend whic
 one to overwrite. User-unit verification is batched in user-manager scope.
 
 `bash/config-drift` runs them after every `sysup` and diffs each against a tracked baseline:
-`etc/unowned.txt` (44 paths) and `etc/modified.txt` (24). A path not in its baseline is a
+`etc/unowned.txt` (48 paths) and `etc/modified.txt` (24). A path not in its baseline is a
 finding; accepting one means adding the line in a commit that says why. Both counts drift on
 their own, so only the diff against baseline carries information.
 
@@ -107,6 +107,7 @@ baseline.
 | `iwd/main.conf` | `EnableNetworkConfiguration=true` + `NameResolvingService=systemd`. **Without it iwd does not configure networking at all.** Credentials live in `/var/lib/iwd/*.psk` and are deliberately not here. |
 | `systemd/system/iwd.service.d/override.conf` | 2s `ExecStartPre` buffer for the hardware to wake, plus `Restart=on-failure`. |
 | `systemd/system/iwd.service.d/nowait.conf` | Orders iwd after `dbus-broker` and clears the packaged `Before=`/`Wants=`. |
+| `systemd/system/fprintd.service.d/10-stop-timeout.conf` | Three-second stop timeout for the daemon restarted conditionally after resume by `system-sleep/fprintd-resume`. See [recovery and rollback](../docs/system-notes.md#fingerprint-recovery-after-resume-2026-10-05). |
 | `systemd/system/nftables.service.d/override.conf` | `RemainAfterExit=yes`, so a `Type=oneshot` firewall reads as active rather than dead once it has loaded. |
 | `systemd/resolved.conf.d/10-llmnr-and-mdns.conf` | `LLMNR=no`, `MulticastDNS=no`. Both are unauthenticated first-reply-wins name resolution, and both are responders, so leaving them on announces this host on every network it joins. The firewall cannot help: the poisoned packet is a reply to a query this host sent, so conntrack accepts it as established. Nothing consumed either — no cups daemon, no `nss-mdns`, `avahi-daemon` inactive and disabled. Joining a network is unaffected. A drop-in, so `resolved.conf` stays package-default. |
 | `systemd/journald.conf.d/size.conf` | Caps the journal at 200M on disk, 50M in RAM. |

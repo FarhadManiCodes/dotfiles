@@ -25,6 +25,8 @@ when working from the repository root.
 
 ## Evidence and audits
 
+- Commit changes on a non-master branch. PR review must finish before any merge into `master`; an implementation plan's merge step is not permission to skip review. Leave the work on its branch for review.
+
 For Omarchy pull comparisons, read `docs/omarchy-review-local.md` if it exists. It is a local-only workflow guide; decisions belong in `docs/omarchy-update-audit-2026-09.md`.
 
 - Prove a probe can detect something before treating empty output as absence: check

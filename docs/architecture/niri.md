@@ -35,10 +35,12 @@
   `pam_fprintd` (empty Enter then swipe) → `pam_deny`. swaylock can't auto-switch modes;
   both methods are always available.
 - `system-sleep/` → `/usr/lib/systemd/system-sleep/` (installed 0755 by
-  `install-root.sh`, root-owned). One hook here; the other file there, `tlp`, belongs to
+  `install-root.sh`, root-owned). Two hooks here; the other file there, `tlp`, belongs to
   the `tlp` package — don't track that one.
 
 ## Sleep hooks
+
+**`fprintd-resume`** submits an asynchronous conditional restart of an active fprintd daemon on `post`, recovering a reader left busy by an interrupted scan. A three-second stop-timeout drop-in bounds a stuck stop. The existing Swaylock PAM stack stays unchanged. Hardware verification is pending; evidence, rollout, checks and rollback are in [system notes](../system-notes.md#fingerprint-recovery-after-resume-2026-10-05).
 
 **`unblock-fuse`** releases tasks wedged in an unanswered FUSE request. This is a
 **correctness fix for a failure mode that already cost a full night**, not a nicety. A

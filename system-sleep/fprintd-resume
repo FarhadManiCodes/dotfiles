@@ -1,0 +1,15 @@
+#!/bin/bash
+# An active fingerprint scan interrupted by suspend can leave the reader busy
+# (2026-10-02). Restart an active daemon after resume; leave an idle one stopped.
+# User sessions are still frozen here, so submit to the system manager without
+# waiting for completion. The fprintd journal, not this hook, proves completion.
+
+case ${1:-} in
+  post)
+    if output=$(systemctl --no-block try-restart fprintd.service 2>&1); then
+      logger -t fprintd-resume "post: submitted conditional restart request for fprintd.service"
+    else
+      logger -t fprintd-resume "post: FAILED to submit conditional restart request for fprintd.service: $output"
+    fi
+    ;;
+esac

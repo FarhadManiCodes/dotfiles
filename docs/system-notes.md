@@ -143,7 +143,7 @@ because a stale or absent plugin never errors — it just quietly does less.
 5. Findings go to exactly one of three places: fixed in place (a commit), needs a decision from
    me (`TODO.md`), or investigated and accepted (`revisit.md`). **Record rejected findings too**,
    with the reason — the same false positive gets re-raised every audit otherwise.
-6. `git merge --no-ff` back, so the audit stays one reviewable unit in the history.
+6. Leave the commits on the audit branch for PR review. Only after review, merge with `git merge --no-ff` so the audit stays one reviewable unit in the history. An implementation plan's merge step does not bypass PR review.
    If a branch's history itself cannot be published, **rebuild** it rather than filtering it —
    filtering leaves the removed text in the commit *messages*. Tag the original before deleting
    it, and note **tags are not pushed by default**. Done once, 2026-09-09:
@@ -341,3 +341,42 @@ audit (~7,000 lines): nothing sourced them, and every file was either superseded
 counterpart or depended on tooling that was gone at the time (duckdb CLI, jupyter). Recover any
 of it with `git show 906941b:<path>` — note the duckdb CLI was reinstalled on 2026-09-05, so
 that half of the reason no longer holds.
+
+## Fingerprint recovery after resume (2026-10-05)
+
+On October 2, an active scan was interrupted by suspend. In boot `ceb31ce95f2c43209eef924c017b246c`, at 13:50:27 CEST, fprintd logged `Cannot run while suspended` and Swaylock PAM logged `ReleaseDevice failed` because the device was still busy. The machine returned from sleep at 14:09:50; fprintd did not deactivate until 14:10:55. The reported inability to authenticate after waking motivates recovery; these journal lines prove the interrupted scan and failed release, rather than proving every subsequent authentication attempt failed.
+
+`system-sleep/fprintd-resume` submits `systemctl --no-block try-restart fprintd.service` on `post` only. An inactive daemon stays inactive. Submission is asynchronous so the hook does not wait for stop/start completion while user sessions are frozen. The `fprintd-resume` journal tag records either submission or its failure, including systemctl's diagnostic; successful submission does not prove that a restart occurred or completed. An interrupted PAM attempt can fail during restart; try empty Enter again once the daemon has recovered. The existing `pam/swaylock` password-first stack is unchanged.
+
+`etc/systemd/system/fprintd.service.d/10-stop-timeout.conf` sets `TimeoutStopSec=3s`, allowing systemd to terminate a daemon that cannot stop cleanly instead of waiting the previous 90 seconds. This is a stop timeout, not a three-second guarantee for fingerprint readiness. The existing `install-root.sh` directory mappings copy the hook as root:root 0755 and the drop-in as root:root 0644; `bash/config-drift` discovers both. Inspect `systemctl cat fprintd.service` and `systemctl show fprintd.service -p DropInPaths -p TimeoutStopUSec` before installation. Preserve existing administrator overrides; later drop-ins can supersede this setting. On this machine there were no drop-ins or existing target files before rollout.
+
+Install only these files, without running the full root installer:
+
+```bash
+sudo install -D -m 0755 -o root -g root system-sleep/fprintd-resume /usr/lib/systemd/system-sleep/fprintd-resume
+sudo install -D -m 0644 -o root -g root etc/systemd/system/fprintd.service.d/10-stop-timeout.conf /etc/systemd/system/fprintd.service.d/10-stop-timeout.conf
+sudo systemctl daemon-reload
+systemctl show fprintd.service -p DropInPaths -p TimeoutStopUSec
+stat -c '%U:%G %a %F %n' /usr/lib/systemd/system-sleep/fprintd-resume /etc/systemd/system/fprintd.service.d/10-stop-timeout.conf
+```
+
+Rollout verified on 2026-10-05: both installed files match the repository, are regular root:root files with modes 0755/0644, and the system manager reports `TimeoutStopUSec=3s` with this drop-in loaded. `systemd-analyze verify fprintd.service` passes. The three hook tests and 16 drift-checker tests pass; ownership tests run outside the filesystem sandbox, which reports host root ownership as `nobody`. The unowned-file baseline includes the new drop-in. The live drift report has no findings, with its existing root-only access exclusions still incomplete.
+
+Syntax, ShellCheck and the focused mocked tests cover the hook's dispatch, asynchronous conditional request and failure logging. They do not exercise the reader. Hardware verification remains pending: perform several normal suspend/resume cycles, including one with an active scan before suspend, and confirm fingerprint unlock after waking and password fallback. For a lid-triggered cycle, unplug first: closing the lid on AC only locks. No automated suspend or forced failure is part of rollout. Record the cycle's start time and inspect both journals for the same window:
+
+```bash
+journalctl -t fprintd-resume --since 'YYYY-MM-DD HH:MM:SS' --no-pager
+journalctl -u fprintd.service --since 'YYYY-MM-DD HH:MM:SS' --no-pager
+```
+
+An active daemon should have stop/start evidence after the hook's submission; an inactive daemon should not start just because of the hook. D-Bus authentication can activate it independently. Distinguish those events when reading the journal.
+
+Rollback removes only the installed hook and drop-in, then reloads the system manager:
+
+```bash
+sudo rm /usr/lib/systemd/system-sleep/fprintd-resume /etc/systemd/system/fprintd.service.d/10-stop-timeout.conf
+sudo systemctl daemon-reload
+systemctl show fprintd.service -p TimeoutStopUSec -p DropInPaths
+```
+
+Remove or revert the tracked files too before a future root installation, otherwise the installer will restore them. Fingerprint enrollment and the password authentication configuration are untouched.
