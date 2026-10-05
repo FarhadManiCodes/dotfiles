@@ -28,6 +28,7 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
 | 13. Rewrite sysup's yts step for the C++ rewrite | Blocked 2026-10-05 on the yts C++ rewrite | Rewrite the step and its doc once the CMake install exists |
 | 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
+| 15. Fingerprint recovery after resume | Installed; hardware verification pending | Several normal cycles, including an active scan; check fingerprint and password unlock |
 
 ## 1. Off-machine backup
 
@@ -371,3 +372,8 @@ Adwaita or Papirus for the machine. Setting the platform theme is a change to
 
 **Done when:** one viewer opens the ten image types with crop and rotate working, and a Qt
 application shows icons from the chosen theme.
+
+
+## 15. Verify fingerprint recovery after resume
+
+**Recovery installed 2026-10-05; hardware verification pending.** During several normal suspend/resume cycles, include one scan active before suspend. Confirm the `fprintd-resume` submission and fprintd stop/start evidence in matching journal windows, fingerprint recovery after wake, and password fallback. Also observe a cycle with fprintd inactive: the hook should leave it inactive. No automatic suspend or forced scan failure. Procedure and rollback: [system notes](docs/system-notes.md#fingerprint-recovery-after-resume-2026-10-05).
