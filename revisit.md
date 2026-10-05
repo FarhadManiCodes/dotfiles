@@ -209,6 +209,27 @@ a warning.
 - **Recheck:** if `xdg-desktop-portal-wlr` ever implements the full Inhibit interface, or if the
   portal backend changes for another reason.
 
+## GTK3 stays installed — ACCEPTED, Qt-only is not reachable (2026-10-05)
+
+After removing Foliate, zathura and vimb, GTK4, libadwaita and `webkitgtk-6.0` are gone.
+GTK3 remains, and it cannot go while these are installed:
+
+- **Firefox** links GTK3 directly. Replacing the browser would cost far more than the
+  tidiness is worth.
+- **`xdg-desktop-portal-gtk`**, which `niri-portals.conf` (`default=gnome;gtk`) makes the
+  backend for file dialogs, app chooser, notifications, print, inhibit and the Settings
+  interface. `xdg-desktop-portal-wlr` provides only screenshot and screencast, so nothing
+  else answers those. The Qt-world alternative, `xdg-desktop-portal-kde`, drags in KDE
+  Frameworks.
+- **`gthumb`** (GTK3 image viewer) is a choice rather than a requirement. Replacing it with
+  `qimgv-git` (AUR, slow upstream) or `gwenview` (official, KDE dependencies) would drop it
+  and `gst-plugin-gtk`, but not GTK3 itself.
+
+`yts-gui` was the last GTK4 user; it is being rewritten in C++ with Qt (TODO item 13).
+
+**Recheck:** if Firefox and the portal backend ever stop needing GTK3, or if `gthumb` is
+replaced and a Qt portal backend becomes light enough.
+
 ## Swappiness 10 with zram-only swap — ACCEPTED (2026-09-06)
 
 - **Investigated:** the comparison called 10 inherently wrong for zram and proposed
