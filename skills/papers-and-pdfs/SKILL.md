@@ -4,7 +4,8 @@ description: >
   Work with PDFs on this machine, whether academic papers or not. Use when adding a paper to
   papis, indexing or asking questions across the library with pask or papis-ask, running
   refinery on a PDF, re-refining documents to improve citations or chunks, converting a PDF or
-  scanned book to markdown or plain text, extracting text from a PDF, typesetting a parsed
+  scanned book to markdown or plain text, extracting text from a PDF, reading or rendering pages
+  of a PDF (the Read tool's PDF mode needs poppler, which is missing: use mutool), typesetting a parsed
   document, or when chunks.json, citations.json, resolution_report.txt or a .refinery work
   directory is involved. Covers which entry point to use, what is automatic, what costs API
   calls, and the traps that fail silently.
@@ -24,6 +25,7 @@ while `refinery-typeset` only runs OCR.
 | An answer from the library | `pask "your question"` | Gemini |
 | An answer from part of it | `pask -s "tags:control-theory" "your question"` | Gemini |
 | Inspect an existing PDF | `pdf-meta preview <pdf>` | None; embedded metadata and first-page text only |
+| **Read some pages of any PDF now** (text or as images), no OCR | `mutool` (see "Quick look: mutool" below) | None |
 | Find a library file or search its refined text | `fbook` or `rgbook "query"` | None |
 | **A general PDF as markdown** | `refinery-typeset <pdf>`, then read `<pdf-stem>.refinery/parsed.md` | OCR backend only |
 | A clean reading copy of a scan | `refinery-typeset <pdf>` → `<stem>.typeset.pdf` | OCR backend only |
@@ -54,6 +56,34 @@ Read the matching reference before running anything expensive:
 
 - `references/ingest.md`: adding, indexing, asking, notes, citation quality, re-refining in bulk.
 - `references/convert.md`: PDFs that are not library papers, typesetting, re-chunking.
+
+## Quick look: mutool (no OCR, no network, no keys)
+
+The Read tool's PDF mode (`pages: "1-5"`) shells out to `pdftoppm`, which is in **poppler**.
+poppler is not installed here, so Read on a PDF fails with "pdftoppm is not installed". Use
+**mupdf's `mutool`** (`~/.local/bin/mutool`, 1.26) instead. Verified on a text PDF:
+
+```bash
+mutool info doc.pdf 2>/dev/null | head                  # page count, producer, PDF version
+mutool draw -q -F txt -o - doc.pdf 1-3 2>/dev/null       # text of pages 1-3 to stdout
+mutool draw -q -F txt -o out.txt doc.pdf 1-20 2>/dev/null   # whole range into a file, then read that file
+mutool draw -q -r 80 -o /tmp/p%d.png doc.pdf 1-2 2>/dev/null   # PNG per page; %d = page number
+mutool draw -q -F stext.json -o - doc.pdf 1 2>/dev/null   # text with positions (JSON), for tables or columns
+```
+
+Then **Read the PNG** (the Read tool shows images) when layout matters: two-column CVs, tables,
+figures, forms. Use `-r 80` to `-r 100` for a readable page that stays small; higher `-r` makes
+large images. Text extraction (`-F txt`) keeps accents; icon fonts show up as private-use
+characters or garbage, which is harmless.
+
+- `warning: bogus font ascent/descent values` on stderr is noise; `2>/dev/null` hides it.
+- Page ranges are 1-based and accept `1-3,7,10-N`. Without a range mutool renders every page.
+- `mutool` reads the embedded text layer only. A scan has none (empty output): use
+  `refinery-typeset <pdf>` (OCR) for scans, books and anything you will cite from.
+- Put outputs in the scratchpad, not next to the PDF; for a library paper use the refinery
+  entry points above, not mutool, so the result is cached and searchable.
+- Fallback when mutool is missing: `uv run --no-project --with pypdf python` and
+  `PdfReader(path).pages[i].extract_text()` (text only, no images, no page rendering).
 
 ## Indexing scope
 
