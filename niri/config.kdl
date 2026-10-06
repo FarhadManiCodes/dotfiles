@@ -74,7 +74,7 @@ layout {
 spawn-at-startup "sh" "-c" "t=$(cat \"${XDG_STATE_HOME:-$HOME/.local/state}/foot_theme_state\" 2>/dev/null); case $t in light) ;; *) t=dark ;; esac; exec foot --server -o initial-color-theme=$t"
 spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
-spawn-at-startup "wl-paste" "--watch" "cliphist" "store"
+spawn-at-startup "wl-paste" "--watch" "cliphist-store-guard"
 spawn-at-startup "sh" "-c" "sleep 3 && wob-control led-sync"
 
 // Bayreuth: 49.95 N, 11.58 E. Temp: 4200K (night) to 6500K (day).

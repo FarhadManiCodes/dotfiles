@@ -1,0 +1,55 @@
+#!/bin/bash
+# wl-paste --watch supplies one clipboard stream on stdin. Bound its capture,
+# then let cliphist finish storing without a database-write timeout.
+
+# cliphist 0.7.0 accepts at most 5*1e6 bytes. One extra byte distinguishes
+# an oversized stream from a complete copy exactly at that limit.
+max_bytes=5000000
+tmp=
+trap '[[ -z $tmp ]] || rm -f -- "$tmp"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+case ${CLIPBOARD_STATE:-} in
+  sensitive) exit 0 ;;
+  clear) input=/dev/null ;;
+  *)
+    if [[ -z ${XDG_RUNTIME_DIR:-} ]]; then
+      echo "cliphist-store-guard: XDG_RUNTIME_DIR is unset; dropping capture" >&2
+      exit 1
+    fi
+    if tmp=$(mktemp "$XDG_RUNTIME_DIR/cliphist-capture.XXXXXX"); then
+      input=$tmp
+    else
+      status=$?
+      echo "cliphist-store-guard: cannot stage capture (exit $status)" >&2
+      exit "$status"
+    fi
+    if timeout 3s head -c "$((max_bytes + 1))" >"$tmp"; then
+      : # Only a complete stream reaches storage.
+    else
+      status=$?
+      echo "cliphist-store-guard: capture failed (exit $status); dropping copy" >&2
+      exit "$status"
+    fi
+    if staged_bytes=$(stat -c %s -- "$tmp"); then
+      if (( staged_bytes > max_bytes )); then
+        echo "cliphist-store-guard: copy exceeds $max_bytes bytes; dropping copy" >&2
+        exit 0
+      fi
+    else
+      status=$?
+      echo "cliphist-store-guard: cannot check capture size (exit $status); dropping copy" >&2
+      exit "$status"
+    fi
+    ;;
+esac
+
+if cliphist store <"$input"; then
+  exit 0
+else
+  status=$?
+  echo "cliphist-store-guard: storage failed (exit $status)" >&2
+  exit "$status"
+fi
