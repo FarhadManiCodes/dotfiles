@@ -5,6 +5,7 @@
   `environment.d`; only named login metadata is forwarded. Implementation and remaining
   live checks: [isolated session](../../niri/isolated-session.md).
 - `niri/config.kdl` — keybindings, workspaces, window rules
+- `bash/cliphist-store-guard` — clipboard-history capture with a three-second deadline; see [Clipboard history](#clipboard-history).
 - Shift+Print runs `flameshot gui`: select a region and annotate it in place on the dimmed
   screen. Flameshot works on Niri without a wrapper. `flameshot gui` starts a background
   `flameshot` daemon (about 40 MB) that stays alive and **owns the clipboard**, so the copied
@@ -81,6 +82,14 @@ but repairing it would switch on behaviour absent for a thousand resumes, not re
 
 Note the lid only suspends on battery — `HandleLidSwitchExternalPower=lock` means closing
 it on AC just locks. Reproducing anything here requires being unplugged.
+
+## Clipboard history
+
+Niri starts `wl-paste --watch cliphist-store-guard`. The helper stages each copy in a unique mode-0600 file under `$XDG_RUNTIME_DIR`, with a three-second deadline for reading stdin. Only a completed read reaches `cliphist store`; the database operation itself is not timed out. Sensitive events are skipped and clear events retain cliphist's existing behavior. Failed reads are dropped and diagnosed on stderr without clipboard contents or desktop notifications. Temporary files are removed on exit and catchable termination.
+
+A legitimate transfer exceeding three seconds is omitted from history without changing the current clipboard. The existing helper installation loop supplies the user-level symlink. Startup changes take effect at login; a config reload does not replace the running watcher. Immediate activation requires identifying its exact command and starting one replacement through Niri. The guarded watcher was activated on 2026-10-05; the audit records verification.
+
+Rollback restores `wl-paste --watch cliphist store` in the startup configuration, stops only the verified guarded watcher, and launches `/usr/bin/wl-paste --watch cliphist store` through `niri msg action spawn --`. No history database deletion or clipboard clearing is needed. Remove the helper's symlink if reverting its tracked source, to avoid leaving a dangling link.
 
 ## Power menu shutdown protection
 

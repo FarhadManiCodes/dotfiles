@@ -33,7 +33,7 @@ The configuration is organized into these major sections:
 4. **Startup Programs** (niri `spawn-at-startup`)
    - swaybg (wallpaper)
    - mate-polkit (authentication agent)
-   - cliphist daemon (clipboard history)
+   - wl-paste watcher with `cliphist-store-guard` (clipboard history; three-second capture deadline)
    - wlsunset (screen temperature adjustment)
    - Note: idle management (swayidle) is **not** spawned here — it runs as a
      systemd user service (`systemd/user/swayidle.service`); rationale is in
