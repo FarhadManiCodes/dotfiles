@@ -34,6 +34,8 @@ source "$checks_dir/etc-baselines.sh"
 source "$checks_dir/pacman-transaction.sh"
 # shellcheck source=bash/config-drift.d/spotify.sh
 source "$checks_dir/spotify.sh"
+# shellcheck source=bash/config-drift.d/sioyek.sh
+source "$checks_dir/sioyek.sh"
 unset checks_dir
 
 check_pacnew() {
@@ -298,6 +300,7 @@ main() {
   check_root_configs
   check_privileged_configs
   check_spotify_config
+  check_sioyek_build
   check_etc_baselines
   check_symlink_integrity
   check_plugin_staleness

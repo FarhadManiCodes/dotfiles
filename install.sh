@@ -226,8 +226,15 @@ echo "🛠️  Installing helper scripts..."
 # Scripts only: config-drift.d/ is found by config-drift through its own realpath.
 for f in "${DOTFILES}/bash/"*; do [ -f "$f" ] && link_glob "$f" "${HOME}/.local/bin"; done
 # The custom sioyek build lives off PATH (sioyek/README.md). It finds its shaders
-# and prefs.config through /proc/self/exe, so a link is enough; skipped if unbuilt.
-link_glob "${HOME}/.local/share/sioyek/sioyek" "${HOME}/.local/bin"
+# and prefs.config through QCoreApplication::applicationDirPath(), which since
+# Qt 6.12 does not resolve a symlink: a link in ~/.local/bin made it look there
+# and render every page blank. So exec it through a wrapper; skipped if unbuilt.
+# rm first: writing through an old symlink would overwrite the binary itself.
+if [ -x "${XDG_DATA_HOME}/sioyek/sioyek" ]; then
+  rm -f "${HOME}/.local/bin/sioyek"
+  printf '#!/bin/sh\nexec "%s" "$@"\n' "${XDG_DATA_HOME}/sioyek/sioyek" > "${HOME}/.local/bin/sioyek"
+  chmod +x "${HOME}/.local/bin/sioyek"
+fi
 # mic-notify, net-notify and power-notify are small C programs in one submodule,
 # notifiers, like nvim (fetched by the `git submodule update` above); their
 # services run the installed binaries. make builds all three before installing

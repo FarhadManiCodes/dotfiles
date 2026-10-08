@@ -13,7 +13,7 @@ Both are symlinked into `~/.config/sioyek/` by `install.sh`. Sioyek picks them u
 
 ## Sioyek itself (not in this dotfile)
 
-This config assumes a custom build sitting at `~/.local/share/sioyek/sioyek` linked as `~/.local/bin/sioyek` by `install.sh`. The build source lives at `~/Installs/sioyek/` on branch `personal` and is **not** part of this dotfile repo.
+This config assumes a custom build sitting at `~/.local/share/sioyek/sioyek`, launched through a two-line wrapper script `~/.local/bin/sioyek` (`exec ~/.local/share/sioyek/sioyek "$@"`) that `install.sh` writes. **Not a symlink:** sioyek finds `shaders/` and `prefs.config` via `applicationDirPath()`, which since Qt 6.12 returns the symlink's directory, so a symlink makes every page render blank. The build source lives at `~/Installs/sioyek/` on branch `personal` and is **not** part of this dotfile repo.
 
 Build summary:
 - `-march=znver4 -O3 -flto=auto` for Ryzen 7 PRO 7840U

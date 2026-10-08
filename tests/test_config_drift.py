@@ -196,6 +196,30 @@ class ConfigDriftTests(unittest.TestCase):
                 self.assertIn(f'RESULT={status}', result.stdout)
                 self.assertEqual('LATER_STEPS' in result.stdout, status == 0)
 
+    def test_sioyek_build(self):
+        home = self.root / 'home'
+        self.env['HOME'] = str(home)
+        self.env['XDG_DATA_HOME'] = str(home / '.local/share')
+        binary = self.write('home/.local/share/sioyek/sioyek', '')
+        binary.chmod(0o755)
+        launcher = home / '.local/bin/sioyek'
+        launcher.parent.mkdir(parents=True)
+        stubs = (
+            'readelf() { printf "  1: 0 0 OBJECT GLOBAL DEFAULT UND qt_version_tag@Qt_%s (2)\\n" "$BUILT_QT"; }\n'
+            'pacman() { printf "qt6-base %s-1\\n" "$INSTALLED_QT"; }\n'
+        )
+        self.env.update(BUILT_QT='6.12', INSTALLED_QT='6.12.0')
+        launcher.symlink_to(binary)
+        self.assertIn('is a symlink', self.run_check('check_sioyek_build', stubs))
+        launcher.unlink()
+        launcher.write_text(f'#!/bin/sh\nexec "{binary}" "$@"\n')
+        launcher.chmod(0o755)
+        self.assertIn('COUNTS 0 0', self.run_check('check_sioyek_build', stubs))
+        self.env['BUILT_QT'] = '6.11'
+        self.assertIn('built against Qt 6.11 but qt6-base is 6.12', self.run_check('check_sioyek_build', stubs))
+        binary.unlink()
+        self.assertIn('COUNTS 0 1', self.run_check('check_sioyek_build', stubs))
+
     def test_expected_links(self):
         self.env['HOME'] = str(self.root / 'home')
         live = self.root / 'live'
