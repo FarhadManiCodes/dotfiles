@@ -55,7 +55,7 @@ The configuration is organized into these major sections:
    - Vim-style navigation (Mod+H/J/K/L)
    - Workspace management
    - Window movement and resizing
-   - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private, Mod+E vifm file manager in foot)
+   - Application launchers (Mod+T terminal, Mod+Return tmux, Mod+D fuzzel, Mod+B Firefox, Mod+P Firefox private, Mod+E vifm file manager in foot, Mod+Y yts YouTube search in fuzzel, Mod+Shift+Y the yts-gui window)
    - System controls (volume, brightness, screenshots)
    - Screen text (Mod+Print copies it exactly, falling back to local GLM-OCR when Gemini is unreachable; Mod+Shift+Print translates it to English, or English to German; `bash/capture-ocr`)
    - Screenshot annotation (Shift+Print opens Flameshot's region selector and editor; Ctrl+C copies the result)

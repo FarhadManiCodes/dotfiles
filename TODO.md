@@ -26,7 +26,7 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
 | 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
-| 13. Rewrite sysup's yts step for the C++ rewrite | Blocked 2026-10-05 on the yts C++ rewrite | Rewrite the step and its doc once the CMake install exists |
+| 13. Rewrite sysup's yts step for the C++ rewrite | Reviewed and merged 2026-10-09 (yts phase 2 done) | Run `sysup` once, then close |
 | 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
 | 15. Fingerprint recovery after resume | Installed; hardware verification pending | Several normal cycles, including an active scan; check fingerprint and password unlock |
 
@@ -333,6 +333,14 @@ the Python `make install`, fail its import check and warn without stopping `sysu
 
 **Done when:** the step builds and installs the C++ version, a failed build leaves the
 previous binary in place, and `docs/architecture/zsh.md` describes the new flow.
+
+**2026-10-06, on branch `yts-cpp`:** the C++ `make install` exists (yts `cpp-port`). The
+step now builds with `CMAKE_BUILD_PARALLEL_LEVEL=8`, proves the result by running
+`~/.local/bin/yts --version`, and takes the binary directory as a third argument for the
+tests; `tests/test_sysup_yts.py` covers it (10 cases, 4 of them fail against the old step).
+yts's `make install` builds before copying, so a failed build keeps the previous binary.
+`bash/yts-play` (Tridactyl's ,y) now wraps `yts --play`. Close after review and one real
+`sysup` run.
 
 ## 14. Image viewer and Qt icon theme
 

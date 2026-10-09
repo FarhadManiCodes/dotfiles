@@ -2,9 +2,9 @@
 
     python3 -B -m unittest discover -s tests -v
 
-Nothing real is touched. That matters more here than for most steps: the real
-`make install` runs `uv venv --clear`, so a test pointed at the live prefix
-would wipe the working app. Both directories are arguments for that reason.
+Nothing real is touched: the real `make install` would replace the live yts
+binary. The checkout, the install state and the binary directory are
+arguments for that reason.
 """
 import os
 from pathlib import Path
@@ -25,6 +25,7 @@ class YtsInstallTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.repo = self.root / "checkout with spaces"
         self.prefix = self.root / "installed"
+        self.bindir = self.root / "installed bin"
         self.bin = self.root / "bin"
         self.bin.mkdir()
         self.log = self.root / "calls"
@@ -35,8 +36,8 @@ class YtsInstallTests(unittest.TestCase):
         )
 
         # A checkout with one commit.
-        self.write(self.repo / "yts/__init__.py", "")
-        self.write(self.repo / ".gitignore", "__pycache__/\nvenv/\n")
+        self.write(self.repo / "core/text.cpp", "")
+        self.write(self.repo / ".gitignore", "build/\n")
         self.git("init", "--quiet")
         self.git("add", ".")
         self.git("commit", "--quiet", "-m", "Fixture")
@@ -45,15 +46,15 @@ class YtsInstallTests(unittest.TestCase):
         # An install whose stamp is behind HEAD, so the default case updates.
         self.prefix.mkdir()
         (self.prefix / ".installed-commit").write_text("0" * 40 + "\n")
-        self.script(self.prefix / "venv/bin/python", '''
-printf 'python %s\\n' "$*" >> "$YTS_LOG"
-[ "$YTS_FAIL" = import ] && exit 1
+        self.script(self.bindir / "yts", '''
+printf 'yts %s\\n' "$*" >> "$YTS_LOG"
+[ "$YTS_FAIL" = run ] && exit 1
 exit 0
 ''')
 
         # make -C <repo> <target>; install writes the stamp like yts's Makefile.
         self.script(self.bin / "make", '''
-printf 'make %s\\n' "$3" >> "$YTS_LOG"
+printf 'make %s -j%s\\n' "$3" "$CMAKE_BUILD_PARALLEL_LEVEL" >> "$YTS_LOG"
 case "$3" in
   test)
     [ "$YTS_FAIL" = test ] && exit 1 ;;
@@ -86,8 +87,8 @@ exit 0
 
     def run_step(self):
         return subprocess.run(
-            ["zsh", "-f", "-c", 'source "$1"; _sysup_yts "$2" "$3"',
-             "test", str(SOURCE), str(self.repo), str(self.prefix)],
+            ["zsh", "-f", "-c", 'source "$1"; _sysup_yts "$2" "$3" "$4"',
+             "test", str(SOURCE), str(self.repo), str(self.prefix), str(self.bindir)],
             env=self.env, capture_output=True, text=True, timeout=30,
         )
 
@@ -104,10 +105,10 @@ exit 0
         result = self.run_step()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(f"Installed {self.head[:7]}", result.stdout)
-        # Tests gate the install, so they must run first.
-        self.assertEqual(self.calls().splitlines()[:2], ["make test", "make install"])
-        # And the import check must actually be exercised.
-        self.assertIn("python -c", self.calls())
+        # Tests gate the install, so they must run first; both build with -j8.
+        self.assertEqual(self.calls().splitlines()[:2], ["make test -j8", "make install -j8"])
+        # And the installed binary must actually be run.
+        self.assertIn("yts --version", self.calls())
         self.assertEqual(self.stamp(), self.head)
 
     def test_matching_commit_does_no_work(self):
@@ -141,17 +142,17 @@ exit 0
     # --- the refusals, which are the point -----------------------------------
 
     def test_modified_file_prevents_install(self):
-        (self.repo / "yts/__init__.py").write_text("# half-finished edit\n")
+        (self.repo / "core/text.cpp").write_text("// half-finished edit\n")
         result = self.run_step()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("uncommitted changes", result.stdout)
         self.assertEqual(self.calls(), "")
 
     def test_untracked_file_prevents_install(self):
-        # `uv pip install .` packages the worktree, so an untracked new module
-        # ships exactly like a modified one. --untracked-files=no would miss it
-        # and the stamp would then claim HEAD was installed.
-        (self.repo / "yts/newmodule.py").write_text("x = 1\n")
+        # An untracked header that a tracked source includes ships exactly like
+        # a modified file. --untracked-files=no would miss it and the stamp
+        # would then claim HEAD was installed.
+        (self.repo / "core/new.hpp").write_text("#pragma once\n")
         result = self.run_step()
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("uncommitted changes", result.stdout)
@@ -160,8 +161,8 @@ exit 0
 
     def test_gitignored_litter_does_not_prevent_install(self):
         # The stricter check must not trip on ordinary development litter.
-        (self.repo / "yts/__pycache__").mkdir()
-        (self.repo / "yts/__pycache__/x.pyc").write_text("")
+        (self.repo / "build/release").mkdir(parents=True)
+        (self.repo / "build/release/text.o").write_text("")
         result = self.run_step()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(f"Installed {self.head[:7]}", result.stdout)
@@ -173,6 +174,7 @@ exit 0
         self.assertIn("tests fail", result.stdout)
         self.assertIn("make test", self.calls())
         self.assertNotIn("make install", self.calls())
+        self.assertNotIn("yts --version", self.calls())
         self.assertNotEqual(self.stamp(), self.head)
 
     def test_failed_install_is_reported(self):
@@ -181,12 +183,12 @@ exit 0
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("make install failed", result.stdout)
 
-    def test_build_that_does_not_import_is_reported(self):
-        # pip reporting success is not evidence the launcher works.
-        self.env["YTS_FAIL"] = "import"
+    def test_binary_that_does_not_run_is_reported(self):
+        # make install reporting success is not evidence the binary works.
+        self.env["YTS_FAIL"] = "run"
         result = self.run_step()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("does not import", result.stdout)
+        self.assertIn("does not run", result.stdout)
 
 
 if __name__ == "__main__":

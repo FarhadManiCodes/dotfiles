@@ -6,15 +6,8 @@
 # native.run's content: the command itself goes through /bin/sh, and "$(...)"
 # in a URL survives the browser's normalisation, so a URL in the command line
 # could run commands.
-# Reuses yts's own play path (ensure_mpv + loadfile over the IPC socket), so
-# behaviour matches the GUI.
-audio=False
-case ${1:-} in
-  -a|--audio) audio=True; shift ;;
-esac
-if (($#)); then url=$1; else url=$(cat); fi
-[ -n "$url" ] || { notify-send yts-play "No URL given"; exit 2; }
-"$HOME/.local/share/yts-gui/venv/bin/python" -c \
-  'import sys; from yts.actions import play; sys.exit(0 if play(sys.argv[1], audio=sys.argv[2]=="True") else 1)' \
-  "$url" "$audio" \
-  || { notify-send yts-play "Could not play: $url"; exit 1; }
+# `yts --play` takes the same arguments and reads stdin the same way; it plays
+# through yts's own mpv path, accepts only http(s) URLs and notifies on
+# failure. Full path: the browser's native messenger may not have ~/.local/bin
+# on PATH.
+exec "$HOME/.local/bin/yts" --play "$@"

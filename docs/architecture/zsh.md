@@ -74,17 +74,23 @@ build installs anyway, rather than blocking `sysup` on a dropped connection.
 ## yts, the one locally-built app
 
 `_sysup_yts` compares `~/projects/yts`'s HEAD against the commit recorded at install time
-in `~/.local/share/yts-gui/.installed-commit` (yts's own `make install` writes it, since
-`__version__` marks releases, not commits). A mismatch runs `make test`, `make install`,
-then proves the result imports — `uv pip install` succeeding isn't evidence the launcher
-works. Non-fatal unlike bgutil: a stale launcher is an older working app, so it warns and
+in `~/.local/share/yts-gui/.installed-commit` (yts's own `make install` writes it, since the
+version marks releases, not commits). A mismatch runs `make test` (CMake, ctest under
+ASan), then `make install` (release build, then a stripped install into `~/.local`), both
+with `CMAKE_BUILD_PARALLEL_LEVEL=8`, the physical core count, and then proves the installed
+`~/.local/bin/yts` runs (`--version`): a reported success isn't evidence the binary works.
+`make install` builds before it copies, so a failed build leaves the previous binary in
+place. Non-fatal unlike bgutil: a stale binary is an older working app, so it warns and
 `sysup` continues.
 
-Refuses a dirty worktree, **checking untracked files too** — `make install` runs
-`uv pip install .` against the worktree, so an untracked new module ships exactly like a
-modified one. Both directories are passed as arguments because `make install` runs
-`uv venv --clear`, which would wipe a live prefix. Exists because the launcher sat three
-months stale on 2026-09-17 while starting and running fine.
+Refuses a dirty worktree, **checking untracked files too**: an untracked header that a
+tracked source includes ships exactly like a modified file. The checkout, the install
+state and the binary directory are arguments so the tests never touch the live install.
+Exists because the launcher sat three months stale on 2026-09-17 while starting and
+running fine. Rewritten for the C++ version on 2026-10-06 (TODO item 13).
+
+`~/.local/bin/yts-play` (`bash/yts-play`, used by Tridactyl's `,y ,Y ;y ;Y`) is a thin
+wrapper over `yts --play`.
 
 ## Startup and prompt cost
 

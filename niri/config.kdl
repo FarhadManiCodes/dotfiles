@@ -115,14 +115,14 @@ window-rule {
 }
 
 // Floating TUIs that need no geometry of their own: the scratchpad terminal
-// (Mod+Grave) and the yts fzf picker. One rule with several `match` lines rather
-// than one rule each -- the same form the screen-capture rule below uses. Keeping
-// distinct app-ids (rather than a shared "TUI.float" class, which is how Omarchy
-// does this) means `niri msg windows` still names the program and a later
-// per-app rule has something to match.
+// (Mod+Grave). Add another TUI as one more `match` line, the form the
+// screen-capture rule below uses; keeping distinct app-ids (rather than a shared
+// "TUI.float" class, which is how Omarchy does this) means `niri msg windows`
+// still names the program and a later per-app rule has something to match.
+// (The yts fzf picker that also matched here is gone: the C++ yts is a fuzzel
+// menu, not a window, and the unanchored "yts" would have floated yts-gui.)
 window-rule {
     match app-id="scratch-term"
-    match app-id="yts"
     open-floating true
 }
 
@@ -201,6 +201,10 @@ binds {
     Mod+Return { spawn "footclient" "tmux" "new-session" "-A" "-s" "main"; }
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
     Mod+Shift+P hotkey-overlay-title="Search Papers: papis" { spawn "papis-fuzzel"; }
+    Mod+Y hotkey-overlay-title="YouTube: yts (fuzzel)" { spawn "yts"; }
+    // yts-gui is the Qt window (~/projects/yts); a second Mod+Shift+Y
+    // hands over to the running one.
+    Mod+Shift+Y hotkey-overlay-title="YouTube: yts-gui" { spawn "yts-gui"; }
     Mod+B hotkey-overlay-title="Open Firefox" { spawn "firefox"; }
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
     Mod+E hotkey-overlay-title="Open File Manager: vifm" { spawn "footclient" "--app-id=vifm" "vifm"; }
