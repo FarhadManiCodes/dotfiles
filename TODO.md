@@ -26,7 +26,7 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
 | 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
-| 13. Rewrite sysup's yts step for the C++ rewrite | Done on branch `yts-cpp` 2026-10-06, awaiting review | Review, run `sysup` once, then close |
+| 13. Rewrite sysup's yts step for the C++ rewrite | Reviewed and merged 2026-10-09 (yts phase 2 done) | Run `sysup` once, then close |
 | 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
 | 15. Fingerprint recovery after resume | Installed; hardware verification pending | Several normal cycles, including an active scan; check fingerprint and password unlock |
 

@@ -202,8 +202,8 @@ binds {
     Mod+D hotkey-overlay-title="Run an Application: fuzzel" { spawn "fuzzel"; }
     Mod+Shift+P hotkey-overlay-title="Search Papers: papis" { spawn "papis-fuzzel"; }
     Mod+Y hotkey-overlay-title="YouTube: yts (fuzzel)" { spawn "yts"; }
-    // yts-gui is the Qt window (phase 2 of ~/projects/yts); until it is
-    // installed this logs a failed spawn and does nothing.
+    // yts-gui is the Qt window (~/projects/yts); a second Mod+Shift+Y
+    // hands over to the running one.
     Mod+Shift+Y hotkey-overlay-title="YouTube: yts-gui" { spawn "yts-gui"; }
     Mod+B hotkey-overlay-title="Open Firefox" { spawn "firefox"; }
     Mod+P hotkey-overlay-title="Open Firefox (Private)" { spawn "firefox" "--private-window"; }
