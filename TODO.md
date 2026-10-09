@@ -7,8 +7,10 @@ cosmetic. Item 5, removing `mate-polkit`, was run by the user and closed to `rev
 same day. Item 4, Alt+p resolving citations from refinery, was built and verified 2026-10-02 and
 closed to `revisit.md`; item 6, review copies for four imported books, was delivered 2026-10-02
 by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/convert.md`); item 9,
-screenshot annotation, was delivered 2026-10-04 with Flameshot on Shift+Print. The remaining
-numbers are kept. Accepted findings remain in
+screenshot annotation, was delivered 2026-10-04 with Flameshot on Shift+Print; item 13,
+sysup's yts step for the C++ rewrite, was reviewed and merged 2026-10-09 and proven by the
+user's `sysup` run the same day (see `docs/architecture/zsh.md`). The remaining numbers are
+kept. Accepted findings remain in
 `revisit.md`; the runner's dropped follow-on scope is recorded there.
 
 Suggested order: agree the editor + agent layout first. Off-machine backup remains deferred.
@@ -26,7 +28,6 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
 | 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
-| 13. Rewrite sysup's yts step for the C++ rewrite | Reviewed and merged 2026-10-09 (yts phase 2 done) | Run `sysup` once, then close |
 | 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
 | 15. Fingerprint recovery after resume | Installed; hardware verification pending | Several normal cycles, including an active scan; check fingerprint and password unlock |
 
@@ -308,39 +309,6 @@ both open, `vd` on a Parquet file.
 first and do not create a new environment as a side effect. Nothing is installed yet.
 
 **Done when:** the packages import from the chosen venv and one encoding comparison runs.
-
-## 13. Rewrite sysup's yts step for the C++ rewrite
-
-**Found 2026-10-05**, while moving off GTK4. `yts` is being rewritten from Python/GTK4 to
-C++ with Qt 6 (one `yts-core` library, the fuzzel menu and a Qt Widgets window), done in
-`~/projects/yts` by the user. `_sysup_yts` in `zsh/functions/sysup.zsh` and the "yts, the one
-locally-built app" section of `docs/architecture/zsh.md` describe the Python install and
-will be wrong after it:
-
-- `make test` and `make install`, which run pytest and `uv pip install .` into a venv under
-  `~/.local/share/yts-gui/`, become a CMake configure, build, `ctest` and install into
-  `~/.local`. Build with `-j8`, the physical core count.
-- The proof that the result works is an import of the Python package; it becomes running the
-  installed binary, for example its `--version`.
-- `.installed-commit` and the refusal of a dirty worktree, untracked files included, still
-  apply and are worth keeping. The `uv venv --clear` caveat goes away with the venv.
-- The step is non-fatal by design: a stale launcher is an older working app.
-
-**Today:** the installed `yts-gui` has not started since `python-gobject` was removed as an
-orphan on 2026-10-01. The step does not notice because it only runs when the repo's HEAD
-differs from the installed commit; if that happens before the rewrite lands, it will run
-the Python `make install`, fail its import check and warn without stopping `sysup`.
-
-**Done when:** the step builds and installs the C++ version, a failed build leaves the
-previous binary in place, and `docs/architecture/zsh.md` describes the new flow.
-
-**2026-10-06, on branch `yts-cpp`:** the C++ `make install` exists (yts `cpp-port`). The
-step now builds with `CMAKE_BUILD_PARALLEL_LEVEL=8`, proves the result by running
-`~/.local/bin/yts --version`, and takes the binary directory as a third argument for the
-tests; `tests/test_sysup_yts.py` covers it (10 cases, 4 of them fail against the old step).
-yts's `make install` builds before copying, so a failed build keeps the previous binary.
-`bash/yts-play` (Tridactyl's ,y) now wraps `yts --play`. Close after review and one real
-`sysup` run.
 
 ## 14. Image viewer and Qt icon theme
 
