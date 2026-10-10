@@ -104,6 +104,19 @@ Seeking preserves the paused/playing state and
 requires a seekable track. Isolated tests cover both navigation paths; they do
 not prove every player's MPRIS implementation behaves correctly.
 
+Playback Position in Mod+M shows the current position as a percentage of the
+track's MPRIS duration on a centered purple wob bar. Mod+Shift+Comma and
+Mod+Shift+Period seek backward/forward 15 seconds through the same active-player
+selection and refresh the bar after seeking. Play/Pause from the menu or
+Mod+Shift+Space also refreshes it after toggling. The bar hides after 1.5 seconds
+and does not continuously poll the player. Tracks without a known
+duration report that progress is unavailable. FIFO writes are bounded to one
+second so a missing wob reader cannot hang a seek command. The menu script and
+Niri config are live symlinks. `wob-playback.socket` creates a separate runtime
+FIFO and activates `wob-playback.service` on the first update, using
+`wob/playback.ini`. The socket is explicitly enabled by `install.sh`; configs
+and units are symlinked. The existing top volume/brightness renderer is separate.
+
 ## Audio recording toggle
 
 The media menu implements recording directly in `bash/media-menu.sh`: it records the default output with `pw-record`, or stops the recording identified by its runtime PID file. The read-only status check sets the Start/Stop Recording menu label without acquiring a lock. Start and stop run in a subshell holding a nonblocking `flock` on `$XDG_RUNTIME_DIR/toggle-record.lock`; a toggle arriving while one is in progress returns successfully without another action, including during the existing 0.3-second startup check. The recorder closes the lock descriptor before launch, allowing a later toggle to stop it. The persistent lock file must not be deleted while a toggle holds it.

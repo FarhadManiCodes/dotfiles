@@ -20,6 +20,47 @@ pc() {
     playerctl "${args[@]}" "$@"
 }
 
+# A percentage of track duration, using the same player as the seek action.
+show_progress() {
+    local player=${1:-} position length percent pipe=$XDG_RUNTIME_DIR/wob-playback.pipe
+    if [[ -z $player ]]; then
+        player=$(active_player)
+        [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    fi
+    [[ -n $player ]] || { notify-send -t 2000 "Media" "No player available"; return 1; }
+    position=$(playerctl -p "$player" position 2>/dev/null)
+    length=$(playerctl -p "$player" metadata mpris:length 2>/dev/null)
+    if [[ ! $position =~ ^[0-9]+([.][0-9]+)?$ || ! $length =~ ^[0-9]+$ || $length =~ ^0+$ ]]; then
+        notify-send -t 2000 "Media" "Playback position or duration unavailable"
+        return 1
+    fi
+    percent=$(awk -v p="$position" -v l="$length" 'BEGIN {
+        n = p * 1000000 / l * 100; if (n > 100) n = 100;
+        printf "%.0f", n
+    }')
+    [[ -p $pipe ]] || { notify-send -t 2000 "Media" "Playback bar unavailable"; return 1; }
+    # Bound the write if wob's reader is unavailable; never create a regular file.
+    printf '%s\n' "$percent" | timeout 1s tee "$pipe" >/dev/null
+}
+
+seek_track() {
+    local player
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] || return 1
+    playerctl -p "$player" position "$1" || return
+    show_progress "$player"
+}
+
+toggle_playback() {
+    local player
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] || return 1
+    playerctl -p "$player" play-pause || return
+    show_progress "$player"
+}
+
 # Restart after three seconds; near the start, go back if the player can.
 # Resolve once so the position and action always refer to the same player.
 previous_track() {
@@ -120,6 +161,10 @@ toggle_recording() (
 )
 
 case ${1:-} in
+    progress) show_progress; exit $? ;;
+    play-pause) toggle_playback; exit $? ;;
+    seek-backward) seek_track 15-; exit $? ;;
+    seek-forward) seek_track 15+; exit $? ;;
     focus) focus_player; exit 0 ;;
     call)
         mic_muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
@@ -132,11 +177,12 @@ case ${1:-} in
 esac
 
 if recording; then rec="🔴  Stop Recording"; else rec="⏺  Start Recording"; fi
-choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "🎯  Focus Player" "⏹  Stop…" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 6)
+choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "▰  Playback Position" "🎯  Focus Player" "⏹  Stop…" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 7)
 case $choice in
-    "▶/⏸  Play/Pause") pc play-pause ;;
+    "▶/⏸  Play/Pause") toggle_playback ;;
     "⏭  Next") pc next ;;
     "⏮  Prev") previous_track ;;
+    "▰  Playback Position") show_progress ;;
     "🎯  Focus Player") focus_player ;;
     "⏹  Stop…") stop_player ;;
     "$rec") toggle_recording ;;

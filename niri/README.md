@@ -157,4 +157,5 @@ This configuration uses:
 - Tmux integration via Mod+Return
 - Clipboard history via Ctrl+`
 - wob for volume/brightness OSD (blue=volume, yellow=brightness, red=muted); controlled via ~/.local/bin/wob-control
+- Mod+M → Playback Position shows a centered purple wob progress bar. Mod+Shift+Comma/Period seek 15 seconds backward/forward; these keys and Mod+Shift+Space (pause/resume) refresh it.
 - Foot theme toggle via Mod+Alt+T (toggle-foot-theme.sh)
