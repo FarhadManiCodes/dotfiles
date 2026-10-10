@@ -91,6 +91,12 @@ A legitimate transfer exceeding three seconds is omitted from history without ch
 
 Rollback restores `wl-paste --watch cliphist store` in the startup configuration, stops only the verified guarded watcher, and launches `/usr/bin/wl-paste --watch cliphist store` through `niri msg action spawn --`. No history database deletion or clipboard clearing is needed. Remove the helper's symlink if reverting its tracked source, to avoid leaving a dangling link.
 
+## Audio recording toggle
+
+The media menu calls `bash/toggle-record.sh` to record the default output with `pw-record`, or stop the recording identified by its runtime PID file. Start and stop hold a nonblocking `flock` on `$XDG_RUNTIME_DIR/toggle-record.lock`; a toggle arriving while one is in progress returns successfully without another action. This also means a second toggle during the existing 0.3-second startup check is ignored. The recorder closes the lock descriptor before launch, allowing a later toggle to stop it. `status` remains read-only and does not acquire or wait for the lock. The persistent lock file must not be deleted while a toggle holds it.
+
+`~/.local/bin/toggle-record.sh` symlinks to the tracked script, so changes apply on its next invocation without restarting the session. Isolated regression tests in `tests/test_toggle_record.py` use a fake recorder and temporary runtime directory; they cover overlapping toggles, status while locked, lock release for a later stop, sequential stop/restart, and inactive read-only status. They do not capture live audio. The existing PID/name identification remains unchanged; the lock prevents overlapping script operations, not every possible stale-PID issue.
+
 ## Power menu shutdown protection
 
 Confirmed Shutdown and Reboot in `bash/powermenu` acquire blocking `sleep:idle:handle-lid-switch` inhibitors before stopping `rclone@*` through the user manager. The inhibited child requests `systemctl poweroff` or `systemctl reboot` only after teardown succeeds. Protection lasts from inhibitor acquisition through acceptance of that request; successful submission does not prove that shutdown has completed. The locks are released when the child exits.
