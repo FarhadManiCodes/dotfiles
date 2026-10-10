@@ -20,6 +20,30 @@ pc() {
     playerctl "${args[@]}" "$@"
 }
 
+# Restart after three seconds; near the start, go back if the player can.
+# Resolve once so the position and action always refer to the same player.
+previous_track() {
+    local player position can_previous args=()
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] && args=(-p "$player")
+    position=$(playerctl "${args[@]}" position 2>/dev/null)
+    if [[ $position =~ ^[0-9]+([.][0-9]+)?$ ]] &&
+        awk -v p="$position" 'BEGIN { exit !(p > 3) }'; then
+        playerctl "${args[@]}" position 0
+        return
+    fi
+    if [[ -n $player ]]; then
+        can_previous=$(busctl --user get-property "org.mpris.MediaPlayer2.$player" \
+            /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player CanGoPrevious 2>/dev/null)
+    fi
+    if [[ $can_previous == 'b false' ]]; then
+        playerctl "${args[@]}" position 0
+    else
+        playerctl "${args[@]}" previous
+    fi
+}
+
 focus_player() {
     local player app title id
     player=$(active_player)
@@ -112,7 +136,7 @@ choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "🎯  Focu
 case $choice in
     "▶/⏸  Play/Pause") pc play-pause ;;
     "⏭  Next") pc next ;;
-    "⏮  Prev") pc previous ;;
+    "⏮  Prev") previous_track ;;
     "🎯  Focus Player") focus_player ;;
     "⏹  Stop…") stop_player ;;
     "$rec") toggle_recording ;;
