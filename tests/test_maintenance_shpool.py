@@ -19,7 +19,7 @@ class MaintenanceShpoolTests(unittest.TestCase):
         for name in ("SHPOOL_SESSION_NAME", "SHPOOL_SESSION_DIR", "NO_COLOR"):
             self.env.pop(name, None)
         self.env.update(HOME=str(self.root), XDG_RUNTIME_DIR=str(self.root),
-                        PATH="/usr/bin:/bin", LC_ALL="C")
+                        ZDOTDIR=str(self.root), PATH="/usr/bin:/bin", LC_ALL="C")
 
     def run_zsh(self, code, *args):
         # Even if the dispatch guard regresses, stop at the first maintenance
