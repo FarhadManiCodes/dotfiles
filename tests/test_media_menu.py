@@ -1,4 +1,4 @@
-"""The media menu's Stop: isolated substitutes, no real players or D-Bus."""
+"""Media menu controls: isolated substitutes, no real players or D-Bus."""
 import json
 import os
 from pathlib import Path
@@ -21,6 +21,17 @@ with open(os.environ['CALLS'], 'a') as log:
 if name == 'playerctl':
     if args[:2] == ['-a', 'metadata']:
         print(os.environ.get('PLAYERS', ''), end='')
+    elif args[:2] == ['-a', 'status']:
+        print(os.environ.get('STATUSES', ''), end='')
+    elif args[-1:] == ['metadata']:
+        print(os.environ.get('DEFAULT_PLAYER', 'mpv'))
+    elif args[-2:] == ['metadata', 'mpris:length']:
+        print(os.environ.get('LENGTH', '100000000'))
+    elif args[-1:] == ['position']:
+        print(os.environ.get('POSITION', '0'))
+        sys.exit(int(os.environ.get('POSITION_STATUS', '0')))
+    elif args[-1:] == ['status']:
+        print(os.environ.get('STATUS', 'Playing'))
     sys.exit(0)
 if name == 'fuzzel':
     prompt = args[args.index('--prompt') + 1]
@@ -34,6 +45,9 @@ if name == 'fuzzel':
     print(lines[0])
     sys.exit(0)
 if name == 'busctl':
+    if 'get-property' in args:
+        print(os.environ.get('CAN_PREVIOUS', 'b true'))
+        sys.exit(int(os.environ.get('PROPERTY_STATUS', '0')))
     sys.exit(int(os.environ.get('QUIT_STATUS', '0')))
 sys.exit(0)
 '''
@@ -57,7 +71,7 @@ class MediaMenuStopTests(unittest.TestCase):
             path = self.bin / name
             path.write_text(FAKE)
             path.chmod(0o755)
-        for tool in ('awk', 'printf', 'cat'):
+        for tool in ('awk', 'printf', 'cat', 'timeout', 'tee'):
             real = Path('/usr/bin') / tool
             if real.exists():
                 (self.bin / tool).symlink_to(real)
@@ -65,8 +79,8 @@ class MediaMenuStopTests(unittest.TestCase):
                     'CALLS': str(self.log), 'SELECTED': '⏹  Stop…',
                     'XDG_RUNTIME_DIR': str(self.runtime), 'NO_COLOR': '1'}
 
-    def run_menu(self, **env):
-        return subprocess.run(['/usr/bin/bash', str(SCRIPT)], env=dict(self.env, **env),
+    def run_menu(self, args=(), **env):
+        return subprocess.run(['/usr/bin/bash', str(SCRIPT), *args], env=dict(self.env, **env),
                               capture_output=True, text=True, timeout=10)
 
     def calls(self, name=None):
@@ -109,6 +123,128 @@ class MediaMenuStopTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.calls('busctl'), [])
         self.assertNotIn('stop', json.dumps([c[1] for c in self.calls('playerctl')]))
+
+    def test_previous_restarts_after_three_seconds_for_single_or_multiple_tracks(self):
+        for can_previous in ('b false', 'b true'):
+            with self.subTest(can_previous=can_previous):
+                self.log.unlink(missing_ok=True)
+                result = self.run_menu(SELECTED='⏮  Prev', POSITION='3.01',
+                                       CAN_PREVIOUS=can_previous,
+                                       STATUSES='Paused\tmpv\nPlaying\tspotify_player\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                commands = [c[1] for c in self.calls('playerctl')]
+                self.assertIn(['-p', 'spotify_player', 'position', '0'], commands)
+                self.assertNotIn(['-p', 'spotify_player', 'previous'], commands)
+
+    def test_previous_near_start_uses_previous_track_if_available(self):
+        for position in ('0', '3', '2.99'):
+            with self.subTest(position=position):
+                self.log.unlink(missing_ok=True)
+                result = self.run_menu(SELECTED='⏮  Prev', POSITION=position)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.calls('playerctl')[-1][1], ['-p', 'mpv', 'previous'])
+
+    def test_previous_without_previous_track_restarts_even_near_start(self):
+        result = self.run_menu(SELECTED='⏮  Prev', POSITION='1.5', CAN_PREVIOUS='b false')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls('playerctl')[-1][1], ['-p', 'mpv', 'position', '0'])
+
+    def test_unavailable_position_or_capability_keeps_native_previous(self):
+        result = self.run_menu(SELECTED='⏮  Prev', POSITION='', POSITION_STATUS='1',
+                               CAN_PREVIOUS='', PROPERTY_STATUS='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls('playerctl')[-1][1], ['-p', 'mpv', 'previous'])
+
+    def progress_pipe(self):
+        pipe = self.runtime / 'wob-playback.pipe'
+        os.mkfifo(pipe)
+        # Open read/write so the isolated reader cannot hang waiting for a writer.
+        fd = os.open(pipe, os.O_RDWR | os.O_NONBLOCK)
+        self.addCleanup(os.close, fd)
+        return fd
+
+    def test_menu_progress_shows_percentage_for_active_player(self):
+        fd = self.progress_pipe()
+        result = self.run_menu(SELECTED='▰  Playback Position', POSITION='25',
+                               STATUSES='Paused\tmpv\nPlaying\tspotify_player\n')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(os.read(fd, 100), b'25\n')
+        self.assertEqual(self.calls('notify-send')[0][1][-2:],
+                         ['Media · Playback Position', '0:25 / 1:40'])
+        self.assertIn(['-p', 'spotify_player', 'metadata', 'mpris:length'],
+                      [c[1] for c in self.calls('playerctl')])
+
+    def test_both_seek_shortcuts_refresh_progress_on_the_same_player(self):
+        fd = self.progress_pipe()
+        for action, offset in (('seek-backward', '15-'), ('seek-forward', '15+')):
+            with self.subTest(action=action):
+                result = self.run_menu(args=(action,), POSITION='60',
+                                       STATUSES='Paused\tmpv.instance-test\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(os.read(fd, 100), b'60\n')
+                self.assertIn(['-p', 'mpv.instance-test', 'position', offset],
+                              [c[1] for c in self.calls('playerctl')])
+
+    def test_pause_resume_from_menu_and_shortcut_also_shows_progress(self):
+        fd = self.progress_pipe()
+        for args in ((), ('play-pause',)):
+            with self.subTest(args=args):
+                result = self.run_menu(args=args, SELECTED='▶/⏸  Play/Pause', POSITION='40',
+                                       STATUSES='Playing\tmpv.instance-test\n')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(os.read(fd, 100), b'40\n')
+                commands = [c[1] for c in self.calls('playerctl')]
+                toggle_index = max(i for i, c in enumerate(commands) if c[-1] == 'play-pause')
+                self.assertEqual(commands[toggle_index], ['-p', 'mpv.instance-test', 'play-pause'])
+                self.assertEqual(commands[toggle_index + 1], ['-p', 'mpv.instance-test', 'status'])
+                self.assertEqual(commands[toggle_index + 2], ['-p', 'mpv.instance-test', 'position'])
+
+    def test_pausing_shows_position_and_total_duration(self):
+        fd = self.progress_pipe()
+        result = self.run_menu(args=('play-pause',), STATUS='Paused', POSITION='754.9',
+                               LENGTH='2900000000')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls('notify-send')[0][1][-2:], ['Media · Paused', '12:34 / 48:20'])
+        self.assertEqual(os.read(fd, 100), b'26\n')
+
+    def test_long_tracks_use_hours_in_pause_notification(self):
+        self.progress_pipe()
+        result = self.run_menu(SELECTED='▶/⏸  Play/Pause', STATUS='Paused', POSITION='3723',
+                               LENGTH='7324000000')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls('notify-send')[0][1][-1], '1:02:03 / 2:02:04')
+
+    def test_resuming_and_seeking_do_not_show_time_notification(self):
+        self.progress_pipe()
+        for action, status in (('play-pause', 'Playing'), ('seek-forward', 'Paused')):
+            with self.subTest(action=action):
+                result = self.run_menu(args=(action,), STATUS=status, POSITION='30')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.calls('notify-send'), [])
+
+    def test_progress_clamps_to_full_bar(self):
+        fd = self.progress_pipe()
+        result = self.run_menu(args=('progress',), POSITION='101')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(os.read(fd, 100), b'100\n')
+
+    def test_unknown_duration_reports_unavailable_without_showing_false_progress(self):
+        fd = self.progress_pipe()
+        result = self.run_menu(args=('progress',), LENGTH='0')
+        self.assertEqual(result.returncode, 1, result.stderr)
+        with self.assertRaises(BlockingIOError):
+            os.read(fd, 100)
+        self.assertIn('duration unavailable', self.calls('notify-send')[0][1][-1])
+
+    def test_missing_fifo_does_not_create_a_regular_file(self):
+        result = self.run_menu(args=('progress',), POSITION='50')
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertFalse((self.runtime / 'wob-playback.pipe').exists())
+
+    def test_fifo_without_reader_does_not_hang(self):
+        os.mkfifo(self.runtime / 'wob-playback.pipe')
+        result = self.run_menu(args=('progress',), POSITION='50')
+        self.assertEqual(result.returncode, 124, result.stderr)
 
 
 if __name__ == '__main__':

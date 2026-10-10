@@ -12,6 +12,15 @@ exits 0, so a failing notifier can't loop. Check remotely with `systemctl --user
 
 ## wob: socket activation in the graphical session
 
+Playback position uses a separate `wob-playback.socket` and
+`wob-playback.service`, configured by `wob/playback.ini` with a centered purple
+624×31 bar and a 1.5-second timeout. Only its socket is enabled; the first progress
+update starts one renderer. The socket FIFO is `%t/wob-playback.pipe`, mode 0600,
+removed on stop with pending input flushed. Both units belong to the graphical
+session and report failures; the service retries after five seconds. This keeps
+playback independent of the existing top volume/brightness bar. Position updates
+come from the media menu and seek/pause shortcuts, without periodic polling.
+
 The installed wob package supplies `wob.socket` and `wob.service`; tracked overrides
 in `systemd/user/wob.socket.d/` and `wob.service.d/` keep the existing
 `$XDG_RUNTIME_DIR/wobpipe` interface. Only `wob.socket` is enabled, under

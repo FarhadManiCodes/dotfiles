@@ -135,6 +135,7 @@ simple_configs=(
   # interface overrides gtk-{3,4}.0/settings.ini for every key it serves
   # (font-name, gtk-theme, icon-theme, cursor-theme). Use dconf instead.
   wob/wob.ini
+  wob/playback.ini
   latexmk/latexmkrc
   mimeapps.list
   papis/config
@@ -277,6 +278,7 @@ units_to_enable=(
   # The package's wob units plus our overrides create wobpipe for this session
   # and start one persistent renderer on the first OSD update.
   wob.socket
+  wob-playback.socket
   rclone@gdrive.service
   rclone@Dropbox.service
   # shpool is socket-activated: enabling the socket is enough, and avoids

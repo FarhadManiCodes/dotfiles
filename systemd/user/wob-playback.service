@@ -1,0 +1,13 @@
+[Unit]
+Description=Centered playback position overlay
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+OnFailure=notify-failure@%n.service
+
+[Service]
+StandardInput=socket
+StandardOutput=journal
+ExecStart=/usr/bin/wob --config %h/.config/wob/playback.ini
+Restart=on-failure
+RestartSec=5

@@ -1,0 +1,14 @@
+[Unit]
+Description=Playback position overlay input
+PartOf=graphical-session.target
+After=graphical-session.target
+OnFailure=notify-failure@%n.service
+
+[Socket]
+ListenFIFO=%t/wob-playback.pipe
+SocketMode=0600
+RemoveOnStop=yes
+FlushPending=yes
+
+[Install]
+WantedBy=graphical-session.target

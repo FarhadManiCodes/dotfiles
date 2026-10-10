@@ -20,6 +20,88 @@ pc() {
     playerctl "${args[@]}" "$@"
 }
 
+# A percentage of track duration, using the same player as the seek action.
+show_progress() {
+    local player=${1:-} position length percent times summary pipe=$XDG_RUNTIME_DIR/wob-playback.pipe
+    if [[ -z $player ]]; then
+        player=$(active_player)
+        [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    fi
+    [[ -n $player ]] || { notify-send -t 2000 "Media" "No player available"; return 1; }
+    position=$(playerctl -p "$player" position 2>/dev/null)
+    length=$(playerctl -p "$player" metadata mpris:length 2>/dev/null)
+    if [[ ! $position =~ ^[0-9]+([.][0-9]+)?$ || ! $length =~ ^[0-9]+$ || $length =~ ^0+$ ]]; then
+        notify-send -t 2000 "Media" "Playback position or duration unavailable"
+        return 1
+    fi
+    percent=$(awk -v p="$position" -v l="$length" 'BEGIN {
+        n = p * 1000000 / l * 100; if (n > 100) n = 100;
+        printf "%.0f", n
+    }')
+    if [[ ${2:-} == paused || ${2:-} == details ]]; then
+        times=$(awk -v p="$position" -v l="$length" '
+            function clock(s) {
+                s = int(s)
+                if (s >= 3600) return sprintf("%d:%02d:%02d", int(s / 3600), int(s / 60) % 60, s % 60)
+                return sprintf("%d:%02d", int(s / 60), s % 60)
+            }
+            BEGIN { print clock(p) " / " clock(l / 1000000) }')
+        summary="Media · Playback Position"
+        [[ ${2:-} == paused ]] && summary="Media · Paused"
+        notify-send -t 4000 -h string:x-canonical-private-synchronous:media-position \
+            "$summary" "$times"
+    fi
+    [[ -p $pipe ]] || { notify-send -t 2000 "Media" "Playback bar unavailable"; return 1; }
+    # Bound the write if wob's reader is unavailable; never create a regular file.
+    printf '%s\n' "$percent" | timeout 1s tee "$pipe" >/dev/null
+}
+
+seek_track() {
+    local player
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] || return 1
+    playerctl -p "$player" position "$1" || return
+    show_progress "$player"
+}
+
+toggle_playback() {
+    local player
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] || return 1
+    playerctl -p "$player" play-pause || return
+    if [[ $(playerctl -p "$player" status 2>/dev/null) == Paused ]]; then
+        show_progress "$player" paused
+    else
+        show_progress "$player"
+    fi
+}
+
+# Restart after three seconds; near the start, go back if the player can.
+# Resolve once so the position and action always refer to the same player.
+previous_track() {
+    local player position can_previous args=()
+    player=$(active_player)
+    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+    [[ -n $player ]] && args=(-p "$player")
+    position=$(playerctl "${args[@]}" position 2>/dev/null)
+    if [[ $position =~ ^[0-9]+([.][0-9]+)?$ ]] &&
+        awk -v p="$position" 'BEGIN { exit !(p > 3) }'; then
+        playerctl "${args[@]}" position 0
+        return
+    fi
+    if [[ -n $player ]]; then
+        can_previous=$(busctl --user get-property "org.mpris.MediaPlayer2.$player" \
+            /org/mpris/MediaPlayer2 org.mpris.MediaPlayer2.Player CanGoPrevious 2>/dev/null)
+    fi
+    if [[ $can_previous == 'b false' ]]; then
+        playerctl "${args[@]}" position 0
+    else
+        playerctl "${args[@]}" previous
+    fi
+}
+
 focus_player() {
     local player app title id
     player=$(active_player)
@@ -96,6 +178,10 @@ toggle_recording() (
 )
 
 case ${1:-} in
+    progress) show_progress "" details; exit $? ;;
+    play-pause) toggle_playback; exit $? ;;
+    seek-backward) seek_track 15-; exit $? ;;
+    seek-forward) seek_track 15+; exit $? ;;
     focus) focus_player; exit 0 ;;
     call)
         mic_muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
@@ -108,11 +194,12 @@ case ${1:-} in
 esac
 
 if recording; then rec="🔴  Stop Recording"; else rec="⏺  Start Recording"; fi
-choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "🎯  Focus Player" "⏹  Stop…" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 6)
+choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "▰  Playback Position" "🎯  Focus Player" "⏹  Stop…" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 7)
 case $choice in
-    "▶/⏸  Play/Pause") pc play-pause ;;
+    "▶/⏸  Play/Pause") toggle_playback ;;
     "⏭  Next") pc next ;;
-    "⏮  Prev") pc previous ;;
+    "⏮  Prev") previous_track ;;
+    "▰  Playback Position") show_progress "" details ;;
     "🎯  Focus Player") focus_player ;;
     "⏹  Stop…") stop_player ;;
     "$rec") toggle_recording ;;

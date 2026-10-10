@@ -63,13 +63,19 @@ exit 0
         self.assertIn("Dotfiles installation complete!", result.stdout)
         self.assertNotIn("User units not enabled:", result.stderr)
         self.assertEqual(self.calls.read_text().splitlines()[0], "--user daemon-reload")
+        self.assertIn("--user enable wob-playback.socket", self.calls.read_text().splitlines())
+        self.assertEqual((self.home / '.config/wob/playback.ini').resolve(),
+                         DOTFILES / 'wob/playback.ini')
+        for suffix in ('service', 'socket'):
+            self.assertEqual((self.home / f'.config/systemd/user/wob-playback.{suffix}').resolve(),
+                             DOTFILES / f'systemd/user/wob-playback.{suffix}')
 
     def test_multiple_failures_preserve_diagnostics_and_finish_later_steps(self):
         result = self.run_install("mic-notify.service wob.socket")
         self.assertEqual(result.returncode, 1, result.stderr)
         calls = self.calls.read_text().splitlines()
         self.assertIn("--user enable ssh-agent.socket", calls)
-        self.assertEqual(len([c for c in calls if c.startswith("--user enable ")]), 10)
+        self.assertEqual(len([c for c in calls if c.startswith("--user enable ")]), 11)
         self.assertIn("fixture enable failure: mic-notify.service", result.stderr)
         self.assertIn("fixture enable failure: wob.socket", result.stderr)
         summary = result.stderr.split("User units not enabled:\n", 1)[1]
