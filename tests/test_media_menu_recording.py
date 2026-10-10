@@ -1,4 +1,4 @@
-"""Exercise the real toggle against temporary files and a fake recording process."""
+"""Exercise recording through the real media menu with isolated substitutes."""
 import os
 from pathlib import Path
 import signal
@@ -8,13 +8,10 @@ import time
 import unittest
 
 
-SOURCE = Path(os.environ.get(
-    "TOGGLE_RECORD_UNDER_TEST",
-    Path(__file__).resolve().parents[1] / "bash/toggle-record.sh",
-))
+SOURCE = Path(__file__).resolve().parents[1] / "bash/media-menu.sh"
 
 
-class ToggleRecordTests(unittest.TestCase):
+class MediaMenuRecordingTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="toggle-record-test-")
         self.base = Path(self.tmp.name)
@@ -26,7 +23,7 @@ class ToggleRecordTests(unittest.TestCase):
         self.env = {
             "HOME": str(self.home), "XDG_RUNTIME_DIR": str(self.runtime),
             "PATH": f"{self.bin}:/usr/bin:/bin", "LC_ALL": "C",
-            "NO_COLOR": "1", "FIXTURE_ROOT": str(self.base), "HOLD_START": "0",
+            "NO_COLOR": "1", "FIXTURE_ROOT": str(self.base), "HOLD_START": "0", "PICK_RECORD": "1",
         }
         self.processes = []
         self.addCleanup(self.cleanup)
@@ -51,6 +48,14 @@ while True:
 ''')
         self.stub("pw-record", 'exec /usr/bin/python3 "$FIXTURE_ROOT/recorder.py" "$@" >/dev/null 2>&1\n')
         self.stub("pactl", "printf 'fixture-sink\\n'\n")
+        self.stub("fuzzel", '''menu=$(cat)
+printf '%s\\n' "$menu" > "$FIXTURE_ROOT/menu"
+if [[ $PICK_RECORD == 1 ]]; then
+    printf '%s\\n' "$menu" | grep 'Recording$'
+else
+    exit 1  # cancel after observing the menu's status label
+fi
+''')
         self.stub("notify-send", '''printf '%s\\n' "$*" >> "$FIXTURE_ROOT/notices"
 if [[ $HOLD_START == 1 && $* == *"Recording started"* ]]; then
     touch "$FIXTURE_ROOT/start-notification"
@@ -77,9 +82,24 @@ fi
                     pass
         self.tmp.cleanup()
 
-    def run_toggle(self, *args):
-        return subprocess.run(["/bin/bash", str(SOURCE), *args],
+    def run_toggle(self):
+        return subprocess.run(["/bin/bash", str(SOURCE)],
                               env=self.env, text=True, capture_output=True, timeout=3)
+
+    def assert_status(self, active):
+        before = {p.name: p.read_bytes() for p in self.runtime.iterdir()}
+        notices = self.base / "notices"
+        previous_notices = notices.read_bytes() if notices.exists() else None
+        result = subprocess.run(["/bin/bash", str(SOURCE)],
+                                env=dict(self.env, PICK_RECORD="0"),
+                                text=True, capture_output=True, timeout=3)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+        label = "🔴  Stop Recording" if active else "⏺  Start Recording"
+        self.assertEqual((self.base / "menu").read_text().splitlines()[-1], label)
+        self.assertEqual({p.name: p.read_bytes() for p in self.runtime.iterdir()}, before)
+        self.assertEqual(notices.read_bytes() if notices.exists() else None,
+                         previous_notices)
 
     def wait_for(self, path):
         deadline = time.monotonic() + 3
@@ -89,7 +109,7 @@ fi
             time.sleep(0.01)
         self.fail(f"fixture did not produce {path.name}")
 
-    def test_overlapping_toggle_is_ignored_and_status_does_not_wait(self):
+    def test_overlapping_toggle_is_ignored_and_menu_status_does_not_wait(self):
         self.env["HOLD_START"] = "1"
         first = subprocess.Popen(["/bin/bash", str(SOURCE)], env=self.env,
                                  text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -102,7 +122,7 @@ fi
         self.assertTrue((self.runtime / "toggle-record.pid").exists(),
                         "overlapping toggle stopped the recorder")
         self.assertEqual((self.runtime / "toggle-record.pid").read_text(), pid)
-        self.assertEqual(self.run_toggle("status").returncode, 0)
+        self.assert_status(True)
         self.assertEqual((self.base / "recorders").read_text().splitlines(), [pid.strip()])
         (self.base / "release").touch()
         first.communicate(timeout=3)
@@ -115,15 +135,15 @@ fi
 
     def test_sequential_start_stop_and_restart(self):
         self.assertEqual(self.run_toggle().returncode, 0)
-        self.assertEqual(self.run_toggle("status").returncode, 0)
+        self.assert_status(True)
         self.assertEqual(self.run_toggle().returncode, 0)
-        self.assertEqual(self.run_toggle("status").returncode, 1)
+        self.assert_status(False)
         self.assertEqual(self.run_toggle().returncode, 0)
         self.assertEqual(len((self.base / "recorders").read_text().splitlines()), 2)
-        self.assertEqual(self.run_toggle("status").returncode, 0)
+        self.assert_status(True)
 
-    def test_inactive_status_is_read_only(self):
-        self.assertEqual(self.run_toggle("status").returncode, 1)
+    def test_cancelled_inactive_menu_is_read_only(self):
+        self.assert_status(False)
         self.assertEqual(list(self.runtime.iterdir()), [])
         self.assertFalse((self.base / "notices").exists())
 
