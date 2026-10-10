@@ -80,12 +80,12 @@ bind ,p js const ax=location.href.match(/arxiv\.org\/(?:abs|pdf)\/([\d.]+(?:v\d+
 
 " ===== YouTube → yts (mpv) =====
 " Current page: ,y video  /  ,Y audio-only
-bind ,y js tri.native.run('~/.local/bin/yts-play', location.href)
-bind ,Y js tri.native.run('~/.local/bin/yts-play -a', location.href)
+bind ,y js tri.native.run('~/.local/bin/yts --play', location.href)
+bind ,Y js tri.native.run('~/.local/bin/yts --play -a', location.href)
 " Hint a link/thumbnail and play it without opening the tab: ;y video / ;Y audio.
-" -F (not -W): -W appends the href to a shell command. The URL goes to yts-play
+" -F (not -W): -W appends the href to a shell command. The URL goes to yts
 " on stdin (native.run's second argument), never through /bin/sh.
-bind ;y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts-play', h); }
-bind ;Y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts-play -a', h); }
+bind ;y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts --play', h); }
+bind ;Y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts --play -a', h); }
 
 

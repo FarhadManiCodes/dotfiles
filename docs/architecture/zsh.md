@@ -89,8 +89,8 @@ state and the binary directory are arguments so the tests never touch the live i
 Exists because the launcher sat three months stale on 2026-09-17 while starting and
 running fine. Rewritten for the C++ version on 2026-10-06 (TODO item 13).
 
-`~/.local/bin/yts-play` (`bash/yts-play`, used by Tridactyl's `,y ,Y ;y ;Y`) is a thin
-wrapper over `yts --play`.
+Tridactyl's `,y ,Y ;y ;Y` call `~/.local/bin/yts --play` directly, with `-a` for
+audio. URLs go on stdin through `native.run`'s second argument, never into shell commands.
 
 ## Startup and prompt cost
 

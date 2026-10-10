@@ -216,6 +216,15 @@ binds {
     Mod+Shift+D repeat=false hotkey-overlay-title="Dictate (toggle)" { spawn "dictate" "toggle"; }
     Mod+Shift+Escape repeat=false hotkey-overlay-title="Cancel Dictation" { spawn "dictate" "cancel"; }
     Mod+M hotkey-overlay-title="Media Controls" { spawn "media-menu.sh"; }
+    Mod+Shift+Space repeat=false hotkey-overlay-title="Media: Pause/Resume" {
+        spawn "playerctl" "play-pause";
+    }
+    Mod+Shift+Comma repeat=false hotkey-overlay-title="Media: Backward 15 Seconds" {
+        spawn "playerctl" "position" "15-";
+    }
+    Mod+Shift+Period repeat=false hotkey-overlay-title="Media: Forward 15 Seconds" {
+        spawn "playerctl" "position" "15+";
+    }
     // Lock screen — Ctrl+Alt+L (Mod+L is reserved for Vim navigation).
     Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
     Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
