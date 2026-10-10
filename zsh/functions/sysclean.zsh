@@ -43,13 +43,30 @@ sysclean() {
   # of this machine -- the bare form removed none of the nine. The directory is
   # 0755 root:root, so the glob itself needs no root; only the removal does.
   local -a partials=(/var/cache/pacman/pkg/download-*(N) /var/cache/pacman/pkg/*.part(N))
-  if (( ${#partials} )); then
+  if [[ -e /var/lib/pacman/db.lck || -L /var/lib/pacman/db.lck ]]; then
+    echo "   Pacman lock exists — partial download cleanup skipped."
+  elif (( ${#partials} )); then
     # Pacman also leaves private download-* staging directories on interruption.
-    if sudo rm -rf -- "${partials[@]}"; then
-      echo "   Removed ${#partials} partial download(s)."
-    else
-      echo "   !! Failed to remove partial downloads — check sudo permissions."
-    fi
+    # Take the same exclusive lock as libalpm: a precheck alone races a new
+    # transaction starting while sudo waits for authentication. Only remove our
+    # own lock, after rm finishes (including errors and catchable signals).
+    local partial_status=0
+    sudo sh -c '
+      lock=$1
+      shift
+      if ! (umask 077; set -C; : > "$lock") 2>/dev/null; then
+        exit 75
+      fi
+      trap "rm -f -- \"\$lock\"" EXIT
+      trap "exit 130" INT
+      trap "exit 143" TERM
+      rm -rf -- "$@"
+    ' sysclean /var/lib/pacman/db.lck "${partials[@]}" || partial_status=$?
+    case $partial_status in
+      0) echo "   Removed ${#partials} partial download(s)." ;;
+      75) echo "   Could not acquire pacman lock — partial download cleanup skipped." ;;
+      *) echo "   !! Failed to remove partial downloads — check removal/sudo errors." ;;
+    esac
   else
     echo "   No partial downloads to remove."
   fi

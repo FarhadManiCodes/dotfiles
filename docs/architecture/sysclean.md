@@ -68,6 +68,14 @@ a failed removal reports failure instead of claiming success. This was found
 on 2026-10-10: four staging directories remained after a completed transaction,
 and the previous `rm -f` could not remove them.
 
+Partial-download cleanup skips an existing pacman database lock. Otherwise, its
+sudo child atomically creates `/var/lib/pacman/db.lck` with shell noclobber before
+removal, so libalpm cannot start a transaction during deletion. If a transaction
+starts while sudo is waiting, lock acquisition fails and downloads are preserved.
+The child releases only its own lock on exit or catchable signals; an existing
+lock is never removed. Like pacman itself, an uncatchable kill can leave a stale
+lock for manual investigation.
+
 **The file-history prune refuses an empty answer.** Step 8 removes
 `~/.claude/file-history/<id>/` with no matching `projects/**/<id>.jsonl`. If the session
 glob finds nothing, it reports that and prunes nothing — "no sessions" means the probe

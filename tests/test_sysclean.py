@@ -26,6 +26,7 @@ SOURCE_PATH = Path(__file__).resolve().parents[1] / "zsh/functions/sysclean.zsh"
 SOURCE = SOURCE_PATH.read_text()
 
 PKG_DIR = "/var/cache/pacman/pkg"
+PACMAN_LOCK = "/var/lib/pacman/db.lck"
 DUMP_DIR = "/var/lib/systemd/coredump"
 
 
@@ -55,8 +56,9 @@ class SyscleanTests(unittest.TestCase):
         self.calls = self.root / "calls"
         self.env = dict(
             os.environ, HOME=str(self.home), ROOT=str(self.root),
-            CALLS=str(self.calls), VACUUM_FAIL="",
+            CALLS=str(self.calls), VACUUM_FAIL="", LC_ALL="C",
         )
+        self.env.pop("NO_COLOR", None)
 
     # --- harness ---------------------------------------------------------------
 
@@ -66,6 +68,7 @@ class SyscleanTests(unittest.TestCase):
         and a bare `2>/dev/null` on the command cannot catch it."""
         if rewrite:
             code = code.replace(PKG_DIR + "/", '$ROOT/pkg/')
+            code = code.replace(PACMAN_LOCK, '$ROOT/db.lck')
             code = code.replace(DUMP_DIR + "/", '$ROOT/coredump/')
         script = PREAMBLE + setup + "\nstep() {\n" + code + "\n}\nstep\n"
         result = subprocess.run(
@@ -128,6 +131,60 @@ class SyscleanTests(unittest.TestCase):
         self.assertIn("Failed to remove partial downloads", output)
         self.assertNotIn("Removed", output)
         self.assertEqual(self.listing("pkg"), ["download-staging"])
+
+    def test_existing_pacman_lock_preserves_downloads_without_sudo(self):
+        self.touch("pkg/download-active/half.pkg.tar.zst.part")
+        lock = self.root / "db.lck"
+        lock.write_text("transaction owns this lock")
+        output = self.run_section(self.PARTIALS)
+        self.assertIn("Pacman lock exists", output)
+        self.assertNotIn("Removed", output)
+        self.assertEqual(self.called(), "")
+        self.assertEqual(lock.read_text(), "transaction owns this lock")
+        self.assertEqual(self.listing("pkg"), ["download-active"])
+
+    def test_transaction_starting_during_sudo_preserves_its_lock_and_downloads(self):
+        self.touch("pkg/download-active/half.pkg.tar.zst.part")
+        output = self.run_section(self.PARTIALS, setup='''
+sudo() { print -r -- transaction > "$ROOT/db.lck"; "$@" }
+''')
+        self.assertIn("Could not acquire pacman lock", output)
+        self.assertNotIn("Removed", output)
+        self.assertEqual((self.root / "db.lck").read_text(), "transaction\n")
+        self.assertEqual(self.listing("pkg"), ["download-active"])
+
+    def stub_removal(self, body):
+        bindir = self.root / "bin"
+        bindir.mkdir()
+        script = bindir / "rm"
+        script.write_text("#!/bin/sh\n" + body + '\nexec /usr/bin/rm "$@"\n')
+        script.chmod(0o755)
+        self.env["PATH"] = f"{bindir}:/usr/bin:/bin"
+
+    def test_cleanup_holds_exclusive_lock_and_releases_it_after_removal(self):
+        self.touch("pkg/download-staging/half.pkg.tar.zst.part")
+        self.stub_removal('''
+if [ "$1" = -rf ]; then
+  [ -f "$ROOT/db.lck" ] || { echo missing-lock >&2; exit 1; }
+  if (set -C; : > "$ROOT/db.lck") 2>/dev/null; then
+    echo competing-transaction-acquired-lock >&2
+    exit 1
+  fi
+fi
+''')
+        output = self.run_section(self.PARTIALS)
+        self.assertIn("Removed 1 partial download(s)", output)
+        self.assertEqual(self.listing("pkg"), [])
+        self.assertFalse((self.root / "db.lck").exists())
+
+    def test_failed_removal_releases_cleanup_lock(self):
+        self.touch("pkg/download-staging/half.pkg.tar.zst.part")
+        self.stub_removal('[ "$1" != -rf ] || exit 1')
+        output = self.run_section(self.PARTIALS)
+        self.assertIn("Failed to remove partial downloads", output)
+        self.assertNotIn("Removed", output)
+        self.assertEqual(self.listing("pkg"), ["download-staging"])
+        self.assertFalse((self.root / "db.lck").exists())
 
     def test_no_partials_says_so_and_does_not_invoke_sudo(self):
         # Nothing to remove must not spend a sudo prompt on an empty argv.
