@@ -109,7 +109,12 @@ track's MPRIS duration on a centered purple wob bar. Mod+Shift+Comma and
 Mod+Shift+Period seek backward/forward 15 seconds through the same active-player
 selection and refresh the bar after seeking. Play/Pause from the menu or
 Mod+Shift+Space also refreshes it after toggling. The bar hides after 1.5 seconds
-and does not continuously poll the player. Tracks without a known
+and does not continuously poll the player. It is 520×31 pixels (about 30% larger
+in each dimension). Pausing through these controls also shows a four-second
+notification with elapsed / total time, using hours for long tracks.
+Playback Position in the menu shows these numbers too; resuming and seeking
+show only the bar. Repeated position notifications replace each other.
+Tracks without a known
 duration report that progress is unavailable. FIFO writes are bounded to one
 second so a missing wob reader cannot hang a seek command. The menu script and
 Niri config are live symlinks. `wob-playback.socket` creates a separate runtime

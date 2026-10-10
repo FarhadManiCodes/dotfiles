@@ -30,6 +30,8 @@ if name == 'playerctl':
     elif args[-1:] == ['position']:
         print(os.environ.get('POSITION', '0'))
         sys.exit(int(os.environ.get('POSITION_STATUS', '0')))
+    elif args[-1:] == ['status']:
+        print(os.environ.get('STATUS', 'Playing'))
     sys.exit(0)
 if name == 'fuzzel':
     prompt = args[args.index('--prompt') + 1]
@@ -167,6 +169,8 @@ class MediaMenuStopTests(unittest.TestCase):
                                STATUSES='Paused\tmpv\nPlaying\tspotify_player\n')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(os.read(fd, 100), b'25\n')
+        self.assertEqual(self.calls('notify-send')[0][1][-2:],
+                         ['Media · Playback Position', '0:25 / 1:40'])
         self.assertIn(['-p', 'spotify_player', 'metadata', 'mpris:length'],
                       [c[1] for c in self.calls('playerctl')])
 
@@ -192,7 +196,31 @@ class MediaMenuStopTests(unittest.TestCase):
                 commands = [c[1] for c in self.calls('playerctl')]
                 toggle_index = max(i for i, c in enumerate(commands) if c[-1] == 'play-pause')
                 self.assertEqual(commands[toggle_index], ['-p', 'mpv.instance-test', 'play-pause'])
-                self.assertEqual(commands[toggle_index + 1], ['-p', 'mpv.instance-test', 'position'])
+                self.assertEqual(commands[toggle_index + 1], ['-p', 'mpv.instance-test', 'status'])
+                self.assertEqual(commands[toggle_index + 2], ['-p', 'mpv.instance-test', 'position'])
+
+    def test_pausing_shows_position_and_total_duration(self):
+        fd = self.progress_pipe()
+        result = self.run_menu(args=('play-pause',), STATUS='Paused', POSITION='754.9',
+                               LENGTH='2900000000')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls('notify-send')[0][1][-2:], ['Media · Paused', '12:34 / 48:20'])
+        self.assertEqual(os.read(fd, 100), b'26\n')
+
+    def test_long_tracks_use_hours_in_pause_notification(self):
+        self.progress_pipe()
+        result = self.run_menu(SELECTED='▶/⏸  Play/Pause', STATUS='Paused', POSITION='3723',
+                               LENGTH='7324000000')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls('notify-send')[0][1][-1], '1:02:03 / 2:02:04')
+
+    def test_resuming_and_seeking_do_not_show_time_notification(self):
+        self.progress_pipe()
+        for action, status in (('play-pause', 'Playing'), ('seek-forward', 'Paused')):
+            with self.subTest(action=action):
+                result = self.run_menu(args=(action,), STATUS=status, POSITION='30')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.calls('notify-send'), [])
 
     def test_progress_clamps_to_full_bar(self):
         fd = self.progress_pipe()
