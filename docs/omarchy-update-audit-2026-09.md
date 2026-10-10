@@ -214,3 +214,29 @@ Discussion complete. Last reviewed Omarchy commit: `81145eb1`.
 **Review finding adopted:** the original deadline-only capture could stage an 8 MB copy that cliphist would later discard. Match [cliphist 0.7.0's 5,000,000-byte limit](https://github.com/sentriz/cliphist/blob/v0.7.0/cliphist.go#L95-L102) before storage: bounded `head` stages at most 5,000,001 bytes, then rejects copies exceeding the limit. The extra detection byte prevents accepting a truncated oversized copy; reaching it ends capture without waiting for EOF. Exactly 5,000,000 bytes remain accepted only with EOF before the existing three-second deadline. This bounds per-capture runtime storage without timing out database writes or changing sensitive/clear-event behavior.
 
 All 17 focused tests pass, covering exact binary preservation below and at the boundary, rejection of 5,000,001-byte and 8 MB copies with staged-file size observed before cleanup, rejection of an oversized stream whose owner stays open, timeout of a limit-sized stream without EOF, and successful capture after rejection. Size-inspection failures also drop the copy. Bash syntax and ShellCheck pass. The installed helper's symlink lets the existing watcher use the updated script on its next capture; no watcher or compositor restart is needed.
+
+### 2026-10-09: `81145eb1..2519fd9a` (64 commits)
+
+Reviewed the exact fast-forward range from the October 9 pull at 21:46 CEST, identified from Omarchy's reflog: 64 commits including merges. Screened the new changes and discussed the locally plausible ideas individually. No package or configuration change adopted.
+
+**Starship clarification:** `d38b70c3` adds a desktop theme palette and four spaceflight wallpapers, not changes to the Starship terminal prompt. The palette uses orange for its green slot. The user explicitly declined the desktop theme; no terminal-prompt change applies.
+
+**Skipped USB and Thunderbolt authorization:** the user rarely connects USB devices and mostly uses their own accessories; the added daemons, trust-policy maintenance and approval workflow do not justify adoption now. USB device authorization is distinct from avoiding automatic filesystem mounting. Neither USBGuard nor Bolt was installed during this review. Boot-time USB blocking and firmware authorization changes were not adopted.
+
+**Keep toggle dictation:** Omarchy's push-to-talk release fix handles other keys or mouse buttons being released during a hold. The local Niri bindings use `dictate toggle` and a separate cancel action; the user confirms the toggle suits them. No push-to-talk or backend replacement adopted.
+
+**Skipped remote-session indicator for now:** Omarchy detects its Gliff server and displays active remote-control status. The user declined adoption now; no remote-access package or status indicator added.
+
+**Keep ncdu:** Omarchy replaces its old disk-usage tool with [Disktree](https://github.com/tobi/disktree), a graphical treemap with selection review before removal. The installed local tool is ncdu 2.9.2, and the user is satisfied with it. No additional disk-usage application adopted.
+
+**Design lessons retained:** verify the real authorization state before reporting success; invalidate approval requests when a connection changes; make remote control visible; and separate batch selection from deletion. These are lessons for relevant future work, not pending configuration tasks.
+
+Discussion complete. Last reviewed Omarchy commit: `2519fd9a`.
+
+### 2026-10-10: `2519fd9a..a15636b5` (15 commits; discussion in progress)
+
+The October 10 pull at 09:10 CEST fast-forwarded exactly 15 commits including merges. One large ARM/Apple Silicon integration changes most of the 181 affected files. The initial screen identified installer failure reporting and recording-toggle concurrency as locally relevant; recording is still to be discussed. Existing locale is `en_US.UTF-8`; Apple/ARM provisioning, Omarchy's Plymouth/Limine boot workaround, theme repairs and privileged Bash namespace checks do not require a matching local change.
+
+**Adopted installer user-service enable failure reporting:** Omarchy's `55fc353e` enables each first-run unit separately and retains an aggregate failure result. The local installer already enabled units individually, but suppressed diagnostics and unconditionally claimed success. It now preserves systemctl diagnostics, names each failed unit, continues the remaining setup, and prints a final failed-unit summary with exit status 1. The service list and enable-only behavior remain the same; this does not add runtime service starts. A successful run or successful retry retains the existing success messages and status 0. This change tracks enable failures only, not every possible installer error.
+
+Three isolated regression tests run the real installer in a temporary home with service, submodule, build and completion commands stubbed. They cover success, multiple enable failures while later units and agent-skill setup still run, and a successful retry after failure. Bash syntax and ShellCheck pass. No installer was run against the live home or service manager. Changes are recorded on the audit branch for review; this range is not yet recorded as discussion complete.
