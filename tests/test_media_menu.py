@@ -35,8 +35,6 @@ if name == 'fuzzel':
     sys.exit(0)
 if name == 'busctl':
     sys.exit(int(os.environ.get('QUIT_STATUS', '0')))
-if name == 'toggle-record.sh':
-    sys.exit(1)  # not recording
 sys.exit(0)
 '''
 
@@ -52,17 +50,20 @@ class MediaMenuStopTests(unittest.TestCase):
         self.root = Path(temp.name)
         self.bin = self.root / 'bin'
         self.bin.mkdir()
+        self.runtime = self.root / 'runtime'
+        self.runtime.mkdir()
         self.log = self.root / 'calls.jsonl'
-        for name in ('fuzzel', 'playerctl', 'busctl', 'notify-send', 'toggle-record.sh'):
+        for name in ('fuzzel', 'playerctl', 'busctl', 'notify-send'):
             path = self.bin / name
             path.write_text(FAKE)
             path.chmod(0o755)
-        for tool in ('awk', 'printf'):
+        for tool in ('awk', 'printf', 'cat'):
             real = Path('/usr/bin') / tool
             if real.exists():
                 (self.bin / tool).symlink_to(real)
         self.env = {'PATH': str(self.bin), 'HOME': str(self.root), 'LC_ALL': 'C.UTF-8',
-                    'CALLS': str(self.log), 'SELECTED': '⏹  Stop…'}
+                    'CALLS': str(self.log), 'SELECTED': '⏹  Stop…',
+                    'XDG_RUNTIME_DIR': str(self.runtime), 'NO_COLOR': '1'}
 
     def run_menu(self, **env):
         return subprocess.run(['/usr/bin/bash', str(SCRIPT)], env=dict(self.env, **env),

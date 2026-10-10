@@ -63,6 +63,38 @@ stop_player() {
         org.mpris.MediaPlayer2 Quit 2>/dev/null || playerctl -p "$player" stop
 }
 
+# Keep the existing runtime names so an already-running recording can be stopped.
+pidfile=$XDG_RUNTIME_DIR/toggle-record.pid
+
+# Our pw-record only: a bare pgrep/pkill would also match anyone else's.
+recording() { pid=$(cat "$pidfile" 2>/dev/null) && [[ $(cat "/proc/$pid/comm" 2>/dev/null) == pw-record ]]; }
+
+# A subshell contains exits and releases the lock when the toggle finishes.
+# Reading status for the menu never acquires this lock.
+toggle_recording() (
+    exec 9>"$XDG_RUNTIME_DIR/toggle-record.lock" || exit 1
+    flock -n 9 || exit 0
+
+    if recording; then
+        kill "$pid"; rm -f "$pidfile"
+        notify-send -t 3000 "Audio Recording" "Saved to ~/Audio/Recordings/"
+        exit 0
+    fi
+
+    mkdir -p "$HOME/Audio/Recordings"
+    file=$HOME/Audio/Recordings/rec_$(date +%Y%m%d_%H%M%S).flac
+    # Capture the sink itself: <sink>.monitor made pw-record use the microphone.
+    # The background recorder must not retain the toggle's lock.
+    pw-record -P stream.capture.sink=true --target "$(pactl get-default-sink)" "$file" 9>&- &
+    echo $! > "$pidfile"
+    sleep 0.3   # a pw-record that can't connect exits at once
+    if recording; then
+        notify-send -t 3000 "Audio Recording" "Recording started..."
+    else
+        rm -f "$pidfile"; notify-send -u critical "Audio Recording" "Could not start pw-record"
+    fi
+)
+
 case ${1:-} in
     focus) focus_player; exit 0 ;;
     call)
@@ -75,7 +107,7 @@ case ${1:-} in
         exit 0 ;;
 esac
 
-if toggle-record.sh status; then rec="🔴  Stop Recording"; else rec="⏺  Start Recording"; fi
+if recording; then rec="🔴  Stop Recording"; else rec="⏺  Start Recording"; fi
 choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "🎯  Focus Player" "⏹  Stop…" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 6)
 case $choice in
     "▶/⏸  Play/Pause") pc play-pause ;;
@@ -83,5 +115,5 @@ case $choice in
     "⏮  Prev") pc previous ;;
     "🎯  Focus Player") focus_player ;;
     "⏹  Stop…") stop_player ;;
-    "$rec") toggle-record.sh ;;
+    "$rec") toggle_recording ;;
 esac
