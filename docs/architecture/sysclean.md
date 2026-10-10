@@ -1,5 +1,9 @@
 # sysclean (`zsh/functions/sysclean.zsh`)
 
+`sysclean` automatically starts in shpool through `keep`, or runs in the current
+shpool session. Closing the terminal leaves cleanup running; `attach` or Mod+A
+reconnects. `--all`/`-a` still selects deep cleanup.
+
 ## CLI release pruning
 
 Step 1 keeps Claude's current binary and one fallback as before. Step 9, after
@@ -57,6 +61,20 @@ with nine `download-*` files and no `*.part`, step 2 removed none of the nine an
 removal that never ran. `bash` forgives all of this, which is why the rule is `zsh -n` for
 zsh files and never a Bash-only check. `rm -f` with zero arguments exits 0, so collecting
 first is safe when everything is empty.
+
+Pacman's `download-*` leftovers can be private staging **directories**, too.
+Step 2 uses `rm -rf` on the collected paths to cover them and `.part` files;
+a failed removal reports failure instead of claiming success. This was found
+on 2026-10-10: four staging directories remained after a completed transaction,
+and the previous `rm -f` could not remove them.
+
+Partial-download cleanup skips an existing pacman database lock. Otherwise, its
+sudo child atomically creates `/var/lib/pacman/db.lck` with shell noclobber before
+removal, so libalpm cannot start a transaction during deletion. If a transaction
+starts while sudo is waiting, lock acquisition fails and downloads are preserved.
+The child releases only its own lock on exit or catchable signals; an existing
+lock is never removed. Like pacman itself, an uncatchable kill can leave a stale
+lock for manual investigation.
 
 **The file-history prune refuses an empty answer.** Step 8 removes
 `~/.claude/file-history/<id>/` with no matching `projects/**/<id>.jsonl`. If the session

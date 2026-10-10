@@ -257,6 +257,7 @@ _sysup_bgutil "$2" || exit 1
         self.assertEqual(result.stdout.count("parent-cleanup"), 1)
 
     def test_sysup_stops_after_uv_if_helper_update_fails(self):
+        self.env["SHPOOL_SESSION_NAME"] = "sysup-test"
         result = self.run_update('''
 source "$1"
 systemd-inhibit() { return 0; }

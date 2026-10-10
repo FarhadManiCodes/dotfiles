@@ -1001,3 +1001,17 @@ Satty needed a script to size and place its window.
 - **`flameshot.ini` is not tracked:** it carries `drawColor`, rewritten on every use. A
   symlink into the repo does survive Flameshot's writes (tested), so tracking is possible,
   but the file would be dirty after almost every annotation.
+
+## Qalculate version string after the interrupted update — ACCEPTED (2026-10-10)
+
+`pacman -Q libqalculate` reports `5.13.2-1`, while `qalc --version` prints `5.13.1`.
+This is the version string in the distributed package, not evidence of a stale local
+executable: `/usr/bin/qalc` and the binary extracted from the cached 5.13.2 package
+have identical SHA-256 hashes. `pacman -Qkk libqalculate qalculate-qt` outside the
+filesystem sandbox reports zero altered files; the library's 11:11:18 transaction
+completed, its post-snapshot hook ran, and `qalc -t '1+1'` returns `2`.
+
+No reinstall. Recheck if a later package still reports the old version or calculator
+behavior fails. The four pacman download staging directories found alongside this
+were a separate cleanup issue; `sysclean` now removes directories and reports failures
+(see `docs/architecture/sysclean.md`).

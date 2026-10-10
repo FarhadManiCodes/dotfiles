@@ -34,6 +34,7 @@ class PodmanImageUpdateTests(unittest.TestCase):
             XDG_RUNTIME_DIR=str(self.root), LC_ALL="C", SYSUP_TEST_LOG=str(self.log),
             SYSUP_PULL_MARKER=str(self.marker), SYSUP_BEFORE="old", SYSUP_AFTER="new",
             SYSUP_SERVICE_STATE="inactive", SYSUP_PULL_FAIL="",
+            SHPOOL_SESSION_NAME="sysup-test",
         )
 
         for name in ("stat", "flock", "paru", "uv", "cargo", "claude"):
