@@ -115,6 +115,20 @@ class SyscleanTests(unittest.TestCase):
         self.assertIn("Removed 2 partial download(s)", output)
         self.assertEqual(self.listing("pkg"), [])
 
+    def test_download_staging_directory_is_removed(self):
+        self.touch("pkg/download-staging/half.pkg.tar.zst.part",
+                   "pkg/keep-1.0-1-x86_64.pkg.tar.zst")
+        output = self.run_section(self.PARTIALS)
+        self.assertIn("Removed 1 partial download(s)", output)
+        self.assertEqual(self.listing("pkg"), ["keep-1.0-1-x86_64.pkg.tar.zst"])
+
+    def test_failed_removal_does_not_claim_success(self):
+        self.touch("pkg/download-staging/half.pkg.tar.zst.part")
+        output = self.run_section(self.PARTIALS, setup="sudo() { return 1 }")
+        self.assertIn("Failed to remove partial downloads", output)
+        self.assertNotIn("Removed", output)
+        self.assertEqual(self.listing("pkg"), ["download-staging"])
+
     def test_no_partials_says_so_and_does_not_invoke_sudo(self):
         # Nothing to remove must not spend a sudo prompt on an empty argv.
         self.touch("pkg/keep-1.0-1-x86_64.pkg.tar.zst")

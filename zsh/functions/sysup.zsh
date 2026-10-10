@@ -34,6 +34,17 @@ sysup() {
     esac
   done
 
+  # A closed terminal must only detach the client, leaving the update alive.
+  # shpool exports this in its sessions, so keep sysup does not nest sessions.
+  if [[ -z ${SHPOOL_SESSION_NAME:-} ]]; then
+    if ! (( $+functions[keep] )); then
+      print -u2 'sysup: shpool/keep is required; install shpool and reload ~/.zshrc'
+      return 1
+    fi
+    keep sysup "$@"
+    return $?
+  fi
+
   # Hold off suspend for the duration. swayidle measures INPUT idleness, not CPU,
   # so an unattended update looks idle: on battery it locks at 5min and suspends
   # at 15 (timeout 900 in swayidle.service). A paru -Syu that builds anything

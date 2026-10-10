@@ -8,6 +8,15 @@
 # Step 3 removes packages and is not gated by --all, so pacman is left to prompt.
 
 sysclean() {
+  if [[ -z ${SHPOOL_SESSION_NAME:-} ]]; then
+    if ! (( $+functions[keep] )); then
+      print -u2 'sysclean: shpool/keep is required; install shpool and reload ~/.zshrc'
+      return 1
+    fi
+    keep sysclean "$@"
+    return $?
+  fi
+
   local all=false
   if [[ "$1" == "-a" || "$1" == "--all" ]]; then
     all=true
@@ -35,8 +44,12 @@ sysclean() {
   # 0755 root:root, so the glob itself needs no root; only the removal does.
   local -a partials=(/var/cache/pacman/pkg/download-*(N) /var/cache/pacman/pkg/*.part(N))
   if (( ${#partials} )); then
-    sudo rm -f -- "${partials[@]}"
-    echo "   Removed ${#partials} partial download(s)."
+    # Pacman also leaves private download-* staging directories on interruption.
+    if sudo rm -rf -- "${partials[@]}"; then
+      echo "   Removed ${#partials} partial download(s)."
+    else
+      echo "   !! Failed to remove partial downloads — check sudo permissions."
+    fi
   else
     echo "   No partial downloads to remove."
   fi

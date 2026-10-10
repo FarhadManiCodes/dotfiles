@@ -40,6 +40,14 @@
 | `rgf` | Live ripgrep with preview |
 | `sysup [--podman-images]` | Update the system; include installed Quadlet images only when requested |
 
+`sysup` and `sysclean` automatically use `keep` to start a fresh shpool session.
+Inside an existing shpool session (`SHPOOL_SESSION_NAME` set), they run there
+without nesting. Missing shpool/`keep` stops the command with an error. Arguments
+are preserved, including `sysup --podman-images` and `sysclean --all`.
+Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C still
+interrupts the running command. Reload `~/.zshrc` in shells already open after
+changing these functions.
+
 `rgbook` searches completed sibling `<stem>.md` review copies, not the internal
 `<stem>.refinery/refinery.md` used for re-chunking. It keeps refinery's one-based physical page
 number for Sioyek's `--page`; books without a review copy have no results.
