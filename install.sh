@@ -293,10 +293,18 @@ units_to_enable=(
   # service starts on first use.
   ssh-agent.socket
 )
+failed_user_units=()
 for unit in "${units_to_enable[@]}"; do
-  systemctl --user enable "$unit" 2>/dev/null || true
+  if ! systemctl --user enable "$unit"; then
+    failed_user_units+=("$unit")
+    printf 'Could not enable user unit: %s\n' "$unit" >&2
+  fi
 done
-echo "✅ Systemd user services installed and enabled"
+if (( ${#failed_user_units[@]} == 0 )); then
+  echo "✅ Systemd user services installed and enabled"
+else
+  echo "⚠️  Some user services could not be enabled; continuing installation" >&2
+fi
 
 # ---------------------------------------------------------------- agent skills ----
 # User-scoped rather than project-scoped on purpose. These are machine procedures --
@@ -321,7 +329,11 @@ done
 echo "✅ Agent skills linked into ~/.claude/skills and ~/.agents/skills"
 
 echo ""
-echo "🎉 Dotfiles installation complete!"
+if (( ${#failed_user_units[@]} == 0 )); then
+  echo "🎉 Dotfiles installation complete!"
+else
+  echo "⚠️  Dotfiles installation finished with user-service enable failures" >&2
+fi
 echo ""
 echo "Next steps:"
 echo "  1. Install zsh plugins: ~/.config/zsh/update-plugins.sh"
@@ -337,3 +349,12 @@ fi
 echo ""
 echo "🔐 System (root) configs are installed separately:"
 echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
+
+# Finish the remaining setup and guidance before returning the enable result.
+if (( ${#failed_user_units[@]} )); then
+  printf 'User units not enabled:\n' >&2
+  printf '  %s\n' "${failed_user_units[@]}" >&2
+  exit 1
+else
+  exit 0
+fi

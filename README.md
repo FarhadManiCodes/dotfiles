@@ -42,6 +42,8 @@ bash install.sh           # user-level: symlinks into ~/.config (no sudo)
 sudo bash install-root.sh # system-level: root-owned files under /etc
 ```
 
+User services are enabled individually. If an enable fails, `install.sh` preserves the diagnostic, continues the remaining setup, lists the failed units, and exits with status 1 instead of reporting success. Correct the reported issue and rerun the installer to retry.
+
 > `--recurse-submodules` is required to pull the Neovim config.
 
 The optional [isolated Niri session](niri/isolated-session.md) has a separate Ly entry
