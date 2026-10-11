@@ -129,7 +129,7 @@ dotfiles/
 ├── ptpython/config.py
 ├── starship.toml
 ├── bat/config
-├── htop/htoprc
+├── htop/htoprc             # template copied once; live choices stay local
 ├── sioyek/                 # Sioyek PDF/EPUB reader config
 ├── papis/                  # Bibliography manager config
 ├── mpv/mpv.conf

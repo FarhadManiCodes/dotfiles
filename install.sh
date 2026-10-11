@@ -120,7 +120,6 @@ simple_configs=(
   tridactyl/tridactylrc
   fuzzel/fuzzel.ini
   bat/config
-  htop/htoprc
   starship.toml
   foot/foot.ini
   git/config
@@ -146,6 +145,15 @@ for rel in "${simple_configs[@]}"; do
   echo "  $rel"
 done
 echo "Single-file app configs installed"
+
+# htop saves interactive choices, including sort order, to htoprc. Seed a
+# private live copy once so routine changes do not modify the tracked template.
+htop_dest="${XDG_CONFIG_HOME}/htop/htoprc"
+if [[ ! -e "$htop_dest" && ! -L "$htop_dest" ]]; then
+  mkdir -p "${XDG_CONFIG_HOME}/htop"
+  install -m 600 "${DOTFILES}/htop/htoprc" "$htop_dest"
+  echo "Created htop/htoprc from template"
+fi
 
 # git/config.local is per-machine identity, never overwritten once created.
 if [[ ! -f "${XDG_CONFIG_HOME}/git/config.local" ]]; then
