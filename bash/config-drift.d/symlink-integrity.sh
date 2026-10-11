@@ -42,7 +42,7 @@ check_symlink_integrity() {
 
   # Explicit installation mappings, kept in sync with install.sh. An arbitrary
   # tracked file is not necessarily installed. In particular, never treat docs,
-  # generated state, root copies, htop's local htoprc or Spotify's local
+  # generated state, root copies, local htop/nvtop configs or Spotify's local
   # app.toml as expected links.
   config_home=${XDG_CONFIG_HOME:-$HOME/.config}
   # -c core.fsmonitor=false: a read-only audit must not start a background daemon as

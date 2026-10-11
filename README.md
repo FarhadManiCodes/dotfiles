@@ -2,7 +2,9 @@
 
 Personal dotfiles for **Arch Linux + Niri (Wayland)** — data engineering / scientific computing setup.
 
-All user configs are symlinked from this repo via `install.sh` so changes here immediately take effect. System-level files are installed via `install-root.sh`.
+Most user configs are symlinked from this repo via `install.sh` so changes here
+immediately take effect. htop and nvtop are copied once because they save
+interactive preferences. System-level files are installed via `install-root.sh`.
 
 Agent guidance: [AGENTS.md](AGENTS.md), with scoped instructions for
 [Niri](niri/AGENTS.md) and [Neovim](nvim/AGENTS.md). Detailed references live in
@@ -130,6 +132,7 @@ dotfiles/
 ├── starship.toml
 ├── bat/config
 ├── htop/htoprc             # template copied once; live choices stay local
+├── nvtop/interface.ini     # template copied once; live choices stay local
 ├── sioyek/                 # Sioyek PDF/EPUB reader config
 ├── papis/                  # Bibliography manager config
 ├── mpv/mpv.conf
