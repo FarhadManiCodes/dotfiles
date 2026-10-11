@@ -3,7 +3,8 @@
 `install.sh` links `htop/htoprc` to `~/.config/htop/htoprc`.
 
 - Main keeps the original columns except VIRT and adds START before TIME+.
-- I/O keeps its disk rates and I/O delay; it drops SWAPD% and shows S after USER.
+- I/O shows S after USER and the total, read, and write disk rates. It sorts by
+  total disk rate.
 - Tab and Shift-Tab switch between the two screens.
 
 The live config is the tracked file. htop can rewrite it after changes in Setup
