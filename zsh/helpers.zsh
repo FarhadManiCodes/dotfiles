@@ -75,37 +75,13 @@ batt() {
     local power_mw=$(cat /sys/class/power_supply/BAT0/power_now)
     local watts=$(awk -v p=$power_mw 'BEGIN {printf "%.1f", p/1000000}')
 
-    # --- 2. Smart Sensor Scan ---
-    local cpu_temp="N/A"
-    local gpu_temp="N/A"
-    local nvme_temp="N/A"
-
-    # Iterate over all hwmon directories to find the right ones by name
-    for hwmon in /sys/class/hwmon/hwmon*; do
-        [ -e "$hwmon/name" ] || continue
-        local name=$(cat "$hwmon/name")
-
-        # Find CPU (k10temp) - Tctl is usually temp1
-        if [[ "$name" == "k10temp" ]]; then
-            if [ -f "$hwmon/temp1_input" ]; then
-                cpu_temp=$(($(cat "$hwmon/temp1_input") / 1000))"°C"
-            fi
-        fi
-
-        # Find GPU (amdgpu) - edge is usually temp1
-        if [[ "$name" == "amdgpu" ]]; then
-            if [ -f "$hwmon/temp1_input" ]; then
-                gpu_temp=$(($(cat "$hwmon/temp1_input") / 1000))"°C"
-            fi
-        fi
-
-        # Find NVMe - Composite is usually temp1
-        if [[ "$name" == "nvme" ]]; then
-            if [ -f "$hwmon/temp1_input" ]; then
-                nvme_temp=$(($(cat "$hwmon/temp1_input") / 1000))"°C"
-            fi
-        fi
-    done
+    # --- 2. One JSON sensor snapshot ---
+    local readings sensor_warning=""
+    local cpu_temp gpu_temp nvme_temp fan1 fan2
+    if ! readings=$(hardware-readings); then
+        sensor_warning="Sensor readings unavailable"
+    fi
+    IFS=$'\t' read -r cpu_temp gpu_temp nvme_temp fan1 fan2 <<<"${readings:-$'N/A\tN/A\tN/A\tN/A\tN/A'}"
 
     # --- 3. Visuals & Colors ---
     local color=""
@@ -139,6 +115,9 @@ batt() {
     echo -e "CPU:      ${cpu_temp}"
     echo -e "GPU:      ${gpu_temp}"
     echo -e "NVMe:     ${nvme_temp}"
+    echo -e "Fan 1:    ${fan1}"
+    echo -e "Fan 2:    ${fan2}"
+    [[ -n "$sensor_warning" ]] && echo "$sensor_warning"
     if [[ "$bat_status" == "Discharging" ]]; then
         echo -e "-----------------"
         echo -e "Time:     ${time_str}"

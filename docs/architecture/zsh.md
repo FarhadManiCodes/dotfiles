@@ -36,6 +36,7 @@
 | `fdata` | Find data/model files |
 | `gci` | Interactive commit |
 | `gstds` | Git status with data science awareness |
+| `batt` | Battery status, power draw, CPU/GPU/NVMe temperatures and both fan speeds |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
 | `sysup [--podman-images]` | Update the system; include installed Quadlet images only when requested |
@@ -47,6 +48,18 @@ are preserved, including `sysup --podman-images` and `sysclean --all`.
 Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C still
 interrupts the running command. Reload `~/.zshrc` in shells already open after
 changing these functions.
+
+`batt` uses `bash/hardware-readings`, shared with the Mod+Shift+N temperature
+notification. Each request invokes `sensors -j` once and `jq` once, without
+background monitoring. The helper returns five tab-separated display values:
+CPU, GPU, NVMe, Fan 1 and Fan 2. It matches chip prefixes and reads k10temp's
+Tctl, amdgpu's edge, NVMe's Composite and ThinkPad's two fan inputs, excluding
+redundant ACPI readings and PWM. Temperatures have one decimal place; zero RPM
+is preserved and missing/null/nonnumeric readings show `N/A`. Invalid or empty
+JSON produces five `N/A` values, exit status 1 and an explanatory message from
+the caller; valid JSON is used even if unrelated subfeatures report read errors.
+The installer links the helper through its existing `bash/*` mapping. Reload
+`~/.config/zsh/helpers.zsh` to update `batt` in an existing shell.
 
 `rgbook` searches completed sibling `<stem>.md` review copies, not the internal
 `<stem>.refinery/refinery.md` used for re-chunking. It keeps refinery's one-based physical page

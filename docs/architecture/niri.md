@@ -91,6 +91,17 @@ A legitimate transfer exceeding three seconds is omitted from history without ch
 
 Rollback restores `wl-paste --watch cliphist store` in the startup configuration, stops only the verified guarded watcher, and launches `/usr/bin/wl-paste --watch cliphist store` through `niri msg action spawn --`. No history database deletion or clipboard clearing is needed. Remove the helper's symlink if reverting its tracked source, to avoid leaving a dangling link.
 
+## Status temperatures
+
+Mod+Shift+N opens `bash/status-menu`; selecting **Temperatures** shows CPU, GPU
+and SSD temperatures, then independently labeled Fan 1 and Fan 2 speeds.
+The thermometer icon and low-urgency Mako style are retained. It uses the shared
+`bash/hardware-readings` helper described in [Zsh](zsh.md): one `sensors -j`
+snapshot and one `jq` parse per selection. Missing readings show `N/A`, and
+stopped fans show `0 RPM`. Canceling the menu or choosing another item reads no
+hardware sensors. There are no polling loops or background services. Changes
+apply on the next menu invocation through its existing live symlink.
+
 ## Media menu
 
 Mod+M opens `bash/media-menu.sh`. Prev seeks to the start of the current track
