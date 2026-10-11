@@ -19,6 +19,7 @@ state before acting. Read the file for the app you're touching before changing i
   meaning what it used to
 - [USB media](architecture/usb-media.md) — vifm `:media`, no automount daemon
 - [Tmux](architecture/tmux.md) — identity segment, ssh detection
+- [nvtop](architecture/nvtop.md) — GPU process columns and private saved preferences
 - [Git](architecture/git.md) — submodule push guard, `core.fsmonitor` off
 - [SSH](architecture/ssh.md) — passphrase-protected key, agent lifetime
 - [Firefox](architecture/firefox.md) — userChrome, about:config

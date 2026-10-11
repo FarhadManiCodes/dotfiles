@@ -165,6 +165,15 @@ elif [[ -L "$htop_dest" && "$htop_dest" -ef "${DOTFILES}/htop/htoprc" ]]; then
   fi
 fi
 
+# nvtop saves setup changes back to interface.ini. Seed a private copy once;
+# keep any existing live preferences, including links to other targets.
+nvtop_dest="${XDG_CONFIG_HOME}/nvtop/interface.ini"
+if [[ ! -e "$nvtop_dest" && ! -L "$nvtop_dest" ]]; then
+  mkdir -p "${XDG_CONFIG_HOME}/nvtop"
+  install -m 600 "${DOTFILES}/nvtop/interface.ini" "$nvtop_dest"
+  echo "Created nvtop/interface.ini from template"
+fi
+
 # git/config.local is per-machine identity, never overwritten once created.
 if [[ ! -f "${XDG_CONFIG_HOME}/git/config.local" ]]; then
     cat > "${XDG_CONFIG_HOME}/git/config.local" << 'GITLOCAL'
