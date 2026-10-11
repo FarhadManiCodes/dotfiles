@@ -42,7 +42,8 @@ check_symlink_integrity() {
 
   # Explicit installation mappings, kept in sync with install.sh. An arbitrary
   # tracked file is not necessarily installed. In particular, never treat docs,
-  # generated state, root copies or Spotify's local app.toml as expected links.
+  # generated state, root copies, htop's local htoprc or Spotify's local
+  # app.toml as expected links.
   config_home=${XDG_CONFIG_HOME:-$HOME/.config}
   # -c core.fsmonitor=false: a read-only audit must not start a background daemon as
   # a side effect. Redundant while fsmonitor is off globally (git/config), and kept
@@ -107,7 +108,7 @@ check_symlink_integrity() {
         glow/glow.yml|mpv/mpv.conf|yt-dlp/config|cmus/rc|direnv/direnvrc|uv/uv.toml|gh/config.yml|\
         mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
         vifm/colors/zenburn-rich.vifm|tridactyl/tridactylrc|fuzzel/fuzzel.ini|bat/config|\
-        htop/htoprc|starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
+        starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
         sioyek/prefs_user.config|sioyek/keys_user.config|\
         clangd/config.yaml|spotify-player/theme.toml|ccache/ccache.conf|wob/wob.ini|wob/playback.ini|\
         latexmk/latexmkrc|mimeapps.list|papis/config|containers/containers.conf|\
