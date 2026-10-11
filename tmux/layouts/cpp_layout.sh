@@ -57,9 +57,9 @@ tmux send-keys "echo '🔥 s perf stat    r perf record/report   f samply'" C-m
 tmux send-keys "echo '🧠 Memory check:  Prefix B → v (valgrind)'" C-m
 tmux send-keys "echo '--------------------------------'" C-m
 
-# Move to top pane and open btop
+# Move to top pane and open htop
 tmux select-pane -U
-tmux send-keys "btop-code" C-m
+tmux send-keys "htop" C-m
 
 # ==============================================================================
 # FINALIZE: focus back on code window, top (editor) pane

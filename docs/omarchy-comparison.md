@@ -64,7 +64,7 @@ Recorded with the reason, because a bare "no" gets re-proposed.
 | 24 | Firefox `policies.json` (5 prefs) | vaapi already on; no fractional scaling (`scale: 1.0`); `widget.disable-swipe-tracker=false` **is** Firefox's default, so it is a no-op; the rest cosmetic |
 | 26 | ALPM hooks | Theirs force users through `omarchy-update`. `snap-pac` already brackets every transaction here regardless of what invoked it. Worth remembering only as the mechanism: `PreTransaction` + `AbortOnFail` is the only hard gate in front of pacman |
 | 28 | Not exporting `BROWSER` | Their claim is true (`xdg-settings set` refuses while `$BROWSER` is set, so Firefox's "Make Default" button silently fails here) but their conclusion inverts: `XDG_CURRENT_DESKTOP=niri` is not in xdg-utils' DE list, so `xdg-open` takes the generic path where `$BROWSER` is a real fallback ahead of a hardcoded guess-list. `environment.d` stays its home — `zsh/.zshenv` would reach only zsh, losing systemd user units. The cost is a button we do not use, since `mimeapps.list` is hand-maintained |
-| 29 | `xcompose`, `themed/btop.theme.tpl`, `themed/claude.json.tpl`, `launcher.hides`, the yt-dlp browser button | No compose key is configured (would be two changes); btop is pinned by decision; Claude Code's `"theme": "auto"` is already the terminal-native mechanism their template exists to work around; pasting a URL is how downloads happen here |
+| 29 | `xcompose`, `themed/btop.theme.tpl`, `themed/claude.json.tpl`, `launcher.hides`, the yt-dlp browser button | No compose key is configured (would be two changes); the btop theme was pinned at the time of this comparison (btop has since been removed); Claude Code's `"theme": "auto"` is already the terminal-native mechanism their template exists to work around; pasting a URL is how downloads happen here |
 | — | `zswap` tmpfiles rule | `zswap.enabled=0` is already on the kernel command line |
 | — | `fs.inotify.max_user_watches` | Already 524288, set by `/usr/lib/sysctl.d/10-arch.conf` — same value they set |
 | — | `DefaultLimitNOFILE=65536:524288` | systemd's own docs caution against raising the **soft** limit past 1024: `select(2)` cannot handle descriptors above 1023. A service with a demonstrated need can set `LimitNOFILE=` itself |
@@ -162,8 +162,8 @@ inside the rclone FUSE mount), `git`, `foot` keybindings, `tmux` (466 to 106), `
 load-bearing work here), `yt-dlp` (twelve substantive lines to their single package name), and
 the seven `.desktop` launchers, which `desktop-file-validate` passes clean.
 
-**Nothing to take, no overlap:** `btop` (`save_config_on_exit=false` here is correct — `true`
-would rewrite through the symlink and dirty the repo every run), `environment.d` (four fcitx5
+**Nothing to take, no overlap:** `btop` (removed since this comparison; while tracked,
+`save_config_on_exit=false` avoided rewriting its symlink), `environment.d` (four fcitx5
 lines against our locale/session/podman), `wireplumber` (ours is an empty directory),
 `modprobe.d` (disjoint — theirs disables USB autosuspend globally, ours blacklists `kvm_amd` and
 `sp5100_tco`), `tmpfiles.d`, `systemd/user` (nine units each, no shared name), `sysctl`,

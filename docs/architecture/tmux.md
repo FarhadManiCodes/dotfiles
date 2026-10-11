@@ -1,7 +1,8 @@
 # Tmux
 
 - **Config**: `tmux/tmux.conf` — prefix `Ctrl-a`
-- **Layouts**: `tmux/layouts/cpp_layout.sh` — the only one; `Prefix W` runs it directly
+- **Layouts**: `tmux/layouts/cpp_layout.sh` — the only one; `Prefix W` runs it directly,
+  with htop in the top pane of the profiling window
 - **Identity segment**: an `%if` block in `tmux.conf`, **before tpm** (when tmux-power
   reads `@tmux_power_*`). tmux-power's stock `left_a` is ` #{USER}@#h` —
   "farhad@arch-thinkpad", a permanent slot spent on two facts never in doubt. The block
