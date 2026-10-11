@@ -129,6 +129,7 @@ dotfiles/
 ├── ptpython/config.py
 ├── starship.toml
 ├── bat/config
+├── htop/htoprc
 ├── sioyek/                 # Sioyek PDF/EPUB reader config
 ├── papis/                  # Bibliography manager config
 ├── mpv/mpv.conf
