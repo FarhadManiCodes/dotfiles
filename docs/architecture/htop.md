@@ -1,8 +1,9 @@
 # htop
 
 `htop/htoprc` is the tracked template. `install.sh` copies it to
-`~/.config/htop/htoprc` only when no live config exists; later installs leave
-the live file alone.
+`~/.config/htop/htoprc` when no live config exists. It also migrates an old
+symlink to this template into a private copy, preserving the live contents.
+Independent live files and links to other targets are left alone.
 
 - Main keeps the original columns except VIRT and adds START before TIME+.
 - I/O shows S after USER and the total, read, and write disk rates. It sorts by

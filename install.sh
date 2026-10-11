@@ -148,11 +148,21 @@ echo "Single-file app configs installed"
 
 # htop saves interactive choices, including sort order, to htoprc. Seed a
 # private live copy once so routine changes do not modify the tracked template.
+# Migrate only links to this template; preserve their current contents and
+# leave independent live configs (including links elsewhere) alone.
 htop_dest="${XDG_CONFIG_HOME}/htop/htoprc"
 if [[ ! -e "$htop_dest" && ! -L "$htop_dest" ]]; then
   mkdir -p "${XDG_CONFIG_HOME}/htop"
   install -m 600 "${DOTFILES}/htop/htoprc" "$htop_dest"
   echo "Created htop/htoprc from template"
+elif [[ -L "$htop_dest" && "$htop_dest" -ef "${DOTFILES}/htop/htoprc" ]]; then
+  htop_tmp=$(mktemp "${XDG_CONFIG_HOME}/htop/.htoprc.XXXXXX") || exit 1
+  if install -m 600 "$htop_dest" "$htop_tmp" && mv -fT "$htop_tmp" "$htop_dest"; then
+    echo "Migrated htop/htoprc to a private copy"
+  else
+    rm -f -- "$htop_tmp"
+    exit 1
+  fi
 fi
 
 # git/config.local is per-machine identity, never overwritten once created.
