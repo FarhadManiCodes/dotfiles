@@ -107,7 +107,7 @@ check_symlink_integrity() {
         glow/glow.yml|mpv/mpv.conf|yt-dlp/config|cmus/rc|direnv/direnvrc|uv/uv.toml|gh/config.yml|\
         mako/config|vifm/vifmrc|vifm/colors/catppuccin-mocha.vifm|\
         vifm/colors/zenburn-rich.vifm|tridactyl/tridactylrc|fuzzel/fuzzel.ini|bat/config|\
-        starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
+        htop/htoprc|starship.toml|foot/foot.ini|git/config|git/ignore|lazygit/config.yml|\
         sioyek/prefs_user.config|sioyek/keys_user.config|\
         clangd/config.yaml|spotify-player/theme.toml|ccache/ccache.conf|wob/wob.ini|wob/playback.ini|\
         latexmk/latexmkrc|mimeapps.list|papis/config|containers/containers.conf|\

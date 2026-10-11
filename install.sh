@@ -120,6 +120,7 @@ simple_configs=(
   tridactyl/tridactylrc
   fuzzel/fuzzel.ini
   bat/config
+  htop/htoprc
   starship.toml
   foot/foot.ini
   git/config
