@@ -823,14 +823,14 @@ _hyperfine_compare_session() {
     send_to_profile "hyperfine --shell=none --warmup 10 --min-runs 50 --output null '$cmd_a' '$cmd_b'"
 }
 
-# Returns the shell pane in the "profile" window (the non-btop pane)
+# Returns the shell pane in the "profile" window (the non-htop pane)
 find_profile_pane() {
     local win
     win=$(tmux list-windows -F '#{window_name} #{window_id}' 2>/dev/null \
         | grep '^profile ' | awk '{print $2}') || true
     [[ -z "$win" ]] && return 0
     tmux list-panes -t "$win" -F '#{pane_id} #{pane_current_command}' 2>/dev/null \
-        | grep -vE '\bbtop\b' | tail -1 | awk '{print $1}' || true
+        | grep -vE '\bhtop\b' | tail -1 | awk '{print $1}' || true
 }
 
 # Send a command string to the profile pane and switch focus there

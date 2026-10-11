@@ -25,13 +25,9 @@ Tools follow in one of two ways, **preferring the first**:
    hot pink. With `g0` as the real background the same green scores 8.52 dark / 4.24
    light.
 
-Deliberately **not** following: GTK apps (always light — see below), Firefox, the reader
-(sioyek F8), and **btop**. btop was checked 2026-09-05 and left
-alone by decision, not oversight: it's pinned to `color_theme = "tokyo-night"` with
-`theme_background = true`, and could be wired up (41 themes, 10 light) but isn't wanted.
-`theme_background = false` isn't either — btop has no terminal-following mode for
-foreground colours, so tier 1 isn't available here. Note vim applies its theme on
-`VimEnter`, which fires *after* `-c` commands.
+Deliberately **not** following: GTK apps (always light — see below), Firefox, and the
+reader (sioyek F8). Note vim applies its theme on `VimEnter`, which fires *after* `-c`
+commands.
 
 ## GTK appearance — dconf, not settings.ini
 

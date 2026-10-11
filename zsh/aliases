@@ -120,14 +120,6 @@ alias zsh-update='~/.config/zsh/update-plugins.sh'
 # sysclean is a function (zsh/functions/sysclean.zsh) — smart system & cache cleanup
 
 # ============================================================================
-# BTOP
-# ============================================================================
-if command -v btop >/dev/null 2>&1; then
-  alias btop-code='btop --preset 1 -u 1000'  # cpu + proc only, no net/disk, 1s updates
-  alias btop-sys='btop --preset 2'   # cpu + mem + net
-fi
-
-# ============================================================================
 # NCDU
 # ============================================================================
 command -v ncdu >/dev/null 2>&1 && alias ncdu='ncdu -x'
