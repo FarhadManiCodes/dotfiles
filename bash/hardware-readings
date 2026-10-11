@@ -1,0 +1,35 @@
+#!/bin/bash
+# One on-demand snapshot, shared by status-menu and the Zsh batt function.
+# Output: CPU, GPU, NVMe, Fan 1, Fan 2 as tab-separated display values.
+# Exit 1 means the snapshot could not be parsed; output still has five N/A fields.
+
+# Some unrelated ThinkPad subfeatures fail while sensors still emits usable JSON.
+snapshot=$(sensors -j 2>/dev/null)
+if readings=$(jq -ers '
+    if length != 1 or (.[0] | type) != "object" then
+        error("Expected one sensor object")
+    else .[0] end
+    | def chip($prefix):
+        first(to_entries[] | select(.key | startswith($prefix)) | .value) // {};
+      def temperature:
+        if type == "number" then
+            (. * 10 | round) as $tenths
+            | (if $tenths < 0 then "-" else "" end)
+              + (($tenths | fabs / 10 | floor) | tostring) + "."
+              + (($tenths | fabs % 10) | tostring) + "°C"
+        else "N/A" end;
+      def fan:
+        if type == "number" then (round | tostring) + " RPM" else "N/A" end;
+      [
+        (chip("k10temp-").Tctl.temp1_input | temperature),
+        (chip("amdgpu-").edge.temp1_input | temperature),
+        (chip("nvme-").Composite.temp1_input | temperature),
+        (chip("thinkpad-isa-").fan1.fan1_input | fan),
+        (chip("thinkpad-isa-").fan2.fan2_input | fan)
+      ] | @tsv
+' <<<"$snapshot" 2>/dev/null); then
+    printf '%s\n' "$readings"
+else
+    printf 'N/A\tN/A\tN/A\tN/A\tN/A\n'
+    exit 1
+fi

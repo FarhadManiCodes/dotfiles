@@ -17,7 +17,7 @@ WORLD=$(printf '\U000f01e7')
 NET=$(printf '\U000f059f')    # nf-md-web (globe)
 WIFI=$(printf '\U000f05a9')   # nf-md-wifi
 ETH=$(printf '\U000f0200')    # nf-md-ethernet
-choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s CPU Temp\n%s Memory\n%s Time\n%s Codex\n%s Claude' \
+choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s Temperatures\n%s Memory\n%s Time\n%s Codex\n%s Claude' \
     "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" "$OPENAI" "$CLAUDE" \
     | fuzzel --dmenu --prompt "Status: " --width 30 --lines 8)
 [[ -z "$choice" ]] && exit 0
@@ -100,21 +100,15 @@ case "$choice" in
         load=$(awk '{printf "%s  %s  %s", $1, $2, $3}' /proc/loadavg)
         notify-send -u low "${CLOCK} Uptime" "$(uptime -p)\nLoad (1/5/15 min): ${load}"
         ;;
-    *"CPU Temp"*)
-        # First match of each; values compared with "" since a fan can read 0.
-        body=$(sensors 2>/dev/null | awk '
-            /Tctl/    && cpu == "" { cpu = $2 }
-            /^edge:/  && gpu == "" { gpu = $2 }
-            /^fan1:/  && f1 == ""  { f1 = $2 }
-            /^fan2:/  && f2 == ""  { f2 = $2 }
-            END {
-                gsub(/[+°C]/, "", cpu); gsub(/[+°C]/, "", gpu)
-                s = cpu != "" ? "CPU " cpu "°C" : ""
-                if (gpu != "") s = s " • GPU " gpu "°C"
-                if (f1 != "")  s = s " • Fan " f1 (f2 != "" ? "/" f2 : "") " RPM"
-                print s
-            }')
-        notify-send -u low "${THERM} CPU Temp" "$body"
+    *Temperatures*)
+        sensor_warning=""
+        if ! readings=$(hardware-readings); then
+            sensor_warning=$'\nSensor readings unavailable'
+        fi
+        IFS=$'\t' read -r cpu gpu ssd fan1 fan2 <<<"${readings:-$'N/A\tN/A\tN/A\tN/A\tN/A'}"
+        printf -v body 'CPU %s • GPU %s • SSD %s\nFan 1 %s • Fan 2 %s%s' \
+            "$cpu" "$gpu" "$ssd" "$fan1" "$fan2" "$sensor_warning"
+        notify-send -u low "${THERM} Temperatures" "$body"
         ;;
     *Memory*)
         # "none" only when there is no swap at all: unused swap reads "0B used".
