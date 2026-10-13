@@ -50,6 +50,15 @@ layout {
         proportion 0.66667
     }
 
+    // Heights cycled by switch-preset-window-height (Mod+Shift+R); niri's
+    // default omits 1.0, so the cycle could never return to full height.
+    preset-window-heights {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+        proportion 1.0
+    }
+
     default-column-width { proportion 0.5; }
 
     // Catppuccin Mocha: Blue active, Surface2 inactive.
