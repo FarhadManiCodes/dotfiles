@@ -105,8 +105,16 @@ fileviewer {*.zip,*.tar,*.tar.gz,*.tgz,*.tar.bz2,*.tbz2,*.tar.xz,*.txz,
 fileviewer *.svg resvg -w 800 --background "#3a3a3a" %c -c 2>/dev/null
          \ | chafa --format=symbols --bg "#3a3a3a" --size=%pwx%ph -
 
-" Images — ANSI block art via chafa (forced symbols mode, no sixel)
-fileviewer {*.bmp,*.gif,*.ico,*.jpeg,*.jpg,*.png,*.tiff,*.tif,*.webp,*.avif}
+" JPEG — decoder-assisted thumbnail before chafa; --size alone decodes in full.
+" Read via stdin so ImageMagick cannot interpret special filenames as options.
+" %%G restores the source size if the JPEG decoder enlarges a small image.
+fileviewer {*.jpeg,*.jpg}
+         \ magick -limit thread 1 -define jpeg:size=800x800 - -resize '%%G>' -auto-orient
+         \ -thumbnail '800x800>' -define png:compression-level=0 png:- < %c:p
+         \ | chafa --format=symbols --size=%pwx%ph -
+
+" Other images — keep native loaders (no generic decoder downsampling).
+fileviewer {*.bmp,*.gif,*.ico,*.png,*.tiff,*.tif,*.webp,*.avif}
          \ chafa --format=symbols --size=%pwx%ph %c
 
 " Video — file info only (no binary dump)
