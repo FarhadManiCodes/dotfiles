@@ -72,8 +72,14 @@ Claude-oriented restrictions; it is not a Codex loader compatibility test.
   read-access isolation; actual access is governed by the active permission policy.
 - No repository Claude commands, hooks, custom agents, or MCP configuration were
   found to convert. Codex supports hooks, but none are needed for this migration.
-- `claude update` and old-version pruning in `sysup.zsh` remain Claude-specific.
-  Codex update handling depends on how it is installed and is not substituted here.
+- `claude update` and old-version pruning in `sysup.zsh` are Claude-specific.
+  Codex's CLI moved from the curl-installed standalone build to the Arch package
+  `openai-codex` on 2026-10-19. Pacman owns the CLI and `paru` already updates it
+  through `sysup`, so no separate CLI update step is needed. The package-owned CLI
+  still launches a separately managed app server under `~/.codex/packages/`;
+  `sysclean` step 9 retains pruning for `app-server-daemon`, while retiring
+  `standalone` pruning. See [sysclean](architecture/sysclean.md#cli-release-pruning)
+  for the process evidence and retention rules.
 - Branch/commit/merge instructions retain their workflow intent, conditional on
   the task authorizing those operations. A reference to a maintenance command is
   not an instruction to run it during every edit.

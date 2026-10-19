@@ -312,7 +312,7 @@ fi
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, '')
-        for kind in ('standalone', 'app-server-daemon'):
+        for kind in ('app-server-daemon',):
             releases = self.home / '.codex/packages' / kind / 'releases'
             self.assertEqual(sorted(p.name for p in releases.iterdir()), [
                 '0.157.1-x86_64-unknown-linux-musl',
@@ -325,6 +325,12 @@ fi
                                capture_output=True, text=True, timeout=30)
         self.assertEqual(again.returncode, 0, again.stderr)
         self.assertIn('no older releases to remove', again.stdout)
+        self.assertEqual(sorted(p.name for p in (
+            self.home / '.codex/packages/standalone/releases').iterdir()), [
+                '0.157.0-x86_64-unknown-linux-musl',
+                '0.157.1-x86_64-unknown-linux-musl',
+                '0.158.0-x86_64-unknown-linux-musl',
+            ])
 
     # --- step 10: Firefox cache -----------------------------------------------
 

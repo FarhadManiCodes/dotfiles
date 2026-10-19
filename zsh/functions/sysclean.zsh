@@ -229,8 +229,9 @@ sysclean() {
   echo "==> sysclean done"
 }
 
-# Keep the selected Codex release and one completed fallback for each installer
-# component. Both components have their own `current` symlink and release tree.
+# Keep the app server's selected release and one completed fallback. The
+# package-owned CLI still launches this separately managed component. Standalone
+# CLI releases are retired after the move to pacman; do not maintain that tree.
 _sysclean_prune_codex_releases() {
   if ! command -v fuser >/dev/null 2>&1; then
     echo "   !! fuser unavailable — Codex releases not pruned"
@@ -239,7 +240,7 @@ _sysclean_prune_codex_releases() {
 
   local kind base dir current fallback candidate removed held current_name fallback_name detail
   local -a versions ordered
-  for kind in standalone app-server-daemon; do
+  for kind in app-server-daemon; do
     base="$HOME/.codex/packages/$kind"
     dir="$base/releases"
     [[ -d $dir && ! -L $dir ]] || continue
