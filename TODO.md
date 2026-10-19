@@ -30,6 +30,13 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
 | 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
 | 15. Fingerprint recovery after resume | Installed; hardware verification pending | Several normal cycles, including an active scan; check fingerprint and password unlock |
+| 16. Offline PDF signatures | Explore; no implementation yet | Compare established tools with a small Sioyek integration |
+| 17. Stale results and overlapping writes | Code findings; live reproduction pending | Guard header/source switching, bibliography updates, and Docs sync-back |
+| 18. External text and download limits | Code findings; implementation pending | Four guards for notifications, OCR responses, Docs terminal text, and mirror downloads |
+| 19. Phone clipboard link | Open 2026-10-16; user will build their own | Design a light PC-to-phone (and back) text path |
+| 20. External browser links | Planning; implementation pending | Establish Firefox delivery and focus behavior across windows |
+| 21. Test usefulness and reliability | Future audit | Inventory coverage and measure sequential suite durations |
+| 22. Bounded Vifm image previews | Investigation only | Measure decoder costs, then choose a preview policy |
 
 ## 1. Off-machine backup
 
@@ -353,3 +360,99 @@ application shows icons from the chosen theme.
 ## 15. Verify fingerprint recovery after resume
 
 **Recovery installed 2026-10-05; hardware verification pending.** During several normal suspend/resume cycles, include one scan active before suspend. Confirm the `fprintd-resume` submission and fprintd stop/start evidence in matching journal windows, fingerprint recovery after wake, and password fallback. Also observe a cycle with fprintd inactive: the hook should leave it inactive. No automatic suspend or forced scan failure. Procedure and rollback: [system notes](docs/system-notes.md#fingerprint-recovery-after-resume-2026-10-05).
+
+## 16. Explore offline PDF signatures
+
+**Requested 2026-10-12.** Currently uses online tools; an offline workflow would be useful for placing a handwritten signature on a PDF, adding text or dates, and saving a separate completed copy. Omarchy's Signed is excluded by preference.
+
+**Explore:** established tools such as Xournal++ and Okular, compared with a small extension or feature in the user's Sioyek fork. Distinguish placing a signature image from certificate-based digital signing before choosing scope. For Sioyek, investigate visual placement and resizing, PDF coordinates and rotation, reusable signature storage outside the public dotfiles, and export that preserves the original document and existing PDF features.
+
+**Next decision:** choose a standalone tool, a Sioyek command that opens one, or a narrowly scoped native signing feature. No installation or implementation is authorized by this exploration item.
+
+**Done when:** choose a practical offline workflow and confirm a saved copy displays correctly in another PDF reader.
+
+## 17. Guard stale results and overlapping writes
+
+**Requested 2026-10-12.** Review of local code found three places where work based on earlier state can affect newer state. These are code findings, not reproduced live failures. This item records follow-up work; no implementation yet.
+
+- **Neovim header/source switching — first priority:** `nvim/lua/config/lsp.lua` sends an asynchronous clangd `textDocument/switchSourceHeader` request and edits the returned file without checking whether the originating buffer or request is still current. Switching buffers or issuing another request before the response arrives can let an older response navigate away from newer state. Capture the originating buffer and a request generation; apply the response only while both still match. Verify delayed responses after switching buffers and responses arriving out of order.
+- **Bibliography updates:** `bash/papis-bib` reads, computes, and atomically replaces `refs.bib` without a lock around the transaction. Separate editor instances, or pruning overlapping a compile, can overwrite changes computed from the same earlier file. Add a per-bibliography lock covering read through write; interactive pruning also needs to detect external edits before saving. Atomic replacement alone prevents partial files, not lost updates. Verify overlapping syncs preserve all additions and pruning refuses to overwrite intervening edits.
+- **Google Docs sync-back:** `bash/gdocs-open` downloads directly over the original file. A local edit during the download or another sync terminal targeting the same file can be overwritten. Download to a temporary file, check that the original still matches its starting state, and only then replace it; serialize syncs with a per-file lock. Verify intervening local edits are preserved and overlapping syncs cannot overwrite one another unchecked.
+
+**Done when:** each guard has focused behavioral verification, with stale navigation discarded and conflicting writes rejected or serialized.
+
+## 18. Treat external display text as untrusted and bound downloads
+
+**Requested 2026-10-12.** Four follow-ups from local source inspection; no implementation yet. Prioritize notification escaping and OCR response limits. Wi-Fi notification text already escapes markup and sanitizes control characters, so it needs no corresponding change.
+
+1. **OCR and QR notification escaping:** `bash/capture-ocr` and `bash/qrscan` pass recognized text directly into notification bodies; Mako enables Pango markup by default. Escape ampersands and angle brackets in displayed text while preserving the original clipboard contents. Verify literal markup-like text displays correctly and clipboard bytes are unchanged.
+2. **OCR response byte limits:** `bash/capture-ocr` parses successful JSON responses and reads HTTP error bodies without a byte cap. The short notification preview happens after downloading the response. Bound reads before parsing, including error responses, and reject oversized replies explicitly. Verify oversized success and error responses stop at the limit and are not reported as successful OCR.
+3. **Google Docs terminal rendering:** `bash/gdocs-open` puts filenames and error text through `echo -e`, interpreting backslash escapes; embedded terminal control characters can also alter the display. Use fixed `printf` formats and sanitize control characters in variable display text while retaining the actual paths for file operations. Verify unusual filenames and error text cannot inject terminal formatting or controls.
+4. **Mirror status download limit — lower priority:** `zsh/functions/sysup/mirrorlist.zsh` downloads the mirror status JSON with an eight-second timeout but no byte cap. Bound downloaded bytes and report an oversized response as an unsuccessful validity check. Verify ordinary responses still parse and oversized responses cannot produce a successful check.
+
+**Done when:** all four guards have focused behavioral verification, preserving original data for clipboard and file operations while bounding external downloads and rendering external text literally.
+
+## 19. Share text between the phone and the laptop
+
+**Requested 2026-10-16.** KDE Connect does this but pulls about 200 MiB of KDE Frameworks
+(`breeze-icons` alone is 57 MiB), so it was not installed. The user will build a lighter
+version. Starting points: `ntfy` (`curl -d text ntfy.sh/<topic>`, use a self-hosted server or
+a long random topic) for laptop to phone; Android 10+ blocks background clipboard reads, so
+phone to laptop needs a manual share or notification action. Any `wl-copy` call needs
+`setsid`.
+
+**Done when:** copying on the laptop makes the text available on the phone and the reverse
+path is chosen, with no heavy dependency pulled in.
+
+## 20. Open external links in a predictable browser window and bring it into view
+
+**Requested 2026-10-16. User story:** As a user with multiple Firefox windows, I want a link opened from another application to appear in a predictable window and bring that window into view, so I can continue without searching for which window received the tab. The user reports that links currently open out of sight and that two browser windows make the destination confusing.
+
+**Goals:** make link delivery and focus agree, work across workspaces, and preserve normal/private browsing and profile boundaries. Prefer an on-demand solution using Firefox and Niri's existing capabilities; add no persistent daemon or idle polling.
+
+**What Omarchy does — reference `9f49906d2`:** a hidden `applications/omarchy-browser.desktop` routes HTTP/HTTPS to `bin/omarchy-launch-browser` through `config/hyprland-mimeapps.list`. The actual browser remains in the ordinary `mimeapps.list`; `omarchy-cmd-default-browser` skips the routing entry to avoid recursion. After launch/handoff, `omarchy-hyprland-focus-app` sorts matching windows by `focusHistoryID` and focuses the most recently used one with a workspace-aware dispatcher. This is a destination heuristic, not confirmation that the window received the tab. `omarchy-cmd-browser-handoff` bypasses startup through Chromium-family singleton sockets only; Firefox falls back to its normal executable. Their tests establish handler resolution, recursion avoidance and selection by focus history, but do not prove real Firefox tab delivery with multiple windows/profiles. They also suppress browser default-handler checks because the wrapper sits in front of the actual browser; assess that tradeoff before adopting a wrapper.
+
+**Implementation hints:**
+
+- Reproduce with two normal Firefox windows and a distinguishable test link, including windows on different workspaces. Trace the actual caller paths: `xdg-open`, the OpenURI portal, and direct launches. Local HTTP/HTTPS defaults currently use `firefox.desktop`; `environment.d/defaults.conf` sets `BROWSER=firefox`, and `bash/gdocs-open` calls `setsid firefox --new-tab` directly. A MIME handler alone will not cover direct launches.
+- First investigate whether the existing desktop entry and Firefox/Niri activation can reliably raise the receiving window. The installed Firefox desktop entry already has `StartupNotify=true`; trace whether activation information survives each caller path rather than assuming this flag alone solves it.
+- If a helper is necessary, consider a hidden desktop handler forwarding URL arguments to a shared on-demand opener. Keep browser selection separate from routing and prevent recursion. Confirm desktop-specific MIME lookup on this Niri session before choosing a filename; do not copy Omarchy's Hyprland-specific path blindly. Include installation mappings for any new helper or desktop entry.
+- Establish Firefox's actual window-selection behavior before choosing a focus strategy. Do not focus the first app-id match or assume the most recently focused compositor window is the browser's destination. Niri supports querying windows and `niri msg action focus-window --id ID`; inspect the installed IPC schema for usable selection information. If observing launch/window changes is needed, use a short-lived event subscription with a deadline. A compositor window list alone does not identify which existing window received a tab.
+- Define and document the destination rule for ordinary external links, multiple profiles and private windows before implementation. Prefer normal Firefox window reuse where reliable; if delivery cannot be correlated, evaluate an explicit new-window fallback or user choice rather than silently guessing. Preserve explicit private/profile launch requests and pass URLs as arguments without shell evaluation or logging their contents.
+
+**Acceptance criteria:**
+
+1. With Firefox closed, an HTTP or HTTPS link opens once in Firefox and its window becomes visible. With one normal window open, the link opens once in that window and brings it into view, including from another workspace.
+2. With two normal windows open, repeated distinguishable links from another application follow the documented destination rule; the focused window is the one containing the new tab. Verify after alternating which browser window was last used and with the two windows on different workspaces.
+3. Verify `xdg-open`, a real application using the OpenURI portal, and the existing direct-launch path used by `gdocs-open`; document any intentionally excluded callers. Test the real desktop as well as isolated handler/argument tests.
+4. Ordinary links do not unexpectedly enter a private window or a different profile. Explicit private/profile requests retain their requested context. Verify supported combinations with normal and private windows and multiple profiles; define unsupported cases visibly before shipping.
+5. URLs containing query strings, ampersands, percent escapes and fragments arrive intact. Each invocation opens exactly once; there are no recursive handler launches, duplicate tabs, or arbitrary unrelated windows focused. Two rapid link requests do not let an older request steal focus after a newer one.
+6. Browser default resolution remains coherent with any routing handler, existing unrelated MIME associations remain intact, and the change can be rolled back. Delivery or focus failure is reported usefully without re-opening an already delivered link or exposing its URL in diagnostics.
+7. No persistent daemon, browser-debugging service, or idle polling is introduced. Any temporary observation or wait ends on success or a bounded deadline and cleans up its child processes.
+
+**Scope:** planning and later implementation; this TODO change does not authorize installing or activating a handler now.
+
+## 21. Audit the existing tests for usefulness and reliability
+
+**Requested 2026-10-16.** Keep the current sequential runner. First establish how many tests exist, what they cover and how long the suites take; do not assume the suite is large or needs parallel execution. Inspired by Omarchy's test cleanup and synchronization improvements in the latest pull.
+
+**Review:** inventory suites reached by `bash/run-tests` and any tests outside that entry point. Check that important behavior and failure paths are exercised, assertions can detect the failures they claim to cover, and stubs model the relevant real behavior. Look for inherited-environment dependencies, accidental live-system effects, leaked processes or temporary files, fixed sleeps, and cleanup that waits for deadlines unnecessarily. Distinguish mocked coverage from hardware or desktop checks that still need manual verification. Identify redundant tests and important gaps without adding tests merely to increase the count.
+
+**Done when:** report the inventory, measured suite durations, coverage limits and a short prioritized list of evidence-backed improvements. Keep sequential execution unless measurements justify revisiting it; keep timing-sensitive checks isolated. Any proposed speedup must retain meaningful failure detection and cleanup. Follow the performance-measurement skill when timing suites. This is a future audit, not authorization to rewrite or expand tests now.
+
+## 22. Investigate bounded and optional image previews in Vifm
+
+**Requested 2026-10-17. Investigation only:** decide how to keep browsing responsive when a selected file is an expensive or malformed image, while retaining useful previews for ordinary images. Do not change preview behavior or install tools as part of this TODO.
+
+**What Omarchy does — references `dc2b18098` and `f4357a3b2`:** `bin/omarchy-tailscale-receive` previously passed received image files to notifications through `--image`, choosing by filename extension. It now uses the same fixed file glyph for every received file, displays the filename and save location, and retains an explicit click-to-open action using `xdg-open` with the path as a separate argument. Receiving a file therefore does not automatically request image decoding just to announce delivery. This avoids that preview entirely; it is not a thumbnail optimization. Their follow-up tests inspect the notification's actual arguments/hints, rejecting `image-path` and `image-data` while checking the glyph, urgency, localization, and literal click-to-open path.
+
+**Local relevance:** Vifm's `fileviewer` runs when a file is selected in the preview pane, before explicitly opening the image. `vifm/vifmrc` already has decoder-assisted JPEG downsampling; preserve that work. The BMP/GIF/ICO/PNG/TIFF/WebP/AVIF group still passes the original file directly to Chafa with a small output size. That output size alone does not establish bounded decoding memory or time. SVG uses a separate `resvg -w 800` path and should be considered when defining the preview policy. These are candidates from source inspection, not demonstrated failures for every format. The custom notification scripts checked in this review do not attach received image files, and the clipboard picker already lists text rather than thumbnails; neither currently needs the Taildrop change. Ordinary installed application icons are separate from previewing a received file. Third-party applications' notification behavior has not been audited.
+
+**Options to investigate:**
+
+- **Preview on request:** show basic file information or a fixed image label by default, with an explicit action to generate a preview or open the viewer. This is closest to Omarchy's approach; assess the extra interaction against the value of automatic previews.
+- **Automatic previews within a budget:** keep ordinary images convenient, but run decoding with bounded memory, wall time, threads, and temporary storage, falling back to file information when a limit is reached. Scope limits to the entire preview pipeline and clean up decoder children. A byte-size check alone misses highly compressed images with huge dimensions; inspecting dimensions can itself invoke a parser and needs a budget.
+- **Format-aware downsampling:** investigate each installed decoder's support for reducing work before full decoding, following the existing JPEG approach where supported. Resizing after a full decode and reducing Chafa's terminal output are not equivalent to limiting the initial decode. Treat animated images, multi-page TIFFs, and extreme SVG dimensions explicitly. Resource limits remain useful where early downsampling is unavailable.
+- **Hybrid policy and optional caching:** compare bounded automatic previews for common cases with an explicit preview action for costly or unsupported cases. If caching is worthwhile, bound its size, invalidate it when the source changes, and define cleanup. Prefer short-lived helpers and existing Vifm capabilities; add no persistent daemon. Changing selection should stop obsolete preview work and prevent an older result from replacing the current selection's preview.
+
+**Investigation outcome / acceptance criteria:** reproduce current behavior with ordinary and very large images before choosing a policy. Measure end-to-end preview latency and decoder peak memory, not just terminal output size, following the performance-measurement skill. Include a small compressed file with large pixel dimensions, animated or multi-page input, a malformed file, and rapid selection changes. Document which formats can decode at reduced resolution, which need limits or an explicit action, the proposed limits and fallback text, and the usability tradeoffs. A later implementation must preserve the existing JPEG improvement, keep browsing responsive, clean up children and temporary files, and still allow explicit opening of the original file. Resource bounds reduce exposure and cost; they do not establish that an image decoder is immune to malformed input. Choose the policy with the user before implementation.
