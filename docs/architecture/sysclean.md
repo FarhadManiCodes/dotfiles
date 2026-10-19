@@ -20,8 +20,12 @@ Package ownership of the CLI does not establish ownership of those releases.
 
 One-time cleanup on 2026-10-19 removed the unused `standalone` tree after
 confirming `fuser` could detect the live app server and found no standalone
-binary in use. App-server pruning removed 0.162.0, keeping running 0.163.0
-and fallback 0.162.1.
+binary in use. App-server pruning that day removed 0.162.0. On 2026-10-20 the
+app server's `releases/` held only the running 0.163.0: the fallback 0.162.1 was
+no longer present. Pruning does not remove a complete fallback, so the cause is
+not established; the daemon's own update loop also manages this tree and is a
+candidate to check. Until a fallback exists, the next run reports
+`fallback none`.
 
 The app server's `current` symlink must resolve to a complete release directly
 inside `releases/`; a missing or unexpected target stops pruning. The newest
