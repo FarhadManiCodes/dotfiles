@@ -10,6 +10,12 @@ which raises a mako notification *and* appends to
 machine. `notify-failure@.service` has no `OnFailure` of its own, and the script always
 exits 0, so a failing notifier can't loop. Check remotely with `systemctl --user --failed`.
 
+## GNOME Keyring
+
+The packaged `gnome-keyring-daemon.socket` is enabled for on-demand startup.
+No additional service or timer is added. Manual unlock and screen-lock integration
+through `bash/lock-once` are described in [GNOME Keyring](keyring.md).
+
 ## wob: socket activation in the graphical session
 
 Playback position uses a separate `wob-playback.socket` and

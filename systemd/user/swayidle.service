@@ -13,8 +13,8 @@ OnFailure=notify-failure@%n.service
 # spun a lock/unlock loop (~every 30s, clocked by fprintd's grace timer).
 # `lock` is kept only to honor EXTERNAL loginctl lock-session.
 #
-# All three lock actions go through bash/lock-once (no-op when already locked;
-# why is in the script).
+# All three lock actions go through bash/lock-once (no duplicate screen lock;
+# keyrings are locked even if the screen is already locked).
 # Note: $$ is systemd-escaped $ so swayidle's `sh -c` does the substitution.
 ExecStart=/usr/bin/swayidle -w \
     timeout 290 "brightnessctl -s set 10" \

@@ -235,7 +235,7 @@ binds {
         spawn "media-menu.sh" "seek-forward";
     }
     // Lock screen — Ctrl+Alt+L (Mod+L is reserved for Vim navigation).
-    Ctrl+Alt+L hotkey-overlay-title="Lock the Screen: swaylock" { spawn "swaylock"; }
+    Ctrl+Alt+L hotkey-overlay-title="Lock Screen and Keyrings" { spawn "lock-once"; }
     Mod+Shift+S hotkey-overlay-title="Suspend" { spawn "bash" "-c" "echo -e 'Suspend\nCancel' | fuzzel -d --lines 2 --width 20 --prompt 'Suspend? ' | grep -q 'Suspend' && systemctl suspend"; }
 
     Mod+N { spawn "makoctl" "dismiss" "--all"; }

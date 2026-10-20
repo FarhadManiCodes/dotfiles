@@ -1,0 +1,31 @@
+#!/bin/bash
+# Lock GNOME Keyring without reading secrets or starting an absent provider.
+# LockService locks every persistent keyring and clears temporary session secrets.
+set -u
+
+fail() {
+    printf 'keyring-lock: %s\n' "$1" >&2
+    logger -t keyring-lock -- "$1" || true
+    notify-send -a keyring-lock -u critical 'Keyring lock failed' "$1" || true
+    exit 1
+}
+
+if ! owner=$(busctl --user --timeout=2s call \
+    org.freedesktop.DBus /org/freedesktop/DBus \
+    org.freedesktop.DBus NameHasOwner s org.freedesktop.secrets); then
+    fail 'Cannot check the Secret Service provider; see the invoking terminal or journal.'
+fi
+
+case $owner in
+    'b false') exit 0 ;;
+    'b true') ;;
+    *) fail 'Unexpected response when checking the Secret Service provider.' ;;
+esac
+
+# GNOME extension, confirmed in the installed daemon's introspection. Bound the
+# wait so an unresponsive provider cannot indefinitely delay the suspend path.
+if ! busctl --user --timeout=2s call \
+    org.freedesktop.secrets /org/freedesktop/secrets \
+    org.freedesktop.Secret.Service LockService; then
+    fail 'GNOME Keyring did not accept the lock request; see the invoking terminal or journal.'
+fi
