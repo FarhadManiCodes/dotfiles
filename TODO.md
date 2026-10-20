@@ -37,6 +37,8 @@ Suggested order: agree the editor + agent layout first. Off-machine backup remai
 | 20. External browser links | Planning; implementation pending | Establish Firefox delivery and focus behavior across windows |
 | 21. Test usefulness and reliability | Future audit | Inventory coverage and measure sequential suite durations |
 | 22. Bounded Vifm image previews | Investigation only | Measure decoder costs, then choose a preview policy |
+| 23. Timed notification snoozing | Investigation only | Explore Mako modes and transient timers; preserve critical alerts |
+| 24. Claude release cleanup | Investigation only | Establish active-session risks and choose a retention policy |
 
 ## 1. Off-machine backup
 
@@ -456,3 +458,52 @@ path is chosen, with no heavy dependency pulled in.
 - **Hybrid policy and optional caching:** compare bounded automatic previews for common cases with an explicit preview action for costly or unsupported cases. If caching is worthwhile, bound its size, invalidate it when the source changes, and define cleanup. Prefer short-lived helpers and existing Vifm capabilities; add no persistent daemon. Changing selection should stop obsolete preview work and prevent an older result from replacing the current selection's preview.
 
 **Investigation outcome / acceptance criteria:** reproduce current behavior with ordinary and very large images before choosing a policy. Measure end-to-end preview latency and decoder peak memory, not just terminal output size, following the performance-measurement skill. Include a small compressed file with large pixel dimensions, animated or multi-page input, a malformed file, and rapid selection changes. Document which formats can decode at reduced resolution, which need limits or an explicit action, the proposed limits and fallback text, and the usability tradeoffs. A later implementation must preserve the existing JPEG improvement, keep browsing responsive, clean up children and temporary files, and still allow explicit opening of the original file. Resource bounds reduce exposure and cost; they do not establish that an image decoder is immune to malformed input. Choose the policy with the user before implementation.
+
+## 23. Investigate timed notification snoozing with Mako
+
+**Requested 2026-10-20. Planning only. User story:** temporarily silence ordinary notifications while concentrating, with an explicit duration and automatic resumption, without adding another persistent daemon. Keep Mako; start with global snoozing and consider per-application snoozing only if needed.
+
+**Omarchy's philosophy:** quiet is a delivery policy rather than deleting notifications or stopping the notification service. A source or all sources can be snoozed until an absolute deadline. Non-ephemeral suppressed messages remain available for deliberate review in the panel; transient notifications are discarded. Expiry resumes delivery, while reviewing held messages is a separate action. Screen sharing offers a timed snooze rather than silently enabling it. Their implementation lives inside the existing Quickshell notification daemon, not a separate snooze service.
+
+**Upstream references:** notification rewrite introduced in `4671ae2d3` ("Replace the notification engine with Omapager's stacks, snoozes and panel"), merged by `03ff1eff3`. Use the final reviewed snapshot `7901c449a` when studying the resulting design; intermediate helper/sandbox implementations in this pull were subsequently removed. Repository: https://github.com/basecamp/omarchy.
+
+- [`Service.qml`](https://github.com/basecamp/omarchy/blob/7901c449a/shell/plugins/notifications/Service.qml): `snoozeSource`, `snoozedUntil`, `unsnooze`, `unsnoozeAll`, expiry handling, and IPC methods `snooze`, `snoozeAll`, `snoozes`. Stores per-source `since`/`until` timestamps; global key `*`. Extending an existing snooze and starting a fresh duration are distinct behaviors. Its expiry housekeeping uses a timer in the existing shell; this need not be copied into a new local polling loop.
+- [`Delivery.js`](https://github.com/basecamp/omarchy/blob/7901c449a/shell/plugins/notifications/Delivery.js): pure `quietReason`, `bypassesQuiet`, and `isEphemeral` functions separate delivery policy from presentation. Their exceptions are own user-action toasts, critical messages named `notify-send`, and optionally detected verification codes. These names are self-asserted policy conventions, not authenticated identities. Do not copy this allowlist blindly: local power/network/service-failure notifiers have their own names.
+- [`Store.js`](https://github.com/basecamp/omarchy/blob/7901c449a/shell/plugins/notifications/Store.js): validates and bounds quiet-state persistence and held history. State lives in `~/.local/state/omarchy/notifications/quiet.json`; history defaults to 100 entries/24 hours, with verification-code content redacted before persistence.
+- [`NotificationPanel.qml`](https://github.com/basecamp/omarchy/blob/7901c449a/shell/plugins/notifications/NotificationPanel.qml) and [`Settings.js`](https://github.com/basecamp/omarchy/blob/7901c449a/shell/plugins/notifications/Settings.js): source/global controls, duration choices and preferences. [`docs/notifications.md`](https://github.com/basecamp/omarchy/blob/7901c449a/docs/notifications.md) documents silencing, snoozing, persistence and IPC.
+
+**Local starting point:** `mako/config` defines ordinary/critical styling, expiry and service-failure grouping, but no quiet mode. `niri/config.kdl` currently binds Mod+N to dismiss all notifications; preserve that existing action. Investigate the installed Mako version's mode, visibility and history behavior before selecting rules. Hidden, expired and dismissed notifications are different: do not assume hiding preserves messages or that resuming will avoid a backlog burst.
+
+**Possible implementation:** an on-demand helper enables a dedicated Mako snooze mode and arranges a transient systemd user timer to remove only that mode at the deadline. Use existing Mako/systemd capabilities, no sleeping background shell, new daemon or idle polling. Expose duration, remaining time and early cancellation through a shortcut/menu when requested. Treat timer creation and enabling quiet as one recoverable operation: failure must not leave quiet enabled indefinitely. Read the systemd-user-units skill before implementation. Define replacement/extension semantics, serialize overlapping requests, and prevent an older timer from cancelling a newer snooze through cancellation plus generation/deadline checks. Keep independent manual DND separate. Decide explicitly whether a snooze survives logout/reboot; if it does, store an absolute deadline and reconcile it at startup. Verify suspend/resume expiry rather than assuming a relative timer follows wall time.
+
+**Decisions before implementation:** choose which local critical alerts must bypass quiet, whether suppressed messages should be retained and how to review them, expiry/backlog behavior, and a visible indication that snoozing is active. Verification-code detection and exceptions are optional later work, with false-positive and privacy costs; no need to reproduce Omarchy's full panel, web-source grouping, history store or screen-share integration.
+
+**Acceptance criteria:**
+
+1. Ordinary notifications are quiet for the selected duration, automatically resume, and can be resumed early. Approved critical alerts still appear; verify actual local notifier app names and urgencies.
+2. Repeated, overlapping and cancelled requests behave predictably. An expired older timer cannot undo a newer snooze, and ending snooze leaves unrelated Mako modes unchanged.
+3. Timer/helper failures do not strand the desktop in quiet mode. Mako restart, suspend/resume and logout/login follow the documented policy, with useful diagnostics and no notification-content logging.
+4. Verify retained-message/history behavior and the chosen backlog policy with real Mako notifications; no unexpected flood when quiet ends. Existing Mod+N dismissal and ordinary grouping remain usable.
+5. No additional persistent daemon, polling loop, heavy shell UI or package dependency is introduced. Test isolated timer/mode failure and race paths plus focused live desktop behavior before activation.
+
+**Scope:** investigation and later implementation; this item does not activate snoozing or authorize installing software now.
+
+## 24. Investigate Claude release cleanup around active sessions
+
+**Requested 2026-10-20. Investigation only:** determine whether cleanup can remove a release still needed by a running Claude session, and choose a proportionate protection policy before changing it.
+
+**Current behavior:** `_sysup_prune_claude_versions` in `zsh/functions/sysup/claude-prune.zsh`, called by both `sysup` and `sysclean`, preserves the release selected by `~/.local/bin/claude` and the newest other completed version. It removes older version-named entries from `~/.local/share/claude/versions` without checking whether sessions still execute them. A long-running session spanning several upgrades can therefore outlive the retained fallback. This is a source-level possibility, not a demonstrated session failure. Unlinking an executable on Linux does not by itself stop a process already executing it.
+
+**Omarchy reference:** commit [`02da3adab`](https://github.com/basecamp/omarchy/commit/02da3adab54846eb9fe605e95d2229f596708b54) sets `upgrade.auto_prune = false` in `etc/mise/conf.d/omarchy.toml`, explaining that an upgrade must not delete an installation directory underneath a live session. Transfer the lifecycle principle; this system does not need Mise to apply it. Claude's versioned native binary layout differs from a tool installation containing runtime files, so establish the actual dependencies before claiming equivalent breakage.
+
+**Investigation:**
+
+- Inspect how the installed Claude updater retains/removes versions and how live processes identify their executable. Determine whether a session later reopens its own binary, launches helpers from that release, or needs adjacent files. Avoid inspecting or logging session contents or credentials.
+- Use isolated versioned executable fixtures first to compare process identity before and after an upgrade and unlink, including a session older than both the selected release and fallback. Test any real Claude behavior only with an explicitly chosen disposable session; do not prune files underneath personal sessions as a probe.
+- Compare retaining detected active releases alongside current plus fallback, deferring all pruning while Claude sessions exist, and leaving release cleanup to the native updater if it now provides a suitable policy. Consider disk cost and lifecycle uncertainty rather than adding a watcher or daemon.
+- If using `fuser` or `/proc`, prove the probe detects a known running fixture. Define behavior for missing tools, permission/probe failures, deleted executable paths, PID reuse and sessions starting during cleanup. A one-time “not in use” observation is not synchronization with concurrent launches or the updater; document residual races or use a coordination mechanism the participants actually share.
+- Keep scope limited to completed release binaries. Preserve current/fallback selection, updater staging files, unrelated files and symlinks outside the intended directory. Do not reintroduce Codex cleanup; it was removed separately at the user's request.
+
+**Acceptance criteria:** report evidence of whether active-version removal causes a practical problem, or state that no failure was demonstrated. Recommend a clear retention policy with its limits. If a later fix is agreed, verify active older releases survive, eligible inactive releases can be removed, current/fallback and staging remain intact, uncertainty preserves files, and both `sysup` and `sysclean` use the same policy. Cover races/failure behavior with isolated fixtures and run focused Zsh/tests without live cleanup.
+
+**Scope:** investigation and recommendation only; this TODO does not change Claude cleanup, install tools, stop sessions or remove release files.

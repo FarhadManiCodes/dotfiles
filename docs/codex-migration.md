@@ -77,9 +77,9 @@ Claude-oriented restrictions; it is not a Codex loader compatibility test.
   `openai-codex` on 2026-10-19. Pacman owns the CLI and `paru` already updates it
   through `sysup`, so no separate CLI update step is needed. The package-owned CLI
   still launches a separately managed app server under `~/.codex/packages/`;
-  `sysclean` step 9 retains pruning for `app-server-daemon`, while retiring
-  `standalone` pruning. See [sysclean](architecture/sysclean.md#cli-release-pruning)
-  for the process evidence and retention rules.
+  at the user's request, `sysclean` no longer prunes any Codex release directories.
+  App-server release management is left to Codex. See
+  [sysclean](architecture/sysclean.md#cli-release-pruning) for the cleanup policy.
 - Branch/commit/merge instructions retain their workflow intent, conditional on
   the task authorizing those operations. A reference to a maintenance command is
   not an instruction to run it during every edit.
