@@ -18,9 +18,9 @@ indicator-idle-visible
 # field submits to PAM, which (pam_unix rejects empty -> falls to pam_fprintd)
 # is what activates the fingerprint reader. See /etc/pam.d/swaylock.
 show-failed-attempts
-# daemonize: detach after locking. The swayidle service locks via `swaylock -f`
-# (explicit flag in swayidle.service), so it does NOT rely on this setting — this
-# only covers the manual Ctrl+Alt+L niri bind, which spawns plain `swaylock`.
+# daemonize: detach after locking. Every locker (swayidle and the Ctrl+Alt+L bind)
+# goes through bash/lock-once, which passes `swaylock -f`, so nothing relies on
+# this setting; it only makes a direct `swaylock` run detach too.
 daemonize
 
 # --- COLORS (Theme: Blue/White/Orange) ---
