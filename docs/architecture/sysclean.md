@@ -6,38 +6,19 @@ reconnects. `--all`/`-a` still selects deep cleanup.
 
 ## CLI release pruning
 
-Step 1 keeps Claude's current binary and one fallback. Step 9 prunes Codex's
-separately managed `app-server-daemon` releases under `~/.codex/packages/`.
-Both steps need no sudo and run only when `sysclean` is invoked.
+Step 1 keeps Claude's current binary and one fallback. It needs no sudo and
+runs only when `sysclean` is invoked.
 
-Codex's CLI has been installed as the Arch package `openai-codex` since
-2026-10-19: pacman owns `/usr/bin/codex`, and `paru`/`sysup` update it. The old
-`standalone` release tree is retired and no longer included in routine pruning.
-The app server still needs pruning: host process inspection on the same date
-showed `/usr/lib/openai-codex/bin/codex` directly parenting processes executing
-`~/.codex/packages/app-server-daemon/releases/0.163.0-x86_64-unknown-linux-musl/bin/codex`.
-Package ownership of the CLI does not establish ownership of those releases.
-
-One-time cleanup on 2026-10-19 removed the unused `standalone` tree after
-confirming `fuser` could detect the live app server and found no standalone
-binary in use. App-server pruning that day removed 0.162.0. On 2026-10-20 the
-app server's `releases/` held only the running 0.163.0: the fallback 0.162.1 was
-no longer present. Pruning does not remove a complete fallback, so the cause is
-not established; the daemon's own update loop also manages this tree and is a
-candidate to check. Until a fallback exists, the next run reports
-`fallback none`.
-
-The app server's `current` symlink must resolve to a complete release directly
-inside `releases/`; a missing or unexpected target stops pruning. The newest
-other complete release is kept for rollback. Only version-named directories are
-eligible, so installer staging files are left alone. `fuser` keeps a release
-whose Codex or code-mode-host executable is still in use; without it, pruning
-is skipped. Reconsider this step if a later package also takes over the app
-server's release lifecycle.
+Codex's CLI is installed as the Arch package `openai-codex`: pacman owns
+`/usr/bin/codex`, and `paru`/`sysup` update it. At the user's request,
+`sysclean` no longer manages any Codex release directories, including the
+separately managed app-server releases under `~/.codex/packages/`. This does
+not imply pacman owns that app-server tree; its lifecycle is left to Codex.
+Removing this cleanup step does not delete any existing release files.
 
 ## NVMe health — the one hardware fault nothing else would report
 
-`_sysclean_nvme_health` runs as step 11. Everything else here that can fail
+`_sysclean_nvme_health` runs as step 10. Everything else here that can fail
 silently has a watcher — `config-drift`, `notify-failure@`, `sysup`'s health step — a
 dying disk did not.
 
