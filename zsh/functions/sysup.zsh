@@ -1,6 +1,6 @@
 # sysup - full system + tooling update
 #
-# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools ->
+# Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools -> Herdr ->
 # Claude Code ->
 # editor/shell plugins -> nvim :checkhealth -> fwupd metadata (if stale) ->
 # config-drift. `--podman-images` adds container image updates after nvim health.
@@ -13,7 +13,7 @@
 # function, so this works whether sysup.zsh is reached through install.sh's
 # symlink or sourced directly (as the tests do).
 _sysup_module_dir="${0:A:h}/sysup"
-for _sysup_module in bgutil yts mirrorlist nvim-health plugins claude-prune podman; do
+for _sysup_module in bgutil yts herdr mirrorlist nvim-health plugins claude-prune podman; do
   source "$_sysup_module_dir/$_sysup_module.zsh"
 done
 unset _sysup_module_dir _sysup_module
@@ -151,6 +151,12 @@ sysup() {
     return 1
   }
   echo "    All Cargo tools checked"
+
+  echo "==> Herdr (Cargo stable release)"
+  _sysup_herdr || {
+    echo "!! Herdr update failed — stopping sysup"
+    return 1
+  }
 
   echo "==> Claude Code"
   claude update

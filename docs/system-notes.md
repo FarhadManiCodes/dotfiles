@@ -303,6 +303,14 @@ System-level choices that aren't captured in any config file:
   enabled user unit and starts the daemon on demand. `sysup` updates it and the other
   Cargo-installed tools with `cargo install-update --all`; the `cargo-update` command itself
   is a pacman package and is updated earlier in the same run by `paru -Syu`.
+- **Herdr uses `bash/herdr-cargo`**, called with `--install` by `install.sh` and
+  `--update` by `sysup`. It builds only the latest stable release's executable,
+  pins the resolved commit and lockfile, provisions the release-pinned Zig
+  compiler temporarily, and records the Zen 4/fat-LTO recipe. Generic
+  `cargo install-update --all` skips this Git package. The binary and its small
+  provenance record under `~/.cargo` are untracked; recreating them uses
+  `herdr-cargo --install`. See [Herdr operations](architecture/herdr.md) for
+  staging, cleanup, running-session behavior and benchmark evidence.
 - **`qpdf` is a deliberate hand-install, not orphaned**: no config references it, but it's the
   only tool here that preserves **hyperlinks** through page extraction/merge (verified on a
   papis paper: 56 links + outline kept; `mutool` keeps bookmarks but drops links; `pdfjam`/`gs`

@@ -81,7 +81,7 @@ esac
         code = '''
 source "$1"
 shift
-for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts \\
+for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
           _sysup_prune_claude_versions _sysup_plugins _sysup_nvim_health \\
           _sysup_fwupd_refresh_if_stale; do
   functions[$fn]=':'

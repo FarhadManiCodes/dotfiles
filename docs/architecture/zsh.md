@@ -17,7 +17,7 @@
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
-  - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo →
+  - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
     Claude Code → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
     `sysup --podman-images` also updates installed Quadlet images, including stopped ones
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
@@ -92,7 +92,7 @@ passed and been promoted over a working helper. Failure counts as a bad build on
 `youtube.com` is reachable; offline, it's reported NOT CHECKED and the version-checked
 build installs anyway, rather than blocking `sysup` on a dropped connection.
 
-## yts, the one locally-built app
+## yts
 
 `_sysup_yts` compares `~/projects/yts`'s HEAD against the commit recorded at install time
 in `~/.local/share/yts-gui/.installed-commit` (yts's own `make install` writes it, since the
@@ -112,6 +112,15 @@ running fine. Rewritten for the C++ version on 2026-10-06 (TODO item 13).
 
 Tridactyl's `,y ,Y ;y ;Y` call `~/.local/bin/yts --play` directly, with `-a` for
 audio. URLs go on stdin through `native.run`'s second argument, never into shell commands.
+
+## Herdr stable Cargo builds
+
+After registry Cargo updates, `_sysup_herdr` invokes `bash/herdr-cargo --update`.
+Missing Herdr installations are skipped; a failed update stops `sysup`. The helper
+resolves the latest stable tag to a commit, provisions that release's compatible
+Zig temporarily, and uses the measured Zen 4/fat-LTO recipe. It checks a staged
+build before promotion and preserves running sessions. See [Herdr](herdr.md)
+for installation, provenance, cleanup and the benchmark's limits.
 
 ## Startup and prompt cost
 

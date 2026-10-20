@@ -271,6 +271,15 @@ make -s -C "${DOTFILES}/notifiers" install ||
   echo "⚠️  notifiers: build or install failed (see above); a notifier service without its binary in ~/.local/bin will fail"
 echo "✅ Helper scripts installed"
 
+# Herdr needs the Zig version pinned by its release. The helper provisions it
+# temporarily, verifies a staged Cargo build, then installs only the executable.
+echo "🐑 Installing Herdr through Cargo..."
+herdr_install_failed=0
+if ! bash "${DOTFILES}/bash/herdr-cargo" --install; then
+  herdr_install_failed=1
+  echo "⚠️  Herdr installation failed; finishing the remaining setup" >&2
+fi
+
 # ============ ssh client config ===================================
 # ~/.ssh must stay 0700 or ssh refuses to use it.
 echo "🔑 Installing ssh config..."
@@ -360,10 +369,10 @@ done
 echo "✅ Agent skills linked into ~/.claude/skills and ~/.agents/skills"
 
 echo ""
-if (( ${#failed_user_units[@]} == 0 )); then
+if (( ${#failed_user_units[@]} == 0 && herdr_install_failed == 0 )); then
   echo "🎉 Dotfiles installation complete!"
 else
-  echo "⚠️  Dotfiles installation finished with user-service enable failures" >&2
+  echo "⚠️  Dotfiles installation finished with failures" >&2
 fi
 echo ""
 echo "Next steps:"
@@ -381,11 +390,15 @@ echo ""
 echo "🔐 System (root) configs are installed separately:"
 echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
 
-# Finish the remaining setup and guidance before returning the enable result.
+# Finish the remaining setup and guidance before returning the combined result.
+if (( herdr_install_failed )); then
+  echo 'Herdr installation/update failed; retry: herdr-cargo --install' >&2
+fi
 if (( ${#failed_user_units[@]} )); then
   printf 'User units not enabled:\n' >&2
   printf '  %s\n' "${failed_user_units[@]}" >&2
-  exit 1
-else
-  exit 0
 fi
+if (( ${#failed_user_units[@]} || herdr_install_failed )); then
+  exit 1
+fi
+exit 0
