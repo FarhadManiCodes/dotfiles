@@ -75,7 +75,7 @@ exit 0
         self.assertEqual(result.returncode, 1, result.stderr)
         calls = self.calls.read_text().splitlines()
         self.assertIn("--user enable ssh-agent.socket", calls)
-        self.assertEqual(len([c for c in calls if c.startswith("--user enable ")]), 11)
+        self.assertEqual(len([c for c in calls if c.startswith("--user enable ")]), 12)
         self.assertIn("fixture enable failure: mic-notify.service", result.stderr)
         self.assertIn("fixture enable failure: wob.socket", result.stderr)
         summary = result.stderr.split("User units not enabled:\n", 1)[1]
