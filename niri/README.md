@@ -52,6 +52,7 @@ The configuration is organized into these major sections:
    - Default column width (50%): Firefox, foot
 
 6. **Keybindings**
+   - Ctrl+Alt+L runs `lock-once` to lock the screen and GNOME Keyring; keyring unlock remains manual.
    - Vim-style navigation (Mod+H/J/K/L)
    - Workspace management
    - Window movement and resizing

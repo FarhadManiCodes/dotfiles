@@ -164,6 +164,7 @@ same list with fuller reasoning; keep the two in step.
 |---|---|
 | `~/.config/git/config.local` | Name + email |
 | `~/.config/gh/hosts.yml` | Auth tokens |
+| `~/.local/share/keyrings/` | Encrypted GNOME keyrings; preserve the password independently. See [keyring policy](docs/architecture/keyring.md). |
 | `~/.config/rclone/rclone.conf` | OAuth tokens for the `gdrive` and `Dropbox` remotes |
 | `pg_password` podman secret | Under podman's graphroot, `/var/lib/docker/secrets` — recreate with `podman secret create pg_password -`; `pg.service` will not start without it |
 | `~/.cargo/bin/shpool` | Detachable shell-session daemon used by `keep`, `lg`, and Mod+A — recreate with `cargo install shpool` |

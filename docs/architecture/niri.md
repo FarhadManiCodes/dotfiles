@@ -24,11 +24,13 @@
   at login.
 - `mako/config` — notification daemon
 - `fuzzel/fuzzel.ini` — app launcher
-- `swaylock/config` — lock screen. `daemonize` is **required** (swayidle runs with `-w`,
-  which blocks until the lock command exits; without it the power-off/suspend timeouts
-  never fire). `ignore-empty-password` is off so an empty Enter reaches PAM and activates
+- `swaylock/config` — lock screen. `bash/lock-once` passes `-f` because swayidle runs with `-w`,
+  which blocks until the lock command exits; an undetached lock would stop the
+  power-off/suspend timeouts firing. `daemonize` makes a direct `swaylock` run detach too. `ignore-empty-password` is off so an empty Enter reaches PAM and activates
   the fingerprint reader. swayidle locks via `bash/lock-once`, a no-op when a live
-  swaylock already exists, so a repeated `before-sleep` can't queue locks. Fails safe:
+  swaylock already exists, so a repeated `before-sleep` can't queue locks. It then
+  locks GNOME Keyring, including when the screen was already locked; Ctrl+Alt+L
+  uses this same helper. See [keyring policy](keyring.md). Fails safe:
   nothing short of a confirmed live swaylock of our own stops it locking, since niri has
   no lock-state query and swaylock never sets logind's `LockedHint`.
 - `pam/swaylock` → `/etc/pam.d/swaylock` (copied by `install-root.sh`, root-owned) —

@@ -302,6 +302,8 @@ units_to_enable=(
   net-notify.service
   power-notify.service
   swayidle.service
+  # GNOME Keyring starts on demand; unlocking remains manual (no PAM hooks).
+  gnome-keyring-daemon.socket
   # The package's wob units plus our overrides create wobpipe for this session
   # and start one persistent renderer on the first OSD update.
   wob.socket

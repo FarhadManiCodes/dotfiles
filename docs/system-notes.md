@@ -117,6 +117,18 @@ Thereafter `sysup` keeps all four plugin sets current. Nothing else does: until 
 the tmux clones sat at 2023-2024 against upstreams pushed in 2026, and it went unnoticed
 because a stale or absent plugin never errors — it just quietly does less.
 
+## GNOME Keyring (2026-10-20)
+
+`gnome-keyring` and `seahorse` are installed; `libsecret` already supplied
+`secret-tool`. The packaged socket is enabled for on-demand startup. Unlocking
+remains manual, with no Ly/PAM changes. Screen locking through `lock-once` locks
+all persistent keyrings and clears temporary session secrets. No separate keyring
+timer is configured. See [keyring operations](architecture/keyring.md).
+
+`~/.local/share/keyrings/` contains private encrypted state and is not tracked.
+Preserve its password independently. Off-machine backup remains deferred under
+`TODO.md` item 1; this setup does not create a backup.
+
 ## Modifying configs
 
 **Add a new config to dotfiles**:
