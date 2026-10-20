@@ -28,11 +28,12 @@ that accepted login configuration.
 
 `bash/keyring-lock` uses GNOME's `org.freedesktop.Secret.Service.LockService`
 extension. It locks **all persistent keyrings and clears temporary session
-secrets**. It checks whether the provider is running first, so locking does not
-start an absent provider. Both D-Bus calls have two-second deadlines. Failures
-are reported to stderr, the journal (`keyring-lock` tag) and a critical
-notification, without preventing screen locking. `install.sh`'s existing
-`bash/*` mapping installs it as `~/.local/bin/keyring-lock`.
+secrets**. The call forbids D-Bus activation, so an absent provider is not
+started and counts as locked. It has a two-second deadline and the failure
+notification is cut off after one. Failures are reported to stderr, the journal
+(`keyring-lock` tag) and a critical notification, without preventing screen
+locking. `install.sh`'s existing `bash/*` mapping installs it as
+`~/.local/bin/keyring-lock`.
 
 GNOME Keyring provides no per-read approval or read notification. Once unlocked,
 same-user programs can query it. Locking cannot revoke secrets already retrieved
@@ -93,7 +94,11 @@ items needing attention and three access exclusions. Its sandboxed run mapped
 root-owned files to `nobody` and blocked unit verification; that report was not
 treated as evidence of changed host ownership.
 
-No test suites were added or run. Actual shortcut, idle, suspend/resume and fresh
+Stubbed `busctl` runs covered success, an absent provider and a lock timeout; the
+absent-provider error text was confirmed on the live bus with an activatable name
+that was not running. The live `LockService`
+call was not re-run after the deadline and activation changes. No test suites were
+added or run. Actual shortcut, idle, suspend/resume and fresh
 login cycles remain unexercised. On the next normal screen-lock cycle, unlock the
 screen and confirm that accessing the keyring prompts again. No secrets were read
 by the setup checks.
