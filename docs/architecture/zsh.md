@@ -17,9 +17,10 @@
   - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
-  - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo →
+  - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
     Claude Code → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
-    `sysup --podman-images` also updates installed Quadlet images, including stopped ones
+    `sysup --podman-images` also updates installed Quadlet images, including stopped ones;
+    `sysup --test-tools` also runs my own uv tools' test suites on the newest dependencies
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones untracked; list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
@@ -39,15 +40,90 @@
 | `batt` | Battery status, power draw, CPU/GPU/NVMe temperatures and both fan speeds |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
-| `sysup [--podman-images]` | Update the system; include installed Quadlet images only when requested |
+| `sysup [--podman-images] [--test-tools]` | Update the system; include installed Quadlet images or the own-tool dependency tests only when requested |
 
 `sysup` and `sysclean` automatically use `keep` to start a fresh shpool session.
 Inside an existing shpool session (`SHPOOL_SESSION_NAME` set), they run there
 without nesting. Missing shpool/`keep` stops the command with an error. Arguments
 are preserved, including `sysup --podman-images` and `sysclean --all`.
-Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C still
-interrupts the running command. Reload `~/.zshrc` in shells already open after
-changing these functions.
+Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C in `sysup` skips the
+running step or stops the run, see [Ctrl-C in sysup](#ctrl-c-in-sysup). Reload `~/.zshrc` in shells
+already open after changing these functions.
+
+`sysup --test-tools` (`sysup/tool-tests.zsh`) runs the suites of mathunicode, paper-refinery and
+audio_text (the dictate project) in `~/projects` with `uv run --isolated --upgrade`: a throwaway
+environment on the newest allowed dependencies, because the projects' own `uv.lock` pins their
+tests to known-good versions and a breaking release would otherwise show up only in the installed
+tool. Neither the lockfile, the project `.venv` nor the installed tool is touched. A failing suite
+is reported with its pytest summary and the end of its output; a suite that could not run (no pytest
+summary, or pytest exit 4/5: resolving, network or build failure, nothing collected) or timed out
+(600 s, stdin closed) is reported separately, so it is not mistaken for a broken tool. Both kinds are
+repeated before the closing line and `sysup` continues. A run that cannot even create its temporary
+file is recorded as "could not start". A project without a checkout is skipped. It adds about 40
+seconds, hence opt-in.
+
+The lock descriptor is closed in the steps that run in a subshell (tool tests, bgutil, yts, Herdr), so
+a process one of them leaves behind cannot keep the concurrency lock held. The steps run directly in
+`sysup`'s shell (paru, uv, Cargo, Claude, plugins, nvim health, podman, fwupd) still pass it on; none
+of them is known to leave a process behind. If one ever does, close it there the same way.
+
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update.
+Each failure is reported where it happens and repeated after the last step, and again when the run
+stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded failures or skips ends
+"sysup finished with warnings" and returns non-zero (the podman status when the image update failed,
+otherwise 1).
+
+## Ctrl-C in sysup
+
+Measured in an interactive zsh on a pty: with no handling, Ctrl-C aborts the whole `sysup` call at
+once but skips a plain EXIT trap, leaking the sleep inhibitor and the lock. So `sysup` does its
+cleanup in a `{ … } always { … }` block and handles the key itself:
+
+| Where | First Ctrl-C | Second within 2 s |
+|---|---|---|
+| paru, before pacman logged `transaction started` (prompt, sudo, downloads) | skip paru, continue | stop |
+| paru, after `transaction started` (or the log position unreadable) | stop | – |
+| bgutil | stop | – |
+| every other step | skip the running command, continue | stop |
+
+- **Skip** kills the running command (the terminal sends SIGINT to the whole foreground group), prints
+  "Ctrl-C: skipping the running command in <step>", and the run moves on. The skip is recorded and
+  repeated last as "skipped with Ctrl-C: the running command in <step>", so the run ends "finished
+  with warnings" and non-zero. A step that returns the killed command's own status (the tool tests,
+  paru, Cargo) does not also report it as a failure. A step that folds several commands into one
+  result does: the podman loop turns a skipped `podman pull` into "pull failed" and a plain status 1,
+  which is true, since that image was not updated. A later failure in the same step is reported,
+  unless it carries the skipped command's own exit status. Only a command that was running counts
+  (`$?` on entering the trap is non-zero): with nothing running the key press is ignored ("nothing
+  to skip") and a second within 2 s still stops. It is per running command: in a multi-command step
+  (plugins, Claude update and prune, the podman loop, one suite of the tool tests) the step goes on
+  with its next command.
+- **Stop** ends `sysup` at once. The always block releases the sleep inhibitor and the lock, removes
+  the Herdr reason file and the tool-test temp file, and prints the failures and skips recorded so
+  far. No "finished with warnings" or "done" line is printed, and the shell abandons the whole command
+  line, so there is no exit status to read.
+- **Why those two stop:** a half-installed package transaction must not be built on by the uv, yts and
+  Cargo steps, and skipping bgutil leaves yt-dlp and its token helper mismatched. Before pacman logs
+  `transaction started` (written after the prompt, sudo and downloads) nothing has been installed, so
+  paru can be skipped. `sysup` reads the part of `/var/log/pacman.log` written since the run began
+  (the byte offset it already records for the config-drift check); a log that was rotated or
+  truncated since then counts as started, because the offset no longer means anything.
+- **Mechanism:** a `TRAPINT` function exists only while `sysup` runs (one you defined yourself is put
+  back afterwards; `local_traps` does not cover functions). Returning 130 (128 + SIGINT) makes
+  zsh abort as usual; returning 0 lets the run continue. A `trap '…' INT` string does not abort on a
+  non-zero return, and `return` in it leaves only the innermost function; both measured.
+- **Latency:** every `timeout` around a foreground command uses `--foreground`. Plain `timeout` starts
+  its command in a new process group, which the terminal's Ctrl-C does not reach; a plain `timeout 6`
+  held Ctrl-C for about 5 s, `--foreground` for 0.1 s. The price: on expiry only the direct child gets
+  the signal, so the pytest that a timed-out `uv run` started can outlive the 600 s limit.
+- **Known gap:** a Ctrl-C landing between two commands of one step can leave the skip mark set. A real
+  failure later in that step with the skipped command's own exit status is then not repeated; the skip
+  itself still is, so the run still ends with warnings.
+- **Not covered:** pacman and paru roll back (or not) by their own rules; SIGTERM is ignored by an
+  interactive zsh, so it does nothing to `sysup`; a hung-up or killed shell (`shpool kill`) runs
+  neither the always block nor an EXIT trap (measured), so the Herdr reason file stays behind, but the
+  sleep inhibitor still ends because the kernel hangs up the whole pty session; `herdr-cargo` run alone exits 130 on Ctrl-C and
+  `install.sh` reports that as "interrupted", not a failure.
 
 `batt` uses `bash/hardware-readings`, shared with the Mod+Shift+N temperature
 notification. Each request invokes `sensors -j` once and `jq` once, without
@@ -92,7 +168,7 @@ passed and been promoted over a working helper. Failure counts as a bad build on
 `youtube.com` is reachable; offline, it's reported NOT CHECKED and the version-checked
 build installs anyway, rather than blocking `sysup` on a dropped connection.
 
-## yts, the one locally-built app
+## yts
 
 `_sysup_yts` compares `~/projects/yts`'s HEAD against the commit recorded at install time
 in `~/.local/share/yts-gui/.installed-commit` (yts's own `make install` writes it, since the
@@ -112,6 +188,16 @@ running fine. Rewritten for the C++ version on 2026-10-06 (TODO item 13).
 
 Tridactyl's `,y ,Y ;y ;Y` call `~/.local/bin/yts --play` directly, with `-a` for
 audio. URLs go on stdin through `native.run`'s second argument, never into shell commands.
+
+## Herdr stable Cargo builds
+
+After registry Cargo updates, `_sysup_herdr` invokes `bash/herdr-cargo --update`.
+Missing Herdr installations are skipped; a failed update is reported with its reason and `sysup` continues
+(`HERDR_CARGO_REASON_FILE` carries the helper's `die` message back). The helper
+resolves the latest stable tag to a commit, provisions that release's compatible
+Zig temporarily, and uses the measured Zen 4/fat-LTO recipe. It checks a staged
+build before promotion and preserves running sessions. See [Herdr](herdr.md)
+for installation, provenance, cleanup and the benchmark's limits.
 
 ## Startup and prompt cost
 

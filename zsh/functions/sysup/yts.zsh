@@ -1,12 +1,13 @@
-# See docs/architecture/zsh.md, "yts, the one locally-built app", for why this
-# exists. A subshell keeps our cwd and `emulate` away from sysup's inhibitor
-# trap. The directories are arguments so tests can drive this without
+# See docs/architecture/zsh.md, the "yts" section, for why this
+# exists. A subshell keeps our cwd and `emulate` away from sysup's TRAPINT
+# and cleanup. The directories are arguments so tests can drive this without
 # touching the real checkout, install state or binary. Defaults match yts's
 # Makefile: the install state (the installed commit) under
 # ~/.local/share/yts-gui, the binaries in ~/.local/bin.
 _sysup_yts() (
   emulate -L zsh
   trap - EXIT INT TERM
+  [[ -z ${_lockfd:-} ]] || exec {_lockfd}>&- # a leftover child must not keep sysup's lock held
   local repo=${1:-"$HOME/projects/yts"}
   local prefix=${2:-"$HOME/.local/share/yts-gui"}
   local bindir=${3:-"$HOME/.local/bin"}

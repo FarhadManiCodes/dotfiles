@@ -1,0 +1,217 @@
+#!/bin/bash
+# Install/update stable Herdr through Cargo. See docs/architecture/herdr.md.
+set -euo pipefail
+export LC_ALL=C
+
+# HERDR_CARGO_REASON_FILE lets a caller (sysup) repeat the reason after later output scrolls it away.
+die() {
+  printf 'herdr-cargo: %s\n' "$*" >&2
+  [[ -z ${HERDR_CARGO_REASON_FILE:-} ]] || { printf '%s\n' "$*" > "$HERDR_CARGO_REASON_FILE"; } 2>/dev/null || :
+  exit 1
+}
+usage() {
+  cat <<'HELP'
+Usage: herdr-cargo [--check | --install | --update] [--root DIRECTORY]
+  --check    show the stable release and proposed action (default)
+  --install  install, update, or adopt an official Cargo Git installation
+  --update   update an existing Cargo installation; skip when absent
+  --root     Cargo installation root (default: CARGO_INSTALL_ROOT/CARGO_HOME/~/.cargo)
+
+Builds for this machine's Zen 4 CPU with fat LTO. Zig and build artifacts are
+temporary; Cargo's shared source cache is retained. Running sessions are untouched.
+HERDR_CARGO_REASON_FILE: if set, a failure message is also written to that file.
+HELP
+}
+
+mode=check
+mode_set=0
+cargo_root=${CARGO_INSTALL_ROOT:-${CARGO_HOME:-"$HOME/.cargo"}}
+while (($#)); do
+  case $1 in
+    --check|--install|--update)
+      ((mode_set == 0)) || die 'choose only one mode'
+      mode=${1#--}; mode_set=1; shift ;;
+    --root)
+      [[ -n ${2:-} && $2 != --* ]] || die '--root needs a directory'
+      cargo_root=$2; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) die "unknown argument: $1" ;;
+  esac
+done
+binary=$cargo_root/bin/herdr
+record=$cargo_root/.herdr-cargo.json
+if [[ $mode == update && ! -e $binary && ! -L $binary ]]; then
+  printf 'Herdr is not installed in %s; skipping.\n' "$cargo_root"
+  exit 0
+fi
+for tool in curl git jq awk sort sha256sum mktemp uname timeout; do
+  command -v "$tool" >/dev/null || die "$tool is required"
+done
+[[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || die 'this build recipe requires x86_64 Linux'
+repo=https://github.com/herdrdev/herdr
+recipe='target=x86_64-unknown-linux-gnu;cpu=znver4;opt=3;lto=fat;cgu=1;strip=symbols;panic=unwind;zig=ReleaseFast;simd=true'
+work=
+record_tmp=
+cleanup() {
+  [[ -z $record_tmp ]] || rm -f -- "$record_tmp"
+  [[ -z $work ]] || rm -rf -- "$work"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# Cargo owns installation bookkeeping. Our record additionally identifies the
+# build recipe and executable, so an unrecorded/default build is rebuilt once.
+read_install() {
+  installed_version=
+  installed_commit=
+  installed_hash=absent
+  if [[ -e $binary || -L $binary ]]; then
+    [[ -f $binary && -x $binary && ! -L $binary ]] || die "not a regular Cargo executable: $binary"
+    [[ -r $cargo_root/.crates2.json ]] || die "no Cargo ownership metadata for $binary"
+    local info
+    info=$(jq -ce '
+      [.installs | to_entries[] | select(.value.bins | index("herdr"))]
+      | if length == 1 then .[0].key else error("ambiguous/missing Herdr ownership") end
+      | capture("^herdr (?<version>[0-9]+\\.[0-9]+\\.[0-9]+) \\(git\\+https://github\\.com/herdrdev/herdr(?:\\.git)?(?:\\?[^#]*)?#(?<commit>[0-9a-f]{40})\\)$")
+    ' "$cargo_root/.crates2.json") || die "refusing to replace an unrecognized/non-stable Cargo installation: $binary"
+    installed_version=$(jq -er .version <<< "$info")
+    installed_commit=$(jq -er .commit <<< "$info")
+    installed_hash=$(sha256sum -- "$binary"); installed_hash=${installed_hash%% *}
+  fi
+}
+
+if [[ $mode == check ]]; then
+  work=$(mktemp -d "${TMPDIR:-/tmp}/herdr-cargo-check.XXXXXX")
+else
+  for tool in cargo rustc cc tar xz stat flock; do
+    command -v "$tool" >/dev/null || die "$tool is required"
+  done
+  mkdir -p "$cargo_root" || die "cannot create $cargo_root"
+  exec {lockfd}>"$cargo_root/.herdr-cargo.lock" || die 'cannot open the lock file'
+  flock -n "$lockfd" || die 'another herdr-cargo operation is running'
+  build_parent=${XDG_CACHE_HOME:-"$HOME/.cache"}/herdr-cargo
+  mkdir -p "$build_parent" || die "cannot create $build_parent"
+  # An uncatchable kill (SIGKILL, power loss) skips the EXIT trap and leaves a multi-GB build
+  # directory; the lock proves no other run is using one.
+  find "$build_parent" -maxdepth 1 -type d -name 'build.*' -mmin +1440 -exec rm -rf -- {} + ||
+    printf 'herdr-cargo: could not remove stale build directories in %s\n' "$build_parent" >&2
+  work=$(mktemp -d "$build_parent/build.XXXXXX") || die "cannot create a build directory in $build_parent"
+fi
+read_install
+initial_hash=$installed_hash
+initial_commit=$installed_commit
+
+fetch() {
+  curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https' \
+    --retry 2 --connect-timeout 15 --max-time "${3:-60}" "$1" --output "$2" ||
+    die "could not fetch $1"
+}
+fetch https://api.github.com/repos/herdrdev/herdr/releases/latest "$work/release.json"
+tag=$(jq -er 'select(.draft == false and .prerelease == false) | .tag_name' "$work/release.json") ||
+  die 'GitHub did not return a stable release'
+[[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "unsupported stable tag: $tag"
+version=${tag#v}
+# Peel annotated tags; target_commitish from the releases API may be a branch.
+timeout --foreground 90 env GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code "$repo" \
+  "refs/tags/$tag" "refs/tags/$tag^{}" > "$work/refs" || die "could not resolve $tag from $repo"
+commit=$(awk -v ref="refs/tags/$tag" '
+  $2 == ref { direct=$1 } $2 == ref "^{}" { peeled=$1 }
+  END { print peeled != "" ? peeled : direct }
+' "$work/refs")
+[[ $commit =~ ^[0-9a-f]{40}$ ]] || die "could not resolve $tag to a commit"
+printf 'Latest stable Herdr: %s (%s)\n' "$tag" "$commit"
+printf 'Installed: %s\n' "${installed_version:-absent}"
+if [[ -n $installed_version && $installed_version != "$version" &&
+      $(printf '%s\n%s\n' "$installed_version" "$version" | sort -V | tail -n1) == "$installed_version" ]]; then
+  die 'installed version is newer than the latest stable; refusing to downgrade'
+fi
+if [[ $installed_commit == "$commit" && -r $record ]] &&
+   jq -e --arg commit "$commit" --arg recipe "$recipe" --arg hash "$installed_hash" \
+     '.schema == 1 and .commit == $commit and .recipe == $recipe and .binary_sha256 == $hash' \
+     "$record" >/dev/null; then
+  printf 'Already current with the fat-LTO build recipe.\n'
+  exit 0
+fi
+
+# Inspect the immutable release files; do not source or execute CI/build scripts.
+raw=https://raw.githubusercontent.com/herdrdev/herdr/$commit
+fetch "$raw/.github/workflows/release.yml" "$work/release.yml"
+fetch "$raw/vendor/libghostty-vt/build.zig.zon" "$work/build.zig.zon"
+fetch "$raw/Cargo.toml" "$work/Cargo.toml"
+package_version=$(awk '
+  /^[[:space:]]*\[package\]/ { pkg=1; next }
+  /^[[:space:]]*\[/ { pkg=0 }
+  pkg && /^[[:space:]]*version[[:space:]]*=/ { split($0, parts, "\""); print parts[2] }
+' "$work/Cargo.toml")
+[[ $package_version == "$version" ]] || die 'release tag and Cargo package version disagree'
+zig_version=$(awk '
+  /^[[:space:]]*-[[:space:]]/ { zig=0 }
+  /uses:[[:space:]]*[^[:space:]]*setup-zig@/ { zig=1; next }
+  zig && /^[[:space:]]*version:/ { gsub(/["\047]/, "", $2); print $2 }
+' "$work/release.yml" | sort -u)
+minimum_zig=$(awk '/^[[:space:]]*\.minimum_zig_version[[:space:]]*=/ {
+  gsub(/[",]/, "", $3); print $3
+}' "$work/build.zig.zon")
+[[ $zig_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $minimum_zig =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+  die 'cannot determine one stable CI-pinned Zig version and the engine minimum; review the release build files'
+[[ $(printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -V | tail -n1) == "$zig_version" ]] ||
+  die 'CI-pinned Zig is older than the engine minimum'
+fetch https://ziglang.org/download/index.json "$work/zig-index.json"
+zig_url=$(jq -er --arg version "$zig_version" '.[$version]["x86_64-linux"].tarball' "$work/zig-index.json") ||
+  die "Zig $zig_version has no official x86_64 Linux archive in the download index"
+zig_sha=$(jq -er --arg version "$zig_version" '.[$version]["x86_64-linux"].shasum' "$work/zig-index.json") ||
+  die "Zig $zig_version has no published archive checksum"
+zig_name=zig-x86_64-linux-$zig_version
+[[ $zig_url == "https://ziglang.org/download/$zig_version/$zig_name.tar.xz" &&
+   $zig_sha =~ ^[0-9a-f]{64}$ ]] || die 'unsupported official Zig archive metadata'
+printf 'Required Zig: %s (release CI pin; engine minimum %s)\n' "$zig_version" "$minimum_zig"
+printf 'Build: Zen 4, opt=3, fat LTO, codegen-units=1, stripped; engine ReleaseFast/SIMD\n'
+if [[ $mode == check ]]; then
+  printf 'Would build, verify and install %s into %s.\n' "$tag" "$cargo_root"
+  exit 0
+fi
+[[ $(rustc --print target-cpus) == *'currently znver4)'* ]] ||
+  die 'this recipe is tuned for a Zen 4 host; review target-cpu=znver4 for this machine'
+fetch "$zig_url" "$work/zig.tar.xz" 300
+printf '%s  %s\n' "$zig_sha" "$work/zig.tar.xz" | sha256sum --check --strict ||
+  die 'Zig archive checksum mismatch'
+tar -xJf "$work/zig.tar.xz" -C "$work" || die 'could not extract the Zig archive'
+[[ $("$work/$zig_name/zig" version) == "$zig_version" ]] || die 'extracted Zig reports an unexpected version'
+
+mkdir -p "$work/tmp"
+export TMPDIR="$work/tmp"
+export ZIG="$work/$zig_name/zig"
+export ZIG_GLOBAL_CACHE_DIR="$work/zig-cache" ZIG_LOCAL_CACHE_DIR="$work/zig-local-cache"
+export CARGO_TARGET_DIR="$work/target" CARGO_BUILD_BUILD_DIR="$work/target"
+export CARGO_BUILD_JOBS=8 CARGO_PROFILE_RELEASE_OPT_LEVEL=3 CARGO_PROFILE_RELEASE_LTO=fat
+export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_STRIP=symbols
+export CARGO_PROFILE_RELEASE_PANIC=unwind CARGO_PROFILE_RELEASE_INCREMENTAL=false
+export LIBGHOSTTY_VT_OPTIMIZE=ReleaseFast LIBGHOSTTY_VT_SIMD=true
+unset CARGO_ENCODED_RUSTFLAGS CARGO_INCREMENTAL LIBGHOSTTY_VT_ZIG_SYSTEM_DIR
+export RUSTFLAGS='-C target-cpu=znver4'
+install_args=(install --git "$repo" --rev "$commit" --locked --bin herdr --target x86_64-unknown-linux-gnu)
+# Verify the built executable before replacing anything in the installation root.
+cargo "${install_args[@]}" --root "$work/stage" herdr {lockfd}>&- ||
+  die 'staged Cargo build failed; the installed executable was not replaced'
+[[ $("$work/stage/bin/herdr" --version) == "herdr $version" ]] || die 'staged Herdr failed its version check'
+read_install
+[[ $installed_hash == "$initial_hash" && $installed_commit == "$initial_commit" ]] ||
+  die 'Herdr changed while the build was running; retry after reviewing the installation'
+# The same Cargo target directory reuses the already-built candidate. --force
+# also applies the recipe when the same commit was previously built differently.
+cargo "${install_args[@]}" --root "$cargo_root" --force herdr {lockfd}>&- ||
+  die "Cargo could not install the verified candidate into $cargo_root"
+[[ $("$binary" --version) == "herdr $version" ]] || die 'installed Herdr failed its version check'
+read_install
+[[ $installed_commit == "$commit" && $installed_version == "$version" ]] || die 'installed Cargo metadata does not match the selected release'
+record_tmp=$(mktemp "$cargo_root/.herdr-cargo.XXXXXX")
+jq -n --arg tag "$tag" --arg commit "$commit" --arg zig "$zig_version" \
+  --arg recipe "$recipe" --arg hash "$installed_hash" --arg rustc "$(rustc -vV)" \
+  --arg cargo "$(cargo --version)" --argjson bytes "$(stat -c %s "$binary")" \
+  '{schema:1, tag:$tag, commit:$commit, zig:$zig, recipe:$recipe,
+    binary_sha256:$hash, binary_bytes:$bytes, rustc:$rustc, cargo:$cargo}' > "$record_tmp"
+mv -- "$record_tmp" "$record"
+record_tmp=
+printf 'Installed %s (%s), %s bytes: %s\n' "$tag" "$commit" "$(stat -c %s "$binary")" "$binary"
+printf 'Running Herdr sessions retain their current server; no sessions were restarted.\n'

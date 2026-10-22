@@ -21,6 +21,30 @@ class InstallUserUnitsTests(unittest.TestCase):
         self.bin = self.base / "bin"
         self.bin.mkdir()
         self.calls = self.base / "systemctl-calls"
+        self.herdr_calls = self.base / "herdr-calls"
+        # The real helper is an installer. Overlay only that file with a stub,
+        # keeping the config sources symlinked to the checkout for the existing
+        # destination checks. No real compiler or download command is reachable.
+        self.dotfiles = self.base / "dotfiles"
+        self.dotfiles.mkdir()
+        for entry in DOTFILES.iterdir():
+            if entry.name != "bash":
+                (self.dotfiles / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+        helpers = self.dotfiles / "bash"
+        helpers.mkdir()
+        for entry in (DOTFILES / "bash").iterdir():
+            if entry.name != "herdr-cargo":
+                (helpers / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+        (helpers / "herdr-cargo").write_text('''#!/bin/bash
+printf '%s\\n' "$*" >> "$HERDR_CALLS"
+[[ -d $HOME/.claude/skills ]] && echo skills-first >> "$HERDR_CALLS.order"
+if [[ $HERDR_FAIL == 1 ]]; then
+  echo 'fixture Herdr failure' >&2
+  exit 13
+elif [[ $HERDR_FAIL == 130 ]]; then
+  exit 130
+fi
+''')
         self.stub("systemctl", '''printf '%s\\n' "$*" >> "$UNIT_CALLS"
 if [[ $1 == --user && $2 == enable && " $FAIL_UNITS " == *" $3 "* ]]; then
   printf 'fixture enable failure: %s\\n' "$3" >&2
@@ -34,7 +58,7 @@ exit 0
         # XDG paths or flags that could redirect the fixture outside its home.
         self.env = {
             "HOME": str(self.home),
-            "DOTFILES": str(DOTFILES),
+            "DOTFILES": str(self.dotfiles),
             "XDG_CONFIG_HOME": str(self.home / ".config"),
             "XDG_DATA_HOME": str(self.home / ".local/share"),
             "PATH": f"{self.bin}:/usr/bin:/bin",
@@ -42,6 +66,8 @@ exit 0
             "NO_COLOR": "1",
             "UNIT_CALLS": str(self.calls),
             "FAIL_UNITS": "",
+            "HERDR_CALLS": str(self.herdr_calls),
+            "HERDR_FAIL": "0",
         }
 
     def stub(self, name, body):
@@ -49,8 +75,9 @@ exit 0
         path.write_text("#!/bin/bash\n" + body)
         path.chmod(0o755)
 
-    def run_install(self, failures=""):
+    def run_install(self, failures="", herdr_failure=False, herdr_interrupted=False):
         self.env["FAIL_UNITS"] = failures
+        self.env["HERDR_FAIL"] = "130" if herdr_interrupted else "1" if herdr_failure else "0"
         return subprocess.run(
             ["/bin/bash", str(SOURCE)], cwd=self.base, env=self.env,
             text=True, capture_output=True, timeout=20,
@@ -66,6 +93,9 @@ exit 0
         self.assertIn("--user enable wob-playback.socket", self.calls.read_text().splitlines())
         self.assertEqual((self.home / '.config/wob/playback.ini').resolve(),
                          DOTFILES / 'wob/playback.ini')
+        self.assertEqual(self.herdr_calls.read_text(), "--install\n")
+        self.assertEqual((self.home / ".local/bin/herdr-cargo").resolve(),
+                         self.dotfiles / "bash/herdr-cargo")
         for suffix in ('service', 'socket'):
             self.assertEqual((self.home / f'.config/systemd/user/wob-playback.{suffix}').resolve(),
                              DOTFILES / f'systemd/user/wob-playback.{suffix}')
@@ -92,6 +122,43 @@ exit 0
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Dotfiles installation complete!", result.stdout)
         self.assertNotIn("User units not enabled:", result.stderr)
+
+    def test_herdr_runs_after_the_rest_of_the_setup(self):
+        self.run_install()
+        self.assertEqual(Path(f"{self.herdr_calls}.order").read_text(), "skills-first\n")
+
+    def test_herdr_failure_finishes_setup_and_returns_nonzero(self):
+        result = self.run_install(herdr_failure=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("fixture Herdr failure", result.stderr)
+        self.assertIn("retry: herdr-cargo --install", result.stderr)
+        self.assertIn("Agent skills linked", result.stdout)
+        self.assertIn("--user enable ssh-agent.socket", self.calls.read_text())
+        self.assertNotIn("Dotfiles installation complete!", result.stdout)
+        result = self.run_install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ctrl_c_during_herdr_is_reported_as_an_interrupt_not_a_failure(self):
+        result = self.run_install(herdr_interrupted=True)
+        self.assertEqual(result.returncode, 130, result.stdout + result.stderr)
+        self.assertIn("Herdr installation interrupted; retry: herdr-cargo --install", result.stderr)
+        self.assertNotIn("failed", result.stderr)
+        self.assertNotIn("failures", result.stderr)
+        self.assertIn("Dotfiles installation interrupted", result.stderr)
+        self.assertNotIn("Dotfiles installation complete!", result.stdout)
+        self.assertIn("Agent skills linked", result.stdout)
+
+    def test_an_interrupt_does_not_hide_unit_failures_but_sets_the_exit_status(self):
+        result = self.run_install("ssh-agent.socket", herdr_interrupted=True)
+        self.assertEqual(result.returncode, 130)
+        self.assertIn("User units not enabled:\n  ssh-agent.socket\n", result.stderr)
+        self.assertIn("Dotfiles installation finished with failures", result.stderr)
+
+    def test_herdr_and_unit_failures_are_both_reported(self):
+        result = self.run_install("ssh-agent.socket", herdr_failure=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("retry: herdr-cargo --install", result.stderr)
+        self.assertIn("User units not enabled:\n  ssh-agent.socket\n", result.stderr)
 
 
 if __name__ == "__main__":

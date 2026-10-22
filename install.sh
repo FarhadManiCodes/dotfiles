@@ -359,11 +359,31 @@ for agent_dir in "${HOME}/.claude/skills" "${HOME}/.agents/skills"; do
 done
 echo "✅ Agent skills linked into ~/.claude/skills and ~/.agents/skills"
 
+# Herdr goes last: it needs the network and a build of several minutes, and the rest of the
+# setup must not wait for it or depend on it. The helper provisions the Zig version pinned by
+# its release temporarily, verifies a staged Cargo build, then installs only the executable.
+echo "🐑 Installing Herdr through Cargo..."
+herdr_install_failed=0
+herdr_interrupted=0
+herdr_status=0
+bash "${DOTFILES}/bash/herdr-cargo" --install || herdr_status=$?
+if (( herdr_status == 130 || herdr_status == 143 )); then # Ctrl-C or TERM: not a failure
+  herdr_interrupted=1
+  echo "⚠️  Herdr installation interrupted; see the summary below" >&2
+elif (( herdr_status )); then
+  herdr_install_failed=1
+  echo "⚠️  Herdr installation failed; see the summary below" >&2
+fi
+
 echo ""
-if (( ${#failed_user_units[@]} == 0 )); then
-  echo "🎉 Dotfiles installation complete!"
+if (( ${#failed_user_units[@]} == 0 && herdr_install_failed == 0 )); then
+  if (( herdr_interrupted )); then
+    echo "⚠️  Dotfiles installation interrupted" >&2
+  else
+    echo "🎉 Dotfiles installation complete!"
+  fi
 else
-  echo "⚠️  Dotfiles installation finished with user-service enable failures" >&2
+  echo "⚠️  Dotfiles installation finished with failures" >&2
 fi
 echo ""
 echo "Next steps:"
@@ -381,11 +401,19 @@ echo ""
 echo "🔐 System (root) configs are installed separately:"
 echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
 
-# Finish the remaining setup and guidance before returning the enable result.
+# Finish the remaining setup and guidance before returning the combined result.
+if (( herdr_interrupted )); then
+  echo 'Herdr installation interrupted; retry: herdr-cargo --install' >&2
+elif (( herdr_install_failed )); then
+  echo 'Herdr installation/update failed; retry: herdr-cargo --install' >&2
+fi
 if (( ${#failed_user_units[@]} )); then
   printf 'User units not enabled:\n' >&2
   printf '  %s\n' "${failed_user_units[@]}" >&2
-  exit 1
-else
-  exit 0
 fi
+if (( herdr_interrupted )); then
+  exit "$herdr_status"
+elif (( ${#failed_user_units[@]} || herdr_install_failed )); then
+  exit 1
+fi
+exit 0
