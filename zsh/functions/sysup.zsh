@@ -26,6 +26,20 @@ _sysup_flush_notes() {
   return 0
 }
 
+# Records a failure sysup continues past. A status above 128 is a signal (Ctrl-C): that
+# stops the run, because the trap has already released the inhibitor and the lock.
+_sysup_note() {
+  local _status=$1
+  shift
+  if (( _status > 128 )); then
+    echo "!! $* — interrupted, stopping sysup"
+    _sysup_flush_notes
+    return "$_status"
+  fi
+  _sysup_notes+=("$*")
+  echo "!! $* — continuing sysup"
+}
+
 sysup() {
   local _include_podman_images=0 _test_tools=0 _arg
   local -a _sysup_notes=()
@@ -137,23 +151,26 @@ sysup() {
 
   echo "==> uv tools"
   echo "    Installed tools:"
+  local _status=0
   uv tool list --show-version-specifiers || {
-    _sysup_notes+=("could not list uv tools (exit $?); see the output above")
-    echo "!! ${_sysup_notes[-1]} — continuing sysup"
+    _status=$?
+    _sysup_note "$_status" "could not list uv tools (exit $_status); see the output above" || return $?
   }
   echo "    Checking for updates..."
-  local _uv_status=0
-  uv tool upgrade --all || _uv_status=$?
-  if (( _uv_status )); then
-    _sysup_notes+=("uv tool upgrade failed (exit $_uv_status); tools, including yt-dlp and its token helper, may be outdated or mismatched; see the output above")
-    echo "!! ${_sysup_notes[-1]} — continuing sysup"
+  _status=0
+  uv tool upgrade --all || _status=$?
+  if (( _status )); then
+    _sysup_note "$_status" "uv tool upgrade failed (exit $_status); tools, including yt-dlp and its token helper, may be outdated or mismatched; see the output above" || return $?
   else
     echo "    All uv tools checked"
   fi
 
   if (( _test_tools )); then
     echo "==> Own tools: tests against the newest dependencies"
-    _sysup_tool_tests
+    _sysup_tool_tests || {
+      _status=$?
+      (( _status > 128 )) && { _sysup_flush_notes; return "$_status"; }
+    }
   fi
 
   echo "==> yt-dlp token helper (bgutil)"
@@ -164,7 +181,9 @@ sysup() {
   }
 
   echo "==> yts (local app)"
-  _sysup_yts || echo "!! yts install failed — continuing sysup"
+  _status=0
+  _sysup_yts || _status=$?
+  (( _status )) && { _sysup_note "$_status" "yts install failed (exit $_status); see the output above" || return $?; }
 
   echo "==> Cargo tools"
   cargo install-update --all || {
@@ -175,14 +194,14 @@ sysup() {
   echo "    All Cargo tools checked"
 
   echo "==> Herdr (Cargo stable release)"
-  local _herdr_status=0 _herdr_note
+  local _herdr_note
   rm -f -- "$_herdr_reason"
-  HERDR_CARGO_REASON_FILE=$_herdr_reason _sysup_herdr || _herdr_status=$?
-  if (( _herdr_status )); then
-    _herdr_note="Herdr update failed (exit $_herdr_status): $(cat -- "$_herdr_reason" 2>/dev/null)"
-    [[ -s $_herdr_reason ]] || _herdr_note="Herdr update failed (exit $_herdr_status); see the output above"
-    _sysup_notes+=("$_herdr_note")
-    echo "!! $_herdr_note — continuing sysup"
+  _status=0
+  HERDR_CARGO_REASON_FILE=$_herdr_reason _sysup_herdr || _status=$?
+  if (( _status )); then
+    _herdr_note="Herdr update failed (exit $_status): $(cat -- "$_herdr_reason" 2>/dev/null)"
+    [[ -s $_herdr_reason ]] || _herdr_note="Herdr update failed (exit $_status); see the output above"
+    _sysup_note "$_status" "$_herdr_note" || return $?
   fi
 
   echo "==> Claude Code"

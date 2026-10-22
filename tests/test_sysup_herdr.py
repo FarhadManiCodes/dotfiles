@@ -110,6 +110,20 @@ _sysup_herdr() {{ _sysup_herdr_real {wrapper}; }}
         self.assertEqual(result.stdout.count("!! uv tool upgrade failed (exit 2)"), 2)
         self.assertTrue(result.stdout.rstrip().splitlines()[-1].startswith("!! uv tool upgrade failed"))
 
+    def test_ctrl_c_in_a_step_stops_sysup_instead_of_being_recorded_as_a_failure(self):
+        for stubs in ("uv() { [[ $2 == upgrade ]] && return 130; return 0; }",
+                      "_sysup_herdr() { return 130; }"):
+            with self.subTest(stubs=stubs):
+                self.log.unlink(missing_ok=True)
+                result = self.run_sysup(stubs)
+                self.assertEqual(result.returncode, 130, result.stderr)
+                self.assertIn("interrupted, stopping sysup", result.stdout)
+                self.assertFalse(self.log.exists(), "later steps must not run")  # claude would log
+
+    def test_a_failed_yts_install_is_repeated_at_the_end(self):
+        result = self.run_sysup("_sysup_yts() { return 4; }")
+        self.assert_warned_and_continued(result, "yts install failed (exit 4); see the output above")
+
     def test_reason_file_is_removed_when_sysup_is_interrupted(self):
         runtime = self.base / "run"
         runtime.mkdir()

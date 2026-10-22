@@ -12,7 +12,7 @@ _sysup_tool_tests() {
     "paper-refinery --extra dev"
     "audio_text"
   )
-  local entry name out rc summary line
+  local entry name out rc summary line n
   local -a words lines broken=() unrun=()
   for entry in $projects; do
     words=(${=entry})
@@ -22,8 +22,8 @@ _sysup_tool_tests() {
       continue
     fi
     # stdin from /dev/null: a test that prompts must fail, not hang the update.
-    out=$(cd "$root/$name" && UV_COMPILE_BYTECODE=0 PYTHONDONTWRITEBYTECODE=1 \
-      timeout 600 uv run --isolated --upgrade ${words[2,-1]} \
+    out=$(cd "$root/$name" && PYTHONDONTWRITEBYTECODE=1 \
+      timeout 600 uv run --isolated --upgrade --no-compile-bytecode ${words[2,-1]} \
       python -m pytest -q -p no:cacheprovider 2>&1 </dev/null)
     rc=$?
     lines=(${(f)out})
@@ -34,22 +34,28 @@ _sysup_tool_tests() {
         break
       fi
     done
-    if (( rc == 124 )); then
+    if (( rc > 128 )); then # a signal (Ctrl-C), not a result
+      echo "    $name: interrupted"
+      _sysup_notes+=("tool tests interrupted at $name")
+      return "$rc"
+    elif (( rc == 124 )); then
       echo "    $name: TIMED OUT after 600 s"
       unrun+=($name)
     elif (( rc == 0 )); then
       echo "    $name: ${summary:-ran, no pytest summary}"
-    elif [[ -z $summary ]]; then
-      echo "    $name: could not run the suite (exit $rc) — resolving, network or build?"
-      (( ${#lines} )) && print -r -- "${(F)lines[-15,-1]}"
+    elif [[ -z $summary || $rc == (4|5) ]]; then # 4, 5: pytest usage error, nothing collected
+      echo "    $name: could not run the suite (exit $rc) — nothing collected, or uv could not resolve, fetch or build"
+      n=$(( ${#lines} > 15 ? -15 : 1 ))
+      (( ${#lines} )) && print -r -- "${(F)lines[n,-1]}"
       unrun+=($name)
     else
       echo "    $name: FAILED with the latest dependencies (exit $rc): $summary"
-      print -r -- "${(F)lines[-40,-1]}"
+      n=$(( ${#lines} > 40 ? -40 : 1 ))
+      print -r -- "${(F)lines[n,-1]}"
       broken+=($name)
     fi
   done
   (( ${#broken} )) && _sysup_notes+=("tests failed with the latest dependencies: ${(j:, :)broken}; the installed tools may be broken, see the output above")
-  (( ${#unrun} )) && _sysup_notes+=("tests could not run (timed out, or resolving/network/build failed): ${(j:, :)unrun}; see the output above")
+  (( ${#unrun} )) && _sysup_notes+=("tests could not run (timed out, nothing collected, or resolve/network/build failed): ${(j:, :)unrun}; see the output above")
   (( ! ${#broken} && ! ${#unrun} ))
 }

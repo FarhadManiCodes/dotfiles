@@ -187,7 +187,7 @@ unset CARGO_ENCODED_RUSTFLAGS CARGO_INCREMENTAL LIBGHOSTTY_VT_ZIG_SYSTEM_DIR
 export RUSTFLAGS='-C target-cpu=znver4'
 install_args=(install --git "$repo" --rev "$commit" --locked --bin herdr --target x86_64-unknown-linux-gnu)
 # Verify the built executable before replacing anything in the installation root.
-cargo "${install_args[@]}" --root "$work/stage" herdr ||
+cargo "${install_args[@]}" --root "$work/stage" herdr {lockfd}>&- ||
   die 'staged Cargo build failed; the installed executable was not replaced'
 [[ $("$work/stage/bin/herdr" --version) == "herdr $version" ]] || die 'staged Herdr failed its version check'
 read_install
@@ -195,7 +195,7 @@ read_install
   die 'Herdr changed while the build was running; retry after reviewing the installation'
 # The same Cargo target directory reuses the already-built candidate. --force
 # also applies the recipe when the same commit was previously built differently.
-cargo "${install_args[@]}" --root "$cargo_root" --force herdr ||
+cargo "${install_args[@]}" --root "$cargo_root" --force herdr {lockfd}>&- ||
   die "Cargo could not install the verified candidate into $cargo_root"
 [[ $("$binary" --version) == "herdr $version" ]] || die 'installed Herdr failed its version check'
 read_install

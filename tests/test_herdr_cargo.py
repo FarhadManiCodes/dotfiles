@@ -113,7 +113,9 @@ names = ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "CARGO_PROFILE_RELEASE_LTO",
          "CARGO_PROFILE_RELEASE_INCREMENTAL", "CARGO_INCREMENTAL", "CARGO_BUILD_JOBS",
          "LIBGHOSTTY_VT_OPTIMIZE", "LIBGHOSTTY_VT_SIMD", "ZIG",
          "CARGO_TARGET_DIR", "CARGO_BUILD_BUILD_DIR", "TMPDIR")
-log({"tool":"cargo", "args":args, "env":{k:os.environ.get(k) for k in names}})
+holders = [n for n in os.listdir("/proc/self/fd")
+           if os.path.exists(f"/proc/self/fd/{n}") and os.readlink(f"/proc/self/fd/{n}").endswith(".herdr-cargo.lock")]
+log({"tool":"cargo", "args":args, "lock_fds":holders, "env":{k:os.environ.get(k) for k in names}})
 if os.environ.get("HOLD_BUILD") and is_stage:
     import time
     Path(os.environ["HOLD_BUILD"]).touch()
@@ -206,6 +208,7 @@ def log(value):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         calls = self.calls("cargo")
         self.assertEqual(len(calls), 2)
+        self.assertEqual([call["lock_fds"] for call in calls], [[], []])  # builds must not inherit the lock
         self.assertNotIn("--force", calls[0]["args"])
         self.assertIn("--force", calls[1]["args"])
         self.assertIn(str(self.root), calls[1]["args"])

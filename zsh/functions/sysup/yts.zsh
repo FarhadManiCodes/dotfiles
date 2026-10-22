@@ -1,4 +1,4 @@
-# See docs/architecture/zsh.md, "yts, the one locally-built app", for why this
+# See docs/architecture/zsh.md, the "yts" section, for why this
 # exists. A subshell keeps our cwd and `emulate` away from sysup's inhibitor
 # trap. The directories are arguments so tests can drive this without
 # touching the real checkout, install state or binary. Defaults match yts's

@@ -25,6 +25,8 @@ class ToolTestsStepTests(unittest.TestCase):
                       '  tests) echo "1 failed, 4 passed in 0.1s"; exit 1 ;;\n'
                       '  resolve) echo "error: no solution found"; exit 2 ;;\n'
                       '  timeout) exit 124 ;;\n'
+                      '  nothing) echo "no tests ran in 0.01s"; exit 5 ;;\n'
+                      '  interrupt) exit 130 ;;\n'
                       'esac ;; esac\n'
                       'echo "5 passed in 0.1s"\n')
         uv.chmod(0o755)
@@ -40,9 +42,9 @@ class ToolTestsStepTests(unittest.TestCase):
         result = self.run_zsh(f'_sysup_tool_tests {self.projects}; print rc=$?')
         self.assertIn("rc=0", result.stdout, result.stderr)
         self.assertEqual(sorted(self.log.read_text().splitlines()), [
-            "audio_text|run --isolated --upgrade python -m pytest -q -p no:cacheprovider",
-            "mathunicode|run --isolated --upgrade python -m pytest -q -p no:cacheprovider",
-            "paper-refinery|run --isolated --upgrade --extra dev python -m pytest -q -p no:cacheprovider",
+            "audio_text|run --isolated --upgrade --no-compile-bytecode python -m pytest -q -p no:cacheprovider",
+            "mathunicode|run --isolated --upgrade --no-compile-bytecode python -m pytest -q -p no:cacheprovider",
+            "paper-refinery|run --isolated --upgrade --no-compile-bytecode --extra dev python -m pytest -q -p no:cacheprovider",
         ])
         self.assertIn("mathunicode: 5 passed in 0.1s", result.stdout)
 
@@ -58,6 +60,25 @@ class ToolTestsStepTests(unittest.TestCase):
         out = self.run_failing("tests")
         self.assertIn("paper-refinery: FAILED with the latest dependencies (exit 1): 1 failed, 4 passed in 0.1s", out)
         self.assertIn("NOTE: tests failed with the latest dependencies: paper-refinery;", out)
+
+    def test_the_end_of_a_short_output_is_still_shown(self):
+        out = self.run_failing("resolve")
+        self.assertIn("error: no solution found", out)
+        self.log.unlink()
+        out = self.run_failing("tests")
+        self.assertEqual(out.count("1 failed, 4 passed in 0.1s"), 2)  # the header and the output tail
+
+    def test_nothing_collected_is_not_reported_as_a_broken_tool(self):
+        out = self.run_failing("nothing")
+        self.assertIn("paper-refinery: could not run the suite (exit 5)", out)
+        self.assertNotIn("FAILED with the latest dependencies", out)
+
+    def test_interrupt_stops_the_remaining_suites(self):
+        self.env.update(TEST_FAIL="mathunicode", TEST_MODE="interrupt")
+        result = self.run_zsh(f'local -a _sysup_notes; _sysup_tool_tests {self.projects}; print rc=$?')
+        self.assertIn("rc=130", result.stdout, result.stderr)
+        self.assertIn("mathunicode: interrupted", result.stdout)
+        self.assertEqual(len(self.log.read_text().splitlines()), 1)
 
     def test_a_suite_that_could_not_run_is_not_reported_as_a_broken_tool(self):
         out = self.run_failing("resolve")

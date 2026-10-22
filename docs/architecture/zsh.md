@@ -56,14 +56,16 @@ environment on the newest allowed dependencies, because the projects' own `uv.lo
 tests to known-good versions and a breaking release would otherwise show up only in the installed
 tool. Neither the lockfile, the project `.venv` nor the installed tool is touched. A failing suite
 is reported with its pytest summary and the end of its output; a suite that could not run (no pytest
-summary: resolving, network or build failure) or timed out (600 s, stdin closed) is reported
+summary, or pytest exit 4/5: resolving, network or build failure, nothing collected) or timed out (600 s, stdin closed) is reported
 separately, so it is not mistaken for a broken tool. Both are repeated before the closing line and
 `sysup` continues. A project without a checkout is skipped. It adds about 40 seconds, hence opt-in.
 
-`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all` or Herdr update. Each
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update. Each
 failure is reported where it happens and repeated after the last step (and before any early
 stop); a run with recorded failures ends "sysup finished with warnings" and returns non-zero (the podman
-status when the image update failed, otherwise 1).
+status when the image update failed, otherwise 1). A signal (Ctrl-C, exit above 128) in one of
+those steps is not a failure to continue past: it stops `sysup`, since the trap has already released
+the sleep inhibitor and the lock.
 
 `batt` uses `bash/hardware-readings`, shared with the Mod+Shift+N temperature
 notification. Each request invokes `sensors -j` once and `jq` once, without
