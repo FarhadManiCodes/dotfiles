@@ -15,7 +15,9 @@ bash bash/herdr-cargo --update   # update only; skip when the executable is abse
 The normal helper mapping in `install.sh` links it to `~/.local/bin/herdr-cargo`.
 The installer invokes `--install`, continues the other setup after a failure,
 and reports failure at the end. `sysup` invokes `--update` after
-`cargo install-update --all` and stops if the Herdr update fails. That general
+`cargo install-update --all`, reports a failed Herdr update with its reason, continues, and
+finishes non-zero. If `HERDR_CARGO_REASON_FILE` names a file, the helper also writes its failure
+message there so `sysup` can repeat it. That general
 Cargo command skips Git installs; do not add `--git` to update Herdr, because
 the stable selection, SDK provisioning and build flags belong to this helper.
 Reload `~/.zshrc` in existing shells after updating the `sysup` function.

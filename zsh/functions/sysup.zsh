@@ -18,8 +18,17 @@ for _sysup_module in bgutil yts herdr mirrorlist nvim-health plugins claude-prun
 done
 unset _sysup_module_dir _sysup_module
 
+# Failures sysup continues past are recorded in the caller's _sysup_notes (zsh dynamic scope)
+# and repeated last, where the scrolled-away middle of a long run cannot hide them.
+_sysup_flush_notes() {
+  (( ${#_sysup_notes} )) && printf '!! %s\n' "${_sysup_notes[@]}"
+  return 0
+}
+
 sysup() {
   local _include_podman_images=0 _arg
+  local -a _sysup_notes=()
+  local _herdr_reason="${XDG_RUNTIME_DIR:-/tmp}/sysup-herdr-reason.$$"
   for _arg in "$@"; do
     case $_arg in
       --podman-images) _include_podman_images=1 ;;
@@ -103,9 +112,9 @@ sysup() {
       --why="System update in progress" --mode=block sleep infinity {_lockfd}>&- &
     _inhibit_pid=$!
     disown 2>/dev/null
-    trap "kill $_inhibit_pid 2>/dev/null; exec {_lockfd}>&-" EXIT INT TERM
+    trap "kill $_inhibit_pid 2>/dev/null; rm -f -- ${(q)_herdr_reason}; exec {_lockfd}>&-" EXIT INT TERM
   else
-    trap "exec {_lockfd}>&-" EXIT INT TERM
+    trap "rm -f -- ${(q)_herdr_reason}; exec {_lockfd}>&-" EXIT INT TERM
   fi
 
   echo "==> Mirrorlist"
@@ -126,19 +135,23 @@ sysup() {
   echo "==> uv tools"
   echo "    Installed tools:"
   uv tool list --show-version-specifiers || {
-    echo "!! could not list uv tools — stopping sysup"
-    return 1
+    _sysup_notes+=("could not list uv tools (exit $?); see the output above")
+    echo "!! ${_sysup_notes[-1]} — continuing sysup"
   }
   echo "    Checking for updates..."
-  uv tool upgrade --all || {
-    echo "!! uv tool upgrade failed — stopping sysup"
-    return 1
-  }
-  echo "    All uv tools checked"
+  local _uv_status=0
+  uv tool upgrade --all || _uv_status=$?
+  if (( _uv_status )); then
+    _sysup_notes+=("uv tool upgrade failed (exit $_uv_status); tools, including yt-dlp and its token helper, may be outdated or mismatched; see the output above")
+    echo "!! ${_sysup_notes[-1]} — continuing sysup"
+  else
+    echo "    All uv tools checked"
+  fi
 
   echo "==> yt-dlp token helper (bgutil)"
   _sysup_bgutil || {
     echo "!! bgutil update failed; yt-dlp/helper may still be mismatched — stopping sysup"
+    _sysup_flush_notes
     return 1
   }
 
@@ -148,15 +161,21 @@ sysup() {
   echo "==> Cargo tools"
   cargo install-update --all || {
     echo "!! Cargo tool update failed — stopping sysup"
+    _sysup_flush_notes
     return 1
   }
   echo "    All Cargo tools checked"
 
   echo "==> Herdr (Cargo stable release)"
-  _sysup_herdr || {
-    echo "!! Herdr update failed — stopping sysup"
-    return 1
-  }
+  local _herdr_status=0 _herdr_note
+  rm -f -- "$_herdr_reason"
+  HERDR_CARGO_REASON_FILE=$_herdr_reason _sysup_herdr || _herdr_status=$?
+  if (( _herdr_status )); then
+    _herdr_note="Herdr update failed (exit $_herdr_status): $(cat -- "$_herdr_reason" 2>/dev/null)"
+    [[ -s $_herdr_reason ]] || _herdr_note="Herdr update failed (exit $_herdr_status); see the output above"
+    _sysup_notes+=("$_herdr_note")
+    echo "!! $_herdr_note — continuing sysup"
+  fi
 
   echo "==> Claude Code"
   claude update
@@ -183,10 +202,11 @@ sysup() {
   echo "==> Config drift"
   _sysup_pacnew --pacman-since "$_pacman_boundary"
 
-  if (( _podman_status )); then
-    return "$_podman_status"
+  _sysup_flush_notes
+  if (( _podman_status || ${#_sysup_notes} )); then
+    echo "==> sysup finished with warnings"
+    return "$(( _podman_status ? _podman_status : 1 ))"
   fi
-
   echo "==> sysup done"
 }
 

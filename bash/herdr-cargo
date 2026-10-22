@@ -3,7 +3,12 @@
 set -euo pipefail
 export LC_ALL=C
 
-die() { printf 'herdr-cargo: %s\n' "$*" >&2; exit 1; }
+# HERDR_CARGO_REASON_FILE lets a caller (sysup) repeat the reason after later output scrolls it away.
+die() {
+  printf 'herdr-cargo: %s\n' "$*" >&2
+  [[ -z ${HERDR_CARGO_REASON_FILE:-} ]] || { printf '%s\n' "$*" > "$HERDR_CARGO_REASON_FILE"; } 2>/dev/null || :
+  exit 1
+}
 usage() {
   cat <<'HELP'
 Usage: herdr-cargo [--check | --install | --update] [--root DIRECTORY]
@@ -14,6 +19,7 @@ Usage: herdr-cargo [--check | --install | --update] [--root DIRECTORY]
 
 Builds for this machine's Zen 4 CPU with fat LTO. Zig and build artifacts are
 temporary; Cargo's shared source cache is retained. Running sessions are untouched.
+HERDR_CARGO_REASON_FILE: if set, a failure message is also written to that file.
 HELP
 }
 

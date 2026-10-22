@@ -49,6 +49,11 @@ Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C still
 interrupts the running command. Reload `~/.zshrc` in shells already open after
 changing these functions.
 
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all` or Herdr update. Each
+failure is reported where it happens and repeated after the last step (and before any early
+stop); a run with recorded failures ends "sysup finished with warnings" and returns non-zero (the podman
+status when the image update failed, otherwise 1).
+
 `batt` uses `bash/hardware-readings`, shared with the Mod+Shift+N temperature
 notification. Each request invokes `sensors -j` once and `jq` once, without
 background monitoring. The helper returns five tab-separated display values:
@@ -116,7 +121,8 @@ audio. URLs go on stdin through `native.run`'s second argument, never into shell
 ## Herdr stable Cargo builds
 
 After registry Cargo updates, `_sysup_herdr` invokes `bash/herdr-cargo --update`.
-Missing Herdr installations are skipped; a failed update stops `sysup`. The helper
+Missing Herdr installations are skipped; a failed update is reported with its reason and `sysup` continues
+(`HERDR_CARGO_REASON_FILE` carries the helper's `die` message back). The helper
 resolves the latest stable tag to a commit, provisions that release's compatible
 Zig temporarily, and uses the measured Zen 4/fat-LTO recipe. It checks a staged
 build before promotion and preserves running sessions. See [Herdr](herdr.md)
