@@ -2,6 +2,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
@@ -86,6 +87,14 @@ class ToolTestsStepTests(unittest.TestCase):
         (bin_dir / "timeout").chmod(0o755)
         self.run_zsh(f'_sysup_tool_tests {self.projects}')
         self.assertEqual(set(Path(f"{self.log}.timeout").read_text().split()), {"--foreground"})
+
+    def test_a_leftover_grandchild_does_not_block_the_step(self):
+        (self.base / "bin" / "uv").write_text('#!/bin/sh\nsleep 4 &\necho "5 passed in 0.1s"\n')
+        started = time.monotonic()
+        result = self.run_zsh(f'_sysup_tool_tests {self.projects}; print rc=$?')
+        self.assertLess(time.monotonic() - started, 3, "the step waited for the grandchild")
+        self.assertIn("rc=0", result.stdout, result.stderr)
+        self.assertEqual(list(self.base.glob("sysup-tool-tests.*")), [], "output file left behind")
 
     def test_interrupt_stops_the_remaining_suites(self):
         self.env.update(TEST_FAIL="mathunicode", TEST_MODE="interrupt")

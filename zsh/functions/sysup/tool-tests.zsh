@@ -6,13 +6,20 @@
 # caller's _sysup_notes (zsh dynamic scope) and does not stop sysup.
 # The projects directory is an argument so tests can drive this without the real ones.
 _sysup_tool_tests() {
-  local root=${1:-"$HOME/projects"}
+  local outfile
+  outfile=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/sysup-tool-tests.XXXXXX") || return 1
+  # always: also removed when a Ctrl-C trap returns out of the middle of a run
+  { _sysup_tool_tests_run "$outfile" "$@" } always { rm -f -- "$outfile" }
+}
+
+_sysup_tool_tests_run() {
+  local outfile=$1 root=${2:-"$HOME/projects"}
   local -a projects=(
     "mathunicode"
     "paper-refinery --extra dev"
     "audio_text"
   )
-  local entry name out rc summary line n
+  local entry name rc summary line n
   local -a words lines broken=() unrun=()
   for entry in $projects; do
     words=(${=entry})
@@ -22,11 +29,13 @@ _sysup_tool_tests() {
       continue
     fi
     # stdin from /dev/null: a test that prompts must fail, not hang the update.
-    out=$(cd "$root/$name" && PYTHONDONTWRITEBYTECODE=1 \
+    # Output goes to a file, not through $(...): a suite's leftover grandchild would hold a
+    # pipe open past the timeout and block this step until it exits.
+    ( cd "$root/$name" && PYTHONDONTWRITEBYTECODE=1 \
       timeout --foreground 600 uv run --isolated --upgrade --no-compile-bytecode ${words[2,-1]} \
-      python -m pytest -q -p no:cacheprovider 2>&1 </dev/null)
+      python -m pytest -q -p no:cacheprovider >"$outfile" 2>&1 </dev/null )
     rc=$?
-    lines=(${(f)out})
+    lines=(${(f)"$(<$outfile)"})
     summary=
     for line in ${(Oa)lines}; do # last pytest summary line; uv may print warnings after it
       if [[ $line =~ '(passed|failed|skipped|error|no tests ran).* in [0-9.]+s' ]]; then

@@ -63,9 +63,10 @@ separately, so it is not mistaken for a broken tool. Both are repeated before th
 `sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update. Each
 failure is reported where it happens and repeated after the last step (and before any early
 stop); a run with recorded failures ends "sysup finished with warnings" and returns non-zero (the podman
-status when the image update failed, otherwise 1). An interrupt (Ctrl-C or TERM, exit 130 or 143) in one of
-those steps is not a failure to continue past: it stops `sysup`, since the trap has already released
-the sleep inhibitor and the lock.
+status when the image update failed, otherwise 1). Ctrl-C or TERM in any step is not a failure to continue past: the
+trap sets a flag and returns, `sysup` checks it after the steps that do not report a status, and
+the EXIT trap releases the sleep inhibitor and the lock. (`return` in a trap leaves only the
+innermost function, hence the flag.)
 
 `batt` uses `bash/hardware-readings`, shared with the Mod+Shift+N temperature
 notification. Each request invokes `sensors -j` once and `jq` once, without

@@ -134,13 +134,20 @@ sysup() {
       --why="System update in progress" --mode=block sleep infinity {_lockfd}>&- &
     _inhibit_pid=$!
     disown 2>/dev/null
-    trap "kill $_inhibit_pid 2>/dev/null; rm -f -- ${(q)_herdr_reason}; exec {_lockfd}>&-" EXIT INT TERM
+    trap "kill $_inhibit_pid 2>/dev/null; rm -f -- ${(q)_herdr_reason}; exec {_lockfd}>&-" EXIT
   else
-    trap "rm -f -- ${(q)_herdr_reason}; exec {_lockfd}>&-" EXIT INT TERM
+    trap "rm -f -- ${(q)_herdr_reason}; exec {_lockfd}>&-" EXIT
   fi
+  # Ctrl-C or TERM in ANY step ends sysup (the EXIT trap above then cleans up). A plain
+  # handler that only cleaned up would let every later step run with no inhibitor and no lock,
+  # and `return` in a trap leaves only the innermost function: the flag lets sysup see it.
+  local _sysup_stop=0
+  trap '_sysup_stop=130; return 130' INT
+  trap '_sysup_stop=143; return 143' TERM
 
   echo "==> Mirrorlist"
   _sysup_mirrorlist_check
+  (( _sysup_stop )) && return "$_sysup_stop"
 
   echo "==> System & AUR (paru -Syu)"
   # Keep a byte boundary, not a timestamp: several ALPM transactions can share
@@ -212,12 +219,15 @@ sysup() {
   echo "==> Claude Code"
   claude update
   _sysup_prune_claude_versions
+  (( _sysup_stop )) && return "$_sysup_stop"
 
   echo "==> Editor & shell plugins"
   _sysup_plugins
+  (( _sysup_stop )) && return "$_sysup_stop"
 
   echo "==> Neovim health"
   _sysup_nvim_health
+  (( _sysup_stop )) && return "$_sysup_stop"
 
   local _podman_status=0
   if (( _include_podman_images )); then
@@ -228,8 +238,10 @@ sysup() {
     }
   fi
 
+  (( _sysup_stop )) && return "$_sysup_stop"
   echo "==> Firmware metadata (fwupd)"
   _sysup_fwupd_refresh_if_stale
+  (( _sysup_stop )) && return "$_sysup_stop"
 
   echo "==> Config drift"
   _sysup_pacnew --pacman-since "$_pacman_boundary"

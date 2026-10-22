@@ -120,6 +120,19 @@ _sysup_herdr() {{ _sysup_herdr_real {wrapper}; }}
                 self.assertIn("interrupted, stopping sysup", result.stdout)
                 self.assertFalse(self.log.exists(), "later steps must not run")  # claude would log
 
+    def test_ctrl_c_in_any_step_stops_sysup_before_the_next_one(self):
+        # (interrupted step, the step that follows it and must not run)
+        for hit, nxt in (("_sysup_mirrorlist_check", "paru"), ("_sysup_plugins", "_sysup_nvim_health"),
+                         ("_sysup_nvim_health", "_sysup_fwupd_refresh_if_stale"),
+                         ("_sysup_fwupd_refresh_if_stale", "_sysup_pacnew")):
+            with self.subTest(interrupted=hit):
+                self.log.unlink(missing_ok=True)
+                result = self.run_sysup(
+                    f'{nxt}() {{ print -r -- NEXT-RAN >> "$TEST_LOG"; }}\n{hit}() {{ kill -INT $$; }}')
+                self.assertEqual(result.returncode, 130, result.stderr)
+                self.assertFalse(self.log.exists() and "NEXT-RAN" in self.log.read_text(), hit)
+                self.assertNotIn("sysup done", result.stdout)
+
     def test_a_crashed_step_is_a_failure_to_continue_past_not_an_interrupt(self):
         result = self.run_sysup("uv() { [[ $2 == upgrade ]] && return 139; return 0; }")
         self.assertEqual(result.returncode, 1, result.stderr)

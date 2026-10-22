@@ -142,7 +142,7 @@ fetch "$raw/Cargo.toml" "$work/Cargo.toml"
 package_version=$(awk '
   /^[[:space:]]*\[package\]/ { pkg=1; next }
   /^[[:space:]]*\[/ { pkg=0 }
-  pkg && /^[[:space:]]*version[[:space:]]*=/ { gsub(/[",]/, "", $3); print $3 }
+  pkg && /^[[:space:]]*version[[:space:]]*=/ { split($0, parts, "\""); print parts[2] }
 ' "$work/Cargo.toml")
 [[ $package_version == "$version" ]] || die 'release tag and Cargo package version disagree'
 zig_version=$(awk '

@@ -310,6 +310,12 @@ def log(value):
         self.assertNotEqual(self.run_helper("--update").returncode, 0)
         self.assertEqual(reason.read_text(), "Zig archive checksum mismatch\n")
 
+    def test_cargo_version_without_spaces_around_equals_is_read(self):
+        self.fixture("Cargo.toml", '[package]\nname = "herdr"\nversion="0.9.5"\n[dependencies]\n')
+        result = self.run_helper("--check")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("disagree", result.stderr)
+
     def test_stale_build_directories_are_swept_but_recent_ones_kept(self):
         self.installed()
         builds = self.cache / "herdr-cargo"
