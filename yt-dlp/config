@@ -36,6 +36,11 @@
 # v26) isn't auto-enabled like Deno, so enable it explicitly. yt-dlp sandboxes it
 # with `node --permission`.
 --js-runtimes node
+# The default clients (tv_samsung, visionos) returned stream URLs that answer 403 (also
+# with curl), so mpv opened an empty window (2026-10-22). Measured on 5 recent videos,
+# same 1080p AV1 stream: tv_simply 16/16 URLs worked, mweb about half, web_embedded none,
+# the defaults none. If playback breaks again, re-measure with `yt-dlp -g` and curl.
+--extractor-args "youtube:player_client=tv_simply"
 
 # ─── RELIABILITY ──────────────────────────────────────────────────────────────
 --continue                # resume interrupted downloads
