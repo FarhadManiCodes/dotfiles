@@ -130,8 +130,8 @@ claude() {{ print -r -- CLAUDE-RAN >> "$TEST_LOG"; }}
     def test_first_ctrl_c_skips_the_running_step_and_the_next_one_runs(self):
         out = self.run_sysup("_sysup_plugins() { print PLUGINS-START; sleep 30; }",
                              presses=[("PLUGINS-START", "Ctrl-C: skipping")])
-        self.assertIn("!! Ctrl-C: skipping Editor & shell plugins", out)
-        self.assertEqual(out.count("!! skipped with Ctrl-C: Editor & shell plugins"), 1, out)
+        self.assertIn("!! Ctrl-C: skipping the running command in Editor & shell plugins", out)
+        self.assertEqual(out.count("!! skipped with Ctrl-C: the running command in Editor & shell plugins"), 1, out)
         self.assertIn("==> Neovim health", out)
         lines = out.splitlines()
         self.assertIn("==> sysup finished with warnings", lines)
@@ -150,7 +150,7 @@ _sysup_fwupd_refresh_if_stale() {{ print -r -- LATER-STEP >> "$TEST_LOG"; }}
         self.assertNotIn("LATER-STEP", self.ran())
         self.assertNotIn("finished with warnings", out)
         self.assertNotIn("==> sysup done", out)
-        self.assertEqual(out.count("!! skipped with Ctrl-C: Editor & shell plugins"), 1, out)  # repeated once
+        self.assertEqual(out.count("!! skipped with Ctrl-C: the running command in Editor & shell plugins"), 1, out)  # repeated once
         self.assertEqual([p.name for p in self.runtime.iterdir() if p.name.startswith("sysup-herdr-reason")], [])
         pid = int(self.inhibitor_pid.read_text())
         time.sleep(0.3)
@@ -188,10 +188,17 @@ paru() {{ print PARU-START; sleep 30; }}
 
     def test_ctrl_c_in_paru_before_the_install_skips_it_and_continues(self):
         out = self.run_sysup(self.paru_stubs("[ALPM] running pacman"), presses=[("PARU-START", "Ctrl-C: skipping")])
-        self.assertIn("!! skipped with Ctrl-C: System & AUR (paru -Syu); nothing was installed", out)
+        self.assertIn("!! skipped with Ctrl-C: the running command in System & AUR (paru -Syu); nothing was installed", out)
         self.assertEqual(self.ran(), ["CLAUDE-RAN"], out)
         self.assertNotIn("paru failed", out)
         self.assertIn("==> sysup finished with warnings", out)
+
+    def test_a_failing_log_search_counts_as_started(self):
+        # grep exits 2 on an error: that must not read as "nothing started"
+        out = self.run_sysup(self.paru_stubs("[ALPM] running pacman") + "grep() { return 2; }\n",
+                             presses=[("PARU-START", "skipping is unsafe")])
+        self.assertIn("skipping is unsafe — stopping sysup", out)
+        self.assertEqual(self.ran(), [], out)
 
     def test_ctrl_c_in_paru_after_the_install_began_stops_sysup(self):
         out = self.run_sysup(self.paru_stubs("[ALPM] transaction started"), presses=[("PARU-START", "skipping is unsafe")])
@@ -239,7 +246,7 @@ _sysup_plugins() { print PLUGINS-START; while (( SECONDS < 3 )); do :; done; }
 _sysup_podman_images() { print POD-START; sleep 30; print second image failed; return 1; }
 ''', args="--podman-images", presses=[("POD-START", "Ctrl-C: skipping")])
         self.assertIn("!! container image update failed", out)
-        self.assertIn("!! skipped with Ctrl-C: Container images (podman)", out)
+        self.assertIn("!! skipped with Ctrl-C: the running command in Container images (podman)", out)
         self.assertIn("RC=1", out.splitlines())
 
     def test_the_inhibitor_ends_with_the_shell_however_the_shell_dies(self):
@@ -267,10 +274,19 @@ _sysup_podman_images() { print POD-START; sleep 30; print second image failed; r
         self.assertIn("mathunicode: skipped", out)
         self.assertIn("paper-refinery: 5 passed in 0.1s", out)
         self.assertIn("audio_text: 5 passed in 0.1s", out)
-        self.assertEqual(out.count("!! skipped with Ctrl-C: Own tools: tests against the newest dependencies"), 1, out)
+        self.assertEqual(out.count("!! skipped with Ctrl-C: the running command in Own tools: tests against the newest dependencies"), 1, out)
         self.assertIn("==> sysup finished with warnings", out)
         self.assertEqual(list(self.runtime.glob("sysup-tool-tests.*")), [])
 
+
+    def test_the_tool_tests_do_not_fire_the_shells_directory_hooks(self):
+        (self.base / "projects" / "mathunicode").mkdir(parents=True)
+        (self.base / "projects" / "mathunicode" / "pyproject.toml").write_text("")
+        out = self.run_sysup('''
+chpwd() { print -r -- CHPWD-RAN >> "$TEST_LOG"; }
+''', args="--test-tools")
+        self.assertIn("mathunicode: 5 passed in 0.1s", out)
+        self.assertNotIn("CHPWD-RAN", self.ran())
 
     def test_a_stop_in_the_tool_tests_still_reports_the_suites_that_had_finished(self):
         for name in ("mathunicode", "paper-refinery", "audio_text"):

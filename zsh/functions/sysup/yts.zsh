@@ -1,6 +1,6 @@
 # See docs/architecture/zsh.md, the "yts" section, for why this
-# exists. A subshell keeps our cwd and `emulate` away from sysup's inhibitor
-# trap. The directories are arguments so tests can drive this without
+# exists. A subshell keeps our cwd and `emulate` away from sysup's TRAPINT
+# and cleanup. The directories are arguments so tests can drive this without
 # touching the real checkout, install state or binary. Defaults match yts's
 # Makefile: the install state (the installed commit) under
 # ~/.local/share/yts-gui, the binaries in ~/.local/bin.

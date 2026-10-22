@@ -87,14 +87,17 @@ cleanup in a `{ … } always { … }` block and handles the key itself:
 | every other step | skip the running command, continue | stop |
 
 - **Skip** kills the running command (the terminal sends SIGINT to the whole foreground group), prints
-  "Ctrl-C: skipping <step>", and the run moves on. The skip is recorded and repeated last as
-  "skipped with Ctrl-C: <step>", so the run ends "finished with warnings" and non-zero. It is not
-  also reported as that command's failure; a later failure in the same step is, unless it carries the
-  skipped command's own exit status. Only a command that was running counts (`$?` on entering the
-  trap is non-zero): with nothing running the key press is ignored ("nothing to skip") and a second
-  within 2 s still stops. It is per running command: in a multi-command step
-  (plugins, Claude update and prune, the podman loop, one suite of the tool tests) the step goes on with
-  its next command.
+  "Ctrl-C: skipping the running command in <step>", and the run moves on. The skip is recorded and
+  repeated last as "skipped with Ctrl-C: the running command in <step>", so the run ends "finished
+  with warnings" and non-zero. A step that returns the killed command's own status (the tool tests,
+  paru, Cargo) does not also report it as a failure. A step that folds several commands into one
+  result does: the podman loop turns a skipped `podman pull` into "pull failed" and a plain status 1,
+  which is true, since that image was not updated. A later failure in the same step is reported,
+  unless it carries the skipped command's own exit status. Only a command that was running counts
+  (`$?` on entering the trap is non-zero): with nothing running the key press is ignored ("nothing
+  to skip") and a second within 2 s still stops. It is per running command: in a multi-command step
+  (plugins, Claude update and prune, the podman loop, one suite of the tool tests) the step goes on
+  with its next command.
 - **Stop** ends `sysup` at once. The always block releases the sleep inhibitor and the lock, removes
   the Herdr reason file and the tool-test temp file, and prints the failures and skips recorded so
   far. No "finished with warnings" or "done" line is printed, and the shell abandons the whole command

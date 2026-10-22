@@ -73,7 +73,7 @@ _sysup_bgutil() (
   # (see docs/architecture/zsh.md for why). The token gate below is what keeps
   # that claim honest for future releases, where a skipped script may matter.
   (
-    cd "$stage/repo/server" &&
+    cd -q "$stage/repo/server" && # -q: no chpwd hooks
       npm ci --ignore-scripts --no-audit --no-fund &&
       ./node_modules/.bin/tsc
   ) || {

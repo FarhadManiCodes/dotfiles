@@ -72,8 +72,8 @@ _sysup_unsafe_to_skip() {
       tail -c "+$(( ${_pacman_boundary##*:} + 1 ))" /var/log/pacman.log 2>/dev/null | grep -q 'transaction started'
       case "${pipestatus[1]}:${pipestatus[2]}" in
         0:0) return 0 ;; # started
-        0:*) return 1 ;; # log read, nothing started
-        *) return 0 ;;   # could not read the log
+        0:1) return 1 ;; # log read, nothing started
+        *) return 0 ;;   # could not read the log (tail failed, or grep errored with 2)
       esac ;;
     *) return 1 ;;
   esac
@@ -125,13 +125,13 @@ sysup() {
   # message has a different off switch.
   #   "[3] 3273"                        at launch -- printed only when MONITOR
   #                                     is on, so no_monitor suppresses it
-  #   "[3] + terminated systemd-inhibit" when the trap fires -- printed for jobs
+  #   "[3] + terminated systemd-inhibit" when the always block kills it -- printed for jobs
   #                                     in the table, so disown suppresses it
   # no_monitor alone leaves the second (local_options restores MONITOR on
   # return, and the job is still in the table); disown alone leaves the first.
   # Neither is cosmetic-only: both bracket every sysup with what reads like an
   # error and is not one. disown removes the table entry, not the process -- the
-  # pid stays valid, so the trap still reaps it.
+  # pid stays valid, so the always block can still kill it.
   # One run at a time. paru is covered by pacman's own db.lck, but the uv, plugin,
   # podman and Claude-prune steps would happily race a second sysup in another
   # terminal. flock on a runtime-dir file, released when the fd closes.
@@ -206,8 +206,8 @@ sysup() {
       return 0
     fi
     _sysup_skipped=$_rc
-    _sysup_notes+=("skipped with Ctrl-C: ${_sysup_step}$([[ $_sysup_guard == paru ]] && print -r -- '; nothing was installed')")
-    echo; echo "!! Ctrl-C: skipping ${_sysup_step} (again within 2 s stops sysup)"
+    _sysup_notes+=("skipped with Ctrl-C: the running command in ${_sysup_step}$([[ $_sysup_guard == paru ]] && print -r -- '; nothing was installed')")
+    echo; echo "!! Ctrl-C: skipping the running command in ${_sysup_step} (again within 2 s stops sysup)"
     return 0
   }
 
