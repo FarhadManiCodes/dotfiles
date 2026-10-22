@@ -272,6 +272,24 @@ _sysup_podman_images() { print POD-START; sleep 30; print second image failed; r
         self.assertEqual(list(self.runtime.glob("sysup-tool-tests.*")), [])
 
 
+    def test_a_stop_in_the_tool_tests_still_reports_the_suites_that_had_finished(self):
+        for name in ("mathunicode", "paper-refinery", "audio_text"):
+            (self.base / "projects" / name).mkdir(parents=True)
+            (self.base / "projects" / name / "pyproject.toml").write_text("")
+        paper, audio = self.base / "paper-started", self.base / "audio-started"
+        self.uv.write_text(f'''#!/bin/sh
+case "$PWD" in
+  *mathunicode) echo "1 failed, 4 passed in 0.1s"; exit 1 ;;
+  *paper-refinery) touch {paper}; exec sleep 30 ;;
+  *audio_text) touch {audio}; exec sleep 30 ;;
+esac
+''')
+        out = self.run_sysup("", args="--test-tools",
+                             presses=[(paper, "Ctrl-C: skipping"), (audio, "second Ctrl-C")])
+        self.assertIn("!! tests failed with the latest dependencies: mathunicode", out)
+        self.assertNotIn("finished with warnings", out)
+
+
 class TimeoutForegroundTests(unittest.TestCase):
     def test_every_timeout_keeps_its_command_in_the_foreground_process_group(self):
         # A plain `timeout` puts its command in a new process group, which a terminal Ctrl-C never
