@@ -3,7 +3,8 @@
 # Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools -> Herdr ->
 # Claude Code ->
 # editor/shell plugins -> nvim :checkhealth -> fwupd metadata (if stale) ->
-# config-drift. `--podman-images` adds container image updates after nvim health.
+# config-drift. `--podman-images` adds container image updates after nvim health;
+# `--test-tools` adds my own tools' test suites against the newest dependencies after uv.
 #
 # No global npm update: system node/npm are covered by paru. The bgutil step
 # rebuilds only the local yt-dlp token helper, using its release's lockfile.
@@ -13,7 +14,7 @@
 # function, so this works whether sysup.zsh is reached through install.sh's
 # symlink or sourced directly (as the tests do).
 _sysup_module_dir="${0:A:h}/sysup"
-for _sysup_module in bgutil yts herdr mirrorlist nvim-health plugins claude-prune podman; do
+for _sysup_module in bgutil yts herdr tool-tests mirrorlist nvim-health plugins claude-prune podman; do
   source "$_sysup_module_dir/$_sysup_module.zsh"
 done
 unset _sysup_module_dir _sysup_module
@@ -26,19 +27,21 @@ _sysup_flush_notes() {
 }
 
 sysup() {
-  local _include_podman_images=0 _arg
+  local _include_podman_images=0 _test_tools=0 _arg
   local -a _sysup_notes=()
   local _herdr_reason="${XDG_RUNTIME_DIR:-/tmp}/sysup-herdr-reason.$$"
   for _arg in "$@"; do
     case $_arg in
       --podman-images) _include_podman_images=1 ;;
+      --test-tools) _test_tools=1 ;;
       -h|--help)
-        print 'Usage: sysup [--podman-images]'
+        print 'Usage: sysup [--podman-images] [--test-tools]'
         print '  --podman-images  update installed Quadlet images; restart only running units'
+        print '  --test-tools     run my uv tools'"'"' test suites against the newest dependencies'
         return 0 ;;
       *)
         print -u2 "sysup: unknown option: $_arg"
-        print -u2 'Usage: sysup [--podman-images]'
+        print -u2 'Usage: sysup [--podman-images] [--test-tools]'
         return 2 ;;
     esac
   done
@@ -146,6 +149,11 @@ sysup() {
     echo "!! ${_sysup_notes[-1]} — continuing sysup"
   else
     echo "    All uv tools checked"
+  fi
+
+  if (( _test_tools )); then
+    echo "==> Own tools: tests against the newest dependencies"
+    _sysup_tool_tests
   fi
 
   echo "==> yt-dlp token helper (bgutil)"

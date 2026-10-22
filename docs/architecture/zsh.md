@@ -19,7 +19,8 @@
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
     Claude Code → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
-    `sysup --podman-images` also updates installed Quadlet images, including stopped ones
+    `sysup --podman-images` also updates installed Quadlet images, including stopped ones;
+    `sysup --test-tools` also runs my own uv tools' test suites on the newest dependencies
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
 - **Plugins** (clones untracked; list lives in `zsh/update-plugins.sh`):
   fast-syntax-highlighting, zsh-autosuggestions, zsh-history-substring-search
@@ -39,7 +40,7 @@
 | `batt` | Battery status, power draw, CPU/GPU/NVMe temperatures and both fan speeds |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |
-| `sysup [--podman-images]` | Update the system; include installed Quadlet images only when requested |
+| `sysup [--podman-images] [--test-tools]` | Update the system; include installed Quadlet images or the own-tool dependency tests only when requested |
 
 `sysup` and `sysclean` automatically use `keep` to start a fresh shpool session.
 Inside an existing shpool session (`SHPOOL_SESSION_NAME` set), they run there
@@ -48,6 +49,16 @@ are preserved, including `sysup --podman-images` and `sysclean --all`.
 Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C still
 interrupts the running command. Reload `~/.zshrc` in shells already open after
 changing these functions.
+
+`sysup --test-tools` (`sysup/tool-tests.zsh`) runs the suites of mathunicode, paper-refinery and
+audio_text (the dictate project) in `~/projects` with `uv run --isolated --upgrade`: a throwaway
+environment on the newest allowed dependencies, because the projects' own `uv.lock` pins their
+tests to known-good versions and a breaking release would otherwise show up only in the installed
+tool. Neither the lockfile, the project `.venv` nor the installed tool is touched. A failing suite
+is reported with its pytest summary and the end of its output; a suite that could not run (no pytest
+summary: resolving, network or build failure) or timed out (600 s, stdin closed) is reported
+separately, so it is not mistaken for a broken tool. Both are repeated before the closing line and
+`sysup` continues. A project without a checkout is skipped. It adds about 40 seconds, hence opt-in.
 
 `sysup` continues past a failed `uv tool list`, `uv tool upgrade --all` or Herdr update. Each
 failure is reported where it happens and repeated after the last step (and before any early
