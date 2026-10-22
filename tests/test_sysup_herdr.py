@@ -45,7 +45,7 @@ exit "$TEST_STATUS"
         self.assertIn("not installed", result.stdout)
         self.assertFalse(self.log.exists())
 
-    def run_sysup(self, stubs, args=""):
+    def run_sysup(self, stubs, args="", after=""):
         code = '''
 source "$1"
 for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
@@ -58,7 +58,7 @@ paru() { return 0; }
 uv() { return 0; }
 cargo() { return 0; }
 claude() { print -r -- claude >> "$TEST_LOG"; }
-''' + stubs + f"\nsysup {args}\n"
+''' + stubs + f"\nsysup {args}\n{after}\n"
         return subprocess.run(["zsh", "-f", "-c", code, "test", str(SOURCE)],
                               cwd=self.base, env=self.env, capture_output=True, text=True, timeout=15)
 
@@ -119,6 +119,18 @@ _sysup_herdr() {{ _sysup_herdr_real {wrapper}; }}
                 self.assertEqual(result.returncode, 130, result.stderr)
                 self.assertIn("interrupted, stopping sysup", result.stdout)
                 self.assertFalse(self.log.exists(), "later steps must not run")  # claude would log
+
+    def test_a_crashed_step_is_a_failure_to_continue_past_not_an_interrupt(self):
+        result = self.run_sysup("uv() { [[ $2 == upgrade ]] && return 139; return 0; }")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("interrupted", result.stdout)
+        self.assertEqual(self.log.read_text().splitlines(), ["claude"])
+
+    def test_traps_do_not_outlive_the_call(self):
+        traps = self.base / "traps"
+        self.run_sysup("", after=f'trap >| {traps}')  # not in $(...): that subshell resets traps
+        self.assertTrue(traps.exists())
+        self.assertEqual(traps.read_text(), "")
 
     def test_a_failed_yts_install_is_repeated_at_the_end(self):
         result = self.run_sysup("_sysup_yts() { return 4; }")

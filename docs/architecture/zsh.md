@@ -63,7 +63,7 @@ separately, so it is not mistaken for a broken tool. Both are repeated before th
 `sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update. Each
 failure is reported where it happens and repeated after the last step (and before any early
 stop); a run with recorded failures ends "sysup finished with warnings" and returns non-zero (the podman
-status when the image update failed, otherwise 1). A signal (Ctrl-C, exit above 128) in one of
+status when the image update failed, otherwise 1). An interrupt (Ctrl-C or TERM, exit 130 or 143) in one of
 those steps is not a failure to continue past: it stops `sysup`, since the trap has already released
 the sleep inhibitor and the lock.
 

@@ -302,6 +302,26 @@ def log(value):
         self.assertEqual((self.root / "bin/herdr").read_bytes(), before)
         self.assert_clean()
 
+    def test_checksum_failure_writes_its_reason_for_the_caller(self):
+        self.installed()
+        self.zig_index(checksum="0" * 64)
+        reason = self.base / "reason"
+        self.env["HERDR_CARGO_REASON_FILE"] = str(reason)
+        self.assertNotEqual(self.run_helper("--update").returncode, 0)
+        self.assertEqual(reason.read_text(), "Zig archive checksum mismatch\n")
+
+    def test_stale_build_directories_are_swept_but_recent_ones_kept(self):
+        self.installed()
+        builds = self.cache / "herdr-cargo"
+        stale, recent = builds / "build.stale1", builds / "build.recent"
+        for path in (stale, recent):
+            path.mkdir(parents=True)
+        old = time.time() - 3 * 86400
+        os.utime(stale, (old, old))
+        self.assertEqual(self.run_helper("--update").returncode, 0)
+        self.assertFalse(stale.exists())
+        self.assertTrue(recent.exists())
+
     def test_download_failure_is_reported_and_cleans_up(self):
         self.env["FETCH_FAIL"] = "release.yml"
         result = self.run_helper("--check")

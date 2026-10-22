@@ -27,6 +27,7 @@ class ToolTestsStepTests(unittest.TestCase):
                       '  timeout) exit 124 ;;\n'
                       '  nothing) echo "no tests ran in 0.01s"; exit 5 ;;\n'
                       '  interrupt) exit 130 ;;\n'
+                      '  crash) exit 139 ;;\n'
                       'esac ;; esac\n'
                       'echo "5 passed in 0.1s"\n')
         uv.chmod(0o755)
@@ -72,6 +73,19 @@ class ToolTestsStepTests(unittest.TestCase):
         out = self.run_failing("nothing")
         self.assertIn("paper-refinery: could not run the suite (exit 5)", out)
         self.assertNotIn("FAILED with the latest dependencies", out)
+
+    def test_a_crashing_suite_is_a_result_not_an_interrupt(self):
+        out = self.run_failing("crash")
+        self.assertIn("paper-refinery: could not run the suite (exit 139)", out)
+        self.assertNotIn("interrupted", out)
+
+    def test_timeout_keeps_the_suite_in_the_foreground_process_group(self):
+        # Plain `timeout` starts its child in a new process group, which a terminal Ctrl-C never reaches.
+        bin_dir = self.base / "bin"
+        (bin_dir / "timeout").write_text('#!/bin/sh\nprintf "%s\\n" "$1" >> "$TEST_LOG.timeout"\nshift; shift\nexec "$@"\n')
+        (bin_dir / "timeout").chmod(0o755)
+        self.run_zsh(f'_sysup_tool_tests {self.projects}')
+        self.assertEqual(set(Path(f"{self.log}.timeout").read_text().split()), {"--foreground"})
 
     def test_interrupt_stops_the_remaining_suites(self):
         self.env.update(TEST_FAIL="mathunicode", TEST_MODE="interrupt")

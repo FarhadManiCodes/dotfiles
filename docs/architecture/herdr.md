@@ -13,8 +13,8 @@ bash bash/herdr-cargo --update   # update only; skip when the executable is abse
 ```
 
 The normal helper mapping in `install.sh` links it to `~/.local/bin/herdr-cargo`.
-The installer invokes `--install`, continues the other setup after a failure,
-and reports failure at the end. `sysup` invokes `--update` after
+The installer invokes `--install` as its last step (the build needs the network and takes
+minutes), and reports a failure in its final summary. `sysup` invokes `--update` after
 `cargo install-update --all`, reports a failed Herdr update with its reason, continues, and
 finishes non-zero. If `HERDR_CARGO_REASON_FILE` names a file, the helper also writes its failure
 message there so `sysup` can repeat it. That general
@@ -70,7 +70,9 @@ Mutating operations use a unique directory under
 target/build directory and subprocess temporary files. This avoids large
 build files in this machine's RAM-backed `/tmp`. Exit, ordinary failure and
 Ctrl+C clean that operation's directory; Cargo's shared downloads and Git
-checkout remain reusable. `--check` creates only a temporary metadata directory.
+checkout remain reusable. A kill the shell cannot catch (SIGKILL, power loss) leaves the
+directory behind, so each mutating run removes `build.*` directories older than a day once
+it holds the lock. `--check` creates only a temporary metadata directory.
 
 Cargo first installs into a temporary staging root. Its executable must report
 the expected release before a second Cargo installation promotes the same

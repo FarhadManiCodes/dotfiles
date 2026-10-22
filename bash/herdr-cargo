@@ -87,12 +87,16 @@ else
   for tool in cargo rustc cc tar xz stat flock; do
     command -v "$tool" >/dev/null || die "$tool is required"
   done
-  mkdir -p "$cargo_root"
-  exec {lockfd}>"$cargo_root/.herdr-cargo.lock"
+  mkdir -p "$cargo_root" || die "cannot create $cargo_root"
+  exec {lockfd}>"$cargo_root/.herdr-cargo.lock" || die 'cannot open the lock file'
   flock -n "$lockfd" || die 'another herdr-cargo operation is running'
   build_parent=${XDG_CACHE_HOME:-"$HOME/.cache"}/herdr-cargo
-  mkdir -p "$build_parent"
-  work=$(mktemp -d "$build_parent/build.XXXXXX")
+  mkdir -p "$build_parent" || die "cannot create $build_parent"
+  # An uncatchable kill (SIGKILL, power loss) skips the EXIT trap and leaves a multi-GB build
+  # directory; the lock proves no other run is using one.
+  find "$build_parent" -maxdepth 1 -type d -name 'build.*' -mmin +1440 -exec rm -rf -- {} + ||
+    printf 'herdr-cargo: could not remove stale build directories in %s\n' "$build_parent" >&2
+  work=$(mktemp -d "$build_parent/build.XXXXXX") || die "cannot create a build directory in $build_parent"
 fi
 read_install
 initial_hash=$installed_hash
@@ -170,8 +174,9 @@ fi
 [[ $(rustc --print target-cpus) == *'currently znver4)'* ]] ||
   die 'this recipe is tuned for a Zen 4 host; review target-cpu=znver4 for this machine'
 fetch "$zig_url" "$work/zig.tar.xz" 300
-printf '%s  %s\n' "$zig_sha" "$work/zig.tar.xz" | sha256sum --check --strict
-tar -xJf "$work/zig.tar.xz" -C "$work"
+printf '%s  %s\n' "$zig_sha" "$work/zig.tar.xz" | sha256sum --check --strict ||
+  die 'Zig archive checksum mismatch'
+tar -xJf "$work/zig.tar.xz" -C "$work" || die 'could not extract the Zig archive'
 [[ $("$work/$zig_name/zig" version) == "$zig_version" ]] || die 'extracted Zig reports an unexpected version'
 
 mkdir -p "$work/tmp"

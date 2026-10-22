@@ -37,6 +37,7 @@ class InstallUserUnitsTests(unittest.TestCase):
                 (helpers / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
         (helpers / "herdr-cargo").write_text('''#!/bin/bash
 printf '%s\\n' "$*" >> "$HERDR_CALLS"
+[[ -d $HOME/.claude/skills ]] && echo skills-first >> "$HERDR_CALLS.order"
 if [[ $HERDR_FAIL == 1 ]]; then
   echo 'fixture Herdr failure' >&2
   exit 13
@@ -119,6 +120,10 @@ exit 0
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Dotfiles installation complete!", result.stdout)
         self.assertNotIn("User units not enabled:", result.stderr)
+
+    def test_herdr_runs_after_the_rest_of_the_setup(self):
+        self.run_install()
+        self.assertEqual(Path(f"{self.herdr_calls}.order").read_text(), "skills-first\n")
 
     def test_herdr_failure_finishes_setup_and_returns_nonzero(self):
         result = self.run_install(herdr_failure=True)

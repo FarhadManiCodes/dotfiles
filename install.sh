@@ -271,15 +271,6 @@ make -s -C "${DOTFILES}/notifiers" install ||
   echo "⚠️  notifiers: build or install failed (see above); a notifier service without its binary in ~/.local/bin will fail"
 echo "✅ Helper scripts installed"
 
-# Herdr needs the Zig version pinned by its release. The helper provisions it
-# temporarily, verifies a staged Cargo build, then installs only the executable.
-echo "🐑 Installing Herdr through Cargo..."
-herdr_install_failed=0
-if ! bash "${DOTFILES}/bash/herdr-cargo" --install; then
-  herdr_install_failed=1
-  echo "⚠️  Herdr installation failed; finishing the remaining setup" >&2
-fi
-
 # ============ ssh client config ===================================
 # ~/.ssh must stay 0700 or ssh refuses to use it.
 echo "🔑 Installing ssh config..."
@@ -367,6 +358,16 @@ for agent_dir in "${HOME}/.claude/skills" "${HOME}/.agents/skills"; do
   done
 done
 echo "✅ Agent skills linked into ~/.claude/skills and ~/.agents/skills"
+
+# Herdr goes last: it needs the network and a build of several minutes, and the rest of the
+# setup must not wait for it or depend on it. The helper provisions the Zig version pinned by
+# its release temporarily, verifies a staged Cargo build, then installs only the executable.
+echo "🐑 Installing Herdr through Cargo..."
+herdr_install_failed=0
+if ! bash "${DOTFILES}/bash/herdr-cargo" --install; then
+  herdr_install_failed=1
+  echo "⚠️  Herdr installation failed; see the summary below" >&2
+fi
 
 echo ""
 if (( ${#failed_user_units[@]} == 0 && herdr_install_failed == 0 )); then

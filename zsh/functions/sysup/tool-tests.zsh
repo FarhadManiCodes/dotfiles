@@ -23,7 +23,7 @@ _sysup_tool_tests() {
     fi
     # stdin from /dev/null: a test that prompts must fail, not hang the update.
     out=$(cd "$root/$name" && PYTHONDONTWRITEBYTECODE=1 \
-      timeout 600 uv run --isolated --upgrade --no-compile-bytecode ${words[2,-1]} \
+      timeout --foreground 600 uv run --isolated --upgrade --no-compile-bytecode ${words[2,-1]} \
       python -m pytest -q -p no:cacheprovider 2>&1 </dev/null)
     rc=$?
     lines=(${(f)out})
@@ -34,7 +34,7 @@ _sysup_tool_tests() {
         break
       fi
     done
-    if (( rc > 128 )); then # a signal (Ctrl-C), not a result
+    if _sysup_interrupted $rc; then # Ctrl-C or TERM, not a result
       echo "    $name: interrupted"
       _sysup_notes+=("tool tests interrupted at $name")
       return "$rc"

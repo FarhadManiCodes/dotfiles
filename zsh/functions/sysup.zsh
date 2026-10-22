@@ -26,12 +26,16 @@ _sysup_flush_notes() {
   return 0
 }
 
-# Records a failure sysup continues past. A status above 128 is a signal (Ctrl-C): that
-# stops the run, because the trap has already released the inhibitor and the lock.
+# 130 and 143 are SIGINT and SIGTERM. Other signal deaths (137 killed, 139 segfault) are
+# results of the step, e.g. a dependency that crashes the tool, not a request to stop.
+_sysup_interrupted() { (( $1 == 130 || $1 == 143 )) }
+
+# Records a failure sysup continues past. An interrupt (Ctrl-C) stops the run instead,
+# because the trap has already released the inhibitor and the lock.
 _sysup_note() {
   local _status=$1
   shift
-  if (( _status > 128 )); then
+  if _sysup_interrupted "$_status"; then
     echo "!! $* — interrupted, stopping sysup"
     _sysup_flush_notes
     return "$_status"
@@ -41,6 +45,7 @@ _sysup_note() {
 }
 
 sysup() {
+  setopt local_traps # the traps below must not outlive this call in a long-lived shell
   local _include_podman_images=0 _test_tools=0 _arg
   local -a _sysup_notes=()
   local _herdr_reason="${XDG_RUNTIME_DIR:-/tmp}/sysup-herdr-reason.$$"
@@ -169,7 +174,7 @@ sysup() {
     echo "==> Own tools: tests against the newest dependencies"
     _sysup_tool_tests || {
       _status=$?
-      (( _status > 128 )) && { _sysup_flush_notes; return "$_status"; }
+      _sysup_interrupted "$_status" && { _sysup_flush_notes; return "$_status"; }
     }
   fi
 
