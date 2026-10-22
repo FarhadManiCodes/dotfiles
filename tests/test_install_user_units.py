@@ -41,6 +41,8 @@ printf '%s\\n' "$*" >> "$HERDR_CALLS"
 if [[ $HERDR_FAIL == 1 ]]; then
   echo 'fixture Herdr failure' >&2
   exit 13
+elif [[ $HERDR_FAIL == 130 ]]; then
+  exit 130
 fi
 ''')
         self.stub("systemctl", '''printf '%s\\n' "$*" >> "$UNIT_CALLS"
@@ -73,9 +75,9 @@ exit 0
         path.write_text("#!/bin/bash\n" + body)
         path.chmod(0o755)
 
-    def run_install(self, failures="", herdr_failure=False):
+    def run_install(self, failures="", herdr_failure=False, herdr_interrupted=False):
         self.env["FAIL_UNITS"] = failures
-        self.env["HERDR_FAIL"] = "1" if herdr_failure else "0"
+        self.env["HERDR_FAIL"] = "130" if herdr_interrupted else "1" if herdr_failure else "0"
         return subprocess.run(
             ["/bin/bash", str(SOURCE)], cwd=self.base, env=self.env,
             text=True, capture_output=True, timeout=20,
@@ -135,6 +137,22 @@ exit 0
         self.assertNotIn("Dotfiles installation complete!", result.stdout)
         result = self.run_install()
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_ctrl_c_during_herdr_is_reported_as_an_interrupt_not_a_failure(self):
+        result = self.run_install(herdr_interrupted=True)
+        self.assertEqual(result.returncode, 130, result.stdout + result.stderr)
+        self.assertIn("Herdr installation interrupted; retry: herdr-cargo --install", result.stderr)
+        self.assertNotIn("failed", result.stderr)
+        self.assertNotIn("failures", result.stderr)
+        self.assertIn("Dotfiles installation interrupted", result.stderr)
+        self.assertNotIn("Dotfiles installation complete!", result.stdout)
+        self.assertIn("Agent skills linked", result.stdout)
+
+    def test_an_interrupt_does_not_hide_unit_failures_but_sets_the_exit_status(self):
+        result = self.run_install("ssh-agent.socket", herdr_interrupted=True)
+        self.assertEqual(result.returncode, 130)
+        self.assertIn("User units not enabled:\n  ssh-agent.socket\n", result.stderr)
+        self.assertIn("Dotfiles installation finished with failures", result.stderr)
 
     def test_herdr_and_unit_failures_are_both_reported(self):
         result = self.run_install("ssh-agent.socket", herdr_failure=True)

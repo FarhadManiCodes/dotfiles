@@ -14,9 +14,10 @@ bash bash/herdr-cargo --update   # update only; skip when the executable is abse
 
 The normal helper mapping in `install.sh` links it to `~/.local/bin/herdr-cargo`.
 The installer invokes `--install` as its last step (the build needs the network and takes
-minutes), and reports a failure in its final summary. `sysup` invokes `--update` after
+minutes), and reports a failure, or an interrupt (exit 130 or 143), in its final summary. An interrupt ends
+`install.sh` with that status even if user units also failed to enable (those are still listed). `sysup` invokes `--update` after
 `cargo install-update --all`, reports a failed Herdr update with its reason, continues, and
-finishes non-zero. If `HERDR_CARGO_REASON_FILE` names a file, the helper also writes its failure
+finishes non-zero. Ctrl+C there skips the update once, see [Ctrl-C in sysup](zsh.md#ctrl-c-in-sysup). If `HERDR_CARGO_REASON_FILE` names a file, the helper also writes its failure
 message there so `sysup` can repeat it. That general
 Cargo command skips Git installs; do not add `--git` to update Herdr, because
 the stable selection, SDK provisioning and build flags belong to this helper.
@@ -69,7 +70,8 @@ Mutating operations use a unique directory under
 `${XDG_CACHE_HOME:-$HOME/.cache}/herdr-cargo`, including Zig's caches, Cargo's
 target/build directory and subprocess temporary files. This avoids large
 build files in this machine's RAM-backed `/tmp`. Exit, ordinary failure and
-Ctrl+C clean that operation's directory; Cargo's shared downloads and Git
+Ctrl+C (exit 130; the Git lookup runs under `timeout --foreground` so the key reaches it at once)
+clean that operation's directory; Cargo's shared downloads and Git
 checkout remain reusable. A kill the shell cannot catch (SIGKILL, power loss) leaves the
 directory behind, so each mutating run removes `build.*` directories older than a day once
 it holds the lock. `--check` creates only a temporary metadata directory.

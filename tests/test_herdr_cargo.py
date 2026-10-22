@@ -87,6 +87,10 @@ shutil.copyfile(Path(os.environ["FIXTURES"]) / name, out)
 ''')
         self.stub("git", '''
 log({"tool":"git", "args":sys.argv[1:]})
+if os.environ.get("HOLD_GIT"):
+    import time
+    Path(os.environ["HOLD_GIT"]).write_text("holding")
+    time.sleep(60)
 if os.environ.get("ANNOTATED"):
     print("c" * 40 + "\\trefs/tags/v0.9.5")
     print(os.environ["TEST_COMMIT"] + "\\trefs/tags/v0.9.5^{}")
@@ -437,6 +441,29 @@ def log(value):
             self.assertEqual(proc.returncode, 130)
             self.assertEqual((self.root / "bin/herdr").read_bytes(), before)
             self.assert_clean()
+        finally:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.communicate()
+
+    def test_ctrl_c_reaches_a_slow_git_lookup_at_once(self):
+        # The terminal's SIGINT goes to the foreground process group. Plain `timeout` starts its
+        # child in a new group, so Ctrl-C then waited for the whole 90 s limit.
+        held = self.base / "git-held"
+        self.env["HOLD_GIT"] = str(held)
+        proc = subprocess.Popen(["/bin/bash", str(SOURCE), "--check"], env=self.env, cwd=self.base,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                start_new_session=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not held.exists() and time.monotonic() < deadline and proc.poll() is None:
+                time.sleep(0.02)
+            self.assertTrue(held.exists())
+            started = time.monotonic()
+            os.killpg(proc.pid, signal.SIGINT)
+            proc.communicate(timeout=5)
+            self.assertEqual(proc.returncode, 130)
+            self.assertLess(time.monotonic() - started, 3)
         finally:
             if proc.poll() is None:
                 os.killpg(proc.pid, signal.SIGKILL)

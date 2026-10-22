@@ -170,8 +170,8 @@ class ConfigDriftTests(unittest.TestCase):
 
     def test_sysup_boundary_and_failure_reporting(self):
         source = (Path(__file__).resolve().parents[1] / 'zsh/functions/sysup.zsh').read_text()
-        stage = source.split('  echo "==> System & AUR (paru -Syu)"', 1)[1].split('  echo "==> uv tools"', 1)[0]
-        final = source.split('  echo "==> Config drift"', 1)[1].split('  _sysup_flush_notes', 1)[0]
+        stage = source.split('  _sysup_header "System & AUR (paru -Syu)"', 1)[1].split('  _sysup_header "uv tools"', 1)[0]
+        final = source.split('  _sysup_header "Config drift"', 1)[1].split('  local _recorded', 1)[0]
         helper = source.split('_sysup_pacnew() {', 1)[1].split('\n}', 1)[0]
         stage = stage.replace('/var/log/pacman.log', '"$HOME/pacman.log"')
         log = self.write('pacman.log', 'old log\n')

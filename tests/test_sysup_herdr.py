@@ -110,54 +110,18 @@ _sysup_herdr() {{ _sysup_herdr_real {wrapper}; }}
         self.assertEqual(result.stdout.count("!! uv tool upgrade failed (exit 2)"), 2)
         self.assertTrue(result.stdout.rstrip().splitlines()[-1].startswith("!! uv tool upgrade failed"))
 
-    def test_ctrl_c_in_a_step_stops_sysup_instead_of_being_recorded_as_a_failure(self):
-        for stubs in ("uv() { [[ $2 == upgrade ]] && return 130; return 0; }",
-                      "_sysup_herdr() { return 130; }"):
-            with self.subTest(stubs=stubs):
+    def test_a_child_exiting_130_without_a_ctrl_c_is_a_failure_to_continue_past(self):
+        # Only a real Ctrl-C (TRAPINT) marks a skip; a status alone does not.
+        for status in (130, 139):
+            with self.subTest(status=status):
                 self.log.unlink(missing_ok=True)
-                result = self.run_sysup(stubs)
-                self.assertEqual(result.returncode, 130, result.stderr)
-                self.assertIn("interrupted, stopping sysup", result.stdout)
-                self.assertFalse(self.log.exists(), "later steps must not run")  # claude would log
-
-    def test_ctrl_c_in_any_step_stops_sysup_before_the_next_one(self):
-        # (interrupted step, the step that follows it and must not run)
-        for hit, nxt in (("_sysup_mirrorlist_check", "paru"), ("_sysup_plugins", "_sysup_nvim_health"),
-                         ("_sysup_nvim_health", "_sysup_fwupd_refresh_if_stale"),
-                         ("_sysup_fwupd_refresh_if_stale", "_sysup_pacnew")):
-            with self.subTest(interrupted=hit):
-                self.log.unlink(missing_ok=True)
-                result = self.run_sysup(
-                    f'{nxt}() {{ print -r -- NEXT-RAN >> "$TEST_LOG"; }}\n{hit}() {{ kill -INT $$; }}')
-                self.assertEqual(result.returncode, 130, result.stderr)
-                self.assertFalse(self.log.exists() and "NEXT-RAN" in self.log.read_text(), hit)
-                self.assertNotIn("sysup done", result.stdout)
-
-    def test_a_crashed_step_is_a_failure_to_continue_past_not_an_interrupt(self):
-        result = self.run_sysup("uv() { [[ $2 == upgrade ]] && return 139; return 0; }")
-        self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertNotIn("interrupted", result.stdout)
-        self.assertEqual(self.log.read_text().splitlines(), ["claude"])
-
-    def test_traps_do_not_outlive_the_call(self):
-        traps = self.base / "traps"
-        self.run_sysup("", after=f'trap >| {traps}')  # not in $(...): that subshell resets traps
-        self.assertTrue(traps.exists())
-        self.assertEqual(traps.read_text(), "")
+                result = self.run_sysup(f"uv() {{ [[ $2 == upgrade ]] && return {status}; return 0; }}")
+                self.assert_warned_and_continued(result, f"uv tool upgrade failed (exit {status})"
+                    "; tools, including yt-dlp and its token helper, may be outdated or mismatched; see the output above")
 
     def test_a_failed_yts_install_is_repeated_at_the_end(self):
         result = self.run_sysup("_sysup_yts() { return 4; }")
         self.assert_warned_and_continued(result, "yts install failed (exit 4); see the output above")
-
-    def test_reason_file_is_removed_when_sysup_is_interrupted(self):
-        runtime = self.base / "run"
-        runtime.mkdir()
-        self.env["XDG_RUNTIME_DIR"] = str(runtime)
-        result = self.run_sysup('''
-_sysup_herdr() { print -r -- partial > "$HERDR_CARGO_REASON_FILE"; kill -INT $$; sleep 1; }
-''')
-        self.assertEqual([p.name for p in runtime.iterdir() if p.name.startswith("sysup-herdr-reason")], [])
-
 
     def test_podman_failure_still_ends_with_the_warnings_line(self):
         result = self.run_sysup("uv() { [[ $2 == upgrade ]] && return 2; return 0; }\n"

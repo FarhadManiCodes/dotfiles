@@ -27,7 +27,6 @@ class ToolTestsStepTests(unittest.TestCase):
                       '  resolve) echo "error: no solution found"; exit 2 ;;\n'
                       '  timeout) exit 124 ;;\n'
                       '  nothing) echo "no tests ran in 0.01s"; exit 5 ;;\n'
-                      '  interrupt) exit 130 ;;\n'
                       '  crash) exit 139 ;;\n'
                       'esac ;; esac\n'
                       'echo "5 passed in 0.1s"\n')
@@ -75,10 +74,10 @@ class ToolTestsStepTests(unittest.TestCase):
         self.assertIn("paper-refinery: could not run the suite (exit 5)", out)
         self.assertNotIn("FAILED with the latest dependencies", out)
 
-    def test_a_crashing_suite_is_a_result_not_an_interrupt(self):
+    def test_a_crashing_suite_is_a_result_not_a_skip(self):
         out = self.run_failing("crash")
         self.assertIn("paper-refinery: could not run the suite (exit 139)", out)
-        self.assertNotIn("interrupted", out)
+        self.assertNotIn("skipped", out)
 
     def test_timeout_keeps_the_suite_in_the_foreground_process_group(self):
         # Plain `timeout` starts its child in a new process group, which a terminal Ctrl-C never reaches.
@@ -95,13 +94,6 @@ class ToolTestsStepTests(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 3, "the step waited for the grandchild")
         self.assertIn("rc=0", result.stdout, result.stderr)
         self.assertEqual(list(self.base.glob("sysup-tool-tests.*")), [], "output file left behind")
-
-    def test_interrupt_stops_the_remaining_suites(self):
-        self.env.update(TEST_FAIL="mathunicode", TEST_MODE="interrupt")
-        result = self.run_zsh(f'local -a _sysup_notes; _sysup_tool_tests {self.projects}; print rc=$?')
-        self.assertIn("rc=130", result.stdout, result.stderr)
-        self.assertIn("mathunicode: interrupted", result.stdout)
-        self.assertEqual(len(self.log.read_text().splitlines()), 1)
 
     def test_a_suite_that_could_not_run_is_not_reported_as_a_broken_tool(self):
         out = self.run_failing("resolve")

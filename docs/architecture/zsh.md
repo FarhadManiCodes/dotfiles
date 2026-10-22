@@ -46,9 +46,9 @@
 Inside an existing shpool session (`SHPOOL_SESSION_NAME` set), they run there
 without nesting. Missing shpool/`keep` stops the command with an error. Arguments
 are preserved, including `sysup --podman-images` and `sysclean --all`.
-Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C still
-interrupts the running command. Reload `~/.zshrc` in shells already open after
-changing these functions.
+Closing the terminal detaches; use `attach` or Mod+A to reconnect. Ctrl+C in `sysup` skips the
+running step or stops the run, see [Ctrl-C in sysup](#ctrl-c-in-sysup). Reload `~/.zshrc` in shells
+already open after changing these functions.
 
 `sysup --test-tools` (`sysup/tool-tests.zsh`) runs the suites of mathunicode, paper-refinery and
 audio_text (the dictate project) in `~/projects` with `uv run --isolated --upgrade`: a throwaway
@@ -60,13 +60,60 @@ summary, or pytest exit 4/5: resolving, network or build failure, nothing collec
 separately, so it is not mistaken for a broken tool. Both are repeated before the closing line and
 `sysup` continues. A project without a checkout is skipped. It adds about 40 seconds, hence opt-in.
 
-`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update. Each
-failure is reported where it happens and repeated after the last step (and before any early
-stop); a run with recorded failures ends "sysup finished with warnings" and returns non-zero (the podman
-status when the image update failed, otherwise 1). Ctrl-C or TERM in any step is not a failure to continue past: the
-trap sets a flag and returns, `sysup` checks it after the steps that do not report a status, and
-the EXIT trap releases the sleep inhibitor and the lock. (`return` in a trap leaves only the
-innermost function, hence the flag.)
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update.
+Each failure is reported where it happens and repeated after the last step, and again when the run
+stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded failures or skips ends
+"sysup finished with warnings" and returns non-zero (the podman status when the image update failed,
+otherwise 1).
+
+## Ctrl-C in sysup
+
+Measured in an interactive zsh on a pty: with no handling, Ctrl-C aborts the whole `sysup` call at
+once but skips a plain EXIT trap, leaking the sleep inhibitor and the lock. So `sysup` does its
+cleanup in a `{ … } always { … }` block and handles the key itself:
+
+| Where | First Ctrl-C | Second within 2 s |
+|---|---|---|
+| paru, before pacman logged `transaction started` (prompt, sudo, downloads) | skip paru, continue | stop |
+| paru, after `transaction started` (or the log position unreadable) | stop | – |
+| bgutil | stop | – |
+| every other step | skip the running command, continue | stop |
+
+- **Skip** kills the running command (the terminal sends SIGINT to the whole foreground group), prints
+  "Ctrl-C: skipping <step>", and the run moves on. The skip is recorded and repeated last as
+  "skipped with Ctrl-C: <step>", so the run ends "finished with warnings" and non-zero. It is not
+  also reported as that command's failure; a later failure in the same step is, unless it carries the
+  skipped command's own exit status. Only a command that was running counts (`$?` on entering the
+  trap is non-zero): with nothing running the key press is ignored ("nothing to skip") and a second
+  within 2 s still stops. It is per running command: in a multi-command step
+  (plugins, Claude update and prune, the podman loop, one suite of the tool tests) the step goes on with
+  its next command.
+- **Stop** ends `sysup` at once. The always block releases the sleep inhibitor and the lock, removes
+  the Herdr reason file and the tool-test temp file, and prints the failures and skips recorded so
+  far. No "finished with warnings" or "done" line is printed, and the shell abandons the whole command
+  line, so there is no exit status to read.
+- **Why those two stop:** a half-installed package transaction must not be built on by the uv, yts and
+  Cargo steps, and skipping bgutil leaves yt-dlp and its token helper mismatched. Before pacman logs
+  `transaction started` (written after the prompt, sudo and downloads) nothing has been installed, so
+  paru can be skipped. `sysup` reads the part of `/var/log/pacman.log` written since the run began
+  (the byte offset it already records for the config-drift check); a log that was rotated or
+  truncated since then counts as started, because the offset no longer means anything.
+- **Mechanism:** a `TRAPINT` function exists only while `sysup` runs (one you defined yourself is put
+  back afterwards; `local_traps` does not cover functions). Returning 130 (128 + SIGINT) makes
+  zsh abort as usual; returning 0 lets the run continue. A `trap '…' INT` string does not abort on a
+  non-zero return, and `return` in it leaves only the innermost function; both measured.
+- **Latency:** every `timeout` around a foreground command uses `--foreground`. Plain `timeout` starts
+  its command in a new process group, which the terminal's Ctrl-C does not reach; a plain `timeout 6`
+  held Ctrl-C for about 5 s, `--foreground` for 0.1 s. The price: on expiry only the direct child gets
+  the signal, so the pytest that a timed-out `uv run` started can outlive the 600 s limit.
+- **Known gap:** a Ctrl-C landing between two commands of one step can leave the skip mark set. A real
+  failure later in that step with the skipped command's own exit status is then not repeated; the skip
+  itself still is, so the run still ends with warnings.
+- **Not covered:** pacman and paru roll back (or not) by their own rules; SIGTERM is ignored by an
+  interactive zsh, so it does nothing to `sysup`; a hung-up or killed shell (`shpool kill`) runs
+  neither the always block nor an EXIT trap (measured), so the Herdr reason file stays behind, but the
+  sleep inhibitor still ends because the kernel hangs up the whole pty session; `herdr-cargo` run alone exits 130 on Ctrl-C and
+  `install.sh` reports that as "interrupted", not a failure.
 
 `batt` uses `bash/hardware-readings`, shared with the Mod+Shift+N temperature
 notification. Each request invokes `sensors -j` once and `jq` once, without

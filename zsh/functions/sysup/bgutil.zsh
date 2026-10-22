@@ -1,7 +1,8 @@
 # Matches the installed Python plugin version, never upstream HEAD — see
 # docs/architecture/zsh.md, "yt-dlp's token helper". The optional directory is
 # for isolated tests; the default matches yt-dlp/config's server_home. A
-# subshell keeps our cwd and cleanup traps away from sysup's inhibitor trap.
+# subshell keeps our cwd and cleanup traps away from sysup's TRAPINT and cleanup.
+# timeout --foreground: without it Ctrl-C never reaches the command (own process group).
 _sysup_bgutil() (
   emulate -L zsh
   trap - EXIT INT TERM
@@ -30,7 +31,7 @@ _sysup_bgutil() (
     echo "!! bgutil: node and timeout are required to check the helper"
     return 1
   fi
-  current_version=$(timeout 15s node "$helper_dir/server/build/generate_once.js" --version 2>/dev/null) || current_version=""
+  current_version=$(timeout --foreground 15s node "$helper_dir/server/build/generate_once.js" --version 2>/dev/null) || current_version=""
   if [[ $current_version == $plugin_version ]]; then
     echo "    bgutil $plugin_version already matches the Python plugin"
     return 0
@@ -78,7 +79,7 @@ _sysup_bgutil() (
     echo "!! bgutil: build failed; current helper preserved"
     return 1
   }
-  built_version=$(timeout 15s node "$stage/repo/server/build/generate_once.js" --version) || {
+  built_version=$(timeout --foreground 15s node "$stage/repo/server/build/generate_once.js" --version) || {
     echo "!! bgutil: built helper cannot run; current helper preserved"
     return 1
   }
@@ -91,9 +92,9 @@ _sysup_bgutil() (
   # has the incident); only a generated token is. Unreachable youtube.com is
   # NOT CHECKED, never a build failure, so a dropped connection can't strand
   # sysup on the version mismatch this step exists to fix.
-  if timeout 120s node "$stage/repo/server/build/generate_once.js" >/dev/null 2>&1; then
+  if timeout --foreground 120s node "$stage/repo/server/build/generate_once.js" >/dev/null 2>&1; then
     echo "    verified: the new helper generated a token"
-  elif timeout 10s curl -sf -o /dev/null --max-time 8 \
+  elif timeout --foreground 10s curl -sf -o /dev/null --max-time 8 \
       https://www.youtube.com/generate_204 2>/dev/null; then
     echo "!! bgutil: the new helper cannot generate a token; current helper preserved"
     return 1

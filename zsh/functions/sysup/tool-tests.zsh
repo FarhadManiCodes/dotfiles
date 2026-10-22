@@ -3,12 +3,13 @@
 # in the installed tool. Each suite runs here in a throwaway environment resolved
 # to the newest allowed versions (--isolated --upgrade): the lockfile, the project's
 # .venv and the installed uv tool are never touched. A failure is recorded in the
-# caller's _sysup_notes (zsh dynamic scope) and does not stop sysup.
+# caller's _sysup_notes (zsh dynamic scope) and does not stop sysup. A Ctrl-C skips the running
+# suite (see sysup's TRAPINT); a second stops sysup.
 # The projects directory is an argument so tests can drive this without the real ones.
 _sysup_tool_tests() {
   local outfile
   outfile=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/sysup-tool-tests.XXXXXX") || return 1
-  # always: also removed when a Ctrl-C trap returns out of the middle of a run
+  # always: also removed when a stopping Ctrl-C aborts the middle of a run
   { _sysup_tool_tests_run "$outfile" "$@" } always { rm -f -- "$outfile" }
 }
 
@@ -35,6 +36,11 @@ _sysup_tool_tests_run() {
       timeout --foreground 600 uv run --isolated --upgrade --no-compile-bytecode ${words[2,-1]} \
       python -m pytest -q -p no:cacheprovider >"$outfile" 2>&1 </dev/null )
     rc=$?
+    if (( rc && rc == _sysup_skipped )); then # Ctrl-C skipped this suite; TRAPINT recorded it
+      _sysup_skipped=0
+      echo "    $name: skipped"
+      continue
+    fi
     lines=(${(f)"$(<$outfile)"})
     summary=
     for line in ${(Oa)lines}; do # last pytest summary line; uv may print warnings after it
@@ -43,11 +49,7 @@ _sysup_tool_tests_run() {
         break
       fi
     done
-    if _sysup_interrupted $rc; then # Ctrl-C or TERM, not a result
-      echo "    $name: interrupted"
-      _sysup_notes+=("tool tests interrupted at $name")
-      return "$rc"
-    elif (( rc == 124 )); then
+    if (( rc == 124 )); then
       echo "    $name: TIMED OUT after 600 s"
       unrun+=($name)
     elif (( rc == 0 )); then
