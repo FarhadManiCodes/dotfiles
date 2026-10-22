@@ -6,6 +6,7 @@
 _sysup_bgutil() (
   emulate -L zsh
   trap - EXIT INT TERM
+  [[ -z ${_lockfd:-} ]] || exec {_lockfd}>&- # a leftover child must not keep sysup's lock held
   local helper_dir=${1:-"$HOME/.local/share/bgutil-pot"}
   local tool_dir plugin_version current_version changes stage built_version
 

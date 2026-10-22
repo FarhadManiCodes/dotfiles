@@ -8,7 +8,11 @@
 # The projects directory is an argument so tests can drive this without the real ones.
 _sysup_tool_tests() {
   local outfile
-  outfile=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/sysup-tool-tests.XXXXXX") || return 1
+  outfile=$(mktemp "${XDG_RUNTIME_DIR:-/tmp}/sysup-tool-tests.XXXXXX") || {
+    echo "!! tool tests: cannot create a temporary file in ${XDG_RUNTIME_DIR:-/tmp}; no suite ran"
+    _sysup_notes+=("tool tests could not start: no temporary file in ${XDG_RUNTIME_DIR:-/tmp}; no suite ran")
+    return 1
+  }
   # always: also removed when a stopping Ctrl-C aborts the middle of a run
   { _sysup_tool_tests_run "$outfile" "$@" } always { rm -f -- "$outfile" }
 }
@@ -32,7 +36,10 @@ _sysup_tool_tests_run() {
     # stdin from /dev/null: a test that prompts must fail, not hang the update.
     # Output goes to a file, not through $(...): a suite's leftover grandchild would hold a
     # pipe open past the timeout and block this step until it exits.
-    ( cd "$root/$name" && PYTHONDONTWRITEBYTECODE=1 \
+    # The lock descriptor is closed in the subshell: a suite's leftover process would otherwise
+    # inherit it and keep the concurrency lock held after sysup returns.
+    ( [[ -z ${_lockfd:-} ]] || exec {_lockfd}>&-
+      cd "$root/$name" && PYTHONDONTWRITEBYTECODE=1 \
       timeout --foreground 600 uv run --isolated --upgrade --no-compile-bytecode ${words[2,-1]} \
       python -m pytest -q -p no:cacheprovider >"$outfile" 2>&1 </dev/null )
     rc=$?

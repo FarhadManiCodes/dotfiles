@@ -7,6 +7,7 @@
 _sysup_yts() (
   emulate -L zsh
   trap - EXIT INT TERM
+  [[ -z ${_lockfd:-} ]] || exec {_lockfd}>&- # a leftover child must not keep sysup's lock held
   local repo=${1:-"$HOME/projects/yts"}
   local prefix=${2:-"$HOME/.local/share/yts-gui"}
   local bindir=${3:-"$HOME/.local/bin"}

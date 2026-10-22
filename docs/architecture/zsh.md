@@ -56,9 +56,16 @@ environment on the newest allowed dependencies, because the projects' own `uv.lo
 tests to known-good versions and a breaking release would otherwise show up only in the installed
 tool. Neither the lockfile, the project `.venv` nor the installed tool is touched. A failing suite
 is reported with its pytest summary and the end of its output; a suite that could not run (no pytest
-summary, or pytest exit 4/5: resolving, network or build failure, nothing collected) or timed out (600 s, stdin closed) is reported
-separately, so it is not mistaken for a broken tool. Both are repeated before the closing line and
-`sysup` continues. A project without a checkout is skipped. It adds about 40 seconds, hence opt-in.
+summary, or pytest exit 4/5: resolving, network or build failure, nothing collected) or timed out
+(600 s, stdin closed) is reported separately, so it is not mistaken for a broken tool. Both kinds are
+repeated before the closing line and `sysup` continues. A run that cannot even create its temporary
+file is recorded as "could not start". A project without a checkout is skipped. It adds about 40
+seconds, hence opt-in.
+
+The lock descriptor is closed in the steps that run in a subshell (tool tests, bgutil, yts, Herdr), so
+a process one of them leaves behind cannot keep the concurrency lock held. The steps run directly in
+`sysup`'s shell (paru, uv, Cargo, Claude, plugins, nvim health, podman, fwupd) still pass it on; none
+of them is known to leave a process behind. If one ever does, close it there the same way.
 
 `sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install or Herdr update.
 Each failure is reported where it happens and repeated after the last step, and again when the run

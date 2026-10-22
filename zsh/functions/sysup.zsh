@@ -142,6 +142,10 @@ sysup() {
   # unprotected run. But it must not be silent: without the warning the guard
   # short-circuits and the run looks identical to a locked one.
   #
+  # The descriptor is inherited by every child. The subshell steps (tool tests, bgutil, yts, Herdr)
+  # close it, because a process they leave behind would keep the lock held after sysup returns; the
+  # steps run directly in this shell do not, and none is known to leave a process behind.
+  #
   # _lockfd must be cleared first, not just on failure. It is a global, and zsh
   # sets an fd variable to 0 when that descriptor is closed -- so the second
   # sysup in one shell starts with a stale _lockfd=0 that a failed open leaves

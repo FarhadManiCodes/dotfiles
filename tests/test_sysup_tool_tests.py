@@ -95,6 +95,21 @@ class ToolTestsStepTests(unittest.TestCase):
         self.assertIn("rc=0", result.stdout, result.stderr)
         self.assertEqual(list(self.base.glob("sysup-tool-tests.*")), [], "output file left behind")
 
+    def test_a_leftover_suite_process_does_not_keep_the_sysup_lock_held(self):
+        (self.base / "bin" / "uv").write_text('#!/bin/sh\nsleep 4 &\necho "5 passed in 0.1s"\n')
+        lock = self.base / "lock"
+        result = self.run_zsh(f'exec {{_lockfd}}>{lock}; flock -n $_lockfd; _sysup_tool_tests {self.projects}; '
+                              f'exec {{_lockfd}}>&-; flock -n {lock} true; print LOCKRC=$?')
+        self.assertIn("LOCKRC=0", result.stdout, result.stderr)
+
+    def test_tool_tests_that_cannot_start_say_so_and_are_recorded(self):
+        self.env["XDG_RUNTIME_DIR"] = str(self.base / "no-such-dir")
+        result = self.run_zsh(f'local -a _sysup_notes; _sysup_tool_tests {self.projects}; '
+                              'print rc=$?; print -r -- "NOTE: ${_sysup_notes[*]}"')
+        self.assertIn("rc=1", result.stdout, result.stderr)
+        self.assertIn("NOTE: tool tests could not start", result.stdout)
+        self.assertFalse(self.log.exists(), "no suite should have run")
+
     def test_a_suite_that_could_not_run_is_not_reported_as_a_broken_tool(self):
         out = self.run_failing("resolve")
         self.assertIn("paper-refinery: could not run the suite (exit 2)", out)
