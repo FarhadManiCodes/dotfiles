@@ -1,14 +1,15 @@
 # ~/.config/swaylock/config
-# Optimized for "fsi-zen" wallpaper (Official Swaylock)
+# Optimized for the Magritte precise wallpaper (Official Swaylock)
 
 # --- BACKGROUND ---
-image=/usr/share/backgrounds/fsi-zen.png
+# Absolute path: swaylock does not expand $HOME. Must match niri/config.kdl's swaybg.
+image=/home/farhad/.local/share/backgrounds/magritte_precise_1920x1200.png
 scaling=fill
 
-# --- POSITIONING (The Key Fix) ---
-# Move the ring to the empty blue space at the top.
-# Standard swaylock centers X automatically, we just set Y.
-indicator-y-position=200
+# --- POSITIONING ---
+# Absolute pixel coordinates on the 1920x1200 output (origin top-left).
+indicator-x-position=773
+indicator-y-position=506
 indicator-radius=66
 indicator-thickness=10
 
