@@ -39,6 +39,7 @@ Off-machine backup remains deferred.
 | 22. Bounded Vifm image previews | Investigation only | Measure decoder costs, then choose a preview policy |
 | 23. Timed notification snoozing | Investigation only | Explore Mako modes and transient timers; preserve critical alerts |
 | 24. Claude release cleanup | Investigation only | Establish active-session risks and choose a retention policy |
+| 25. Consistent battery reporting in batt | Planned | Align estimates and state labels with the status menu |
 
 ## 1. Off-machine backup
 
@@ -439,3 +440,15 @@ path is chosen, with no heavy dependency pulled in.
 **Acceptance criteria:** report evidence of whether active-version removal causes a practical problem, or state that no failure was demonstrated. Recommend a clear retention policy with its limits. If a later fix is agreed, verify active older releases survive, eligible inactive releases can be removed, current/fallback and staging remain intact, uncertainty preserves files, and both `sysup` and `sysclean` use the same policy. Cover races/failure behavior with isolated fixtures and run focused Zsh/tests without live cleanup.
 
 **Scope:** investigation and recommendation only; this TODO does not change Claude cleanup, install tools, stop sessions or remove release files.
+
+## 25. Align batt with the status menu's battery reporting
+
+**Requested 2026-10-23. Planning only:** make the terminal `batt` helper in `zsh/helpers.zsh` follow the sensible battery-reporting rules already used by `bash/status-menu`. No battery configuration or notifier changes are needed for this item.
+
+**Current behavior:** `batt` calculates remaining time for any positive `power_now`, so a tiny transient reading after resume can produce an unrealistic estimate. It guards zero draw, but labels every non-discharging state as “Charging / AC”, including full or not-charging states. The status menu already suppresses power/time estimates below 1 W, handles unreadable charge data and estimates charging time to the configured charge limit.
+
+**Omarchy reference:** [`eb0c5155c`](https://github.com/basecamp/omarchy/commit/eb0c5155c8e52509972f06971512bd8a0c6f0c50), `bin/omarchy-battery-status`, explicitly labels fully charged batteries and omits estimates or power readings that lack useful supporting data. Adopt the reporting principle while retaining this machine's existing threshold and charge-limit policy.
+
+**Implementation hints:** inspect the current status-menu and power-notify behavior before choosing shared logic or a small helper adjustment. Distinguish charging, discharging, full, not charging and unknown states; do not infer charging merely from absence of discharge. Suppress remaining-time estimates for missing, zero or unsettled draw, and retain an explicit unavailable/calculating indication where useful. If adding a charging estimate, target the configured charge limit rather than assuming 100%. Preserve the existing sensor dashboard and introduce no daemon or polling.
+
+**Acceptance criteria:** use isolated readings to check ordinary discharge, tiny/zero draw, charging to a configured limit, full/not-charging states and missing readings. Estimates remain finite and meaningful; labels reflect the reported state; unavailable readings do not become plausible zero values. Run focused Zsh checks and verify normal terminal output before considering the change complete. This TODO authorizes no implementation yet.
