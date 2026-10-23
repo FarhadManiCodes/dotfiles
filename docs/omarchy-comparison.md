@@ -237,7 +237,7 @@ self-contained and does not need the Omarchy checkout.
 | # | Item | Where |
 |---|---|---|
 | D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md`, "Off-machine backup" |
-| 27 | An editor + agent tmux layout — the user rates this important | `TODO.md`, "An editor + agent tmux layout" |
+| 27 | An editor + agent tmux layout — the user rates this important | Superseded 2026-10-23 by the Herdr migration: `docs/herdr-implementation.md`, Milestone 5 |
 | 30 | Their skill layering (a routing `SKILL.md` plus sibling topic guides) as the shape for `config-audit` | `agent-skills.md` |
 
 Item C — fold `check-skills` and the invariant table into one runner — left this table on

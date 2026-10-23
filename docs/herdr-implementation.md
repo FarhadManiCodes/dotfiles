@@ -37,6 +37,7 @@ Acceptance criteria:
 - [ ] `~/.config/herdr/config.toml` and `logo.svg` are symlinks into the checkout. A listing of `~/.config/herdr` before and after shows sockets, logs and session data untouched.
 - [ ] `bash bash/config-drift` reports the Herdr mappings as clean.
 - [ ] Pressed by hand in foot, each of these works: `Prefix+$`, `Prefix+|`, `Prefix+Alt+g`, `Alt+Shift+Left/Right` and direct `Alt+1..9`. A key that fails gets a different binding, recorded in Step 5.
+- [ ] `Prefix+Shift+g` creates a worktree under `~/.local/share/herdr/worktrees`, not a folder literally named `~` (the config value starts with `~`).
 - [ ] `Ctrl+a Ctrl+a` reaches zsh as `Ctrl+a`, which jumps to the start of the line.
 - [ ] `Mod+Alt+T` flips Herdr's sidebar and tab bar without a Herdr-specific signal from the script. If it doesn't, the clients-only `SIGWINCH` fallback from Step 4 is added and does.
 - [ ] In both light and dark, Herdr's colors look right beside foot and Neovim. A decision on `panel_bg = "reset"` is recorded.
@@ -87,7 +88,7 @@ Prove first:
 - [ ] Routing from a foot key binding to the right Herdr pane, with no race against focus changes.
 - [ ] Command boundaries and matching command/directory metadata per shell, not the global `~/.local/state/zsh/last_command`.
 
-Work: write `bash/herdr-copy-output`; add the `Prefix+Shift+y` and `Prefix+Alt+c` entries from the draft config; link and drift-map the helper.
+Work: write `bash/herdr-copy-output`; add the `Prefix+Shift+y` and `Prefix+Alt+c` entries from the draft config; link and drift-map the helper. Run `wl-copy` under `setsid` in Vim's `\y` maps (`vim/config/mappings.vim`), since a bare `wl-copy` can die with the editor.
 
 Acceptance criteria:
 - [ ] `Ctrl+Shift+y` (raw) and `Ctrl+Alt+c` (command + directory + output) work in plain foot and in Herdr. So do `Prefix+Shift+y` and `Prefix+Alt+c`, with `Prefix+Alt+c` pressed by hand in foot.
@@ -104,7 +105,8 @@ Work: write the `Prefix+W` and `Prefix+A` helpers, add their key entries, link a
 Acceptance criteria:
 - [ ] `Prefix+W` offers editor + terminal and C++ `code` + `profile`, and builds the layout for the invoking pane's project.
 - [ ] `Prefix+W` for a project whose editor is already open focuses that editor. There is no duplicate, and the layout is unchanged. The editor is found by project, not by tab or workspace name.
-- [ ] `Prefix+A` offers OpenCode, Claude Code and Codex, and opens a new tab for the invoking pane's project. Existing agent tabs are untouched.
+- [ ] `Prefix+A` offers OpenCode, Claude Code and Codex, and opens a new tab for the invoking pane's project. Existing agent tabs are untouched. AGY is left out on purpose (user decision, 2026-10-23).
+- [ ] Both helpers handle a project path with spaces, a missing agent command (clear message, nothing half-built), a small terminal, being run twice in a row, and focus changing while they run. They run no command beyond the layout and the chosen agent.
 - [ ] Both keys work correctly when two projects share a workspace.
 - [ ] Investigated and decided: Sioyek inverse search when Neovim's pane is not focused. The handler (`nvim/lua/plugins/documents.lua`) only matches a foot window title containing "NVIM", which shows the focused pane. Reaching a hidden editor needs the same find-the-project's-editor lookup as `Prefix+W`; fix it with that lookup, or record it as a known gap.
 - [ ] No hooks, dashboards or coordination were added; those stay for the agentic-layer session.
@@ -149,7 +151,7 @@ Work:
 
 Acceptance criteria:
 - [ ] A `tmux` grep over tracked files finds only intended mentions (history and notes).
-- [ ] `Ctrl+h/j/k/l` and `Ctrl+\` still move between Neovim and Vim splits. `nvim --headless -c 'lua dofile("tests/runtime.lua")'` and `:checkhealth` pass.
+- [ ] `Ctrl+h/j/k/l` and `Ctrl+\` still move between Neovim and Vim splits. `cd nvim && nvim --headless -c 'lua dofile("tests/runtime.lua")'` and `:checkhealth` pass.
 - [ ] Personal files in `~/.config/tmux` remain.
 - [ ] `docs/architecture/herdr.md` covers the keys, behavior and reasons in a short read, without implementation notes.
 - [ ] `bash bash/config-drift` is clean, and the relevant suites pass under `bash bash/run-tests`.
