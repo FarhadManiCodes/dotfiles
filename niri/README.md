@@ -130,7 +130,8 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `~/.local/share/backgrounds/current`, an untracked link to the chosen image
   (now `magritte_precise_1920x1200.png`), read by swaybg and `swaylock/config`. To change it,
-  link an absolute path (a relative one dangles) and restart swaybg, which reads the image only
+  link the image (a relative target resolves from the link's own directory, so use an absolute
+  path for images stored elsewhere) and restart swaybg, which reads the image only
   at startup; then recheck swaylock's ring position:
   `ln -sfn "$(realpath <image>)" ~/.local/share/backgrounds/current`
   `pkill -x swaybg; niri msg action spawn-sh -- 'exec swaybg -i "$HOME/.local/share/backgrounds/current" -m fill'`
