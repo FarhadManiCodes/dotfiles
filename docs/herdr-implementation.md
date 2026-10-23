@@ -28,21 +28,22 @@ Decisions: Steps 2–7 and the draft config.
 
 Work:
 - Add `herdr/config.toml` from the draft config, without the placeholder helper commands (C++ and copy-output). Each of those arrives with its own milestone.
-- Add `herdr/logo.svg` (upstream `assets/logo.svg` at `v0.9.5`) and the `[app-name=Herdr]` rule in `mako/config`.
-- Link `config.toml` and `logo.svg` file by file in `install.sh`, not the whole directory. Add both to `bash/config-drift`. Before linking, compare the independent live `~/.config/herdr/config.toml` with the tracked one and keep anything wanted from it.
+- Add the `[app-name=Herdr]` `format` rule to `mako/config` (Step 3).
+- Link `config.toml` as a single file in `install.sh`, not the whole directory, and add it to `bash/config-drift`. Before linking, compare the independent live `~/.config/herdr/config.toml` with the tracked one and keep anything wanted from it.
 - Update `docs/architecture/herdr.md` and the README keybinding references.
 
 Acceptance criteria:
 - [ ] `herdr config check` passes on the tracked file.
-- [ ] `~/.config/herdr/config.toml` and `logo.svg` are symlinks into the checkout. A listing of `~/.config/herdr` before and after shows sockets, logs and session data untouched.
+- [ ] `~/.config/herdr/config.toml` is a symlink into the checkout. A listing of `~/.config/herdr` before and after shows sockets, logs and session data untouched.
 - [ ] `bash bash/config-drift` reports the Herdr mappings as clean.
 - [ ] Pressed by hand in foot, each of these works: `Prefix+$`, `Prefix+|`, `Prefix+Alt+g`, `Alt+Shift+Left/Right` and direct `Alt+1..9`. A key that fails gets a different binding, recorded in Step 5.
 - [ ] `Prefix+Shift+g` creates a worktree under `~/.local/share/herdr/worktrees`, not a folder literally named `~` (the config value starts with `~`).
+- [ ] `Prefix+t` opens the scratch popup in the invoking pane's directory, as tmux's `Prefix+o` popup did.
 - [ ] `Ctrl+a Ctrl+a` reaches zsh as `Ctrl+a`, which jumps to the start of the line.
 - [ ] `Mod+Alt+T` flips Herdr's sidebar and tab bar without a Herdr-specific signal from the script. If it doesn't, the clients-only `SIGWINCH` fallback from Step 4 is added and does.
 - [ ] In both light and dark, Herdr's colors look right beside foot and Neovim. A decision on `panel_bg = "reset"` is recorded.
 - [ ] `pane_gaps = false` and `true` compared by eye; the choice is recorded in Step 3.
-- [ ] A Herdr notification shows in mako with the Herdr icon.
+- [ ] `makoctl reload` succeeds, and a Herdr notification shows 🐑 before its title.
 - [ ] Copying with `y` in copy mode and with mouse selection is pasted with both `Ctrl+Shift+v` and middle-click. Where each copy lands (clipboard, primary) is recorded in Step 7.
 - [ ] A multi-line paste into zsh and into Neovim does not run anything by itself.
 - [ ] `Shift+Enter` works in OpenCode, Claude Code and Codex. The image previews actually used still show, or the gap is recorded.
@@ -102,13 +103,19 @@ Decisions: Step 8C.
 
 Work: write the `Prefix+W` and `Prefix+A` helpers, add their key entries, link and drift-map them, and settle initial sizes and focus.
 
+Notes carried over from the removed `TODO.md` item 2 (full text, including Omarchy's `tdl`/`tds`/`tdlm`/`tsl` layout shapes: `git show 4343335^:TODO.md`). They were written for tmux; the principles apply to Herdr's pane CLI:
+- Address every pane by the ID returned when it is created, starting from the invoking pane's own ID, never "the active pane". Focus can move while the script runs.
+- Pass the directory explicitly on every split or new tab.
+- Send command text literally, then Enter separately, so text such as `C-m` is not read as a key.
+- Omarchy's `tdl` ends with `select-pane -t "$opencode_pane"`, a variable it never sets, so its final focus step silently does nothing. Don't copy it.
+
 Acceptance criteria:
 - [ ] `Prefix+W` offers editor + terminal and C++ `code` + `profile`, and builds the layout for the invoking pane's project.
 - [ ] `Prefix+W` for a project whose editor is already open focuses that editor. There is no duplicate, and the layout is unchanged. The editor is found by project, not by tab or workspace name.
 - [ ] `Prefix+A` offers OpenCode, Claude Code and Codex, and opens a new tab for the invoking pane's project. Existing agent tabs are untouched. AGY is left out on purpose (user decision, 2026-10-23).
 - [ ] Both helpers handle a project path with spaces, a missing agent command (clear message, nothing half-built), a small terminal, being run twice in a row, and focus changing while they run. They run no command beyond the layout and the chosen agent.
 - [ ] Both keys work correctly when two projects share a workspace.
-- [ ] Investigated and decided: Sioyek inverse search when Neovim's pane is not focused. The handler (`nvim/lua/plugins/documents.lua`) only matches a foot window title containing "NVIM", which shows the focused pane. Reaching a hidden editor needs the same find-the-project's-editor lookup as `Prefix+W`; fix it with that lookup, or record it as a known gap.
+- [ ] Investigated and decided: Sioyek inverse search when Neovim's pane is not focused. The handler (`nvim/lua/plugins/documents.lua`) only matches a foot window title containing "NVIM", which shows the focused pane, and after Milestone 2 two foot windows attached to the same session can both carry it (the handler takes the first match). Reaching a hidden editor, or the right one of two windows, needs the same find-the-project's-editor lookup as `Prefix+W`; fix it with that lookup, or record it as a known gap.
 - [ ] No hooks, dashboards or coordination were added; those stay for the agentic-layer session.
 
 ### Milestone 6: C++ tools

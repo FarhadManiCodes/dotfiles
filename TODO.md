@@ -9,10 +9,10 @@ closed to `revisit.md`; item 6, review copies for four imported books, was deliv
 by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/convert.md`); item 9,
 screenshot annotation, was delivered 2026-10-04 with Flameshot on Shift+Print; item 13,
 sysup's yts step for the C++ rewrite, was reviewed and merged 2026-10-09 and proven by the
-user's `sysup` run the same day (see `docs/architecture/zsh.md`); item 2, an editor + agent tmux layout, was removed 2026-10-23,
-superseded by the Herdr migration (`docs/herdr-implementation.md`, Milestone 5). The remaining
-numbers are kept. Accepted findings remain in
-`revisit.md`; the runner's dropped follow-on scope is recorded there.
+user's `sysup` run the same day (see `docs/architecture/zsh.md`); item 2, an editor + agent
+tmux layout, was removed 2026-10-23, superseded by the Herdr migration
+(`docs/herdr-implementation.md`, Milestone 5). The remaining numbers are kept. Accepted
+findings remain in `revisit.md`; the runner's dropped follow-on scope is recorded there.
 
 Off-machine backup remains deferred.
 

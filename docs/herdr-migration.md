@@ -74,11 +74,12 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 - **Notifications & Mako Integration:**
   - `ui.sound.enabled = false`
   - `ui.toast.delivery = "system"` (`notify-send --app-name Herdr`) with `delay_seconds = 1`
-  - Track upstream's official vector icon (`assets/logo.svg` at `v0.9.5`) as `herdr/logo.svg` -> `~/.config/herdr/logo.svg`, and add to `mako/config`:
+  - Mark Herdr notifications with 🐑 (as `install.sh` already uses for Herdr; rendered from Noto Color Emoji) before the title through a per-app mako `format` (mako's default layout plus the emoji); add to `mako/config`:
     ```ini
     [app-name=Herdr]
-    default-icon=/home/farhad/.config/herdr/logo.svg
+    format=<b>🐑 %s</b>\n%b
     ```
+  - No logo icon: mako 1.11 has no option to set or override an icon (a `default-icon=` line makes it fail to parse its config), and Herdr's `notify-send --app-name Herdr` call (`src/platform/linux.rs` at `2ecf19a`) passes none. A `notify-send` wrapper and `delivery = "terminal"` (shows as foot) were rejected (user decision, 2026-10-23).
 
 ### Step 4: Theme Integration (`[theme]` + `Mod+Alt+T`)
 - **Built-in OneDark / OneLight Auto-Switching:**
@@ -176,7 +177,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
   - **Agreed fallback:** If the temporary picker pane cannot open, fall back to the usual inline picker in the calling terminal. Clean up any partially created pane and preserve the caller's input/result semantics. User cancellation is cancellation, not a reason to reopen inline. Successful fallback does not count as validation of the temporary-pane integration.
   - Preserve plain Foot's current inline `--height 40%` behavior. Remove the tmux-only `--tmux center,80%` path during cutover; it is not a native Herdr backend. Split direction/size remain an implementation starting default to verify visually.
 - **Updates:** Keep the existing stable Cargo helper and Herdr `sysup` update step. Retire only the TPM/tmux plugin updater; preserve Zsh, Vim and Neovim update behavior. Keep the existing shpool-backed `keep`/`lg`, update-task persistence and `Mod+A` restore picker outside this tmux migration.
-- **Install and drift mappings:** Add file-level links for Herdr config/icon and the authored helper mappings; remove retired tmux config/layout/theme mappings and update the explicit config-drift mappings/plugin scan. Preserve the current Herdr directory's live session data, sockets and logs.
+- **Install and drift mappings:** Add file-level links for the Herdr config and the authored helper mappings; remove retired tmux config/layout/theme mappings and update the explicit config-drift mappings/plugin scan. Preserve the current Herdr directory's live session data, sockets and logs.
 - **Retirement scope:** Retire tracked tmux configuration and migrated helper entry points after validation/review, removing only the matching live links. `~/.config/tmux` contains independent personal files as well as tracked links and plugin clones: do not delete the whole directory or unrelated notes/session state. Uninstall local tmux after successful cutover, inspecting the proposed package transaction first. The installed package currently has no required dependents; fzf lists it as optional. No remote VM changes are included.
 - **Validation and docs:** Update README/app architecture/keybinding references and affected tests alongside the implementation. Validate without running installers or upgrades as tests. Follow Niri/Neovim scoped instructions, separate submodule commits from parent pointer updates, and leave implementation for review before merge. Plan work does not authorize immediate live cutover or package removal.
 
