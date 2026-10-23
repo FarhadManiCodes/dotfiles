@@ -30,7 +30,6 @@ Work:
 - Add `herdr/config.toml` from the draft config, without the placeholder helper commands (C++ and copy-output). Each of those arrives with its own milestone.
 - Add `herdr/logo.svg` (upstream `assets/logo.svg` at `v0.9.5`) and the `[app-name=Herdr]` rule in `mako/config`.
 - Link `config.toml` and `logo.svg` file by file in `install.sh`, not the whole directory. Add both to `bash/config-drift`. Before linking, compare the independent live `~/.config/herdr/config.toml` with the tracked one and keep anything wanted from it.
-- Delete the tmux block in `bash/toggle-foot-theme.sh` and add nothing in its place (Step 4).
 - Update `docs/architecture/herdr.md` and the README keybinding references.
 
 Acceptance criteria:
@@ -39,7 +38,7 @@ Acceptance criteria:
 - [ ] `bash bash/config-drift` reports the Herdr mappings as clean.
 - [ ] Pressed by hand in foot, each of these works: `Prefix+$`, `Prefix+|`, `Prefix+Alt+g`, `Alt+Shift+Left/Right` and direct `Alt+1..9`. A key that fails gets a different binding, recorded in Step 5.
 - [ ] `Ctrl+a Ctrl+a` reaches zsh as `Ctrl+a`, which jumps to the start of the line.
-- [ ] `Mod+Alt+T` flips Herdr's sidebar and tab bar with no signal from the script. If it doesn't, the clients-only `SIGWINCH` fallback from Step 4 is added and does.
+- [ ] `Mod+Alt+T` flips Herdr's sidebar and tab bar without a Herdr-specific signal from the script. If it doesn't, the clients-only `SIGWINCH` fallback from Step 4 is added and does.
 - [ ] In both light and dark, Herdr's colors look right beside foot and Neovim. A decision on `panel_bg = "reset"` is recorded.
 - [ ] `pane_gaps = false` and `true` compared by eye; the choice is recorded in Step 3.
 - [ ] A Herdr notification shows in mako with the Herdr icon.
@@ -48,7 +47,7 @@ Acceptance criteria:
 - [ ] `Shift+Enter` works in OpenCode, Claude Code and Codex. The image previews actually used still show, or the gap is recorded.
 - [ ] Bare `Ctrl+h/j/k/l` moves between Neovim and Vim splits, and `Ctrl+l` clears the zsh screen.
 - [ ] Vim and Neovim pick the right light/dark background inside Herdr.
-- [ ] Sioyek inverse search reaches Neovim when another pane, tab or workspace is active and several foot windows are open (Step 3, `window_title`). Finding the window by title does not by itself select a hidden editor pane.
+- [ ] Sioyek inverse search reaches Neovim when its pane is the focused one, with several foot windows open (Step 3, `window_title`). The hidden-pane case is Milestone 5's.
 
 ### Milestone 2: Switch the launcher
 Decisions: Step 9. Follow `niri/AGENTS.md`; reload with `niri msg action load-config-file`.
@@ -62,7 +61,7 @@ Acceptance criteria:
 - [ ] Detach (`Prefix+d`) and reattach keep running programs alive.
 - [ ] `tmux` still starts by hand in plain foot, for comparison.
 
-Until Milestone 3 lands, a full restart restores layout and directories only.
+Until Milestone 3 lands, a full restart restores layout, directories and pane history, and Herdr already tries to resume agents (`resume_agents_on_restore` is on from Milestone 1, unproven until Milestone 3); editors and other tools are not relaunched.
 
 ### Milestone 3: Restart recovery
 Decisions: Step 2R.
@@ -95,7 +94,7 @@ Acceptance criteria:
 - [ ] The copy is complete with output longer than 500 lines, soft-wrapped lines, prompt-like output, two shells running at once, after a `cd` and after a focus change.
 - [ ] When output was evicted or the boundaries are missing, the helper reports unavailable and the clipboard is unchanged.
 - [ ] Inside a TUI (agent, Vim, Neovim), it reports unavailable.
-- [ ] For each of OpenCode, Claude Code and Codex, `Prefix+e` shows useful retained text and `\y` copies the selected part.
+- [ ] For each of OpenCode, Claude Code and Codex, `Prefix+e` shows useful retained text and `\y` copies the selected lines. The copy still pastes after the editor has closed.
 
 ### Milestone 5: Layouts and agent tabs
 Decisions: Step 8C.
@@ -107,6 +106,7 @@ Acceptance criteria:
 - [ ] `Prefix+W` for a project whose editor is already open focuses that editor. There is no duplicate, and the layout is unchanged. The editor is found by project, not by tab or workspace name.
 - [ ] `Prefix+A` offers OpenCode, Claude Code and Codex, and opens a new tab for the invoking pane's project. Existing agent tabs are untouched.
 - [ ] Both keys work correctly when two projects share a workspace.
+- [ ] Investigated and decided: Sioyek inverse search when Neovim's pane is not focused. The handler (`nvim/lua/plugins/documents.lua`) only matches a foot window title containing "NVIM", which shows the focused pane. Reaching a hidden editor needs the same find-the-project's-editor lookup as `Prefix+W`; fix it with that lookup, or record it as a known gap.
 - [ ] No hooks, dashboards or coordination were added; those stay for the agentic-layer session.
 
 ### Milestone 6: C++ tools
@@ -118,10 +118,11 @@ Prove first:
 
 Acceptance criteria:
 - [ ] `Prefix+C` opens the menu from any pane, including an editor or another TUI, and types nothing into it.
-- [ ] Every existing action is present: configure; build, test, build+test; executable selection and arguments; source navigation from failures; GDB, Valgrind, clang-tidy, Google Benchmark, hyperfine, perf and samply; project creation; clean. Clean-all keeps its guard.
+- [ ] Every existing action is present: configure; build, test, build+test; executable selection and arguments; source navigation from failures; GDB, Valgrind, clang-tidy, Google Benchmark, hyperfine, perf and samply; ccache statistics; project creation; clean. Clean-all keeps its guard.
 - [ ] `Prefix+B` quick-builds with the same targeting.
 - [ ] The build tab is reused when idle and keeps the previous output. When busy, the helper says so and focuses the tab, without interrupting, queueing or overlapping.
 - [ ] Programs run in their own tabs, GDB in the debug tab, and profiling in the project's profile tab. Lifecycle matches the tmux version when compared side by side.
+- [ ] The clean-all guard tests in `tests/test_tmux_cpp_tools.py` (no deleting through a symlinked build, no cache naming another tree) are ported to the new helper and pass.
 - [ ] With two C++ projects in one workspace, every action and source jump hits the right project and editor, even when focus changes mid-task.
 
 ### Milestone 7: fzf temporary pane
@@ -140,7 +141,7 @@ Acceptance criteria:
 Decisions: Steps 6, 8A, 9.
 
 Work:
-- Remove `tmux/`, `bash/tmux-cpp-tools`, the TPM updater in `zsh/functions/sysup/plugins.zsh` and the `--tmux` line in `zsh/functions/fzf.zsh`.
+- Remove `tmux/`, `bash/tmux-cpp-tools`, `tests/test_tmux_cpp_tools.py`, the tmux block in `bash/toggle-foot-theme.sh` (add nothing in its place, Step 4), the TPM updater in `zsh/functions/sysup/plugins.zsh` and the `--tmux` line in `zsh/functions/fzf.zsh`.
 - Remove `vim-tmux-navigator` from Neovim (`nvim/lua/plugins/editor.lua`, as a submodule commit plus a parent pointer update) and from Vim (`vim/config/plugins.vim`), and add native `<C-h/j/k/l>` and `<C-\>` split maps (`nvim/lua/config/keymaps.lua` and Vim's mappings).
 - Remove the tmux mappings from `install.sh`, `bash/config-drift` and its plugin scan, and `bash/config-drift.d/symlink-integrity.sh`. Update the README and `docs/architecture/`.
 - Write a much more concise user-level version of `docs/herdr-migration.md` into `docs/architecture/herdr.md`: keys, behavior and the reasons that still matter.

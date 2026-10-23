@@ -48,7 +48,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
   - This also applies to the proposed temporary fzf split pane in Step 9: its temporary purpose does not become persistent merely because it uses a normal split instead of a floating popup. Establish and test exclusion from restart recovery rather than assuming native pane snapshots omit it.
 - **Agents — agreed basic scope:** Automatically resume supported conversations for **OpenCode, Claude Code and Codex** through their existing Herdr integrations. All three report current integrations on this machine as of the review. Verify native resume behavior and document the integration prerequisite for rebuilds. Preserve current hooks/configuration; custom hooks, dashboards, orchestration and broader agent recovery architecture belong to the separate future agentic-layer design session.
 - **Other tools — accepted first version:** Reopen `ptpython`, `ptipython`, `htop`, `lazygit` and `duckdb` in eligible persistent panes/tabs, corresponding to the current tmux-resurrect process list. Fresh processes in the correct project directory, Python environment and saved database are acceptable for now. Restoring Python variables, an in-memory DuckDB database or other application memory is deferred; no mechanism for that is selected or promised. The relaunch mechanism still needs design and testing, including how to recover the required environment/database launch context. Temporary popup instances are excluded under the rule above.
-- **Implementation remains unresolved:** These requirements are not provided by the draft TOML alone. Built in Milestone 3. It does not block the switch: until then, a full restart restores layout and directories only.
+- **Implementation remains unresolved:** These requirements are not provided by the draft TOML alone. Built in Milestone 3. It does not block the switch: until then, a full restart restores layout, directories and pane history, and Herdr already tries to resume agents (`resume_agents_on_restore` is on from Milestone 1, unproven until Milestone 3); editors and other tools are not relaunched.
 
 ### Step 3: UI Chrome, Sidebar, Tab Bar, Clock & Notifications (`[ui]`)
 - **Sidebar:**
@@ -87,7 +87,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
   - `dark_name = "one-dark"` (matches `nvim`, `vim`, `ptpython`, and `ipython` dark themes)
   - `light_name = "one-light"`
 - **Live Switching via `Mod+Alt+T` (`bash/toggle-foot-theme.sh`):**
-  - Delete the old `tmux source-file ...` block from `bash/toggle-foot-theme.sh` and add nothing in its place. The script already signals foot (`SIGUSR1`/`SIGUSR2`); Herdr's binary requests terminal light/dark notifications (`?2031h`), so with `auto_switch = true` it should follow foot's switch by itself. This is unproven: foot sending those notifications to Herdr has not been observed (tested in Milestone 1).
+  - Delete the old `tmux source-file ...` block from `bash/toggle-foot-theme.sh` at Milestone 8 (tmux stays themed while it is still used for comparison) and add nothing in its place. The script already signals foot (`SIGUSR1`/`SIGUSR2`); Herdr's binary requests terminal light/dark notifications (`?2031h`), so with `auto_switch = true` it should follow foot's switch by itself. This is unproven: foot sending those notifications to Herdr has not been observed (tested in Milestone 1).
   - **Fallback if it does not follow:** send `SIGWINCH` to Herdr *clients only* (upstream: "send `kill -WINCH <client-pid>` after applying the new palette"). Not `pkill -x herdr`, which also hits the server; the client/server process names must be checked first.
   - **Trap:** choosing a theme in Herdr's Settings (`Prefix+s`) turns `auto_switch` off, after which `Mod+Alt+T` stops changing Herdr's colors until it is set back in the config. Change the theme in `config.toml`, not in Settings.
   - Note: `nvim` and `vim` use `termguicolors` and paint their own pane interiors (`onedark` / `newpaper` / `PaperColor`), while Herdr's `[theme]` only colors Herdr's UI chrome (sidebar, bottom tab bar, split dividers, popups).
@@ -111,9 +111,9 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
   - `switch_tab = ["prefix+1..9", "alt+1..9"]` (both prefix and direct `Alt+1..9`)
   - `move_tab_previous = "alt+shift+left"` and `move_tab_next = "alt+shift+right"` (matches tmux)
   - `workspace_picker = "prefix+w"`, `goto = "prefix+g"`, `new_workspace = "prefix+shift+n"`, `rename_workspace = "prefix+$"`, `close_workspace = "prefix+shift+d"`, `toggle_sidebar = "prefix+b"`
-  - `open_notification_target = "prefix+o"` (Herdr default)
+  - `open_notification_target = "prefix+o"` (Herdr default). Changed meaning: tmux's `Prefix+o` opened the scratch popup, which moves to `Prefix+t`.
   - `Prefix + t` = Floating Scratchpad Terminal popup (`50% x 50%`, `exec "${SHELL:-zsh}"`)
-  - `Prefix + C` (`prefix+shift+c`) = unified C++ popup menu; `Prefix + B` (`prefix+shift+b`) = quick build.
+  - `Prefix + C` (`prefix+shift+c`) = unified C++ popup menu; `Prefix + B` (`prefix+shift+b`) = quick build. Changed meaning: in tmux `Prefix+B` opened the C++ tools menu, `Prefix+C` the configure menu and `Prefix+F` the profiling menu; all three fold into the one `Prefix+C` menu.
   - `Prefix + W` (`prefix+shift+w`) = basic layout picker; `Prefix + A` (`prefix+shift+a`) = basic agent picker/add tab. Launch helpers for these actions remain to be implemented.
 
 ### Step 7: Clipboard, Copy Mode & Unified Last-Command Output Capture
@@ -121,7 +121,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
   - `copy_on_select = true` (mouse selection auto-copies) and `Ctrl+Shift+v` pastes via `foot` — no extra paste bindings or copy-command hacks needed.
   - `copy_mode = "prefix+["` (vi-style copy mode). Search lives inside it: `/` searches forward, `?` backward, `n`/`N` repeat. tmux's `Prefix+/` shortcut and `Prefix+Ctrl+v` paste are dropped deliberately: search is `Prefix+[` then `?`, and `Ctrl+Shift+v` in foot replaces the tmux paste buffer.
   - `edit_scrollback = "prefix+e"` (follows `$EDITOR`, currently `vim`; no global editor change). This temporary editor is excluded from restart restoration.
-  - **Agent output — agreed manual path:** Use `Prefix+e` to open retained pane scrollback in Vim, select the needed portion of agent output, and copy with the existing `\y` Wayland clipboard mapping. This is the chosen path for copying part of an agent's response; agent-aware automatic command-output extraction is outside the initial scope.
+  - **Agent output — agreed manual path:** Use `Prefix+e` to open retained pane scrollback in Vim, select the needed portion of agent output, and copy with the existing `\y` Wayland clipboard mapping. `\y` copies whole lines, not part of a line, and the copy must survive the editor closing (a bare `wl-copy` can die with its parent). This is the chosen path for copying part of an agent's response; agent-aware automatic command-output extraction is outside the initial scope.
   - Agent TUIs redraw their screens, so retained pane scrollback is not guaranteed to contain the full conversation. Verify that the wanted text is available for OpenCode, Claude Code and Codex during implementation; do not promise a transcript export.
 - **Unified `Ctrl+Shift+y` & `Ctrl+Alt+c` Output Capture Across `foot` AND `herdr`:**
   - Keep `Control+Shift+y` for raw output and `Control+Alt+c` for formatted command + directory + output in both plain Foot and Herdr. Also retain `prefix+shift+y` and `prefix+alt+c` as secondary Herdr routes.
@@ -134,7 +134,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 
 ### Step 8A & Step 8B: Menus & Git Workflow
 - **Retire `Prefix + S` (Session Menu):** Replace its workflow with Herdr persistence/native workspace keys and the editor/agent/tool restart recovery in Step 2R. Layout/history alone is insufficient; Milestone 3 supplies the rest.
-- **Retire the Quick Menu (`Prefix + e`):** Every entry has a direct Herdr key. `Prefix+e` is now scrollback edit.
+- **Retire the Quick Menu (`Prefix + e`):** Every entry has a direct Herdr key except "Move Window" (move to any index): Herdr only moves a tab one step left or right, which is accepted. `Prefix+e` is now scrollback edit.
 - **Retire `Prefix + V` (Virtualenv Menu):** Unused; `direnv` + `zsh/functions/virtualenv.zsh` (`va`, `vc`, `vp`, `vl`, `vs`, `vr`) already work directly in `zsh`.
 - **Retire `Prefix + G` (13-item Git + Data Science Menu):** Redundant with `lazygit/config.yml` custom commands (`v` DVC, `N` notebooks, `X` experiment branch, `C` `gci` interactive commit) and `zsh/functions/git-enhancements.zsh`.
 - **Keep `Prefix + Shift+g` as Herdr's default `new_worktree`**.
@@ -148,7 +148,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 - **Agreed shortcuts:** `Prefix+Shift+w` (`Prefix+W`) opens a basic layout picker (editor + terminal, or C++ `code` + `profile`). `Prefix+Shift+a` (`Prefix+A`) opens the agent picker and creates another agent tab for the invoking pane's project. These are launch shortcuts; the helper commands remain to be implemented.
 - **Recovery connection:** Each supported agent tab should resume its own conversation through the integrations in Step 2R; multiple tabs are not a single shared agent session.
 - **Agreed repeated layout invocation:** Selecting a layout through `Prefix+W` for a project whose ordinary editor is already open focuses that existing editor and preserves its current layout. Do not create a duplicate editor or rebuild/rearrange the project's tabs and panes. Identify the editor by project association, not workspace or tab name alone.
-- **Remaining basic layout details:** Implement the launch commands and settle initial editor/terminal sizes and focus for newly created layouts without expanding into agent workflow design. `TODO.md` #2's old same-window proposal was not selected; the broader agentic-layer design is deferred to a dedicated user session.
+- **Remaining basic layout details:** Implement the launch commands and settle initial editor/terminal sizes and focus for newly created layouts without expanding into agent workflow design. The old tmux same-window proposal (formerly `TODO.md` #2, removed 2026-10-23) was not selected; the broader agentic-layer design is deferred to a dedicated user session. The tmux C++ layout's third `git` tab running lazygit is dropped on purpose: `Prefix+Alt+g` opens lazygit as a popup.
 
 ### Step 8D: C++ Menu and Task Tabs
 - **Agreed entry point:** One C++ popup menu, available through a Herdr shortcut even when the invoking pane contains an editor, dashboard or another TUI. Actions must run independently of that TUI; do not inject shell commands into it.
