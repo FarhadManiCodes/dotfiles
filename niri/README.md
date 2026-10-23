@@ -30,7 +30,7 @@ The configuration is organized into these major sections:
    - Shadow configuration (currently disabled)
    - Struts for outer gaps
 
-4. **Startup Programs** (niri `spawn-at-startup`)
+4. **Startup Programs** (niri `spawn-at-startup`, or `spawn-sh-at-startup` where a shell is needed)
    - swaybg (wallpaper)
    - mate-polkit (authentication agent)
    - wl-paste watcher with `cliphist-store-guard` (clipboard history; three-second capture deadline)
