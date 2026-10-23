@@ -30,7 +30,7 @@ The configuration is organized into these major sections:
    - Shadow configuration (currently disabled)
    - Struts for outer gaps
 
-4. **Startup Programs** (niri `spawn-at-startup`)
+4. **Startup Programs** (niri `spawn-at-startup`, or `spawn-sh-at-startup` where a shell is needed)
    - swaybg (wallpaper)
    - mate-polkit (authentication agent)
    - wl-paste watcher with `cliphist-store-guard` (clipboard history; three-second capture deadline)
@@ -128,7 +128,13 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
   boundary, installation, rollback and pending live acceptance.
 
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
-- Background image: `/usr/share/backgrounds/fsi-zen.png`
+- Background image: `~/.local/share/backgrounds/current`, an untracked link to the chosen image
+  (now `magritte_precise_1920x1200.png`), read by swaybg and `swaylock/config`. To change it,
+  link the image (a relative target resolves from the link's own directory, so use an absolute
+  path for images stored elsewhere) and restart swaybg, which reads the image only
+  at startup; then recheck swaylock's ring position:
+  `ln -sfn "$(realpath <image>)" ~/.local/share/backgrounds/current`
+  `pkill -x swaybg; niri msg action spawn-sh -- 'exec swaybg -i "$HOME/.local/share/backgrounds/current" -m fill'`
 - Book picker (Mod+z): `papis-fuzzel --books` lists entries tagged `book`; type an
   author, title, or tag to narrow them. Files open via xdg-open (sioyek).
 - No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for

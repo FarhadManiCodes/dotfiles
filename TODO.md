@@ -9,16 +9,16 @@ closed to `revisit.md`; item 6, review copies for four imported books, was deliv
 by refinery's `--from review` stage (see `skills/papers-and-pdfs/references/convert.md`); item 9,
 screenshot annotation, was delivered 2026-10-04 with Flameshot on Shift+Print; item 13,
 sysup's yts step for the C++ rewrite, was reviewed and merged 2026-10-09 and proven by the
-user's `sysup` run the same day (see `docs/architecture/zsh.md`). The remaining numbers are
-kept. Accepted findings remain in
-`revisit.md`; the runner's dropped follow-on scope is recorded there.
+user's `sysup` run the same day (see `docs/architecture/zsh.md`); item 2, an editor + agent
+tmux layout, was removed 2026-10-23, superseded by the Herdr migration
+(`docs/herdr-implementation.md`, Milestone 5). The remaining numbers are kept. Accepted
+findings remain in `revisit.md`; the runner's dropped follow-on scope is recorded there.
 
-Suggested order: agree the editor + agent layout first. Off-machine backup remains deferred.
+Off-machine backup remains deferred.
 
 | Item | Status | Next requirement |
 |---|---|---|
 | 1. Off-machine backup | **Deferred by the user** | Explicitly reopen, then choose destination and scope |
-| 2. Editor + agent layout | Important to the user; design needed | Agree layout and invocation behavior |
 | 3a. Sensitive-site Tridactyl rules | **Closed 2026-10-02, verified** | — |
 | 3b. Tridactyl workflow review | **Closed 2026-09-16, no action** | — |
 | 3c. Firefox containers | **Closed 2026-09-16, no action** | — |
@@ -95,74 +95,6 @@ required feature scope. The parts that transfer:
 Interacts with the NVMe health check now in `sysclean` (`docs/architecture/sysclean.md`) — a
 disk-health warning is only actionable if there is somewhere to restore from, which is why its
 warning path points here.
-
-## 2. An editor + agent tmux layout
-
-From `docs/omarchy-comparison.md` §27, not from its A–E proposals. **The user rates this
-important.** We have exactly one layout, `tmux/layouts/cpp_layout.sh` on `Prefix W`; an
-editor+agent layout is the obvious second, and it is a design job rather than a config edit —
-which panes, what starts in them, and how it is invoked all need deciding before anything is
-written.
-
-**Proposed first version, not yet selected:** one new window containing an editor, one agent
-and a small terminal pane. A separate binding beside `Prefix W`, the invoking pane's directory,
-editor focus, and a fresh window on each invocation would preserve existing work.
-
-**Decisions needed:** agent command and whether it is fixed or an argument; pane arrangement
-and sizes; invocation key; directory source; initial focus; repeated-invocation behavior.
-Additional agents, a diff pane, per-directory windows and swarms are separate optional scope.
-
-**Implementation sequence:**
-
-1. Agree the first version and its behavior above.
-2. Add the layout script and chosen binding. Inspect live links and installation mapping first.
-3. Validate on an isolated tmux server with harmless placeholder commands, then visually check
-   the agreed layout. Cover paths containing spaces, small terminal dimensions, missing
-   commands, repeated invocation and focus changing while the script runs.
-
-**Done when:** one invocation opens the agreed usable layout in the intended directory,
-focuses the editor, and does not disrupt unrelated windows or execute unintended commands.
-
-**Feasibility:** high once the workflow is chosen.
-
-### Reference shapes and implementation notes
-
-Their four functions are reproduced here **so this does not depend on the checkout**
-(`~/projects/omarchy/default/bash/fns/tmux`, read at `36e56f4f`). Theirs is bash and ours would
-follow `cpp_layout.sh` — a script in `tmux/layouts/` run by `bind-key … run-shell` — so nothing
-ports literally; the value is the shapes and the techniques.
-
-| Function | Shape |
-|---|---|
-| `tdl <ai> [ai2]` | Current window renamed to the directory. Editor pane top-left, terminal strip along the bottom (15%), AI on the right (30%). A second AI splits the AI pane. |
-| `tds` | A 2×2 square: editor, `hunk diff --watch`, terminal, `opencode`. We have no `hunk`, so the diff pane needs a local answer. |
-| `tdlm <ai> [ai2]` | One `tdl` window per subdirectory of `$PWD`; renames the session after the parent. |
-| `tsl <n> <cmd>` | N tiled panes all running the same command — a "swarm" for agents. |
-
-Techniques worth taking, which is the real content:
-
-- **`$TMUX_PANE` rather than "the active pane".** A stable handle that survives the active
-  window changing under you mid-script.
-- **`split-window … -P -F '#{pane_id}'` returns the new pane's id** (`%3`), so every later
-  `send-keys` addresses a pane explicitly instead of assuming where focus landed.
-  `cpp_layout.sh` currently relies on focus following the split, which works but does not
-  compose past two panes.
-- **`send-keys -t <pane> -l "text"` then a separate `C-m`.** `-l` sends the string literally,
-  so a command containing something like `C-m` or `Enter` is not reinterpreted as a key. They
-  do this in `tds` but not in `tdl` — copy the `tds` form.
-- **`-c "$current_dir"` on every split**, or panes open wherever tmux felt like.
-- **`tr '.:' '--'` on a session name** — tmux disallows dots and colons.
-- `select-layout tiled` after each split is what keeps `tsl` even.
-
-Two corrections to make when writing ours, both verified 2026-09-08:
-
-- **`tdl` has a live bug.** Its last line is `tmux select-pane -t "$opencode_pane"`, and
-  `opencode_pane` is never set in that function — it is declared in `tds`. tmux gets an empty
-  target, so the "select the nvim pane" the comment promises does not happen. Should be
-  `$editor_pane`.
-- **`-p 15` is the old spelling.** Both `-p 15` and `-l 15%` are accepted by tmux 3.7c here
-  (tested on a throwaway server), but `-l %` is the current form and `cpp_layout.sh` already
-  uses the percentage style via `resize-pane -y 30%`.
 
 ## 3. Firefox items
 

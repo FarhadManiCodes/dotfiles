@@ -80,11 +80,11 @@ layout {
 // foot's one server starts in the theme Mod+Alt+T last chose (toggle-foot-theme.sh's
 // state file), so after a login foot agrees with vim, nvim, tmux and ptpython, which
 // read that file. Anything but "light" (or no file) starts dark, never an invalid value.
-spawn-at-startup "sh" "-c" "t=$(cat \"${XDG_STATE_HOME:-$HOME/.local/state}/foot_theme_state\" 2>/dev/null); case $t in light) ;; *) t=dark ;; esac; exec foot --server -o initial-color-theme=$t"
-spawn-at-startup "swaybg" "-i" "/usr/share/backgrounds/fsi-zen.png" "-m" "fill"
+spawn-sh-at-startup "t=$(cat \"${XDG_STATE_HOME:-$HOME/.local/state}/foot_theme_state\" 2>/dev/null); case $t in light) ;; *) t=dark ;; esac; exec foot --server -o initial-color-theme=$t"
+spawn-sh-at-startup "exec swaybg -i \"$HOME/.local/share/backgrounds/current\" -m fill"
 spawn-at-startup "/usr/lib/mate-polkit/polkit-mate-authentication-agent-1"
 spawn-at-startup "wl-paste" "--watch" "cliphist-store-guard"
-spawn-at-startup "sh" "-c" "sleep 3 && wob-control led-sync"
+spawn-sh-at-startup "sleep 3 && wob-control led-sync"
 
 // Bayreuth: 49.95 N, 11.58 E. Temp: 4200K (night) to 6500K (day).
 spawn-at-startup "wlsunset" "-l" "49.9" "-L" "11.6" "-t" "4200" "-T" "6500"

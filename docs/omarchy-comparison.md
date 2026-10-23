@@ -232,13 +232,16 @@ writing a grep for each. See `revisit.md`, "Test runner follow-on scope".
 ## Parked — each needs its own session
 
 Design decisions, not config edits. Full design notes live in `TODO.md`, which is
-self-contained and does not need the Omarchy checkout.
+self-contained and does not need the Omarchy checkout. Item 27, below the table, is the exception:
+its notes moved to `docs/herdr-implementation.md` (Milestone 5) and git history.
 
 | # | Item | Where |
 |---|---|---|
 | D | Off-machine backup — restic, **not** `rclone sync`, which mirrors deletions and ransomware to the destination | `TODO.md`, "Off-machine backup" |
-| 27 | An editor + agent tmux layout — the user rates this important | `TODO.md`, "An editor + agent tmux layout" |
 | 30 | Their skill layering (a routing `SKILL.md` plus sibling topic guides) as the shape for `config-audit` | `agent-skills.md` |
+
+Item 27 — an editor + agent tmux layout — left this table on 2026-10-23, superseded by the
+Herdr migration (`docs/herdr-implementation.md`, Milestone 5).
 
 Item C — fold `check-skills` and the invariant table into one runner — left this table on
 2026-09-16. `bash/run-tests` is that entry point; the invariant half was dropped rather than
