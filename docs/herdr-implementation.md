@@ -30,6 +30,7 @@ Work:
 - Add `herdr/config.toml` from the draft config, without the placeholder helper commands (C++ and copy-output). Each of those arrives with its own milestone.
 - Add the `[app-name=Herdr]` `format` rule to `mako/config` (Step 3).
 - Link `config.toml` as a single file in `install.sh`, not the whole directory, and add it to `bash/config-drift`. Before linking, compare the independent live `~/.config/herdr/config.toml` with the tracked one and keep anything wanted from it.
+- Run `wl-copy` under `setsid` in Vim's `\y` maps (`vim/config/mappings.vim`): `\y` in the `Prefix+e` editor is the daily copy path from Milestone 2, and a bare `wl-copy` can die with the editor.
 - Update `docs/architecture/herdr.md` and the README keybinding references.
 
 Acceptance criteria:
@@ -38,13 +39,14 @@ Acceptance criteria:
 - [ ] `bash bash/config-drift` reports the Herdr mappings as clean.
 - [ ] Pressed by hand in foot, each of these works: `Prefix+$`, `Prefix+|`, `Prefix+Alt+g`, `Alt+Shift+Left/Right` and direct `Alt+1..9`. A key that fails gets a different binding, recorded in Step 5.
 - [ ] `Prefix+Shift+g` creates a worktree under `~/.local/share/herdr/worktrees`, not a folder literally named `~` (the config value starts with `~`).
-- [ ] `Prefix+t` opens the scratch popup in the invoking pane's directory, as tmux's `Prefix+o` popup did.
+- [ ] Every popup opens in the invoking pane's directory, as tmux's popups did: `Prefix+t` (scratch terminal) and `Prefix+Alt+g` (lazygit shows that pane's repository).
 - [ ] `Ctrl+a Ctrl+a` reaches zsh as `Ctrl+a`, which jumps to the start of the line.
 - [ ] `Mod+Alt+T` flips Herdr's sidebar and tab bar without a Herdr-specific signal from the script. If it doesn't, the clients-only `SIGWINCH` fallback from Step 4 is added and does.
 - [ ] In both light and dark, Herdr's colors look right beside foot and Neovim. A decision on `panel_bg = "reset"` is recorded.
 - [ ] `pane_gaps = false` and `true` compared by eye; the choice is recorded in Step 3.
 - [ ] `makoctl reload` succeeds, and a Herdr notification shows 🐑 before its title.
 - [ ] Copying with `y` in copy mode and with mouse selection is pasted with both `Ctrl+Shift+v` and middle-click. Where each copy lands (clipboard, primary) is recorded in Step 7.
+- [ ] Text copied with `\y` in Vim still pastes after Vim has quit.
 - [ ] A multi-line paste into zsh and into Neovim does not run anything by itself.
 - [ ] `Shift+Enter` works in OpenCode, Claude Code and Codex. The image previews actually used still show, or the gap is recorded.
 - [ ] Bare `Ctrl+h/j/k/l` moves between Neovim and Vim splits, and `Ctrl+l` clears the zsh screen.
@@ -89,7 +91,7 @@ Prove first:
 - [ ] Routing from a foot key binding to the right Herdr pane, with no race against focus changes.
 - [ ] Command boundaries and matching command/directory metadata per shell, not the global `~/.local/state/zsh/last_command`.
 
-Work: write `bash/herdr-copy-output`; add the `Prefix+Shift+y` and `Prefix+Alt+c` entries from the draft config; link and drift-map the helper. Run `wl-copy` under `setsid` in Vim's `\y` maps (`vim/config/mappings.vim`), since a bare `wl-copy` can die with the editor.
+Work: write `bash/herdr-copy-output`; add the `Prefix+Shift+y` and `Prefix+Alt+c` entries from the draft config; link and drift-map the helper.
 
 Acceptance criteria:
 - [ ] `Ctrl+Shift+y` (raw) and `Ctrl+Alt+c` (command + directory + output) work in plain foot and in Herdr. So do `Prefix+Shift+y` and `Prefix+Alt+c`, with `Prefix+Alt+c` pressed by hand in foot.
@@ -103,7 +105,7 @@ Decisions: Step 8C.
 
 Work: write the `Prefix+W` and `Prefix+A` helpers, add their key entries, link and drift-map them, and settle initial sizes and focus.
 
-Notes carried over from the removed `TODO.md` item 2 (full text, including Omarchy's `tdl`/`tds`/`tdlm`/`tsl` layout shapes: `git show 4343335^:TODO.md`). They were written for tmux; the principles apply to Herdr's pane CLI:
+Notes carried over from the removed `TODO.md` item 2 (full text, including Omarchy's `tdl`/`tds`/`tdlm`/`tsl` layout shapes: `git show 8af5af3:TODO.md`, a `master` commit). They were written for tmux; the principles apply to Herdr's pane CLI:
 - Address every pane by the ID returned when it is created, starting from the invoking pane's own ID, never "the active pane". Focus can move while the script runs.
 - Pass the directory explicitly on every split or new tab.
 - Send command text literally, then Enter separately, so text such as `C-m` is not read as a key.

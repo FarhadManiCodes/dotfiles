@@ -96,7 +96,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 ### Step 5 & Step 6: Keybindings & Pane/Neovim Navigation
 - **Clean Separation of Pane vs. Neovim Split Navigation (Step 6):**
   - Bare `Ctrl+h/j/k/l` is **not** intercepted by Herdr:
-    - Inside `nvim` / `vim`, `<C-h/j/k/l>` navigates editor splits natively (`<C-w>h/j/k/l`, `<C-\>` -> `<C-w>p`), allowing us to **remove `christoomey/vim-tmux-navigator`** from `nvim/lua/plugins/editor.lua`.
+    - Inside `nvim` / `vim`, `<C-h/j/k/l>` navigates editor splits through explicit maps (`<C-w>h/j/k/l`, `<C-\>` -> `<C-w>p`; neither editor does this by default), allowing us to **remove `christoomey/vim-tmux-navigator`** from `nvim/lua/plugins/editor.lua`. Until Milestone 8 adds those maps, the plugin itself falls back to plain split moves outside tmux.
     - Inside `fzf` and Telescope, `<C-j>` / `<C-k>` navigate items without any `ps` shell-check latency.
     - Inside `zsh`, bare `Ctrl+l` clears the screen normally (no `Prefix + Ctrl+l` workaround needed).
   - Across Herdr Panes:
