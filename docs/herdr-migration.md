@@ -104,7 +104,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
     - `Prefix + Shift+h/j/k/l` swaps Herdr panes Left / Down / Up / Right (Herdr default, matching Niri's `Mod+Shift+H/J/K/L`).
 - **Complete Keymap Summary:**
   - `prefix = "ctrl+a"` (decided). Pressing it twice sends a literal `Ctrl+a` to the pane, like tmux's `send-prefix`: tested on 0.9.5 with `cat -v`, one press is consumed by Herdr, two reach the program as `^A`. This keeps zsh's `bindkey '^a' beginning-of-line`, Vim's insert/command-line `<C-A>` maps and normal-mode increment working.
-  - `detach = "prefix+d"` (matches tmux `Prefix + d`)
+  - `detach = "prefix+q"` (Herdr default). Changed meaning from tmux's `Prefix+d`: keeping detach on `d` put it one Shift away from `close_workspace` (`prefix+shift+d`), so a slip while detaching would ask to close the whole workspace. `Prefix+d` is left unbound.
   - `reload_config = "prefix+shift+r"` (Herdr default)
   - `resize_mode = "prefix+r"` (Herdr default interactive resize mode)
   - `split_vertical = "prefix+|"` and `split_horizontal = "prefix+minus"` (matches tmux)
@@ -259,7 +259,7 @@ enabled = false
 
 [keys]
 prefix = "ctrl+a"
-detach = "prefix+d"
+detach = "prefix+q"
 reload_config = "prefix+shift+r"
 resize_mode = "prefix+r"
 help = "prefix+?"
