@@ -2,8 +2,8 @@
 # Optimized for the Magritte precise wallpaper (Official Swaylock)
 
 # --- BACKGROUND ---
-# Absolute path: swaylock does not expand $HOME. Must match niri/config.kdl's swaybg.
-image=/home/farhad/.local/share/backgrounds/magritte_precise_1920x1200.png
+# swaylock expands ~ and $HOME here (wordexp). Must match niri/config.kdl's swaybg.
+image=$HOME/.local/share/backgrounds/magritte_precise_1920x1200.png
 scaling=fill
 
 # --- POSITIONING ---
@@ -24,17 +24,17 @@ show-failed-attempts
 # this setting; it only makes a direct `swaylock` run detach too.
 daemonize
 
-# --- COLORS (Theme: Blue/White/Orange) ---
+# --- COLORS ---
 
 # 1. THE INSIDE (Background of the circle)
-# Use a semi-transparent dark blue to blend with the sky but provide contrast
+# Semi-transparent black for contrast over the image
 inside-color=00000055
 inside-clear-color=00000055
 inside-ver-color=00000055
 inside-wrong-color=ff000055
 
 # 2. THE RING (The border)
-# White (matches the wind lines) with low opacity when idle
+# White with low opacity when idle
 ring-color=ffffff33
 ring-clear-color=ffffff33
 ring-ver-color=ffffffaa
@@ -42,7 +42,7 @@ ring-ver-color=ffffffaa
 ring-wrong-color=ff5555ff
 
 # 3. INTERACTION HIGHLIGHTS
-# Use the Orange from the server platform for key presses!
+# Orange for key presses
 key-hl-color=ffaa00ff
 # Red for backspace
 bs-hl-color=ff0000ff
