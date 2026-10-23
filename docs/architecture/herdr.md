@@ -1,5 +1,8 @@
 # Herdr through Cargo
 
+The tmux-to-Herdr migration is planned in `docs/herdr-migration.md` (decisions) and
+`docs/herdr-implementation.md` (milestones and acceptance criteria).
+
 `bash/herdr-cargo` installs the latest stable upstream Herdr release into
 `${CARGO_INSTALL_ROOT:-${CARGO_HOME:-$HOME/.cargo}}/bin/herdr`. `--root DIRECTORY`
 overrides that installation root. It uses the existing Cargo source cache and

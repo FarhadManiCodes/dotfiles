@@ -3,6 +3,8 @@
 Status: **Not started (2026-10-23)**
 Decisions, reasons and the draft config live in `docs/herdr-migration.md`; "Step N" below refers to its steps.
 
+Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/config.toml` and run `XDG_CONFIG_HOME=~/.cache/hx herdr config check` (add `--session <name>` for a throwaway session), then delete `~/.cache/hx`. Keep that path short: under the scratchpad, Herdr's socket path exceeds `sun_path` and fails. Prove the check can fail by also running it on a deliberately conflicting key.
+
 ---
 
 ## Milestones
