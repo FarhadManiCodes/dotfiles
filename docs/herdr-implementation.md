@@ -7,7 +7,7 @@ Decisions, reasons and the draft config live in `docs/herdr-migration.md`; "Step
 
 ## Milestones
 
-- **Branches:** one branch per milestone, named `herdr/<n>-<name>`, cut from `master` after these two docs are merged. Each is reviewed and merged before the next one that depends on it starts. Tick the boxes on the milestone's branch.
+- **Branches:** one branch per milestone, named `herdr/<n>-<name>`, cut from `master` after these two docs are merged. Each is reviewed and merged before the next one that depends on it starts. Tick the boxes on the milestone's branch. Milestone 1 keeps the `herdr/` name instead of `AGENTS.md`'s `add-<name>-config` on purpose (user decision, 2026-10-23).
 - **Order:** 1 → 2 → any order of 3–7 → 8.
 - **tmux retires from daily use at Milestone 2.** Nothing else blocks the switch (user decision, 2026-10-23). tmux stays installed only to compare behavior side by side while features are ported, and is removed in Milestone 8.
 - **"Prove first" boxes** cover a mechanism that is not chosen yet. They must pass before the build work starts. If one fails, stop and discuss rather than building around it.
