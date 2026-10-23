@@ -29,7 +29,7 @@ Decisions: Steps 2–7 and the draft config.
 Work:
 - Add `herdr/config.toml` from the draft config, without the placeholder helper commands (C++ and copy-output). Each of those arrives with its own milestone.
 - Add the `[app-name=Herdr]` `format` rule to `mako/config` (Step 3).
-- Link `config.toml` as a single file in `install.sh`, not the whole directory, and add it to `bash/config-drift`. Before linking, compare the independent live `~/.config/herdr/config.toml` with the tracked one and keep anything wanted from it.
+- Link `config.toml` as a single file in `install.sh`, not the whole directory, and add it to `bash/config-drift` and the explicit file list in `bash/config-drift.d/symlink-integrity.sh` (paths not listed there are skipped). Before linking, compare the independent live `~/.config/herdr/config.toml` with the tracked one and keep anything wanted from it.
 - Run `wl-copy` under `setsid` in Vim's `\y` maps (`vim/config/mappings.vim`): `\y` in the `Prefix+e` editor is the daily copy path from Milestone 2, and a bare `wl-copy` can die with the editor.
 - Update `docs/architecture/herdr.md` and the README keybinding references.
 
@@ -58,9 +58,13 @@ Decisions: Step 9. Follow `niri/AGENTS.md`; reload with `niri msg action load-co
 
 Work:
 - Change `Mod+Return` in `niri/config.kdl` from `footclient tmux new-session -A -s main` to `footclient herdr`.
+- Link `~/.local/bin/herdr` to `~/.cargo/bin/herdr` (through `bash/herdr-cargo` or `install.sh`; checked by `bash/config-drift`). Only zsh's `.zshenv` adds `~/.cargo/bin`; niri, foot's server, fuzzel and `environment.d` do not, so without the link `footclient herdr` opens a window that closes at once.
+- Add `applications/herdr.desktop` running `footclient herdr` (linked by `install.sh`'s existing `applications/*.desktop` glob).
 
 Acceptance criteria:
+- [ ] `herdr` resolves from foot's server environment, not just from zsh.
 - [ ] `Mod+Return` opens foot attached to the default Herdr session. A second `Mod+Return` attaches another client to the same session.
+- [ ] Herdr appears in fuzzel and opens the same default session.
 - [ ] `Mod+T` (plain foot) and `Mod+Grave` (floating scratch terminal) behave as before.
 - [ ] Detach (`Prefix+q`) and reattach keep running programs alive.
 - [ ] `tmux` still starts by hand in plain foot, for comparison.
