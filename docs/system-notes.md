@@ -311,6 +311,11 @@ System-level choices that aren't captured in any config file:
   provenance record under `~/.cargo` are untracked; recreating them uses
   `herdr-cargo --install`. See [Herdr operations](architecture/herdr.md) for
   staging, cleanup, running-session behavior and benchmark evidence.
+- **The wallpaper is untracked by choice.** swaybg and swaylock read
+  `~/.local/share/backgrounds/current`, a link to an image kept beside it (now
+  `magritte_precise_1920x1200.png`). Neither the image nor the link is in the repository or
+  made by `install.sh`; on a rebuild, copy the image back and recreate the link as
+  `niri/README.md` describes, or there is no wallpaper and swaylock shows a plain colour.
 - **`qpdf` is a deliberate hand-install, not orphaned**: no config references it, but it's the
   only tool here that preserves **hyperlinks** through page extraction/merge (verified on a
   papis paper: 56 links + outline kept; `mutool` keeps bookmarks but drops links; `pdfjam`/`gs`
