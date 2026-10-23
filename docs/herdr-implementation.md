@@ -58,7 +58,7 @@ Decisions: Step 9. Follow `niri/AGENTS.md`; reload with `niri msg action load-co
 
 Work:
 - Change `Mod+Return` in `niri/config.kdl` from `footclient tmux new-session -A -s main` to `footclient herdr`.
-- Link `~/.local/bin/herdr` to `~/.cargo/bin/herdr` (through `bash/herdr-cargo` or `install.sh`; checked by `bash/config-drift`). Only zsh's `.zshenv` adds `~/.cargo/bin`; niri, foot's server, fuzzel and `environment.d` do not, so without the link `footclient herdr` opens a window that closes at once.
+- Have `bash/herdr-cargo` link `~/.local/bin/herdr` to the binary where it actually installed it: it honours `CARGO_INSTALL_ROOT`, `CARGO_HOME` and `--root`, so the target is not always `~/.cargo/bin/herdr`. Check the link in `bash/config-drift`. Only zsh's `.zshenv` adds `~/.cargo/bin`; niri, foot's server, fuzzel and `environment.d` do not, so without the link `footclient herdr` opens a window that closes at once.
 - Add `applications/herdr.desktop` running `footclient herdr` (linked by `install.sh`'s existing `applications/*.desktop` glob).
 
 Acceptance criteria:

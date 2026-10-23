@@ -232,7 +232,8 @@ writing a grep for each. See `revisit.md`, "Test runner follow-on scope".
 ## Parked — each needs its own session
 
 Design decisions, not config edits. Full design notes live in `TODO.md`, which is
-self-contained and does not need the Omarchy checkout.
+self-contained and does not need the Omarchy checkout. Item 27, below the table, is the exception:
+its notes moved to `docs/herdr-implementation.md` (Milestone 5) and git history.
 
 | # | Item | Where |
 |---|---|---|
