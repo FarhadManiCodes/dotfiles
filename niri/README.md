@@ -129,8 +129,11 @@ Use `/-` prefix to comment out entire nodes (KDL syntax).
 
 - Screenshot path: `~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png`
 - Background image: `~/.local/share/backgrounds/current`, an untracked link to the chosen image
-  (now `magritte_precise_1920x1200.png`), read by swaybg and `swaylock/config`. Change wallpaper
-  with `ln -sfn <image> ~/.local/share/backgrounds/current`; recheck swaylock's ring position.
+  (now `magritte_precise_1920x1200.png`), read by swaybg and `swaylock/config`. To change it,
+  link an absolute path (a relative one dangles) and restart swaybg, which reads the image only
+  at startup; then recheck swaylock's ring position:
+  `ln -sfn "$(realpath <image>)" ~/.local/share/backgrounds/current`
+  `pkill -x swaybg; niri msg action spawn-sh -- 'exec swaybg -i "$HOME/.local/share/backgrounds/current" -m fill'`
 - Book picker (Mod+z): `papis-fuzzel --books` lists entries tagged `book`; type an
   author, title, or tag to narrow them. Files open via xdg-open (sioyek).
 - No git pre-warm runs at startup. Reasoning and the starship-warning signature to watch for
