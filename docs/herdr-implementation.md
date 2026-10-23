@@ -64,6 +64,7 @@ Acceptance criteria:
 - [ ] `Mod+T` (plain foot) and `Mod+Grave` (floating scratch terminal) behave as before.
 - [ ] Detach (`Prefix+d`) and reattach keep running programs alive.
 - [ ] `tmux` still starts by hand in plain foot, for comparison.
+- [ ] foot's `Ctrl+Shift+y` and `Ctrl+Alt+c` tested inside Herdr: run a command with known multi-line output, copy it, and compare the clipboard with the real command, directory and output. If they match, record that they work until Milestone 4. If not, record them as untrusted inside Herdr until Milestone 4 replaces them; they keep working in plain foot (`Mod+T`).
 
 Until Milestone 3 lands, a full restart restores layout, directories and pane history, and Herdr already tries to resume agents (`resume_agents_on_restore` is on from Milestone 1, unproven until Milestone 3); editors and other tools are not relaunched.
 
