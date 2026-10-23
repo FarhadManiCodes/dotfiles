@@ -1,9 +1,10 @@
 # ~/.config/swaylock/config
-# Optimized for the Magritte precise wallpaper (Official Swaylock)
+# Optimized for the current wallpaper, Magritte precise (Official Swaylock)
 
 # --- BACKGROUND ---
-# swaylock expands ~ and $HOME here (wordexp). Must match niri/config.kdl's swaybg.
-image=$HOME/.local/share/backgrounds/magritte_precise_1920x1200.png
+# swaylock expands ~ and $HOME here (wordexp). `current` is an untracked link to the chosen
+# image, shared with niri/config.kdl's swaybg; see niri/README.md.
+image=$HOME/.local/share/backgrounds/current
 scaling=fill
 
 # --- POSITIONING ---
