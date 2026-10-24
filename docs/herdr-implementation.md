@@ -64,6 +64,7 @@ Work:
 - Change `Mod+Return` in `niri/config.kdl` from `footclient tmux new-session -A -s main` to `footclient herdr`.
 - Have `bash/herdr-cargo` link `~/.local/bin/herdr` to the binary where it actually installed it: it honours `CARGO_INSTALL_ROOT`, `CARGO_HOME` and `--root`, so the target is not always `~/.cargo/bin/herdr`. Check the link in `bash/config-drift`. Only zsh's `.zshenv` adds `~/.cargo/bin`; niri, foot's server, fuzzel and `environment.d` do not, so without the link `footclient herdr` opens a window that closes at once.
 - Add `applications/herdr.desktop` running `footclient herdr` (linked by `install.sh`'s existing `applications/*.desktop` glob).
+- Remove only the tmux-specific `--tmux center,80%` option from `zsh/functions/fzf.zsh`. Keep fzf installed and available: it runs inline with `--height 40%` in Herdr until Milestone 7, and in plain foot throughout. tmux comparison sessions also use inline fzf after this change.
 
 Acceptance criteria:
 - [ ] `herdr` resolves from foot's server environment, not just from zsh.
@@ -72,6 +73,7 @@ Acceptance criteria:
 - [ ] `Mod+T` (plain foot) and `Mod+Grave` (floating scratch terminal) behave as before.
 - [ ] Detach (`Prefix+q`) and reattach keep running programs alive.
 - [ ] `tmux` still starts by hand in plain foot, for comparison.
+- [ ] fzf's history, file and directory widgets still work inline with `--height 40%` in Herdr, plain foot and a tmux comparison session.
 - [ ] foot's `Ctrl+Shift+y` and `Ctrl+Alt+c` tested inside Herdr: run a command with known multi-line output, copy it, and compare the clipboard with the real command, directory and output. If they match, record that they work until Milestone 4. If not, record them as untrusted inside Herdr until Milestone 4 replaces them; they keep working in plain foot (`Mod+T`).
 
 Until Milestone 3 lands, a full restart restores layout and directories; with `experimental.pane_history = true`, saved screen history may return only when the restored layout exactly matches the saved one. Herdr already tries to resume agents (`resume_agents_on_restore` is on from Milestone 1, unproven until Milestone 3); editors and other tools are not relaunched.
@@ -161,7 +163,7 @@ Acceptance criteria:
 Decisions: Steps 6, 8A, 9.
 
 Work:
-- Remove `tmux/`, `bash/tmux-cpp-tools`, `tests/test_tmux_cpp_tools.py`, the tmux block in `bash/toggle-foot-theme.sh` (add nothing in its place, Step 4), the TPM updater in `zsh/functions/sysup/plugins.zsh` and the `--tmux` line in `zsh/functions/fzf.zsh`.
+- Remove `tmux/`, `bash/tmux-cpp-tools`, `tests/test_tmux_cpp_tools.py`, the tmux block in `bash/toggle-foot-theme.sh` (add nothing in its place, Step 4) and the TPM updater in `zsh/functions/sysup/plugins.zsh`. fzf's tmux-specific option was already removed at Milestone 2; fzf itself remains.
 - Remove `vim-tmux-navigator` from Neovim (`nvim/lua/plugins/editor.lua`, as a submodule commit plus a parent pointer update) and from Vim (`vim/config/plugins.vim`), and add native `<C-h/j/k/l>` and `<C-\>` split maps (`nvim/lua/config/keymaps.lua` and Vim's mappings).
 - Remove the tmux mappings from `install.sh`, `bash/config-drift` and its plugin scan, and `bash/config-drift.d/symlink-integrity.sh`. Update the README and `docs/architecture/`.
 - Write a much more concise user-level version of `docs/herdr-migration.md` into `docs/architecture/herdr.md`: keys, behavior and the reasons that still matter.
