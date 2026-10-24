@@ -1,6 +1,6 @@
 # Herdr Migration: Implementation
 
-Status: **Not started (2026-10-23)**
+Status: **Not started (updated 2026-10-24; quality checks are Milestone 0)**
 Decisions, reasons and the draft config live in `docs/herdr-migration.md`; "Step N" below refers to its steps.
 
 Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/config.toml` and run `XDG_CONFIG_HOME=~/.cache/hx herdr config check` (add `--session <name>` for a throwaway session), then delete `~/.cache/hx`. Keep that path short: under the scratchpad, Herdr's socket path exceeds `sun_path` and fails. Prove the check can fail by also running it on a deliberately conflicting key.
@@ -10,7 +10,7 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 ## Milestones
 
 - **Branches:** one branch per milestone, named `herdr/<n>-<name>`, cut from `master` after these two docs are merged. Each is reviewed and merged before the next one that depends on it starts. Tick the boxes on the milestone's branch. Milestone 1 keeps the `herdr/` name instead of `AGENTS.md`'s `add-<name>-config` on purpose (user decision, 2026-10-23).
-- **Order:** 1 → 2 → 3–7 in any order consistent with their declared implementation prerequisites → 8. A prerequisite milestone must be reviewed and merged before its dependent work starts.
+- **Order:** 0 → 1 → 2 → 3–7 in any order consistent with their declared implementation prerequisites → 8. A prerequisite milestone must be reviewed and merged before its dependent work starts. Milestone 0 prepares implementation checks; the daily-use cutover remains Milestone 2.
 - **Shared conventions:** Milestones 3, 5 and 6 must use compatible conventions for project association and editor lookup, including after pane IDs change. The first milestone needing them establishes and documents them; later milestones reuse them and declare any prerequisites before starting dependent work. Milestones 3 and 7 must also agree on how temporary fzf panes are excluded from restart recovery. This coordination does not expand the agentic-layer scope.
 - **Integration checks:** Each later milestone reruns affected acceptance checks from earlier milestones. Whichever of Milestones 3 and 7 lands later verifies that a restart with an open temporary fzf pane excludes that pane while eligible persistent panes recover correctly.
 - **tmux retires from daily use at Milestone 2.** Nothing else blocks the switch (user decision, 2026-10-23). tmux stays installed only to compare behavior side by side while features are ported, and is removed in Milestone 8.
@@ -18,6 +18,7 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 
 | # | Branch | Goal | Status |
 |---|---|---|---|
+| 0 | `herdr/0-quality-checks` | Local prek checks and implementation discipline ready | Not started |
 | 1 | `herdr/1-base-config` | Tracked Herdr config live, launcher unchanged | Not started |
 | 2 | `herdr/2-switch-launcher` | `Mod+Return` opens Herdr; daily use moves over | Not started |
 | 3 | `herdr/3-restart-recovery` | Editors, agents and tools come back after a restart | Not started |
@@ -26,6 +27,43 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 | 6 | `herdr/6-cpp-tools` | `bash/tmux-cpp-tools` ported to Herdr | Not started |
 | 7 | `herdr/7-fzf-pane` | fzf in a temporary split pane inside Herdr | Not started |
 | 8 | `herdr/8-retire-tmux` | tmux config, helpers and package removed | Not started |
+
+### Implementation discipline (all milestones)
+
+- Work against the current milestone's acceptance criteria. Keep unrelated cleanup, speculative features and extension points out of the change.
+- Treat `bash/tmux-cpp-tools` as a reference for required behavior, not a standard for code structure or complexity. Keep project lookup, pane targeting and task execution in clearly owned helpers; extract shared behavior for actual callers rather than copying it or building a generic framework.
+- Justify new dependencies, background processes and persistent state against a concrete requirement. Keep external commands and state changes explicit; pass project/pane context rather than rediscovering global focus.
+- Keep functions focused on one responsibility and nesting shallow. Review branching, state ownership and cleanup paths alongside size/complexity reports; splitting files or adding forwarding helpers solely to lower a score is not simplification. No per-function complexity limit is claimed without a validated Bash/Zsh-aware analyzer.
+- Keep comments about reasons and constraints. Keep agent updates and commit summaries concise: outcome, checks, exceptions and remaining gaps. Reference existing decisions rather than repeating their rationale.
+- New checks need observable pass/fail fixtures and must not rely on inherited locale or color settings. Tests assert required behavior, especially failure and cleanup paths, rather than mirroring implementation details. Missing tools or unexecuted checks are not passes.
+- Explain any check suppression with its exact scope and reason. Do not broaden exclusions, refresh a baseline to hide a new finding, weaken thresholds or bypass a failed hook to get a commit through. Keep legitimate exceptions reviewable with the change.
+
+### Milestone 0: Local quality checks and implementation setup
+Decisions: Step 1 (implementation preparation). These are developer Git hooks; existing agent integrations remain outside this milestone.
+
+Prerequisites verified on 2026-10-24: Cargo-installed `prek 0.5.7`, `shfmt 3.14.1`, `jscpd 5.4.2` and `shellcheck-bin 0.11.0` are available. No additional package or analyzer is selected.
+
+Work:
+- Add a repository-local `.pre-commit-config.yaml` using local hooks and installed tools. Keep standard pre-commit-compatible settings; do not introduce GitHub workflows or global Git configuration. Put any necessary dispatch logic in one small tracked script callable independently of prek.
+- Define the migration check scope explicitly, including extensionless helpers and dotfiles. Compare migration code against relevant unchanged shared code as well as other changed files. Keep generated files, plugin clones, submodules and fixtures out of production-code metrics; scoped Neovim checks still follow `nvim/AGENTS.md`.
+- Check staged whitespace with `git diff --cached --check`; Bash with `bash -n` and `shellcheck -x` when sourcing repo files; Zsh with `zsh -n`. Use shfmt in check-only mode for adopted Bash files. Prove Zsh formatting support before adding it to that check. Define formatting settings and an explicit adoption policy for existing files without reformatting unrelated code.
+- Prepare an isolated `herdr config check` for the staged TOML once Milestone 1 adds it, using the short temporary config path described above. Its absence before Milestone 1 is explicitly not applicable; after adoption, missing or invalid configuration must fail. Keep Niri/Neovim validation under their scoped instructions as those files enter later milestones.
+- Keep jscpd's detection defaults (`mild`, 50 tokens, 5 lines). Fail on new unaccepted clones involving migration code, with explicit, narrow exceptions for temporary copies needed during the port; those exceptions retire with the tmux source at Milestone 8. Do not treat the old helper's duplication or complexity as the target standard. Configure scan failures and unexpectedly empty scans as failures; documentation-only changes may explicitly have no applicable code checks.
+- Record file size and jscpd's file-level complexity estimate for affected production code against the milestone's base commit. Report changes for review; do not present those estimates as per-function or architectural guarantees. Record tool versions and effective configuration so the measurements can be repeated.
+- Keep the commit hook to the applicable deterministic checks. Run `bash bash/run-tests` and each milestone's behavioral/manual acceptance checks before milestone review; preserve failure and skip reporting. Add meaningful tests of the check dispatch and failure propagation to the existing suite rather than introducing another test framework.
+- Document setup, scope, exceptions, manual invocation and removal in `docs/architecture/git.md`. After the isolation behavior below is proven in disposable fixtures, enable the hook only for this checkout; never use a live commit or installer run as the experiment.
+
+Prove first:
+- [ ] Establish how the staged snapshot is checked without temporarily replacing live symlinked configuration. Prek's normal unstaged-change hiding must not silently change live files. Choose between refusing unstaged tracked edits before prek starts and checking an isolated staged snapshot; the user preference is still open. Prove the chosen policy before activation.
+
+Acceptance criteria:
+- [ ] `prek validate-config` succeeds, and checks run both through the hook and on demand using the same configuration.
+- [ ] Disposable Git fixtures show that syntax, lint, formatting, duplicate-code and whitespace violations each block a commit; corrected fixtures pass. Missing tools, checker errors and unexpectedly empty scans also fail.
+- [ ] A changed file duplicating an unchanged file is detected. Extensionless helpers, dotfiles, renamed/deleted files and paths with spaces are selected or excluded as documented; unrelated files are not reformatted or scanned accidentally.
+- [ ] The chosen staging policy is tested with partially staged files, unrelated unstaged changes, untracked files and a failed check. Working files and staged contents remain intact, and live symlink targets are never replaced during checks.
+- [ ] Checks neither auto-fix nor auto-stage files, access the network, launch live Herdr/editor sessions, reload services, or run installers/upgrades. Any installation-dependent validation stays in the later milestone's explicit live checks.
+- [ ] Effective scope, tool versions, formatting adoption, temporary clone exceptions and the limits of complexity measurement are documented. Successful linting is not recorded as successful runtime acceptance.
+- [ ] `bash bash/run-tests` completes with failures and skips reported accurately. Local hook activation and removal are demonstrated; GitHub checks and global hooks remain unchanged.
 
 ### Milestone 1: Base config live
 Decisions: Steps 2–7 and the draft config.
@@ -132,7 +170,7 @@ Acceptance criteria:
 - [ ] No hooks, dashboards or coordination were added; those stay for the agentic-layer session.
 
 ### Milestone 6: C++ tools
-Decisions: Step 8D. Baseline: `bash/tmux-cpp-tools`; the new helper name is provisional.
+Decisions: Step 8D. Behavior reference: `bash/tmux-cpp-tools`; the new helper name is provisional. Follow the implementation discipline above when choosing the new structure.
 
 Prove first:
 - [ ] A runner that starts tasks in the selected project's tabs without typing into a running TUI.

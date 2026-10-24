@@ -1,6 +1,6 @@
 # Migration Plan: `tmux` to `herdr`
 
-Status: **Design decided (2026-10-23)**
+Status: **Design decided (updated 2026-10-24; implementation preparation is Milestone 0)**
 Implementation milestones and acceptance criteria: `docs/herdr-implementation.md`.
 
 ---
@@ -8,6 +8,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 ## 1. Decisions (Steps 1–9)
 
 ### Step 1: Transition Strategy & Mental Model
+- **Implementation preparation:** Milestone 0 establishes repository-local prek checks and the implementation discipline in `docs/herdr-implementation.md` before Milestone 1. Use the installed shfmt, ShellCheck and jscpd with shell syntax checks and the existing test suite. Protect live symlinked configuration during staged-content checks, keep GitHub testing separate, and retain explicit runtime acceptance checks; static metrics alone do not establish correct behavior.
 - **Direct Cutover:** Full replacement of the local `tmux` workflow with `herdr`; daily use moves to Herdr at Milestone 2, with nothing else blocking it. tmux stays installed only for side-by-side comparison while features are ported, and is uninstalled at Milestone 8.
 - **Hierarchy Mapping (Style 1 — "The Herdr Way"):**
   - **Herdr `Session`** = Persistent background server (attached automatically via bare `herdr`); one session can contain several projects.
@@ -162,7 +163,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 - **Agreed output location:** Configure, build and test run in a dedicated project build tab, so the task can continue while the user switches elsewhere.
   - Reuse that project's build tab when it is idle, preserving previous output.
   - If it is busy, report that a task is already running and focus the existing tab. Do not interrupt it, queue the request or start an overlapping task.
-- **Existing helper is the baseline:** Port the useful behavior in `bash/tmux-cpp-tools` rather than redesigning every action. It already provides CMake configuration, build/test/build+test, executable selection and arguments, source navigation from failures, GDB, Valgrind, clang-tidy, Google Benchmark, hyperfine, perf and samply, plus project creation and clean actions. Preserve the existing guarded clean-all behavior. Port details and final menu organization still need review.
+- **Existing helper is the behavior reference:** Port the useful behavior in `bash/tmux-cpp-tools` rather than redesigning every action; its code structure, duplication and complexity are not the standard for the new implementation. It already provides CMake configuration, build/test/build+test, executable selection and arguments, source navigation from failures, GDB, Valgrind, clang-tidy, Google Benchmark, hyperfine, perf and samply, plus project creation and clean actions. Preserve the existing guarded clean-all behavior. Port details and final menu organization still need review.
 - **Agreed run/debug/profiling destinations:** Preserve the existing workflow: programs run in their own tabs, GDB uses a dedicated debug tab, and profiling uses the project's profile tab. Route each action to the selected project, including when several projects share one workspace. The build-tab reuse/busy rules above do not automatically prescribe reuse or concurrency behavior for these other tabs; preserve existing behavior unless a later decision changes it.
 - **Correct cross-project routing:** The current helper's global first-Neovim-pane lookup is unsuitable when several projects are open. Source navigation/current-buffer actions must address the editor belonging to the selected project; profiling destinations likewise need project association rather than a shared tab name alone.
 - **Not yet decided or implemented:** The exact launcher/runner mechanism, final helper name, menu implementation and any changes to the existing lifecycle/concurrency behavior for run/debug/profile tabs. Destinations are agreed, but the port still needs to establish that tasks are launched into the correct project without writing into an unrelated running TUI. New shortcut commands below are placeholders until the helper exists.
