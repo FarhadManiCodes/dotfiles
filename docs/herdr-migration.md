@@ -1,6 +1,6 @@
 # Migration Plan: `tmux` to `herdr`
 
-Status: **Design decided (updated 2026-10-24; implementation preparation is Milestone 0)**
+Status: **Design decided (updated 2026-10-24; implementation preparation is Milestones 0 and 0.5)**
 Implementation milestones and acceptance criteria: `docs/herdr-implementation.md`.
 
 ---
@@ -8,7 +8,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 ## 1. Decisions (Steps 1–9)
 
 ### Step 1: Transition Strategy & Mental Model
-- **Implementation preparation:** Milestone 0 establishes repository-local prek checks and the implementation discipline in `docs/herdr-implementation.md` before Milestone 1. Use the installed shfmt, ShellCheck and jscpd with shell syntax checks and the existing test suite. Validate an isolated copy of the Git-index snapshot so selective commits, including partially staged files, leave unfinished work and live symlinked configuration untouched. Keep GitHub testing separate and retain explicit runtime acceptance checks; static metrics alone do not establish correct behavior.
+- **Implementation preparation:** Milestone 0 establishes repository-local prek checks and the implementation discipline in `docs/herdr-implementation.md`, and formats the Bash, `sh` and Zsh files once. Milestone 0.5 then measures the whole in-scope repository with those checks and maps related files, before Milestone 1. Use the installed shfmt, ShellCheck and jscpd with shell syntax checks and the existing test suite. Validate an isolated copy of the Git-index snapshot so selective commits, including partially staged files, leave unfinished work and live symlinked configuration untouched. Keep GitHub testing separate and retain explicit runtime acceptance checks; static metrics alone do not establish correct behavior.
 - **Direct Cutover:** Full replacement of the local `tmux` workflow with `herdr`; daily use moves to Herdr at Milestone 2, with nothing else blocking it. tmux stays installed only for side-by-side comparison while features are ported, and is uninstalled at Milestone 8.
 - **Hierarchy Mapping (Style 1 — "The Herdr Way"):**
   - **Herdr `Session`** = Persistent background server (attached automatically via bare `herdr`); one session can contain several projects.
