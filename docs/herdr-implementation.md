@@ -10,7 +10,9 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 ## Milestones
 
 - **Branches:** one branch per milestone, named `herdr/<n>-<name>`, cut from `master` after these two docs are merged. Each is reviewed and merged before the next one that depends on it starts. Tick the boxes on the milestone's branch. Milestone 1 keeps the `herdr/` name instead of `AGENTS.md`'s `add-<name>-config` on purpose (user decision, 2026-10-23).
-- **Order:** 1 → 2 → any order of 3–7 → 8.
+- **Order:** 1 → 2 → 3–7 in any order consistent with their declared implementation prerequisites → 8. A prerequisite milestone must be reviewed and merged before its dependent work starts.
+- **Shared conventions:** Milestones 3, 5 and 6 must use compatible conventions for project association and editor lookup, including after pane IDs change. The first milestone needing them establishes and documents them; later milestones reuse them and declare any prerequisites before starting dependent work. Milestones 3 and 7 must also agree on how temporary fzf panes are excluded from restart recovery. This coordination does not expand the agentic-layer scope.
+- **Integration checks:** Each later milestone reruns affected acceptance checks from earlier milestones. Whichever of Milestones 3 and 7 lands later verifies that a restart with an open temporary fzf pane excludes that pane while eligible persistent panes recover correctly.
 - **tmux retires from daily use at Milestone 2.** Nothing else blocks the switch (user decision, 2026-10-23). tmux stays installed only to compare behavior side by side while features are ported, and is removed in Milestone 8.
 - **"Prove first" boxes** cover a mechanism that is not chosen yet. They must pass before the build work starts. If one fails, stop and discuss rather than building around it.
 
@@ -72,7 +74,7 @@ Acceptance criteria:
 - [ ] `tmux` still starts by hand in plain foot, for comparison.
 - [ ] foot's `Ctrl+Shift+y` and `Ctrl+Alt+c` tested inside Herdr: run a command with known multi-line output, copy it, and compare the clipboard with the real command, directory and output. If they match, record that they work until Milestone 4. If not, record them as untrusted inside Herdr until Milestone 4 replaces them; they keep working in plain foot (`Mod+T`).
 
-Until Milestone 3 lands, a full restart restores layout, directories and pane history, and Herdr already tries to resume agents (`resume_agents_on_restore` is on from Milestone 1, unproven until Milestone 3); editors and other tools are not relaunched.
+Until Milestone 3 lands, a full restart restores layout and directories; with `experimental.pane_history = true`, saved screen history may return only when the restored layout exactly matches the saved one. Herdr already tries to resume agents (`resume_agents_on_restore` is on from Milestone 1, unproven until Milestone 3); editors and other tools are not relaunched.
 
 ### Milestone 3: Restart recovery
 Decisions: Step 2R.
