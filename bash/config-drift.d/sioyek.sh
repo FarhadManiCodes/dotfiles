@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+#!/bin/bash
 # shellcheck disable=SC2088  # "~" in messages is display text, never expanded
 # The custom sioyek build (sioyek/README.md) is outside pacman, so nothing tells
 # you when a system update leaves it behind. On 2026-10-08 qt6-base went 6.11 ->

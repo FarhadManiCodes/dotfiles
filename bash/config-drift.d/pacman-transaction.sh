@@ -1,4 +1,4 @@
-# shellcheck shell=bash
+#!/bin/bash
 # mkinitcpio runs from a PostTransaction hook. When it fails it prints the error
 # into the middle of pacman's output and does NOT fail the transaction, so the
 # only sign is a line you scrolled past -- and you find out at the next boot.
