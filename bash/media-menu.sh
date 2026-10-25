@@ -22,7 +22,7 @@ pc() {
 
 # A percentage of track duration, using the same player as the seek action.
 show_progress() {
-    local player=${1:-} position length percent times summary pipe=$XDG_RUNTIME_DIR/wob-playback.pipe
+    local player=${1:-} position length percent times summary pipe=${XDG_RUNTIME_DIR:-}/wob-playback.pipe
     if [[ -z $player ]]; then
         player=$(active_player)
         [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
