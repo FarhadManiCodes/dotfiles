@@ -87,5 +87,3 @@ bind ,Y js tri.native.run('~/.local/bin/yts --play -a', location.href)
 " on stdin (native.run's second argument), never through /bin/sh.
 bind ;y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts --play', h); }
 bind ;Y hint -F e => { const h = e.href || (e.closest('a')||{}).href; if (h) tri.native.run('~/.local/bin/yts --play -a', h); }
-
-
