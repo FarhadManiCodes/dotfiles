@@ -23,7 +23,7 @@ echo "🚀 Installing dotfiles..."
 echo "Setting up Vim..."
 
 # Bootstrap ~/.vimrc to redirect vim to the XDG config location
-cat > "${HOME}/.vimrc" << 'VIMRC'
+cat >"${HOME}/.vimrc" <<'VIMRC'
 " XDG Base Directory Specification compliance
 " This file sources the actual vimrc from ~/.config/vim/vimrc
 let $MYVIMRC = expand('~/.config/vim/vimrc')
@@ -48,18 +48,18 @@ ln -sf "${DOTFILES}/zsh/.zshenv" "${HOME}/.zshenv"
 ln -sf "${DOTFILES}/zsh/.zshrc" "${HOME}/.zshrc"
 
 mkdir -p "${XDG_CONFIG_HOME}/zsh/functions"
-ln -sf "${DOTFILES}/zsh/aliases"               "${XDG_CONFIG_HOME}/zsh/aliases"
-ln -sf "${DOTFILES}/zsh/helpers.zsh"           "${XDG_CONFIG_HOME}/zsh/helpers.zsh"
+ln -sf "${DOTFILES}/zsh/aliases" "${XDG_CONFIG_HOME}/zsh/aliases"
+ln -sf "${DOTFILES}/zsh/helpers.zsh" "${XDG_CONFIG_HOME}/zsh/helpers.zsh"
 ln -sf "${DOTFILES}/zsh/generate-completions.sh" "${XDG_CONFIG_HOME}/zsh/generate-completions.sh"
-ln -sf "${DOTFILES}/zsh/update-plugins.sh"    "${XDG_CONFIG_HOME}/zsh/update-plugins.sh"
+ln -sf "${DOTFILES}/zsh/update-plugins.sh" "${XDG_CONFIG_HOME}/zsh/update-plugins.sh"
 
 link_glob "${DOTFILES}/zsh/functions/"*.zsh "${XDG_CONFIG_HOME}/zsh/functions"
 
 # Completions — generate if tools are available
 mkdir -p "${XDG_CONFIG_HOME}/zsh/completions"
-command -v gh      >/dev/null 2>&1 && gh completion -s zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_gh"      2>/dev/null || true
-command -v uv      >/dev/null 2>&1 && uv  generate-shell-completion zsh > "${XDG_CONFIG_HOME}/zsh/completions/_uv" 2>/dev/null || true
-command -v podman  >/dev/null 2>&1 && podman completion zsh      > "${XDG_CONFIG_HOME}/zsh/completions/_podman"  2>/dev/null || true
+command -v gh >/dev/null 2>&1 && gh completion -s zsh >"${XDG_CONFIG_HOME}/zsh/completions/_gh" 2>/dev/null || true
+command -v uv >/dev/null 2>&1 && uv generate-shell-completion zsh >"${XDG_CONFIG_HOME}/zsh/completions/_uv" 2>/dev/null || true
+command -v podman >/dev/null 2>&1 && podman completion zsh >"${XDG_CONFIG_HOME}/zsh/completions/_podman" 2>/dev/null || true
 
 echo "Zsh configured"
 
@@ -85,7 +85,7 @@ echo "Neovim configured"
 echo "🐍 Setting up ipython..."
 mkdir -p "${XDG_CONFIG_HOME}/ipython/profile_default/startup"
 ln -sf "${DOTFILES}/ipython/profile_default/ipython_config.py" \
-       "${XDG_CONFIG_HOME}/ipython/profile_default/ipython_config.py"
+  "${XDG_CONFIG_HOME}/ipython/profile_default/ipython_config.py"
 link_glob "${DOTFILES}"/ipython/profile_default/startup/*.py "${XDG_CONFIG_HOME}/ipython/profile_default/startup"
 echo "✅ ipython configured"
 
@@ -176,28 +176,27 @@ fi
 
 # git/config.local is per-machine identity, never overwritten once created.
 if [[ ! -f "${XDG_CONFIG_HOME}/git/config.local" ]]; then
-    cat > "${XDG_CONFIG_HOME}/git/config.local" << 'GITLOCAL'
+  cat >"${XDG_CONFIG_HOME}/git/config.local" <<'GITLOCAL'
 [user]
     name = Your Name
     email = you@example.com
 GITLOCAL
-    echo "Created git/config.local template -- fill in your name and email"
+  echo "Created git/config.local template -- fill in your name and email"
 fi
 
 # spotify-player/app.toml holds a per-machine client_id, never overwritten
 # once created (unlike theme.toml above, which is a plain symlink).
 if [[ ! -f "${XDG_CONFIG_HOME}/spotify-player/app.toml" ]]; then
-    cp "${DOTFILES}/spotify-player/app.toml" "${XDG_CONFIG_HOME}/spotify-player/app.toml"
-    echo "Created spotify-player/app.toml template -- fill in your client_id"
+  cp "${DOTFILES}/spotify-player/app.toml" "${XDG_CONFIG_HOME}/spotify-player/app.toml"
+  echo "Created spotify-player/app.toml template -- fill in your client_id"
 fi
 
 # ============ pcmanfm-qt ==============================
 echo "Setting up pcmanfm-qt..."
 mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
 ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
-ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml"  "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
+ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
 echo "pcmanfm-qt configured"
-
 
 # ============ xdg user dirs ==============================
 echo "Setting up XDG user dirs..."
@@ -224,12 +223,12 @@ echo "Desktop files configured"
 echo "Setting up Firefox userChrome..."
 FIREFOX_PROFILE=$(awk -F= '/^\[Install/{in_install=1} in_install && /^Default=/{print $2; in_install=0}' "${HOME}/.mozilla/firefox/profiles.ini" 2>/dev/null)
 if [[ -n "$FIREFOX_PROFILE" ]]; then
-    CHROME_DIR="${HOME}/.mozilla/firefox/${FIREFOX_PROFILE}/chrome"
-    mkdir -p "$CHROME_DIR"
-    ln -sf "${DOTFILES}/firefox/userChrome.css" "${CHROME_DIR}/userChrome.css"
-    echo "Firefox userChrome configured (profile: ${FIREFOX_PROFILE})"
+  CHROME_DIR="${HOME}/.mozilla/firefox/${FIREFOX_PROFILE}/chrome"
+  mkdir -p "$CHROME_DIR"
+  ln -sf "${DOTFILES}/firefox/userChrome.css" "${CHROME_DIR}/userChrome.css"
+  echo "Firefox userChrome configured (profile: ${FIREFOX_PROFILE})"
 else
-    echo "Firefox default profile not found, skipping (install Firefox and run install.sh again)"
+  echo "Firefox default profile not found, skipping (install Firefox and run install.sh again)"
 fi
 
 # =========== duckdb ===============
@@ -260,15 +259,15 @@ for f in "${DOTFILES}/bash/"*; do [ -f "$f" ] && link_glob "$f" "${HOME}/.local/
 # rm first: writing through an old symlink would overwrite the binary itself.
 if [ -x "${XDG_DATA_HOME}/sioyek/sioyek" ]; then
   rm -f "${HOME}/.local/bin/sioyek"
-  printf '#!/bin/sh\nexec "%s" "$@"\n' "${XDG_DATA_HOME}/sioyek/sioyek" > "${HOME}/.local/bin/sioyek"
+  printf '#!/bin/sh\nexec "%s" "$@"\n' "${XDG_DATA_HOME}/sioyek/sioyek" >"${HOME}/.local/bin/sioyek"
   chmod +x "${HOME}/.local/bin/sioyek"
 fi
 # mic-notify, net-notify and power-notify are small C programs in one submodule,
 # notifiers, like nvim (fetched by the `git submodule update` above); their
 # services run the installed binaries. make builds all three before installing
 # any, so a failed build installs none; a failed install can leave one missing.
-make -s -C "${DOTFILES}/notifiers" install ||
-  echo "⚠️  notifiers: build or install failed (see above); a notifier service without its binary in ~/.local/bin will fail"
+make -s -C "${DOTFILES}/notifiers" install \
+  || echo "⚠️  notifiers: build or install failed (see above); a notifier service without its binary in ~/.local/bin will fail"
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================
@@ -331,7 +330,7 @@ for unit in "${units_to_enable[@]}"; do
     printf 'Could not enable user unit: %s\n' "$unit" >&2
   fi
 done
-if (( ${#failed_user_units[@]} == 0 )); then
+if ((${#failed_user_units[@]} == 0)); then
   echo "✅ Systemd user services installed and enabled"
 else
   echo "⚠️  Some user services could not be enabled; continuing installation" >&2
@@ -367,17 +366,17 @@ herdr_install_failed=0
 herdr_interrupted=0
 herdr_status=0
 bash "${DOTFILES}/bash/herdr-cargo" --install || herdr_status=$?
-if (( herdr_status == 130 || herdr_status == 143 )); then # Ctrl-C or TERM: not a failure
+if ((herdr_status == 130 || herdr_status == 143)); then # Ctrl-C or TERM: not a failure
   herdr_interrupted=1
   echo "⚠️  Herdr installation interrupted; see the summary below" >&2
-elif (( herdr_status )); then
+elif ((herdr_status)); then
   herdr_install_failed=1
   echo "⚠️  Herdr installation failed; see the summary below" >&2
 fi
 
 echo ""
-if (( ${#failed_user_units[@]} == 0 && herdr_install_failed == 0 )); then
-  if (( herdr_interrupted )); then
+if ((${#failed_user_units[@]} == 0 && herdr_install_failed == 0)); then
+  if ((herdr_interrupted)); then
     echo "⚠️  Dotfiles installation interrupted" >&2
   else
     echo "🎉 Dotfiles installation complete!"
@@ -402,18 +401,18 @@ echo "🔐 System (root) configs are installed separately:"
 echo "  sudo bash install-root.sh   - e.g. /etc/pam.d/swaylock (lock-screen auth)"
 
 # Finish the remaining setup and guidance before returning the combined result.
-if (( herdr_interrupted )); then
+if ((herdr_interrupted)); then
   echo 'Herdr installation interrupted; retry: herdr-cargo --install' >&2
-elif (( herdr_install_failed )); then
+elif ((herdr_install_failed)); then
   echo 'Herdr installation/update failed; retry: herdr-cargo --install' >&2
 fi
-if (( ${#failed_user_units[@]} )); then
+if ((${#failed_user_units[@]})); then
   printf 'User units not enabled:\n' >&2
   printf '  %s\n' "${failed_user_units[@]}" >&2
 fi
-if (( herdr_interrupted )); then
+if ((herdr_interrupted)); then
   exit "$herdr_status"
-elif (( ${#failed_user_units[@]} || herdr_install_failed )); then
+elif ((${#failed_user_units[@]} || herdr_install_failed)); then
   exit 1
 fi
 exit 0

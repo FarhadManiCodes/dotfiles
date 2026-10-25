@@ -50,8 +50,8 @@ export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wra
 # branches only ever printed "not available". Opens in $EDITOR instead, matching
 # fdata and the application/x-ipynb+json -> vim.desktop mapping in mimeapps.list.
 fnb() {
-  local result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null |
-    fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
+  local result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null \
+    | fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
       --preview-window='right:30%' \
       --expect 'ctrl-d' \
       --bind 'ctrl-o:execute(timeout 2 open-detached "$(dirname {})")' \
@@ -81,8 +81,8 @@ fdata() {
     -e pkl -e pickle -e joblib \
     -e h5 -e hdf5 \
     -e pt -e pth -e onnx \
-    --exclude __pycache__ --exclude node_modules --exclude venv |
-    fzf --preview='echo "📁 $(basename {})" && echo "📊 $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "" &&
+    --exclude __pycache__ --exclude node_modules --exclude venv \
+    | fzf --preview='echo "📁 $(basename {})" && echo "📊 $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "" &&
                    if command -v bat >/dev/null 2>&1; then
                      bat --color=always --style=plain --line-range=:12 {} 2>/dev/null || head -8 {} 2>/dev/null
                    else

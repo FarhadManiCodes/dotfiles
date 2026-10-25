@@ -34,7 +34,7 @@ case ${CLIPBOARD_STATE:-} in
       exit "$status"
     fi
     if staged_bytes=$(stat -c %s -- "$tmp"); then
-      if (( staged_bytes > max_bytes )); then
+      if ((staged_bytes > max_bytes)); then
         echo "cliphist-store-guard: copy exceeds $max_bytes bytes; dropping copy" >&2
         exit 0
       fi

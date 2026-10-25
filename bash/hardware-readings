@@ -28,8 +28,8 @@ if readings=$(jq -ers '
         (chip("thinkpad-isa-").fan2.fan2_input | fan)
       ] | @tsv
 ' <<<"$snapshot" 2>/dev/null); then
-    printf '%s\n' "$readings"
+  printf '%s\n' "$readings"
 else
-    printf 'N/A\tN/A\tN/A\tN/A\tN/A\n'
-    exit 1
+  printf 'N/A\tN/A\tN/A\tN/A\tN/A\n'
+  exit 1
 fi

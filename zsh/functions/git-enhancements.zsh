@@ -96,7 +96,7 @@ _git_branch_header() {
     local behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
     local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
     printf "🌳 Branch: ${cyan}%s${reset} → ${cyan}%s${reset}\n" "$branch" "$upstream"
-    [[ "$ahead"  -gt 0 ]] && printf "   📈 ${yellow}%s commits ahead${reset}\n" "$ahead"
+    [[ "$ahead" -gt 0 ]] && printf "   📈 ${yellow}%s commits ahead${reset}\n" "$ahead"
     [[ "$behind" -gt 0 ]] && printf "   📉 ${yellow}%s commits behind${reset}\n" "$behind"
   else
     printf "🌳 Branch: ${cyan}%s${reset} (no upstream)\n" "$branch"
@@ -314,5 +314,3 @@ alias gcb='git checkout -b'
 # Experiment management aliases
 alias gexp='git exp-start' # Start new experiment branch
 alias gexpl='git exp-list' # List experiment branches
-
-

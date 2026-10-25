@@ -7,22 +7,30 @@ set -uo pipefail
 shpool="$HOME/.cargo/bin/shpool"
 
 notify_error() {
-    notify-send --urgency=critical "shpool restore failed" "$1"
+  notify-send --urgency=critical "shpool restore failed" "$1"
 }
 
-[[ -x "$shpool" ]] || { notify_error "shpool is not installed at $shpool. Recreate it with: cargo install shpool"; exit 1; }
-command -v jq >/dev/null 2>&1 || { notify_error "jq is not installed, so the shpool session list cannot be read."; exit 1; }
+[[ -x "$shpool" ]] || {
+  notify_error "shpool is not installed at $shpool. Recreate it with: cargo install shpool"
+  exit 1
+}
+command -v jq >/dev/null 2>&1 || {
+  notify_error "jq is not installed, so the shpool session list cannot be read."
+  exit 1
+}
 
 # stdout and stderr apart: shpool can succeed with a warning on stderr (e.g. a
 # client/daemon version mismatch), which would corrupt the JSON, yet on failure
 # that same call's stderr is the error to show. Removed at once, not by a trap:
 # the script ends in exec.
 errf=$(mktemp -p "${XDG_RUNTIME_DIR:-/tmp}")
-sessions_json=$("$shpool" list --json 2>"$errf"); rc=$?
-err=$(<"$errf"); rm -f "$errf"
-if (( rc != 0 )); then
-    notify_error "Could not reach shpool (${err##*$'\n'}). Check: systemctl --user status shpool.socket"
-    exit 1
+sessions_json=$("$shpool" list --json 2>"$errf")
+rc=$?
+err=$(<"$errf")
+rm -f "$errf"
+if ((rc != 0)); then
+  notify_error "Could not reach shpool (${err##*$'\n'}). Check: systemctl --user status shpool.socket"
+  exit 1
 fi
 
 # One line per session, marked when a terminal is still attached elsewhere:
@@ -34,15 +42,18 @@ if ! menu=$(jq -r '
         | if type != "array" or any(.[]; (.name | type) != "string")
           then error("invalid session list") else .[] end
         | .name + (if .status == "Attached" then " (attached)" else "" end)' <<<"$sessions_json"); then
-    notify_error "shpool returned an invalid session list."
-    exit 1
+  notify_error "shpool returned an invalid session list."
+  exit 1
 fi
-[[ -n "$menu" ]] || { notify-send "shpool" "No background sessions running."; exit 0; }
+[[ -n "$menu" ]] || {
+  notify-send "shpool" "No background sessions running."
+  exit 0
+}
 
 selected=$(fuzzel --dmenu --prompt="Restore Task > " <<<"$menu")
 [[ -n "$selected" ]] || exit 0
 if [[ $selected == *" (attached)" ]]; then
-    notify-send "shpool" "'${selected% (attached)}' is attached in another window"
-    exit 0
+  notify-send "shpool" "'${selected% (attached)}' is attached in another window"
+  exit 0
 fi
 exec footclient --app-id=foot-popup "$shpool" attach "$selected"

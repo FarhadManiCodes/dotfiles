@@ -36,16 +36,21 @@ note() { notify-send "papis" "$1"; }
 # --file PATH names the open PDF; by hand there is none and only the text is used.
 CITES=
 if [[ ${1:-} == --file && $# -ge 2 ]]; then
-    [[ $2 == *.pdf ]] && CITES="${2%.pdf}.citations.json"
-    shift 2
+  [[ $2 == *.pdf ]] && CITES="${2%.pdf}.citations.json"
+  shift 2
 fi
 
 # --- reassemble + normalise the selection ----------------------------------
 RAW="$*"
-NOSPACE=${RAW//[[:space:]]/}                                      # for DOI rejoin
-QUERY=${RAW//[[:space:]]/ }; QUERY=${QUERY//+( )/ }
-QUERY=${QUERY# }; QUERY=${QUERY% }                                # for text search
-[[ -z "$QUERY" ]] && { note "Empty selection"; exit 0; }
+NOSPACE=${RAW//[[:space:]]/} # for DOI rejoin
+QUERY=${RAW//[[:space:]]/ }
+QUERY=${QUERY//+( )/ }
+QUERY=${QUERY# }
+QUERY=${QUERY% } # for text search
+[[ -z "$QUERY" ]] && {
+  note "Empty selection"
+  exit 0
+}
 
 # One yq pass over the library, computed once and reused by every lookup:
 # "doi \t eprint \t ref \t title \t file" per entry. file is the first document papis
@@ -55,8 +60,11 @@ QUERY=${QUERY# }; QUERY=${QUERY% }                                # for text sea
 # the papers after it look absent, so a failure is reported instead.
 ENTRIES=$(yq -o=tsv '[(.doi // ""), (.eprint // ""), .ref, (.title // ""),
                       (filename | sub("info\.yaml$"; "")) + .files[0]]' \
-            "$PAPERS"/*/info.yaml 2>&1) \
-    || { note "Library scan failed: ${ENTRIES##*$'\n'}"; exit 1; }
+  "$PAPERS"/*/info.yaml 2>&1) \
+  || {
+    note "Library scan failed: ${ENTRIES##*$'\n'}"
+    exit 1
+  }
 
 # Entries whose field COL contains SEL, case-insensitive; the title (col 4) is
 # compared on a normalised form (non-alnum -> space) so "physics informed"
@@ -64,7 +72,7 @@ ENTRIES=$(yq -o=tsv '[(.doi // ""), (.eprint // ""), .ref, (.title // ""),
 # containment. Emits "file \t ref | title". ENVIRON avoids awk -v escape
 # processing of SEL.
 lookup() {
-    COL=$1 SEL=$2 EXACT=${3:-} awk -F'\t' '
+  COL=$1 SEL=$2 EXACT=${3:-} awk -F'\t' '
         function norm(s) {
             s = tolower(s)
             if (col == 4) { gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s) }
@@ -78,11 +86,11 @@ lookup() {
 # Open an entry's file in a new sioyek window. Without `files:` the scan yields
 # just the folder, so a missing file and a missing record read the same.
 open_file() {
-    if [[ -f "$1" ]]; then
-        sioyek --new-window "$1" >/dev/null 2>&1 &
-    else
-        note "Entry is in the library but has no attached file"
-    fi
+  if [[ -f "$1" ]]; then
+    sioyek --new-window "$1" >/dev/null 2>&1 &
+  else
+    note "Entry is in the library but has no attached file"
+  fi
 }
 
 # fuzzel menu over "value \t label" lines on stdin: shows the labels, prints the
@@ -91,11 +99,13 @@ pick() { fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 --prompt "papis
 
 # Open one match directly; offer several in a menu.
 open_matches() {
-    local file
-    if (( $# == 1 )); then file=${1%%$'\t'*}
-    else file=$(printf '%s\n' "$@" | pick) || return 0
-    fi
-    [[ -n "$file" ]] && open_file "$file"
+  local file
+  if (($# == 1)); then
+    file=${1%%$'\t'*}
+  else
+    file=$(printf '%s\n' "$@" | pick) || return 0
+  fi
+  [[ -n "$file" ]] && open_file "$file"
 }
 
 # DOI looks complete enough to add (not a bare publisher prefix).
@@ -104,21 +114,22 @@ doi_complete() { [[ "$1" =~ ^10\.[0-9]{4,9}/.{3,}$ ]]; }
 # papis add --from SOURCE ID. --batch refuses a duplicate it finds on a key this
 # script doesn't look up (isbn, url, ...) but still exits 0, so check its warning.
 add() {
-    local out
-    if ! out=$(papis add --from "$1" "$2" --no-edit --batch 2>&1); then
-        note "papis add failed: ${out##*$'\n'}"; return 1
-    elif [[ $out == *'No new document is created'* ]]; then
-        note "Already in papis, not added: $2"
-    else
-        note "Added to papis: $2"
-    fi
+  local out
+  if ! out=$(papis add --from "$1" "$2" --no-edit --batch 2>&1); then
+    note "papis add failed: ${out##*$'\n'}"
+    return 1
+  elif [[ $out == *'No new document is created'* ]]; then
+    note "Already in papis, not added: $2"
+  else
+    note "Added to papis: $2"
+  fi
 }
 
 # Open the library entry holding DOI, else add it.
 open_or_add_doi() {
-    local M
-    mapfile -t M < <(lookup 1 "$1" exact)
-    if (( ${#M[@]} )); then open_file "${M[0]%%$'\t'*}"; else add doi "$1"; fi
+  local M
+  mapfile -t M < <(lookup 1 "$1" exact)
+  if ((${#M[@]})); then open_file "${M[0]%%$'\t'*}"; else add doi "$1"; fi
 }
 
 # ---- refinery's citations.json ---------------------------------------------
@@ -172,47 +183,54 @@ US=$'\x1f'
 # Library entries for a reference: by DOI, else by exact title, since the library
 # may hold the preprint of a paper the reference cites under its published DOI.
 find_reference() {
-    local m=
-    [[ -n $1 ]] && m=$(lookup 1 "$1" exact)
-    [[ -n $m ]] || m=$(lookup 4 "$2" exact)
-    [[ -z $m ]] || printf '%s\n' "$m"
+  local m=
+  [[ -n $1 ]] && m=$(lookup 1 "$1" exact)
+  [[ -n $m ]] || m=$(lookup 4 "$2" exact)
+  [[ -z $m ]] || printf '%s\n' "$m"
 }
 
 # Take the one reference, or let fuzzel choose among several (marked when already
 # in the library), then resolve it: the library entry, else add its DOI, else an
 # external search by title, first author and year.
 resolve_reference() {
-    local line idx label doi title surname year menu=() chosen
-    if (( $# == 1 )); then chosen=$1
-    else
-        for line; do
-            IFS=$US read -r idx label doi title _ <<<"$line"
-            [[ -n $(find_reference "$doi" "$title") ]] && label+="  ✓"
-            menu+=("$idx"$'\t'"$label")
-        done
-        idx=$(printf '%s\n' "${menu[@]}" | pick) || return 0
-        [[ -n "$idx" ]] || return 0
-        for line; do [[ ${line%%"$US"*} == "$idx" ]] && chosen=$line; done
-    fi
-    IFS=$US read -r _ _ doi title surname year <<<"$chosen"
-    local M
-    mapfile -t M < <(find_reference "$doi" "$title")
-    if (( ${#M[@]} )); then open_matches "${M[@]}"
-    elif [[ -n $doi ]]; then add doi "$doi"
-    else external_search "$title $surname $year"
-    fi
+  local line idx label doi title surname year menu=() chosen
+  if (($# == 1)); then
+    chosen=$1
+  else
+    for line; do
+      IFS=$US read -r idx label doi title _ <<<"$line"
+      [[ -n $(find_reference "$doi" "$title") ]] && label+="  ✓"
+      menu+=("$idx"$'\t'"$label")
+    done
+    idx=$(printf '%s\n' "${menu[@]}" | pick) || return 0
+    [[ -n "$idx" ]] || return 0
+    for line; do [[ ${line%%"$US"*} == "$idx" ]] && chosen=$line; done
+  fi
+  IFS=$US read -r _ _ doi title surname year <<<"$chosen"
+  local M
+  mapfile -t M < <(find_reference "$doi" "$title")
+  if ((${#M[@]})); then
+    open_matches "${M[@]}"
+  elif [[ -n $doi ]]; then
+    add doi "$doi"
+  else
+    external_search "$title $surname $year"
+  fi
 }
 
 # ---- external title search -------------------------------------------------
 # Both providers print "doi \t label" menu lines for pick. Crossref needs no key;
 # on failure it prints curl's message and returns 1.
 crossref() {
-    local json
-    json=$(curl -sSfG -m 10 --data-urlencode "query.bibliographic=$1" \
-        -d rows=8 -d select=DOI,title,issued https://api.crossref.org/works 2>&1) \
-        || { printf '%s' "${json##*$'\n'}"; return 1; }
-    # Titles can hold newlines and tabs, which would break the menu's lines and columns.
-    printf '%s' "$json" | jq -r '
+  local json
+  json=$(curl -sSfG -m 10 --data-urlencode "query.bibliographic=$1" \
+    -d rows=8 -d select=DOI,title,issued https://api.crossref.org/works 2>&1) \
+    || {
+      printf '%s' "${json##*$'\n'}"
+      return 1
+    }
+  # Titles can hold newlines and tabs, which would break the menu's lines and columns.
+  printf '%s' "$json" | jq -r '
         .message.items[]?
         | "\(.DOI)\t\(.title[0] // "?" | gsub("\\s+"; " ")) — \(.issued."date-parts"[0][0] // "?") — \(.DOI)"' 2>/dev/null
 }
@@ -222,67 +240,87 @@ crossref() {
 # request fails, so the caller reports Crossref's outcome. The key reaches curl
 # on stdin, not in its arguments, where ps would show it.
 openalex() {
-    local key json
-    # shellcheck source=/dev/null  # outside the repo
-    key=$( . "$OPENALEX_ENV" 2>/dev/null && printf %s "${OPENALEX_API_KEY:-}" )
-    [[ -n $key ]] || return 1
-    json=$(printf 'Authorization: Bearer %s\n' "$key" | curl -sSfG -m 10 -H @- \
-        --data-urlencode "search=$1" -d per-page=8 -d select=doi,title,publication_year \
-        https://api.openalex.org/works 2>/dev/null) || return 1
-    printf '%s' "$json" | jq -r '
+  local key json
+  # shellcheck source=/dev/null  # outside the repo
+  key=$(. "$OPENALEX_ENV" 2>/dev/null && printf %s "${OPENALEX_API_KEY:-}")
+  [[ -n $key ]] || return 1
+  json=$(printf 'Authorization: Bearer %s\n' "$key" | curl -sSfG -m 10 -H @- \
+    --data-urlencode "search=$1" -d per-page=8 -d select=doi,title,publication_year \
+    https://api.openalex.org/works 2>/dev/null) || return 1
+  printf '%s' "$json" | jq -r '
         .results[]? | select(.doi) | (.doi | sub("^https?://doi.org/"; "")) as $d
         | "\($d)\t\(.title // "?" | gsub("\\s+"; " ")) — \(.publication_year // "?") — \($d)"' 2>/dev/null
 }
 
 # Resolve free text to a DOI: Crossref, then OpenAlex, pick in fuzzel, upsert.
 external_search() {
-    local out err="" results=() oa_asked=""
-    out=$(crossref "$1") || { err=$out; out=; }
+  local out err="" results=() oa_asked=""
+  out=$(crossref "$1") || {
+    err=$out
+    out=
+  }
+  mapfile -t results < <(printf '%s' "$out")
+  if ((! ${#results[@]})); then
+    if out=$(openalex "$1"); then oa_asked=" or OpenAlex"; fi
     mapfile -t results < <(printf '%s' "$out")
-    if (( ! ${#results[@]} )); then
-        if out=$(openalex "$1"); then oa_asked=" or OpenAlex"; fi
-        mapfile -t results < <(printf '%s' "$out")
-    fi
-    if (( ! ${#results[@]} )); then
-        [[ -n $err ]] && { note "Crossref request failed: $err"; exit 1; }
-        note "No Crossref${oa_asked} match for: $1"; exit 0
-    fi
-    local picked
-    picked=$(printf '%s\n' "${results[@]}" | pick) || exit 0
-    [[ -n "$picked" ]] && open_or_add_doi "$picked"
+  fi
+  if ((! ${#results[@]})); then
+    [[ -n $err ]] && {
+      note "Crossref request failed: $err"
+      exit 1
+    }
+    note "No Crossref${oa_asked} match for: $1"
     exit 0
+  fi
+  local picked
+  picked=$(printf '%s\n' "${results[@]}" | pick) || exit 0
+  [[ -n "$picked" ]] && open_or_add_doi "$picked"
+  exit 0
 }
 
 # =====================  main  ==============================================
 # DOI, trailing punctuation stripped. A bare publisher prefix ("10.1103/") is not
 # looked up, so it doesn't list every paper from that publisher.
 if [[ $NOSPACE =~ 10\.[0-9]{4,9}/.* ]]; then
-    DOI=${BASH_REMATCH[0]%%+([.,;:)])}
-    M=(); [[ $DOI == */ ]] || mapfile -t M < <(lookup 1 "$DOI")
-    if (( ${#M[@]} )); then open_matches "${M[@]}"
-    elif doi_complete "$DOI"; then add doi "$DOI"
-    else note "Incomplete DOI; select the full DOI"
-    fi
-    exit 0
+  DOI=${BASH_REMATCH[0]%%+([.,;:)])}
+  M=()
+  [[ $DOI == */ ]] || mapfile -t M < <(lookup 1 "$DOI")
+  if ((${#M[@]})); then
+    open_matches "${M[@]}"
+  elif doi_complete "$DOI"; then
+    add doi "$DOI"
+  else
+    note "Incomplete DOI; select the full DOI"
+  fi
+  exit 0
 fi
 
 # ---- a marker or author-year citation, through this paper's citations.json --
 if [[ -f $CITES ]]; then
-    mapfile -t REFS < <(jq -r --arg sel "$QUERY" "$CITE_JQ" "$CITES" 2>/dev/null)
-    (( ${#REFS[@]} )) && { resolve_reference "${REFS[@]}"; exit 0; }
+  mapfile -t REFS < <(jq -r --arg sel "$QUERY" "$CITE_JQ" "$CITES" 2>/dev/null)
+  ((${#REFS[@]})) && {
+    resolve_reference "${REFS[@]}"
+    exit 0
+  }
 fi
 
 # ---- no DOI: local bibliographic search (normalised title match) ----------
 mapfile -t M < <(lookup 4 "$QUERY")
-(( ${#M[@]} )) && { open_matches "${M[@]}"; exit 0; }
+((${#M[@]})) && {
+  open_matches "${M[@]}"
+  exit 0
+}
 
 # ---- arXiv id (no DOI, looks like an arXiv id) ----------------------------
 if [[ $NOSPACE =~ [0-9]{4}\.[0-9]{4,5}(v[0-9]+)? ]]; then
-    ARXIV=${BASH_REMATCH[0]}
-    mapfile -t M < <(lookup 2 "${ARXIV%v*}")          # the library may hold another version
-    (( ${#M[@]} )) && { open_matches "${M[@]}"; exit 0; }
-    add arxiv "$ARXIV" && exit 0
-    # else fall through to the text search
+  ARXIV=${BASH_REMATCH[0]}
+  mapfile -t M < <(lookup 2 "${ARXIV%v*}") # the library may hold another version
+  ((${#M[@]})) && {
+    open_matches "${M[@]}"
+    exit 0
+  }
+  add arxiv "$ARXIV" && exit 0
+  # else fall through to the text search
 fi
 
 external_search "$QUERY"

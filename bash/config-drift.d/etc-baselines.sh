@@ -11,12 +11,13 @@
 # The ca-certificates trees are excluded, not listed: update-ca-trust rewrites
 # all 131 of them wholesale, and a baseline that churns on every ca-certificates
 # update is a warning you stop reading.
-check_baseline() {   # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
+check_baseline() { # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
   local label=$1 base=$2 observed=$3 complete=$4 baseline changes line
   local -a added=() removed=()
   if ! baseline=$(awk '/^\// {print}' "$base" 2>/dev/null | sort -u); then
     warn "${base#"$df_dir"/} is unreadable — baseline not compared"
-    etc_base=1; return
+    etc_base=1
+    return
   fi
   # Sort each side once; one comm computes both additions and removals.
   observed=$(printf '%s\n' "$observed" | awk 'NF' | sort -u)
@@ -56,11 +57,11 @@ check_etc_baselines() {
   etc_files=$(find /etc -type f 2>/dev/null) || etc_complete=0
   if package_files=$(pacman -Qlq 2>/dev/null) && [[ -n $package_files ]]; then
     unowned=$(comm -23 <(printf '%s\n' "$etc_files" | sort -u) \
-        <(printf '%s\n' "$package_files" | sort -u) | \
-        awk '!/^\/etc\/ca-certificates\/(extracted|trust-source)\// && NF')
-    if (( ! etc_complete )); then
+      <(printf '%s\n' "$package_files" | sort -u) \
+      | awk '!/^\/etc\/ca-certificates\/(extracted|trust-source)\// && NF')
+    if ((! etc_complete)); then
       mapfile -t unreadable < <(find /etc -type d \
-          \( ! -readable -o ! -executable \) 2>/dev/null | sort)
+        \( ! -readable -o ! -executable \) 2>/dev/null | sort)
       if ((${#unreadable[@]})); then
         skip "unowned: ${#unreadable[@]} root-only dir(s) not scanned (no root) — additions elsewhere still checked; -v lists them"
         ((verbose)) && printf '       ~ %s\n' "${unreadable[@]}"
@@ -71,17 +72,19 @@ check_etc_baselines() {
     fi
     check_baseline "unowned" "$df_dir/etc/unowned.txt" "$unowned" "$etc_complete"
   else
-    warn "pacman file inventory failed or was empty — unowned files not compared"; etc_base=1
+    warn "pacman file inventory failed or was empty — unowned files not compared"
+    etc_base=1
   fi
 
   # -Qii compares backup-file content, not -Qkk's metadata. Unreadable files
   # remain outside its coverage; do not infer removals from their absence.
   if package_info=$(pacman -Qii 2>/dev/null) && [[ -n $package_info ]]; then
     modified=$(awk '/ \[modified\]$/ {sub(/^[^\/]*/, ""); sub(/ \[modified\]$/, ""); print}' \
-        <<<"$package_info")
+      <<<"$package_info")
     check_baseline "modified" "$df_dir/etc/modified.txt" "$modified" 0
   else
-    warn "pacman backup inventory failed or was empty — modified files not compared"; etc_base=1
+    warn "pacman backup inventory failed or was empty — modified files not compared"
+    etc_base=1
   fi
 
   ((etc_base)) || ok "no new paths in the visible /etc inventories (unreadable files excluded)"

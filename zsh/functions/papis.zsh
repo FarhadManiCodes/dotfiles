@@ -41,22 +41,25 @@ _papis_ask_matching_pdfs() {
 # union across queries). No-op if all current.
 _papis_ask_refine_pending() {
   local -a queries=("$@")
-  (( ${#queries} )) || queries=("")
+  ((${#queries})) || queries=("")
   local -A seen
   local -a pdfs pending
   local q p
   for q in "${queries[@]}"; do
     for p in "${(@f)$(_papis_ask_matching_pdfs "$q")}"; do
-      [[ -n "$p" && -z "${seen[$p]}" ]] && { seen[$p]=1; pdfs+=("$p") }
+      [[ -n "$p" && -z "${seen[$p]}" ]] && {
+        seen[$p]=1
+        pdfs+=("$p")
+      }
     done
   done
-  (( ${#pdfs} )) || return 0
+  ((${#pdfs})) || return 0
   for p in "${pdfs[@]}"; do
     _papis_ask_needs_refine "$p" && pending+=("$p")
   done
-  (( ${#pending} )) || return 0
+  ((${#pending})) || return 0
   echo "papis-ask: refining ${#pending} PDF(s) before indexing…" >&2
-  if (( ${#pending} == 1 )); then
+  if ((${#pending} == 1)); then
     refinery "${pending[1]}"
   else
     refinery-batch "${pending[@]}"
@@ -73,7 +76,8 @@ _papis_ask_refine_pending() {
 # own match; papis_ask's deletion check is whole-library-aware so this can't
 # delete anything out of scope, see the papis-ask deletion-scope fix).
 pask() {
-  ( source ~/.config/secrets/papis.env 2>/dev/null
+  (
+    source ~/.config/secrets/papis.env 2>/dev/null
 
     if [[ "$1" == "index" ]]; then
       local -a rest=("${@:2}") flags=() queries=()
@@ -91,7 +95,7 @@ pask() {
         _papis_ask_refine_pending "${queries[@]}"
       fi
 
-      if (( is_force )) && (( ${#queries} )); then
+      if ((is_force)) && ((${#queries})); then
         local q
         for q in "${queries[@]}"; do
           papis ask index "${flags[@]}" "$q"

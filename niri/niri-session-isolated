@@ -1,7 +1,7 @@
 #!/bin/sh
 # Only these login values cross into the launcher. Ly's own shell reads remain.
 exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C /bin/sh -s -- \
-    "${XDG_SESSION_ID-}" "${XDG_SEAT-}" "${XDG_VTNR-}" <<'SESSION'
+  "${XDG_SESSION_ID-}" "${XDG_SEAT-}" "${XDG_VTNR-}" <<'SESSION'
 fail() { printf 'niri-session-isolated: %s\n' "$*" >&2; exit 1; }
 
 session_id=$1 seat=$2 vtnr=$3

@@ -33,38 +33,46 @@ set -uo pipefail
 # a trap that only cleans up leaves `read` waiting at the same prompt, with the
 # working files gone.
 TMPS=()
-cleanup() { (( ${#TMPS[@]} )) && rm -f "${TMPS[@]}" 2>/dev/null; }
+cleanup() { ((${#TMPS[@]})) && rm -f "${TMPS[@]}" 2>/dev/null; }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-mktmp() { local t; t=$(mktemp "$@") || exit 1; TMPS+=("$t"); printf '%s' "$t"; }
+mktmp() {
+  local t
+  t=$(mktemp "$@") || exit 1
+  TMPS+=("$t")
+  printf '%s' "$t"
+}
 
 # Atomically replace $bib with the contents of $1. The staging temp is created
 # in $bib's own directory so the final `mv` is a same-filesystem rename (atomic)
 # rather than a cross-fs copy from /tmp -- the .bib is never left half-written.
 commit_bib() {
-    local staged
-    staged=$(mktmp -p "$(dirname "$bib")" ".$(basename "$bib").XXXXXX") || return 1
-    cp -- "$1" "$staged" && mv -- "$staged" "$bib"
+  local staged
+  staged=$(mktmp -p "$(dirname "$bib")" ".$(basename "$bib").XXXXXX") || return 1
+  cp -- "$1" "$staged" && mv -- "$staged" "$bib"
 }
 
 # The compile hook discards this script's output (nvim runs it through
 # vim.fn.system), so a failure also notifies: otherwise it is never seen.
 fail() {
-    echo "papis-bib: $1"
-    command -v notify-send >/dev/null && notify-send -u critical "papis-bib" "$1"
-    exit 1
+  echo "papis-bib: $1"
+  command -v notify-send >/dev/null && notify-send -u critical "papis-bib" "$1"
+  exit 1
 }
 
 # papis bibtex ..., ending the run with papis's last error line if it fails.
 # papis exits 0 for no citations, an empty .bib and unknown keys, so a non-zero
 # status is a real error (a missing or unreadable file).
 bibtex() {
-    local err
-    err=$(papis bibtex "$@" 2>&1 >/dev/null) || fail "papis failed: ${err##*$'\n'}"
+  local err
+  err=$(papis bibtex "$@" 2>&1 >/dev/null) || fail "papis failed: ${err##*$'\n'}"
 }
 
 prune=0
-if [[ "${1:-}" == "--prune" ]]; then prune=1; shift; fi
+if [[ "${1:-}" == "--prune" ]]; then
+  prune=1
+  shift
+fi
 
 arg="${1:-.}"
 if [[ -f "$arg" ]]; then dir=$(cd "$(dirname "$arg")" && pwd); else dir=$(cd "$arg" 2>/dev/null && pwd) || exit 0; fi
@@ -79,8 +87,8 @@ bib="${2:-$dir/${bibname:-refs.bib}}"
 
 # --- per-project opt-out ----------------------------------------------------
 if grep -qiE '^\s*(%+|//)\s*papis-bib:\s*ignore\b' "$dir"/*.tex "$dir"/*.typ 2>/dev/null; then
-    echo "papis-bib: ignore flag found, skipping $dir"
-    exit 0
+  echo "papis-bib: ignore flag found, skipping $dir"
+  exit 0
 fi
 
 # --- source files (multi-file \input / #include projects) -------------------
@@ -96,13 +104,14 @@ bullets() { while IFS= read -r l; do [[ -n "$l" ]] && printf '  - %s\n' "$l"; do
 
 # "N entry" / "N entries" — count-aware noun (count is the number of lines in $1).
 n_entries() {
-    local n; n=$(grep -c . <<<"$1")
-    (( n == 1 )) && printf '%s entry' "$n" || printf '%s entries' "$n"
+  local n
+  n=$(grep -c . <<<"$1")
+  ((n == 1)) && printf '%s entry' "$n" || printf '%s entries' "$n"
 }
 
 # print the entry block for one key (papis puts the closing brace on its own line).
 entry_block() {
-    awk -v k="$2" '
+  awk -v k="$2" '
         $0 ~ "^@[a-zA-Z]+\\{[[:space:]]*" k "," { p = 1 }
         p { print }
         p && /^\}/ { p = 0 }
@@ -113,117 +122,134 @@ entry_block() {
 # AUTO-SYNC (default)
 # =============================================================================
 auto_sync() {
-    local cited out
-    cited=$(mktmp); out=$(mktmp)
+  local cited out
+  cited=$(mktmp)
+  out=$(mktmp)
 
-    # 1. library entries whose key is cited somewhere in the sources.
-    bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited"
+  # 1. library entries whose key is cited somewhere in the sources.
+  bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited"
 
-    # 2. union = existing (read first, so it WINS on a key clash) + cited-from-library.
-    local read_existing=()
-    [[ -f "$bib" ]] && read_existing=(read "$bib")
-    bibtex "${read_existing[@]}" read "$cited" unique save -f "$out"
-    if [[ ! -s "$out" ]]; then
-        echo "papis-bib: nothing to sync"; return 0
-    fi
+  # 2. union = existing (read first, so it WINS on a key clash) + cited-from-library.
+  local read_existing=()
+  [[ -f "$bib" ]] && read_existing=(read "$bib")
+  bibtex "${read_existing[@]}" read "$cited" unique save -f "$out"
+  if [[ ! -s "$out" ]]; then
+    echo "papis-bib: nothing to sync"
+    return 0
+  fi
 
-    if [[ -f "$bib" ]] && cmp -s "$out" "$bib"; then
-        rm -f "$out"; echo "papis-bib: $(basename "$bib") already up to date"; return 0
-    fi
+  if [[ -f "$bib" ]] && cmp -s "$out" "$bib"; then
+    rm -f "$out"
+    echo "papis-bib: $(basename "$bib") already up to date"
+    return 0
+  fi
 
-    # Backstop: an additive union can never legitimately shrink. Fewer entries
-    # than before means papis choked -- refuse rather than write a truncated .bib.
-    local old=0 new
-    [[ -f "$bib" ]] && old=$(grep -c '^@' "$bib")
-    new=$(grep -c '^@' "$out")
-    if (( new < old )); then
-        rm -f "$out"
-        echo "papis-bib: REFUSING -- additive sync produced fewer entries ($old -> $new); papis likely errored."
-        command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused" "$(basename "$bib"): $old -> $new entries"
-        return 1
-    fi
+  # Backstop: an additive union can never legitimately shrink. Fewer entries
+  # than before means papis choked -- refuse rather than write a truncated .bib.
+  local old=0 new
+  [[ -f "$bib" ]] && old=$(grep -c '^@' "$bib")
+  new=$(grep -c '^@' "$out")
+  if ((new < old)); then
+    rm -f "$out"
+    echo "papis-bib: REFUSING -- additive sync produced fewer entries ($old -> $new); papis likely errored."
+    command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused" "$(basename "$bib"): $old -> $new entries"
+    return 1
+  fi
 
-    commit_bib "$out" || fail "failed to write $bib"
-    echo "papis-bib: synced $(basename "$bib") ($old -> $new entries)"
-    command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") ($old -> $new entries)"
+  commit_bib "$out" || fail "failed to write $bib"
+  echo "papis-bib: synced $(basename "$bib") ($old -> $new entries)"
+  command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") ($old -> $new entries)"
 }
 
 # =============================================================================
 # PRUNE (interactive)
 # =============================================================================
 prune_mode() {
-    if [[ ! -t 0 ]]; then
-        echo "papis-bib --prune: needs an interactive terminal; aborting."; return 1
-    fi
-    if [[ ! -f "$bib" ]]; then
-        echo "papis-bib --prune: $bib does not exist, nothing to prune."; return 0
-    fi
+  if [[ ! -t 0 ]]; then
+    echo "papis-bib --prune: needs an interactive terminal; aborting."
+    return 1
+  fi
+  if [[ ! -f "$bib" ]]; then
+    echo "papis-bib --prune: $bib does not exist, nothing to prune."
+    return 0
+  fi
 
-    # Normalise through papis up front so later diffs reflect content, not the
-    # difference between hand formatting and papis' serialisation.
-    local work; work=$(mktmp)
-    # Every papis step goes through bibtex(): a failed filter-cited left an empty
-    # list, which read as "no source cites anything" and offered every entry.
-    bibtex read "$bib" save -f "$work"
-    local changed=0 ans
+  # Normalise through papis up front so later diffs reflect content, not the
+  # difference between hand formatting and papis' serialisation.
+  local work
+  work=$(mktmp)
+  # Every papis step goes through bibtex(): a failed filter-cited left an empty
+  # list, which read as "no source cites anything" and offered every entry.
+  bibtex read "$bib" save -f "$work"
+  local changed=0 ans
 
-    # ---- Phase 1: remove uncited -------------------------------------------
-    local pruned removed
-    pruned=$(mktmp)
-    bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned"
-    removed=$(comm -23 <(keys_of "$work") <(keys_of "$pruned"))
-    if [[ -n "$removed" ]]; then
-        echo "Uncited entries in $(basename "$bib") (no source cites them):"
-        bullets <<<"$removed"
-        read -rp "Remove $(n_entries "$removed") (uncited)? [y/N] " ans
-        if [[ "$ans" == [yY] ]]; then
-            mv "$pruned" "$work"; changed=1; echo "  removed."
-        else
-            rm -f "$pruned"; echo "  kept."
-        fi
+  # ---- Phase 1: remove uncited -------------------------------------------
+  local pruned removed
+  pruned=$(mktmp)
+  bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned"
+  removed=$(comm -23 <(keys_of "$work") <(keys_of "$pruned"))
+  if [[ -n "$removed" ]]; then
+    echo "Uncited entries in $(basename "$bib") (no source cites them):"
+    bullets <<<"$removed"
+    read -rp "Remove $(n_entries "$removed") (uncited)? [y/N] " ans
+    if [[ "$ans" == [yY] ]]; then
+      mv "$pruned" "$work"
+      changed=1
+      echo "  removed."
     else
-        rm -f "$pruned"; echo "papis-bib --prune: no uncited entries."
+      rm -f "$pruned"
+      echo "  kept."
     fi
+  else
+    rm -f "$pruned"
+    echo "papis-bib --prune: no uncited entries."
+  fi
 
-    # ---- Phase 2: update entries that differ from the library --------------
-    local updated; updated=$(mktmp)
-    bibtex read "$work" update --from --all save -f "$updated"
-    if ! cmp -s "$work" "$updated"; then
-        local diffkeys=""
-        while read -r k; do
-            [[ -z "$k" ]] && continue
-            if ! diff -q <(entry_block "$work" "$k") <(entry_block "$updated" "$k") >/dev/null 2>&1; then
-                diffkeys+="$k"$'\n'
-            fi
-        done < <(comm -12 <(keys_of "$work") <(keys_of "$updated"))
-        diffkeys=${diffkeys%$'\n'}
+  # ---- Phase 2: update entries that differ from the library --------------
+  local updated
+  updated=$(mktmp)
+  bibtex read "$work" update --from --all save -f "$updated"
+  if ! cmp -s "$work" "$updated"; then
+    local diffkeys=""
+    while read -r k; do
+      [[ -z "$k" ]] && continue
+      if ! diff -q <(entry_block "$work" "$k") <(entry_block "$updated" "$k") >/dev/null 2>&1; then
+        diffkeys+="$k"$'\n'
+      fi
+    done < <(comm -12 <(keys_of "$work") <(keys_of "$updated"))
+    diffkeys=${diffkeys%$'\n'}
 
-        if [[ -n "$diffkeys" ]]; then
-            echo "Cited entries whose $(basename "$bib") version differs from papis:"
-            bullets <<<"$diffkeys"
-            read -rp "Update $(n_entries "$diffkeys") from the library? [y/N] " ans
-            if [[ "$ans" == [yY] ]]; then
-                mv "$updated" "$work"; changed=1; echo "  updated."
-            else
-                rm -f "$updated"; echo "  kept."
-            fi
-        else
-            rm -f "$updated"
-        fi
+    if [[ -n "$diffkeys" ]]; then
+      echo "Cited entries whose $(basename "$bib") version differs from papis:"
+      bullets <<<"$diffkeys"
+      read -rp "Update $(n_entries "$diffkeys") from the library? [y/N] " ans
+      if [[ "$ans" == [yY] ]]; then
+        mv "$updated" "$work"
+        changed=1
+        echo "  updated."
+      else
+        rm -f "$updated"
+        echo "  kept."
+      fi
     else
-        rm -f "$updated"; echo "papis-bib --prune: no entries differ from the library."
+      rm -f "$updated"
     fi
+  else
+    rm -f "$updated"
+    echo "papis-bib --prune: no entries differ from the library."
+  fi
 
-    # ---- Write back only if the user confirmed a change --------------------
-    if (( changed )); then
-        if commit_bib "$work"; then
-            echo "papis-bib --prune: wrote $(basename "$bib") ($(grep -c '^@' "$bib") entries)."
-        else
-            echo "papis-bib --prune: failed to write $bib"; return 1
-        fi
+  # ---- Write back only if the user confirmed a change --------------------
+  if ((changed)); then
+    if commit_bib "$work"; then
+      echo "papis-bib --prune: wrote $(basename "$bib") ($(grep -c '^@' "$bib") entries)."
     else
-        echo "papis-bib --prune: no changes made."
+      echo "papis-bib --prune: failed to write $bib"
+      return 1
     fi
+  else
+    echo "papis-bib --prune: no changes made."
+  fi
 }
 
-if (( prune )); then prune_mode; else auto_sync; fi
+if ((prune)); then prune_mode; else auto_sync; fi

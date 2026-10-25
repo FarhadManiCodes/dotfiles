@@ -32,20 +32,21 @@ MARKER=/run/unblock-fuse.aborted
 
 # PIDs sitting uninterruptibly inside a FUSE request.
 wedged_pids() {
-    # State comes from /proc/PID/status, not /proc/PID/stat: the latter is
-    # `pid (comm) state ...` and comm may contain spaces, so a positional
-    # field lands inside the process name instead of on the state.
-    for status in /proc/[0-9]*/status; do
-        pid=${status%/status}; pid=${pid#/proc/}
-        [ "$(awk '/^State:/{print $2; exit}' "$status" 2>/dev/null)" = "D" ] || continue
-        case "$(cat "/proc/$pid/wchan" 2>/dev/null)" in
-            request_wait_answer|*fuse*) printf '%s ' "$pid" ;;
-        esac
-    done
+  # State comes from /proc/PID/status, not /proc/PID/stat: the latter is
+  # `pid (comm) state ...` and comm may contain spaces, so a positional
+  # field lands inside the process name instead of on the state.
+  for status in /proc/[0-9]*/status; do
+    pid=${status%/status}
+    pid=${pid#/proc/}
+    [ "$(awk '/^State:/{print $2; exit}' "$status" 2>/dev/null)" = "D" ] || continue
+    case "$(cat "/proc/$pid/wchan" 2>/dev/null)" in
+      request_wait_answer | *fuse*) printf '%s ' "$pid" ;;
+    esac
+  done
 }
 
 case "$1" in
-pre)
+  pre)
     rm -f "$MARKER"
     first=$(wedged_pids)
     # Log every outcome, including the boring one. Without a line here, "nothing
@@ -54,8 +55,8 @@ pre)
     # what let the restart-swayidle hook sit dead through 1002 resumes. One line
     # per suspend is a cheap price for silence meaning something.
     if [ -z "$first" ]; then
-        logger -t unblock-fuse "pre: no wedged FUSE tasks, nothing to do"
-        exit 0
+      logger -t unblock-fuse "pre: no wedged FUSE tasks, nothing to do"
+      exit 0
     fi
 
     # Sample twice: a slow-but-working mount can show D briefly. Only treat a
@@ -65,32 +66,32 @@ pre)
     second=$(wedged_pids)
     stuck=""
     for p in $first; do
-        case " $second " in *" $p "*) stuck="$stuck $p" ;; esac
+      case " $second " in *" $p "*) stuck="$stuck $p" ;; esac
     done
     if [ -z "$stuck" ]; then
-        logger -t unblock-fuse "pre: task(s)$first were mid-request but cleared within 2s, left alone"
-        exit 0
+      logger -t unblock-fuse "pre: task(s)$first were mid-request but cleared within 2s, left alone"
+      exit 0
     fi
 
     aborted=""
     for conn in /sys/fs/fuse/connections/*; do
-        [ -f "$conn/waiting" ] || continue
-        w=$(cat "$conn/waiting" 2>/dev/null)
-        [ "${w:-0}" -gt 0 ] 2>/dev/null || continue
-        if echo 1 > "$conn/abort" 2>/dev/null; then
-            aborted="$aborted ${conn##*/}"
-        fi
+      [ -f "$conn/waiting" ] || continue
+      w=$(cat "$conn/waiting" 2>/dev/null)
+      [ "${w:-0}" -gt 0 ] 2>/dev/null || continue
+      if echo 1 >"$conn/abort" 2>/dev/null; then
+        aborted="$aborted ${conn##*/}"
+      fi
     done
     if [ -z "$aborted" ]; then
-        logger -t unblock-fuse "pre: task(s)$stuck wedged but no connection had requests outstanding -- nothing aborted"
-        exit 0
+      logger -t unblock-fuse "pre: task(s)$stuck wedged but no connection had requests outstanding -- nothing aborted"
+      exit 0
     fi
 
-    : > "$MARKER"
+    : >"$MARKER"
     logger -t unblock-fuse "wedged in FUSE:$stuck -- aborted connections:$aborted"
     ;;
 
-post)
+  post)
     [ -e "$MARKER" ] || exit 0
     rm -f "$MARKER"
     # if/else, not `&& logger … || logger …`: in that form a failing logger on
@@ -99,43 +100,43 @@ post)
     # are the evidence a suspend post-mortem works from, so a false one is
     # worse than none.
     if out=$(systemd-run --no-block --collect --unit=unblock-fuse-remount \
-            --description="Remount rclone after unblock-fuse aborted a connection" \
-            "$0" remount 2>&1); then
-        logger -t unblock-fuse "queued remount via systemd-run"
+      --description="Remount rclone after unblock-fuse aborted a connection" \
+      "$0" remount 2>&1); then
+      logger -t unblock-fuse "queued remount via systemd-run"
     else
-        logger -t unblock-fuse "FAILED to queue remount: $out"
+      logger -t unblock-fuse "FAILED to queue remount: $out"
     fi
     ;;
 
-remount)
+  remount)
     # Runs as a transient unit, so it outlives the sleep hook. Wait for the thaw
     # before touching the user manager; without this the restart fails instantly.
     i=0
     while [ "$(systemctl show user.slice -p FreezerState --value 2>/dev/null)" != "running" ]; do
-        i=$((i + 1))
-        if [ "$i" -gt 60 ]; then
-            logger -t unblock-fuse "user.slice still frozen after ${i}s -- rclone NOT remounted"
-            exit 1
-        fi
-        sleep 1
+      i=$((i + 1))
+      if [ "$i" -gt 60 ]; then
+        logger -t unblock-fuse "user.slice still frozen after ${i}s -- rclone NOT remounted"
+        exit 1
+      fi
+      sleep 1
     done
     [ "$i" -gt 0 ] && logger -t unblock-fuse "user.slice thawed after ${i}s"
 
     for uid in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $1}'); do
-        [ "$uid" -ge 1000 ] 2>/dev/null || continue
-        user=$(id -nu "$uid" 2>/dev/null) || continue
-        # --plain: without it systemctl prefixes a failed unit with a bullet, so
-        # $1 would be the bullet and not the unit name -- and this runs exactly
-        # when those units are most likely to be failed.
-        for u in $(systemctl --user --machine="${user}@.host" list-units --all \
-                       --plain --no-legend --no-pager 'rclone@*.service' 2>/dev/null \
-                   | awk '{print $1}'); do
-            if out=$(systemctl --user --machine="${user}@.host" restart "$u" 2>&1); then
-                logger -t unblock-fuse "restarted $u for $user"
-            else
-                logger -t unblock-fuse "FAILED to restart $u for $user: $out"
-            fi
-        done
+      [ "$uid" -ge 1000 ] 2>/dev/null || continue
+      user=$(id -nu "$uid" 2>/dev/null) || continue
+      # --plain: without it systemctl prefixes a failed unit with a bullet, so
+      # $1 would be the bullet and not the unit name -- and this runs exactly
+      # when those units are most likely to be failed.
+      for u in $(systemctl --user --machine="${user}@.host" list-units --all \
+        --plain --no-legend --no-pager 'rclone@*.service' 2>/dev/null \
+        | awk '{print $1}'); do
+        if out=$(systemctl --user --machine="${user}@.host" restart "$u" 2>&1); then
+          logger -t unblock-fuse "restarted $u for $user"
+        else
+          logger -t unblock-fuse "FAILED to restart $u for $user: $out"
+        fi
+      done
     done
     ;;
 esac

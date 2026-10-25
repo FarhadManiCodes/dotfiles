@@ -14,8 +14,8 @@ notify() { notify-send -u critical "Papers" "$1"; }
 books=0
 prompt="  Papers (type a #tag to filter): "
 if [[ ${1:-} == --books ]]; then
-    books=1
-    prompt="  Books (author, title or #tag): "
+  books=1
+  prompt="  Books (author, title or #tag): "
 fi
 
 # Per entry: ref, year, first author, title, folder, first file, tags (joined when
@@ -25,7 +25,10 @@ fi
 rows=$(yq -o=tsv '[.ref, (.year // ""), (.author_list[0].family // .author // "?"),
         (.title // ""), (filename | sub("info\.yaml$"; "")), (.files[0] // ""),
         ((.tags // []) | (select(tag == "!!seq") | join(" ")) // .)]' "$PAPERS"/*/info.yaml 2>&1) \
-    || { notify "Library scan failed: ${rows##*$'\n'}"; exit 1; }
+  || {
+    notify "Library scan failed: ${rows##*$'\n'}"
+    exit 1
+  }
 [[ -n $rows ]] || exit 0
 
 # "<what to open> \t <label>": the file's path, or browse:<ref> without one.
@@ -39,10 +42,11 @@ menu=$(awk -F'\t' -v books="$books" '{
 [[ -n $menu ]] || exit 0
 
 choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
-    --prompt "$prompt" --width 100 --lines 15 <<<"$menu")
+  --prompt "$prompt" --width 100 --lines 15 <<<"$menu")
 case $choice in
-    '') exit 0 ;;
-    browse:*)
-        err=$(papis browse "ref:${choice#browse:}" 2>&1) || notify "Could not open it: ${err##*$'\n'}" ;;
-    *) open-detached "$choice" ;;
+  '') exit 0 ;;
+  browse:*)
+    err=$(papis browse "ref:${choice#browse:}" 2>&1) || notify "Could not open it: ${err##*$'\n'}"
+    ;;
+  *) open-detached "$choice" ;;
 esac

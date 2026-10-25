@@ -18,21 +18,42 @@ count=20
 min_completion=0.98
 do_install=0
 
-die() { printf 'mirrorlist-rank: %s\n' "$1" >&2; exit 1; }
+die() {
+  printf 'mirrorlist-rank: %s\n' "$1" >&2
+  exit 1
+}
 
 while (($#)); do
   case $1 in
-    -n|--count)   [[ ${2:-} =~ ^[0-9]+$ ]] || die "-n needs a number"; count=$2; shift 2 ;;
-    --min-completion) [[ ${2:-} =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] || die "--min-completion needs 0..1"; min_completion=$2; shift 2 ;;
-    -c|--country) [[ ${2:-} =~ ^[A-Za-z]{2}$ ]] || die "-c needs a 2-letter country code"; country=${2^^}; shift 2 ;;
-    --install)    do_install=1; shift ;;
-    -h|--help)    sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0 ;;
-    *)            die "unknown argument: $1" ;;
+    -n | --count)
+      [[ ${2:-} =~ ^[0-9]+$ ]] || die "-n needs a number"
+      count=$2
+      shift 2
+      ;;
+    --min-completion)
+      [[ ${2:-} =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] || die "--min-completion needs 0..1"
+      min_completion=$2
+      shift 2
+      ;;
+    -c | --country)
+      [[ ${2:-} =~ ^[A-Za-z]{2}$ ]] || die "-c needs a 2-letter country code"
+      country=${2^^}
+      shift 2
+      ;;
+    --install)
+      do_install=1
+      shift
+      ;;
+    -h | --help)
+      sed -n '2,8p' "$0" | sed 's/^# \?//'
+      exit 0
+      ;;
+    *) die "unknown argument: $1" ;;
   esac
 done
 
 command -v rankmirrors >/dev/null || die "rankmirrors not found (pacman-contrib)"
-command -v jq          >/dev/null || die "jq not found"
+command -v jq >/dev/null || die "jq not found"
 
 tmp=$(mktemp -d) || die "could not create a temp directory"
 trap 'rm -rf "$tmp"' EXIT
@@ -40,8 +61,8 @@ trap 'rm -rf "$tmp"' EXIT
 # Candidates from Arch's status API, filtered here: https, IPv4, active, at most
 # 24 h behind, and answering >= min_completion of Arch's checks (sysup warns
 # below 0.95). Not Arch's score: speed from here is what this measures.
-curl -fsS --max-time 20 'https://archlinux.org/mirrors/status/json/' -o "$tmp/status" ||
-  die "could not reach archlinux.org for the mirror status — nothing was changed"
+curl -fsS --max-time 20 'https://archlinux.org/mirrors/status/json/' -o "$tmp/status" \
+  || die "could not reach archlinux.org for the mirror status — nothing was changed"
 
 jq -r --arg cc "$country" --argjson minc "$min_completion" '
   .urls[]
@@ -49,8 +70,8 @@ jq -r --arg cc "$country" --argjson minc "$min_completion" '
            and .country_code == $cc
            and (.completion_pct // 0) >= $minc
            and (.delay // 0) <= 86400)
-  | "Server = \(.url | sub("/$"; ""))/$repo/os/$arch"' "$tmp/status" > "$tmp/all" ||
-  die "could not read the mirror status JSON — nothing was changed"
+  | "Server = \(.url | sub("/$"; ""))/$repo/os/$arch"' "$tmp/status" >"$tmp/all" \
+  || die "could not read the mirror status JSON — nothing was changed"
 
 candidates=$(grep -c '^Server' "$tmp/all")
 ((candidates)) || die "no ${country} mirror is https, IPv4, active and >= $(awk -v m="$min_completion" 'BEGIN{printf "%d", m*100}')% complete — check the country code"
@@ -58,20 +79,20 @@ candidates=$(grep -c '^Server' "$tmp/all")
 # One timed pass. Neighbours differ by less than run-to-run noise, so no number
 # of passes settles the order; 20 entries put the cut-off where it does not matter.
 printf 'timing %d healthy %s mirrors for the fastest %d...\n' "$candidates" "$country" "$count" >&2
-rankmirrors -r core -w -t -n 0 "$tmp/all" 2>/dev/null |
-  sed -n 's/^\(https\?:[^ ]*\) : \([0-9.]*\)$/\2 \1/p' | sort -g > "$tmp/times" ||
-  die "rankmirrors failed — nothing was changed"
-ranked=$(wc -l < "$tmp/times")
+rankmirrors -r core -w -t -n 0 "$tmp/all" 2>/dev/null \
+  | sed -n 's/^\(https\?:[^ ]*\) : \([0-9.]*\)$/\2 \1/p' | sort -g >"$tmp/times" \
+  || die "rankmirrors failed — nothing was changed"
+ranked=$(wc -l <"$tmp/times")
 ((ranked)) || die "no mirror responded — nothing was changed"
 ((ranked >= count)) || printf 'note: asked for %d, only %d answered\n' "$count" "$ranked" >&2
 
-head -n "$count" "$tmp/times" > "$tmp/top"
-installed=$(wc -l < "$tmp/top")
+head -n "$count" "$tmp/times" >"$tmp/top"
+installed=$(wc -l <"$tmp/top")
 {
   printf '## Ranked by mirrorlist-rank on %s — %s, top %d by one timed pass\n##\n' \
     "$(date +%F)" "$country" "$installed"
   awk '{print "Server = " $2}' "$tmp/top"
-} > "$tmp/final"
+} >"$tmp/final"
 cat "$tmp/final"
 
 # Say whether this changes anything, on stderr so stdout stays a clean
@@ -81,14 +102,14 @@ bases() {
   sed -n 's/^[[:space:]]*Server[[:space:]]*=[[:space:]]*//p' "$1" | sed 's/\$repo.*//' | sort -u
 }
 if [[ -r $target ]]; then
-  mapfile -t added   < <(comm -23 <(bases "$tmp/final") <(bases "$target"))
+  mapfile -t added < <(comm -23 <(bases "$tmp/final") <(bases "$target"))
   mapfile -t dropped < <(comm -13 <(bases "$tmp/final") <(bases "$target"))
   kept=$(comm -12 <(bases "$tmp/final") <(bases "$target") | wc -l)
   printf '\n%d of %d already in your current list.\n' "$kept" "$installed" >&2
   if ((${#added[@]} == 0 && ${#dropped[@]} == 0)); then
     printf 'Same set of mirrors — a re-rank would only reorder them.\n' >&2
   else
-    ((${#added[@]}))   && printf '  + would add:  %s\n' "${added[@]}"   >&2
+    ((${#added[@]})) && printf '  + would add:  %s\n' "${added[@]}" >&2
     ((${#dropped[@]})) && printf '  - would drop: %s\n' "${dropped[@]}" >&2
   fi
 else

@@ -19,7 +19,7 @@ PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 _open_book() {
   local file="$1" page="${2:-}"
   case "${file:l}" in
-    *.pdf|*.epub)
+    *.pdf | *.epub)
       if [[ -n "$page" ]]; then
         local yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
         if [[ -n "$yloc" ]]; then
@@ -31,7 +31,7 @@ _open_book() {
         sioyek "$file" 2>/dev/null &
       fi
       ;;
-    *)      open-detached "$file" ;;
+    *) open-detached "$file" ;;
   esac
 }
 
@@ -97,15 +97,15 @@ rgbook() {
   local reload_cmd="$rg_cmd | $format_cmd || true"
 
   local result=$(fzf --ansi --disabled --query "$query" \
-      --bind "change:reload:$reload_cmd" \
-      --bind "start:reload:$reload_cmd" \
-      --delimiter=$'\t' \
-      --with-nth=2 \
-      --preview '[ -n {q} ] && rg --smart-case --context 3 --no-heading -e {q} "$SP/"{1} 2>/dev/null | head -20' \
-      --preview-window='hidden,right:50%' \
-      --bind 'ctrl-p:toggle-preview' \
-      --expect='ctrl-d,ctrl-o' \
-      --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
+    --bind "change:reload:$reload_cmd" \
+    --bind "start:reload:$reload_cmd" \
+    --delimiter=$'\t' \
+    --with-nth=2 \
+    --preview '[ -n {q} ] && rg --smart-case --context 3 --no-heading -e {q} "$SP/"{1} 2>/dev/null | head -20' \
+    --preview-window='hidden,right:50%' \
+    --bind 'ctrl-p:toggle-preview' \
+    --expect='ctrl-d,ctrl-o' \
+    --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
 
   [[ -z "$result" ]] && return 0
 
@@ -122,7 +122,7 @@ rgbook() {
     return 1
   fi
 
-  local page=$(grep -oP 'Page \K[0-9]+' <<< "$selection" | head -1)
+  local page=$(grep -oP 'Page \K[0-9]+' <<<"$selection" | head -1)
 
   case "$key" in
     ctrl-d)
@@ -147,13 +147,13 @@ fbook() {
   local pattern="${*:-.}"
 
   local -x SP="$search_path"
-  local result=$(fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null | \
-    sed "s|^$search_path/||" | \
-    fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
-        --preview-window='hidden,right:40%' \
-        --bind 'ctrl-p:toggle-preview' \
-        --expect='ctrl-d,ctrl-o' \
-        --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
+  local result=$(fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null \
+    | sed "s|^$search_path/||" \
+    | fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
+      --preview-window='hidden,right:40%' \
+      --bind 'ctrl-p:toggle-preview' \
+      --expect='ctrl-d,ctrl-o' \
+      --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
 
   [[ -z "$result" ]] && return 0
 
@@ -189,13 +189,16 @@ fbook() {
 #   output defaults to <input>_sel.pdf
 # ----------------------------------------------------------------------------
 pdfsel() {
-  if (( $# < 2 )); then
+  if (($# < 2)); then
     echo "usage: pdfsel <input.pdf> <pages> [output.pdf]" >&2
     echo "  pages: 1-5 | 1,3,5 | 1-5,8 | r3-r1 (last 3) | z (last)" >&2
     return 1
   fi
   local in="$1" pages="$2" out="${3:-${1:r}_sel.pdf}"
-  [[ -f "$in" ]] || { echo "pdfsel: no such file: $in" >&2; return 1; }
+  [[ -f "$in" ]] || {
+    echo "pdfsel: no such file: $in" >&2
+    return 1
+  }
   qpdf "$in" --pages . "$pages" -- "$out" && echo "→ $out"
 }
 
@@ -204,14 +207,20 @@ pdfsel() {
 # Usage: pdfmerge <in1.pdf> <in2.pdf> [in3.pdf ...] <output.pdf>
 # ----------------------------------------------------------------------------
 pdfmerge() {
-  if (( $# < 3 )); then
+  if (($# < 3)); then
     echo "usage: pdfmerge <in1.pdf> <in2.pdf> [...] <output.pdf>" >&2
     return 1
   fi
   local out="${@[-1]}" ins=("${@[1,-2]}") f
   for f in "$ins[@]"; do
-    [[ -f "$f" ]] || { echo "pdfmerge: no such file: $f" >&2; return 1; }
-    [[ "$f" == "$out" ]] && { echo "pdfmerge: output would overwrite input: $f" >&2; return 1; }
+    [[ -f "$f" ]] || {
+      echo "pdfmerge: no such file: $f" >&2
+      return 1
+    }
+    [[ "$f" == "$out" ]] && {
+      echo "pdfmerge: output would overwrite input: $f" >&2
+      return 1
+    }
   done
   qpdf "$ins[1]" --pages "$ins[@]" -- "$out" && echo "→ $out (${#ins} files)"
 }

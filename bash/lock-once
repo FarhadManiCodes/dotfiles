@@ -12,15 +12,18 @@
 # is. Anything we cannot positively confirm as a live swaylock of our own --
 # a zombie, a race, a process that vanished mid-check -- falls through and locks.
 lock_keyring() {
-    # The helper reports failures. They must never prevent screen locking.
-    "$HOME/.local/bin/keyring-lock" || :
+  # The helper reports failures. They must never prevent screen locking.
+  "$HOME/.local/bin/keyring-lock" || :
 }
 
 for pid in $(pgrep -x -u "$(id -u)" swaylock 2>/dev/null); do
-    case "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" in
-        ""|Z) continue ;;   # vanished or defunct: holding nothing
-        *)    lock_keyring; exit 0 ;;  # screen already locked; relock keyrings
-    esac
+  case "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" in
+    "" | Z) continue ;; # vanished or defunct: holding nothing
+    *)
+      lock_keyring
+      exit 0
+      ;; # screen already locked; relock keyrings
+  esac
 done
 # Before sleep, swayidle suspends anyway when this fails: say so.
 swaylock -f || notify-send -a "" -u critical "Screen lock failed" "swaylock exited $?"

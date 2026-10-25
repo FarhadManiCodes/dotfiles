@@ -15,25 +15,28 @@ _sysup_mirrorlist_check() {
   fi
 
   local age servers
-  age=$(( ( $(date +%s) - $(stat -Lc %Y "$ml") ) / 86400 ))
+  age=$((($(date +%s) - $(stat -Lc %Y "$ml")) / 86400))
   servers=$(grep -c '^[[:space:]]*Server[[:space:]]*=' "$ml")
 
-  if (( servers == 0 )); then
+  if ((servers == 0)); then
     echo "   ⚠ no active Server line — pacman has no mirror to use"
     return 0
   fi
   local stale=0
-  if (( age > max_age )); then
+  if ((age > max_age)); then
     echo "   ⚠ last re-ranked ${age} days ago (${servers} servers)"
     stale=1
   else
     echo "   ${servers} servers, last re-ranked ${age} days ago"
   fi
 
-  command -v jq >/dev/null 2>&1 || { echo "   jq missing — mirror validity NOT checked"; return 0 }
+  command -v jq >/dev/null 2>&1 || {
+    echo "   jq missing — mirror validity NOT checked"
+    return 0
+  }
   local report
-  if ! report=$(curl -fsS --max-time 8 https://archlinux.org/mirrors/status/json/ 2>/dev/null) ||
-     [[ -z $report ]]; then
+  if ! report=$(curl -fsS --max-time 8 https://archlinux.org/mirrors/status/json/ 2>/dev/null) \
+    || [[ -z $report ]]; then
     echo "   archlinux.org unreachable — mirror validity NOT checked"
     return 0
   fi
@@ -65,7 +68,7 @@ _sysup_mirrorlist_check() {
 
   # Offer the fix rather than printing it (docs/architecture/mirrorlist.md).
   # Real measurement (downloads from every candidate), so never automatic.
-  (( stale )) || [[ -n $problems ]] || return 0
+  ((stale)) || [[ -n $problems ]] || return 0
   if [[ $ml != /etc/pacman.d/mirrorlist ]]; then
     echo "        fix: mirrorlist-rank --install   (not offered — this was a copy, not the live list)"
     return 0

@@ -4,7 +4,8 @@
 # print values or parser errors, which can include file contents.
 check_spotify_config() {
   hdr "Spotify config matches the template"
-  if spotify_report=$(python3 - "$df_dir/spotify-player/app.toml" \
+  if spotify_report=$(
+    python3 - "$df_dir/spotify-player/app.toml" \
       "${XDG_CONFIG_HOME:-$HOME/.config}/spotify-player/app.toml" 2>/dev/null <<'PY'
 import json
 import pprint

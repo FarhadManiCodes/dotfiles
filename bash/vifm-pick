@@ -34,9 +34,9 @@ rm -f "$xdir"/action "$xdir"/path "$xdir"/cd "$xdir"/cp
 
 # reply <cd|goto|none> [path] — the only things vifm still acts on.
 reply() {
-    printf '%s' "$1" > "$xdir/action"
-    [[ $# -ge 2 ]] && printf '%s' "$2" > "$xdir/path"
-    return 0
+  printf '%s' "$1" >"$xdir/action"
+  [[ $# -ge 2 ]] && printf '%s' "$2" >"$xdir/path"
+  return 0
 }
 
 # Open by type: sioyek for PDF and EPUB, dispatched here rather than via xdg-open
@@ -46,23 +46,23 @@ reply() {
 # boundary at the center, leaving the previous page visible.
 
 open_book() {
-    local file="$1" page="${2:-}"
-    case "${file,,}" in
-        *.pdf|*.epub)
-            if [[ -n "$page" ]]; then
-                local yloc
-                yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
-                if [[ -n "$yloc" ]]; then
-                    setsid -f sioyek --page "$page" --yloc "$yloc" "$file" >/dev/null 2>&1
-                else
-                    setsid -f sioyek --page "$page" "$file" >/dev/null 2>&1
-                fi
-            else
-                setsid -f sioyek "$file" >/dev/null 2>&1
-            fi
-            ;;
-        *)      open-detached "$file" ;;
-    esac
+  local file="$1" page="${2:-}"
+  case "${file,,}" in
+    *.pdf | *.epub)
+      if [[ -n "$page" ]]; then
+        local yloc
+        yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
+        if [[ -n "$yloc" ]]; then
+          setsid -f sioyek --page "$page" --yloc "$yloc" "$file" >/dev/null 2>&1
+        else
+          setsid -f sioyek --page "$page" "$file" >/dev/null 2>&1
+        fi
+      else
+        setsid -f sioyek "$file" >/dev/null 2>&1
+      fi
+      ;;
+    *) open-detached "$file" ;;
+  esac
 }
 
 case "$cmd" in
@@ -71,20 +71,20 @@ case "$cmd" in
     sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
     export SP="$sp"
     result=$(fd --type f --max-depth 2 -e pdf -e epub . "$sp" 2>/dev/null \
-        | sed "s|^$sp/||" \
-        | fzf \
-            --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-            --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
-            --preview-window=hidden,right:40% \
-            --bind 'ctrl-p:toggle-preview' \
-            --header='Enter: open | Ctrl-d: cd')
+      | sed "s|^$sp/||" \
+      | fzf \
+        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+        --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
+        --preview-window=hidden,right:40% \
+        --bind 'ctrl-p:toggle-preview' \
+        --header='Enter: open | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
     abs="$sp/$result"
     if [[ -e "$xdir/cd" ]]; then
-        reply cd "$(dirname "$abs")"
+      reply cd "$(dirname "$abs")"
     else
-        reply none
-        open_book "$abs"
+      reply none
+      open_book "$abs"
     fi
     ;;
 
@@ -137,71 +137,71 @@ case "$cmd" in
     }'"
     reload_cmd="$rg_cmd | $format_cmd || true"
     result=$(fzf --ansi --disabled \
-        --bind "change:reload:$reload_cmd" \
-        --bind "start:reload:$reload_cmd" \
-        --delimiter=$'\t' \
-        --with-nth=2 \
-        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-        --preview '[ -n {q} ] && rg --smart-case --context 3 --no-heading -e {q} "$SP/"{1} 2>/dev/null | head -20' \
-        --preview-window='hidden,right:50%' \
-        --bind 'ctrl-p:toggle-preview' \
-        --header='Enter: open at page | Ctrl-d: cd')
+      --bind "change:reload:$reload_cmd" \
+      --bind "start:reload:$reload_cmd" \
+      --delimiter=$'\t' \
+      --with-nth=2 \
+      --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+      --preview '[ -n {q} ] && rg --smart-case --context 3 --no-heading -e {q} "$SP/"{1} 2>/dev/null | head -20' \
+      --preview-window='hidden,right:50%' \
+      --bind 'ctrl-p:toggle-preview' \
+      --header='Enter: open at page | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
     relpath="${result%%$'\t'*}"
-    page=$(grep -oP 'Page \K[0-9]+' <<< "$result" | head -1)
+    page=$(grep -oP 'Page \K[0-9]+' <<<"$result" | head -1)
     abs="$sp/${relpath%.md}.pdf"
     if [[ -e "$xdir/cd" ]]; then
-        reply cd "$(dirname "$abs")"
+      reply cd "$(dirname "$abs")"
     else
-        reply none
-        open_book "$abs" "$page"
+      reply none
+      open_book "$abs" "$page"
     fi
     ;;
 
   fdata)
     result=$(fd --one-file-system --type f \
-        -e csv -e tsv -e jsonl -e ndjson \
-        -e json -e yaml -e yml \
-        -e parquet -e avro -e orc -e feather \
-        -e xlsx -e xls \
-        -e pkl -e pickle -e joblib \
-        -e h5 -e hdf5 \
-        -e pt -e pth -e onnx \
-        --exclude __pycache__ --exclude node_modules --exclude venv \
-        2>/dev/null \
-        | fzf \
-            --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-            --bind "ctrl-v:execute-silent(touch '$xdir/cp')+accept" \
-            --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
-            --preview-window=hidden,right:40% \
-            --bind 'ctrl-p:toggle-preview' \
-            --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
+      -e csv -e tsv -e jsonl -e ndjson \
+      -e json -e yaml -e yml \
+      -e parquet -e avro -e orc -e feather \
+      -e xlsx -e xls \
+      -e pkl -e pickle -e joblib \
+      -e h5 -e hdf5 \
+      -e pt -e pth -e onnx \
+      --exclude __pycache__ --exclude node_modules --exclude venv \
+      2>/dev/null \
+      | fzf \
+        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+        --bind "ctrl-v:execute-silent(touch '$xdir/cp')+accept" \
+        --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
+        --preview-window=hidden,right:40% \
+        --bind 'ctrl-p:toggle-preview' \
+        --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
     [[ -z "$result" ]] && exit 0
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
     if [[ -e "$xdir/cd" ]]; then
-        reply cd "$(dirname "$abs")"
+      reply cd "$(dirname "$abs")"
     elif [[ -e "$xdir/cp" ]]; then
-        reply none
-        printf '%s' "$abs" | wl-copy
+      reply none
+      printf '%s' "$abs" | wl-copy
     else
-        reply goto "$abs"
+      reply goto "$abs"
     fi
     ;;
 
   fnb)
     result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null \
-        | fzf \
-            --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-            --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
-            --preview-window=hidden,right:30% \
-            --bind 'ctrl-p:toggle-preview' \
-            --header='Enter: goto | Ctrl-d: cd')
+      | fzf \
+        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+        --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
+        --preview-window=hidden,right:30% \
+        --bind 'ctrl-p:toggle-preview' \
+        --header='Enter: goto | Ctrl-d: cd')
     [[ -z "$result" ]] && exit 0
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
     if [[ -e "$xdir/cd" ]]; then
-        reply cd "$(dirname "$abs")"
+      reply cd "$(dirname "$abs")"
     else
-        reply goto "$abs"
+      reply goto "$abs"
     fi
     ;;
 

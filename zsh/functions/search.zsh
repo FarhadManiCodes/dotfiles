@@ -11,9 +11,9 @@
 fhist() {
   local initial_query="${*:-}"
   local selected=$(fc -l 1 | fzf --tac --no-sort --query="$initial_query" \
-      --preview 'echo {}' \
-      --preview-window='hidden,down:3:wrap' \
-      --bind 'ctrl-p:toggle-preview')
+    --preview 'echo {}' \
+    --preview-window='hidden,down:3:wrap' \
+    --bind 'ctrl-p:toggle-preview')
 
   [[ -z "$selected" ]] && return 0
   local cmd=$(echo "$selected" | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//')
@@ -32,14 +32,14 @@ _rg_live() {
   local initial_query="${*:-}"
 
   local result=$(fzf --ansi --disabled --query="$initial_query" \
-      --bind "change:reload:rg --color=always --line-number $rg_args {q} || true" \
-      --bind "start:reload:rg --color=always --line-number $rg_args {q} || true" \
-      --delimiter=: \
-      --preview 'bat --color=always --highlight-line {2} {1} 2>/dev/null' \
-      --preview-window='hidden,right:60%:+{2}-10' \
-      --bind 'ctrl-p:toggle-preview' \
-      --expect='ctrl-d' \
-      --header='Enter: nvim | Ctrl-d: cd to folder')
+    --bind "change:reload:rg --color=always --line-number $rg_args {q} || true" \
+    --bind "start:reload:rg --color=always --line-number $rg_args {q} || true" \
+    --delimiter=: \
+    --preview 'bat --color=always --highlight-line {2} {1} 2>/dev/null' \
+    --preview-window='hidden,right:60%:+{2}-10' \
+    --bind 'ctrl-p:toggle-preview' \
+    --expect='ctrl-d' \
+    --header='Enter: nvim | Ctrl-d: cd to folder')
 
   [[ -z "$result" ]] && return 0
 
@@ -49,7 +49,7 @@ _rg_live() {
 
   # rg --color=always colours the path and line fields; strip SGR before
   # splitting, or nvim gets a path that does not exist and a non-numeric line.
-  local plain=$(sed 's/\x1b\[[0-9;]*m//g' <<< "$selection")
+  local plain=$(sed 's/\x1b\[[0-9;]*m//g' <<<"$selection")
   local file="${plain%%:*}"
   local line="${${plain#*:}%%:*}"
 
@@ -90,12 +90,12 @@ rgpy() { _rg_live "--type py" "$@"; }
 # Keys: Enter → open | Ctrl-d → cd | Ctrl-o → open folder
 # ----------------------------------------------------------------------------
 ff() {
-  local result=$(fd --one-file-system --type f "$@" 2>/dev/null | \
-    fzf --preview 'bat --color=always --line-range=:100 {}' \
-        --preview-window='hidden,right:60%' \
-        --bind 'ctrl-p:toggle-preview' \
-        --expect='ctrl-d,ctrl-o' \
-        --header='Enter: open | Ctrl-d: cd | Ctrl-o: open folder')
+  local result=$(fd --one-file-system --type f "$@" 2>/dev/null \
+    | fzf --preview 'bat --color=always --line-range=:100 {}' \
+      --preview-window='hidden,right:60%' \
+      --bind 'ctrl-p:toggle-preview' \
+      --expect='ctrl-d,ctrl-o' \
+      --header='Enter: open | Ctrl-d: cd | Ctrl-o: open folder')
 
   [[ -z "$result" ]] && return 0
 
@@ -112,7 +112,7 @@ ff() {
       ;;
     *)
       case "$file" in
-        *.md|*.markdown)
+        *.md | *.markdown)
           glow -p "$file"
           ;;
         *)
@@ -135,12 +135,12 @@ ff() {
 # Keys: Enter → cd, Ctrl-o → open in file manager
 # ----------------------------------------------------------------------------
 fdir() {
-  local result=$(fd --one-file-system --type d "$@" 2>/dev/null | \
-    fzf --preview 'eza -la --color=always {}' \
-        --preview-window='hidden,right:60%' \
-        --bind 'ctrl-p:toggle-preview' \
-        --expect='ctrl-o' \
-        --header='Enter: cd | Ctrl-o: open folder')
+  local result=$(fd --one-file-system --type d "$@" 2>/dev/null \
+    | fzf --preview 'eza -la --color=always {}' \
+      --preview-window='hidden,right:60%' \
+      --bind 'ctrl-p:toggle-preview' \
+      --expect='ctrl-o' \
+      --header='Enter: cd | Ctrl-o: open folder')
 
   [[ -z "$result" ]] && return 0
 
@@ -176,13 +176,13 @@ rgt() {
 fgit() {
   local search_path="${1:-$HOME}"
 
-  local result=$(fd --one-file-system --type d --hidden '^\.git$' "$search_path" 2>/dev/null | \
-    sed 's|/\.git$||' | \
-    fzf --preview 'git -C {} log --oneline -10 2>/dev/null; echo ""; git -C {} status -s 2>/dev/null' \
-        --preview-window='right:50%:hidden' \
-        --bind 'ctrl-p:toggle-preview' \
-        --expect='ctrl-f,ctrl-d' \
-        --header='Enter: lazygit | Ctrl-f: fetch | Ctrl-d: cd')
+  local result=$(fd --one-file-system --type d --hidden '^\.git$' "$search_path" 2>/dev/null \
+    | sed 's|/\.git$||' \
+    | fzf --preview 'git -C {} log --oneline -10 2>/dev/null; echo ""; git -C {} status -s 2>/dev/null' \
+      --preview-window='right:50%:hidden' \
+      --bind 'ctrl-p:toggle-preview' \
+      --expect='ctrl-f,ctrl-d' \
+      --header='Enter: lazygit | Ctrl-f: fetch | Ctrl-d: cd')
 
   [[ -z "$result" ]] && return 0
 
@@ -208,11 +208,11 @@ fgit() {
 # fbranch - fuzzy git branch checkout
 # ----------------------------------------------------------------------------
 fbranch() {
-  local branch=$(git branch -a --color=always | \
-    fzf --ansi --preview 'git log --oneline --color=always {1} | head -20' \
-        --preview-window='hidden,right:50%' \
-        --bind 'ctrl-p:toggle-preview' | \
-    sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ]*//' | sed 's/remotes\/[^/]*\///')
+  local branch=$(git branch -a --color=always \
+    | fzf --ansi --preview 'git log --oneline --color=always {1} | head -20' \
+      --preview-window='hidden,right:50%' \
+      --bind 'ctrl-p:toggle-preview' \
+    | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^[* ]*//' | sed 's/remotes\/[^/]*\///')
   [[ -n "$branch" ]] && git checkout "$branch"
 }
 
@@ -220,9 +220,9 @@ fbranch() {
 # fman - fuzzy man page search
 # ----------------------------------------------------------------------------
 fman() {
-  local page=$(man -k . 2>/dev/null | \
-    fzf --preview 'man {1} 2>/dev/null | col -b | head -100' \
-        --preview-window='hidden,right:60%' \
-        --bind 'ctrl-p:toggle-preview')
+  local page=$(man -k . 2>/dev/null \
+    | fzf --preview 'man {1} 2>/dev/null | col -b | head -100' \
+      --preview-window='hidden,right:60%' \
+      --bind 'ctrl-p:toggle-preview')
   [[ -n "$page" ]] && man "$(echo "$page" | awk '{print $1}')"
 }

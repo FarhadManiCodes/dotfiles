@@ -5,12 +5,12 @@ mkdir -p "$(dirname "$STATE_FILE")"
 # No state file means we assume dark (initial state), so toggle to light.
 # Signalling the foot server switches every window it serves and future ones;
 # footclient only asks the server for a window, so it needs no signal of its own.
-if [ ! -f "$STATE_FILE" ] || [ "$(< "$STATE_FILE")" = "dark" ]; then
-    killall -SIGUSR2 foot 2>/dev/null
-    echo "light" > "$STATE_FILE"
+if [ ! -f "$STATE_FILE" ] || [ "$(<"$STATE_FILE")" = "dark" ]; then
+  killall -SIGUSR2 foot 2>/dev/null
+  echo "light" >"$STATE_FILE"
 else
-    killall -SIGUSR1 foot 2>/dev/null
-    echo "dark" > "$STATE_FILE"
+  killall -SIGUSR1 foot 2>/dev/null
+  echo "dark" >"$STATE_FILE"
 fi
 
 # tmux cannot ask the terminal which theme is active (inside tmux, foot's OSC 11
@@ -18,5 +18,5 @@ fi
 # vim and ptpython: load the theme's colours, then redraw the bar. No-op when no
 # tmux server is running.
 tmux_dir=${XDG_CONFIG_HOME:-$HOME/.config}/tmux
-tmux source-file "$tmux_dir/themes/$(< "$STATE_FILE").conf" \; \
-    run-shell "$tmux_dir/plugins/tmux-power/tmux-power.tmux" 2>/dev/null || true
+tmux source-file "$tmux_dir/themes/$(<"$STATE_FILE").conf" \; \
+  run-shell "$tmux_dir/plugins/tmux-power/tmux-power.tmux" 2>/dev/null || true

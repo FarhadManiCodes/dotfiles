@@ -4,20 +4,20 @@
 set -u
 
 fail() {
-    printf 'keyring-lock: %s\n' "$1" >&2
-    logger -t keyring-lock -- "$1" || true
-    timeout 1 notify-send -a keyring-lock -u critical 'Keyring lock failed' "$1" || true
-    exit 1
+  printf 'keyring-lock: %s\n' "$1" >&2
+  logger -t keyring-lock -- "$1" || true
+  timeout 1 notify-send -a keyring-lock -u critical 'Keyring lock failed' "$1" || true
+  exit 1
 }
 
 # GNOME extension, confirmed in the installed daemon's introspection. Bound the
 # wait so an unresponsive provider cannot indefinitely delay the suspend path.
 # --auto-start=no makes an absent provider an error instead of starting it.
 if ! err=$(busctl --user --timeout=2s --auto-start=no call \
-    org.freedesktop.secrets /org/freedesktop/secrets \
-    org.freedesktop.Secret.Service LockService 2>&1); then
-    # An absent provider has nothing to lock.
-    case $err in *'Destination does not exist'*) exit 0 ;; esac
-    printf '%s\n' "$err" >&2
-    fail 'GNOME Keyring did not accept the lock request; see the invoking terminal or journal.'
+  org.freedesktop.secrets /org/freedesktop/secrets \
+  org.freedesktop.Secret.Service LockService 2>&1); then
+  # An absent provider has nothing to lock.
+  case $err in *'Destination does not exist'*) exit 0 ;; esac
+  printf '%s\n' "$err" >&2
+  fail 'GNOME Keyring did not accept the lock request; see the invoking terminal or journal.'
 fi

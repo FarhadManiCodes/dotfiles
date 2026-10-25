@@ -13,13 +13,13 @@ _should_skip_lwd() {
 
   case "$PWD" in
     # System & Root directories
-    /|/proc|/proc/*|/sys|/sys/*|/dev|/dev/*|/run|/run/*) return 0 ;;
+    / | /proc | /proc/* | /sys | /sys/* | /dev | /dev/* | /run | /run/*) return 0 ;;
 
     # Temporary directories (Using safe variable expansion)
-    /tmp|/tmp/*|/var/tmp|/var/tmp/*|"$tmp"|"$tmp"/*) return 0 ;;
+    /tmp | /tmp/* | /var/tmp | /var/tmp/* | "$tmp" | "$tmp"/*) return 0 ;;
 
     # Home specific: Skip Home, Downloads, and Cache
-    "$HOME"|"$HOME/Downloads"|"$HOME/.cache"|"$HOME/.cache"*) return 0 ;;
+    "$HOME" | "$HOME/Downloads" | "$HOME/.cache" | "$HOME/.cache"*) return 0 ;;
 
     # Optional: Skip git directories inside .git folders (rare but annoying)
     */.git/*) return 0 ;;
@@ -39,7 +39,7 @@ fi
 # 4. Save Logic
 # We define a function to handle the save to keep hooks clean
 _save_lwd() {
-  _should_skip_lwd || print -rn "$PWD" >| "$LWD_FILE"
+  _should_skip_lwd || print -rn "$PWD" >|"$LWD_FILE"
 }
 
 # 5. Hooks

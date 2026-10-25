@@ -25,10 +25,16 @@ for url in "${plugins[@]}"; do
   dir="$PLUGIN_DIR/$name"
   if [[ -d "$dir/.git" ]]; then
     echo "Updating $name..."
-    git -C "$dir" pull --ff-only --quiet || { echo "  ⚠ update failed: $name"; failed=1 }
+    git -C "$dir" pull --ff-only --quiet || {
+      echo "  ⚠ update failed: $name"
+      failed=1
+    }
   else
     echo "Installing $name..."
-    git clone --depth 1 --quiet "$url" "$dir" || { echo "  ⚠ clone failed: $name"; failed=1 }
+    git clone --depth 1 --quiet "$url" "$dir" || {
+      echo "  ⚠ clone failed: $name"
+      failed=1
+    }
   fi
 done
 
@@ -36,7 +42,7 @@ done
 # plugin someone cloned by hand is not this script's call.
 for dir in "$PLUGIN_DIR"/*(/N); do
   name="${dir:t}"
-  (( ${plugins[(I)*/$name]} )) || echo "  note: $name is installed but not in this list"
+  ((${plugins[(I)*/$name]})) || echo "  note: $name is installed but not in this list"
 done
 
 exit $failed

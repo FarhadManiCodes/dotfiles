@@ -10,19 +10,20 @@ state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/service-failures"
 mkdir -p "$state_dir"
 
 case "$unit" in
-    rclone@*.service)
-        remote="${unit#rclone@}"; remote="${remote%.service}"
-        title="Cloud mount failed: ${remote}"
-        # shellcheck disable=SC2088  # literal tilde: this is display text, not a path
-        body="~/Cloud/${remote} is unavailable. Often auth — check: rclone lsd ${remote}:"
-        ;;
-    *)
-        title="Service failed: ${unit}"
-        body="journalctl --user -u ${unit} -e"
-        ;;
+  rclone@*.service)
+    remote="${unit#rclone@}"
+    remote="${remote%.service}"
+    title="Cloud mount failed: ${remote}"
+    # shellcheck disable=SC2088  # literal tilde: this is display text, not a path
+    body="~/Cloud/${remote} is unavailable. Often auth — check: rclone lsd ${remote}:"
+    ;;
+  *)
+    title="Service failed: ${unit}"
+    body="journalctl --user -u ${unit} -e"
+    ;;
 esac
 
-printf '%s  %s\n' "$(date -Is)" "$unit" >> "$state_dir/failures.log"
+printf '%s  %s\n' "$(date -Is)" "$unit" >>"$state_dir/failures.log"
 # OnFailure= fires on every failure, retries included: mako/config groups this
 # app's popups by title, so one unit's repeats show as one "(N)" popup.
 notify-send -a service-failed-notify -u critical "$title" "$body" || true

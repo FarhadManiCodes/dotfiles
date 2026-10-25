@@ -17,8 +17,8 @@ typeset -g _VENV_DEFAULT_PYTHON="3.13"
 
 # Both hard dependencies; fzf is optional and reported by _select_env instead.
 for _venv_tool in uv direnv; do
-  command -v "$_venv_tool" >/dev/null 2>&1 ||
-    echo "⚠️  $_venv_tool not found! Virtual environment functions will not work."
+  command -v "$_venv_tool" >/dev/null 2>&1 \
+    || echo "⚠️  $_venv_tool not found! Virtual environment functions will not work."
 done
 unset _venv_tool
 
@@ -30,15 +30,15 @@ unset _venv_tool
 # "none" has no list of its own -- it installs requirements.txt if there is one.
 typeset -gA _VENV_TEMPLATE_PACKAGES=(
   basic "requests pytest"
-  ds    "ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly"
-  de    "ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow"
-  ml    "ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly"
+  ds "ipython jupyter pandas numpy scipy matplotlib seaborn scikit-learn plotly"
+  de "ipython jupyter pandas polars duckdb sqlalchemy great-expectations requests pyarrow"
+  ml "ipython jupyter pandas numpy matplotlib seaborn scikit-learn plotly"
 )
 typeset -ga _VENV_LINT_PACKAGES=(black flake8 pylint mypy)
 typeset -ga _VENV_TEMPLATES=("${(ok)_VENV_TEMPLATE_PACKAGES[@]}" none)
 
 # (Ie) is an exact-element match; a substring test would accept a partial name.
-_is_template() { (( ${_VENV_TEMPLATES[(Ie)$1]} )); }
+_is_template() { ((${_VENV_TEMPLATES[(Ie)$1]})); }
 
 # Match a Python version number: 3.9, 3.12, 3.12.1 (any major, so 3.15+ keeps working)
 _is_version() {
@@ -80,10 +80,16 @@ _env_exists() {
 
 # Human-readable size of a dir, "?" if unreadable. The fallback must apply to the
 # captured value: `du | cut` exits 0 even when du fails, so a `||` never fires.
-_dir_size() { local size=$(du -sh "$1" 2>/dev/null | cut -f1); echo "${size:-?}"; }
+_dir_size() {
+  local size=$(du -sh "$1" 2>/dev/null | cut -f1)
+  echo "${size:-?}"
+}
 
 # Bare Python version (e.g. 3.13.1) for a venv's python binary
-_py_ver() { local ver=$("$1" --version 2>/dev/null | awk '{print $2}'); echo "${ver:-?}"; }
+_py_ver() {
+  local ver=$("$1" --version 2>/dev/null | awk '{print $2}')
+  echo "${ver:-?}"
+}
 
 # _get_envrc_env [file] — name of the env an .envrc points to ("local" or central name)
 _get_envrc_env() {
@@ -99,7 +105,7 @@ _get_envrc_env() {
     line=${line%%\#*}
     words=(${(z)line})
     [[ ${words[1]} == eval && $#words == 2 ]] && words=(${(z)${(Q)words[2]}})
-    [[ $#words == 2 && ( ${words[1]} == source || ${words[1]} == . ) ]] || continue
+    [[ $#words == 2 && (${words[1]} == source || ${words[1]} == .) ]] || continue
     rest=${(Q)words[2]}
     if [[ -n "$CENTRAL_VENVS" && "$rest" == "$CENTRAL_VENVS/"*/bin/activate ]]; then
       rest="${${rest#$CENTRAL_VENVS/}%/bin/activate}"
@@ -108,7 +114,10 @@ _get_envrc_env() {
       return 0
     fi
     case "$rest" in
-      .venv/bin/activate|./.venv/bin/activate|'$(dirname "${BASH_SOURCE[0]:-$0}")/.venv/bin/activate') echo "local"; return 0 ;;
+      .venv/bin/activate | ./.venv/bin/activate | '$(dirname "${BASH_SOURCE[0]:-$0}")/.venv/bin/activate')
+        echo "local"
+        return 0
+        ;;
     esac
   done
   return 1
@@ -153,7 +162,7 @@ _select_env() {
   # Informational output goes to stderr throughout: stdout here IS the return
   # value (callers use `selected=$(_select_env)`), so anything echoed to stdout
   # is taken as an environment name.
-  if (( ${#entries[@]} == 0 )); then
+  if ((${#entries[@]} == 0)); then
     echo "📋 No environments found (create one with: vc <name>, or vc local)" >&2
     return 1
   fi
@@ -176,18 +185,18 @@ _create_envrc() {
   if [[ -f ".envrc" ]]; then
     # If it doesn't contain our signature, it might be a manual file
     if ! grep -q "# Auto-generated" .envrc; then
-        echo "⚠️  Existing .envrc found (not auto-generated)."
-        echo "   It might contain custom variables."
-        read "reply?Overwrite? [y/N]: "
-        [[ ! "$reply" =~ ^[Yy]$ ]] && echo "❌ Skipped .envrc creation" && return 0
+      echo "⚠️  Existing .envrc found (not auto-generated)."
+      echo "   It might contain custom variables."
+      read "reply?Overwrite? [y/N]: "
+      [[ ! "$reply" =~ ^[Yy]$ ]] && echo "❌ Skipped .envrc creation" && return 0
 
-        # Create backup
-        cp .envrc ".envrc.bak.$(date +%s)"
-        echo "💾 Backed up old .envrc"
+      # Create backup
+      cp .envrc ".envrc.bak.$(date +%s)"
+      echo "💾 Backed up old .envrc"
     fi
   fi
 
-  cat > .envrc << EOF
+  cat >.envrc <<EOF
 # Auto-generated - Virtual Environment: $env_name
 source $venv_path/bin/activate
 EOF
@@ -205,11 +214,17 @@ _list_environments() {
   # CENTRAL_VENVS from globbing "/*".
   local -a envs
   [[ -d "$CENTRAL_VENVS" ]] && envs=("$CENTRAL_VENVS"/*(N-/))
-  (( ${#envs} )) || { echo "   (no environments found)"; return; }
+  ((${#envs})) || {
+    echo "   (no environments found)"
+    return
+  }
 
   local env_dir
   for env_dir in "${envs[@]}"; do
-    [[ -n "$fast" ]] && { echo "   🐍 ${env_dir:t}"; continue; }
+    [[ -n "$fast" ]] && {
+      echo "   🐍 ${env_dir:t}"
+      continue
+    }
     echo "   🐍 ${env_dir:t} ($(_dir_size "$env_dir")) [Py $(_py_ver "$env_dir/bin/python")]"
   done
 }
@@ -219,14 +234,17 @@ _install_template() {
   local python_path="$VIRTUAL_ENV/bin/python"
 
   if [[ "$template" == "none" ]]; then
-    [[ -f "requirements.txt" ]] || { echo "📝 Empty environment created"; return; }
+    [[ -f "requirements.txt" ]] || {
+      echo "📝 Empty environment created"
+      return
+    }
     echo "📦 Installing from requirements.txt..."
     uv pip install -r requirements.txt --python "$python_path"
     return
   fi
 
   # ${+assoc[key]} distinguishes an unknown template from one with no packages.
-  if (( ! ${+_VENV_TEMPLATE_PACKAGES[$template]} )); then
+  if ((! ${+_VENV_TEMPLATE_PACKAGES[$template]})); then
     echo "❌ Unknown template: $template"
     echo "💡 Available: ${_VENV_TEMPLATES[*]}"
     return 1
@@ -235,8 +253,8 @@ _install_template() {
   echo "📦 Installing $template packages..."
   uv pip install ${=_VENV_TEMPLATE_PACKAGES[$template]} "${_VENV_LINT_PACKAGES[@]}" \
     --python "$python_path"
-  [[ "$template" == "ml" ]] &&
-    echo "💡 For PyTorch/TensorFlow, run 'uv pip install torch' manually."
+  [[ "$template" == "ml" ]] \
+    && echo "💡 For PyTorch/TensorFlow, run 'uv pip install torch' manually."
 }
 
 # =============================================================================
@@ -378,9 +396,18 @@ va() {
     read "choice?Choice [1-3]: "
 
     case "$choice" in
-      1) echo "🔄 Updating .envrc..."; _create_envrc "$selected" ;;
-      2) source "$(_env_path "$selected")/bin/activate"; echo "✅ Session activated: $selected" ;;
-      *) echo "❌ Cancelled"; return 0 ;;
+      1)
+        echo "🔄 Updating .envrc..."
+        _create_envrc "$selected"
+        ;;
+      2)
+        source "$(_env_path "$selected")/bin/activate"
+        echo "✅ Session activated: $selected"
+        ;;
+      *)
+        echo "❌ Cancelled"
+        return 0
+        ;;
     esac
   else
     echo "📄 Creating .envrc for: $selected"
@@ -424,14 +451,20 @@ vp() {
 # Deactivate environment. Early return, not `[[ ]] && { } || echo`: that form
 # also runs the || branch whenever the last command in the block fails.
 vd() {
-  [[ -n "$VIRTUAL_ENV" ]] || { echo "ℹ️  No active environment"; return; }
+  [[ -n "$VIRTUAL_ENV" ]] || {
+    echo "ℹ️  No active environment"
+    return
+  }
   deactivate
   echo "✅ Environment deactivated"
 }
 
 # Forget project (remove .envrc)
 vf() {
-  [[ -f ".envrc" ]] || { echo "ℹ️  No .envrc found"; return; }
+  [[ -f ".envrc" ]] || {
+    echo "ℹ️  No .envrc found"
+    return
+  }
   rm ".envrc"
   echo "🗑️  Removed .envrc"
 }
@@ -442,11 +475,23 @@ vs() {
   case "$#:$1" in
     0:) ;;
     1:--prune) prune=1 ;;
-    *) echo "Usage: vs [--prune]"; return 1 ;;
+    *)
+      echo "Usage: vs [--prune]"
+      return 1
+      ;;
   esac
-  [[ -n "$VIRTUAL_ENV" ]] || { echo "❌ No active environment. Activate first."; return 1; }
-  [[ -f "requirements.txt" ]] || { echo "❌ No requirements.txt found"; return 1; }
-  [[ -d "$VIRTUAL_ENV" ]] || { echo "❌ Active environment is missing."; return 1; }
+  [[ -n "$VIRTUAL_ENV" ]] || {
+    echo "❌ No active environment. Activate first."
+    return 1
+  }
+  [[ -f "requirements.txt" ]] || {
+    echo "❌ No requirements.txt found"
+    return 1
+  }
+  [[ -d "$VIRTUAL_ENV" ]] || {
+    echo "❌ Active environment is missing."
+    return 1
+  }
 
   # Compare resolved locations, not basenames: every project's local environment
   # has the same name. Central environments take precedence, even if named .venv
@@ -455,7 +500,7 @@ vs() {
   local active="${VIRTUAL_ENV:A}" project_env="${PWD:A}/.venv"
   local central="${CENTRAL_VENVS:A}"
   if [[ -n "$CENTRAL_VENVS" && "$active" == "$central/"* ]]; then
-    if (( prune )); then
+    if ((prune)); then
       echo "❌ Refusing to prune a shared environment. Use 'vs' to install requirements."
       return 1
     fi
@@ -465,7 +510,7 @@ vs() {
     return 1
   fi
 
-  if (( prune )); then
+  if ((prune)); then
     echo "📦 Syncing ./.venv to requirements.txt (removes anything not listed)..."
     uv pip sync requirements.txt --python "$active/bin/python"
   else
@@ -591,9 +636,9 @@ check_envrc_health() {
       echo "❌ $dir/.envrc → $target (missing)"
       ((issues++))
     fi
-  # -xdev is the fix: ~/Cloud/* are fuse.rclone mounts, and walking those over the
-  # network is why an unbounded find from $HOME never finished. Depth 5 reaches
-  # every real project .envrc while leaving vendored ones in ~/.cargo, ~/.local out.
+    # -xdev is the fix: ~/Cloud/* are fuse.rclone mounts, and walking those over the
+    # network is why an unbounded find from $HOME never finished. Depth 5 reaches
+    # every real project .envrc while leaving vendored ones in ~/.cargo, ~/.local out.
   done < <(find . -maxdepth 5 -xdev -name ".envrc" -type f -print0 2>/dev/null)
 
   ((issues == 0)) && echo "✅ All .envrc files healthy" || echo "⚠️  Found $issues issue(s)"
@@ -677,7 +722,7 @@ alias python-info='show_python_info'
 
 # compdef only exists once compinit has run (.zshrc does that before sourcing
 # these functions), and this file is also sourced by non-interactive shells.
-if (( $+functions[compdef] )); then
+if (($+functions[compdef])); then
   _venv_envs() {
     local -a names
     [[ -d "$CENTRAL_VENVS" ]] && names=("$CENTRAL_VENVS"/*(N-/:t))

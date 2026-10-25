@@ -73,9 +73,11 @@ _sysup_bgutil() (
   # (see docs/architecture/zsh.md for why). The token gate below is what keeps
   # that claim honest for future releases, where a skipped script may matter.
   (
-    cd -q "$stage/repo/server" && # -q: no chpwd hooks
-      npm ci --ignore-scripts --no-audit --no-fund &&
-      ./node_modules/.bin/tsc
+    cd -q "$stage/repo/server" \
+      &&
+      # -q: no chpwd hooks
+      npm ci --ignore-scripts --no-audit --no-fund \
+      && ./node_modules/.bin/tsc
   ) || {
     echo "!! bgutil: build failed; current helper preserved"
     return 1
@@ -96,7 +98,7 @@ _sysup_bgutil() (
   if timeout --foreground 120s node "$stage/repo/server/build/generate_once.js" >/dev/null 2>&1; then
     echo "    verified: the new helper generated a token"
   elif timeout --foreground 10s curl -sf -o /dev/null --max-time 8 \
-      https://www.youtube.com/generate_204 2>/dev/null; then
+    https://www.youtube.com/generate_204 2>/dev/null; then
     echo "!! bgutil: the new helper cannot generate a token; current helper preserved"
     return 1
   else
@@ -111,8 +113,8 @@ _sysup_bgutil() (
     echo "!! bgutil: checkout changed during the build; leaving it untouched"
     return 1
   fi
-  mv -T -- "$helper_dir" "$stage/previous" &&
-    mv -T -- "$stage/repo" "$helper_dir" || {
+  mv -T -- "$helper_dir" "$stage/previous" \
+    && mv -T -- "$stage/repo" "$helper_dir" || {
     echo "!! bgutil: installation failed; restoring the previous helper"
     return 1
   }
