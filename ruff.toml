@@ -1,0 +1,21 @@
+# Python lint and format, read by editors and, through --config, by
+# git-hooks/checks. The rules are foob's; why: docs/herdr-implementation.md,
+# Milestone 0.
+line-length = 120
+target-version = "py314"
+
+[lint]
+# pyflakes, pycodestyle, bugbear, security (bandit), pyupgrade, pylint warnings
+# and errors, simplifications, ruff's own rules, import order and blind excepts.
+select = ["F", "E", "W", "B", "S", "UP", "PLW", "PLE", "SIM", "RUF", "I", "BLE"]
+# Left out: assert, which is how test scripts check; and subprocess calls, which
+# always take an argument vector, never a shell, and name their tools by PATH.
+ignore = ["S101", "S603", "S607"]
+
+[lint.per-file-ignores]
+# IPython injects `c` and `get_ipython` into its config and startup files.
+"ipython/profile_default/**" = ["F821"]
+
+[lint.isort]
+# `import x` and `from x import y` sorted together by module.
+force-sort-within-sections = true

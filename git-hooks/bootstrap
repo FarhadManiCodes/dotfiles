@@ -1,0 +1,126 @@
+#!/bin/bash
+# Runs this repository's checks in a disposable clone holding exactly what is
+# checked, so unstaged work and live symlinked configs are never touched.
+# Called by the .git/hooks stubs (git-hooks/hook) and on demand; see
+# docs/architecture/git.md. This is the only file used from the live checkout:
+# everything it runs comes from the snapshot.
+#
+#   bootstrap pre-commit|pre-merge-commit|run   the commit's index and the
+#                                               files it changes
+#   bootstrap full <base>                       HEAD's tree, every file in scope
+
+set -euo pipefail
+
+self=git-hooks/bootstrap
+die() {
+  printf 'bootstrap: %s\n' "$1" >&2
+  exit 1
+}
+
+mode=${1:-run}
+case $mode in
+  pre-commit | pre-merge-commit | run) source=index ;;
+  full)
+    [[ $# -eq 2 ]] || die "usage: bootstrap full <base commit>"
+    source=HEAD
+    ;;
+  *) die "unknown mode '$mode'" ;;
+esac
+
+# Resolve everything from the caller's environment before it is unset: during
+# `git commit -a` or `git commit <path>` the commit's index is a temporary one
+# named by GIT_INDEX_FILE, and --path-format=absolute keeps it valid after cd.
+top=$(git rev-parse --show-toplevel)
+index=$(git rev-parse --path-format=absolute --git-path index)
+head=$(git rev-parse -q --verify 'HEAD^{commit}' || true)
+if [[ $mode == full ]]; then
+  [[ -n $head ]] || die "full run needs a HEAD commit"
+  base=$(git rev-parse -q --verify "$2^{commit}") || die "'$2' is not a commit"
+else
+  base=$head
+fi
+
+# The live copy of this file is what runs, so it must be the reviewed one.
+# `git commit <path>` commits HEAD plus those paths, not other staged changes.
+ref=":$self" what="the copy in this commit"
+[[ $source == index ]] || ref="HEAD:$self" what="its committed copy"
+if [[ $source == HEAD ]] && ! git cat-file -e "$ref" 2>/dev/null; then
+  die "$self is not in HEAD; commit it first"
+fi
+if [[ $source == index ]] && ! git cat-file -e "$ref" 2>/dev/null; then
+  if git cat-file -e "HEAD:$self" 2>/dev/null; then
+    hooks=".git/hooks/pre-commit and pre-merge-commit"
+    die "this commit removes $self; to remove the checks, delete $hooks first"
+  fi
+  die "$self is not in this commit; add it first"
+fi
+if ! git cat-file blob "$ref" 2>/dev/null | cmp -s - "$top/$self"; then
+  die "$self differs from $what; commit the bootstrap first"
+fi
+
+# The hooks are copies (git-hooks/hook), so a changed stub needs copying again.
+if [[ $mode == pre-commit || $mode == pre-merge-commit ]]; then
+  installed=$(git rev-parse --path-format=absolute --git-path "hooks/$mode")
+  if git cat-file -e :git-hooks/hook 2>/dev/null \
+    && ! git cat-file blob :git-hooks/hook | cmp -s - "$installed"; then
+    printf 'bootstrap: warning: %s differs from git-hooks/hook; copy it again\n' \
+      "$installed" >&2
+  fi
+fi
+
+# The copy would point at a shared index the clone lacks.
+if [[ $source == index ]]; then
+  shared=$(git rev-parse --shared-index-path)
+  [[ -z $shared ]] \
+    || die "the index is split (update-index --split-index); cannot copy it"
+fi
+
+# `git -c` settings arrive as GIT_CONFIG_PARAMETERS or numbered KEY/VALUE pairs.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR \
+  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
+  GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT \
+  "${!GIT_CONFIG_KEY_@}" "${!GIT_CONFIG_VALUE_@}"
+
+[[ -n ${XDG_RUNTIME_DIR:-} && -d $XDG_RUNTIME_DIR ]] \
+  || die "XDG_RUNTIME_DIR is unset or missing; no safe place for the snapshot"
+snapshot=$(mktemp -d "$XDG_RUNTIME_DIR/herdr-hook.XXXXXX") \
+  || die "cannot create the snapshot directory"
+trap 'rm -rf -- "$snapshot"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+work=$snapshot/repo
+# Git's own reason is kept for a failure; a first commit's empty-repository
+# warning is not shown. A template directory could put the user's settings in
+# the clone's own configuration.
+out=$(git clone -q --template= --shared --no-checkout "$top" "$work" 2>&1) \
+  || die "cannot clone $top: $out"
+cd "$work"
+# From here on, Git sees only the snapshot's own configuration and no user or
+# system attributes file, so a setting such as core.autocrlf or an eol
+# attribute cannot change what is checked. Git reads the user's attributes
+# file from XDG_CONFIG_HOME unless core.attributesFile names another.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_ATTR_NOSYSTEM=1
+git config core.attributesFile /dev/null
+if [[ -n $head ]]; then
+  git update-ref --no-deref HEAD "$head"
+fi
+if [[ $source == index ]]; then
+  cp -- "$index" .git/index
+  git update-index --no-untracked-cache --no-fsmonitor
+else
+  git read-tree HEAD
+fi
+git ls-files -t -z >"$snapshot/tags"
+if grep -qz '^S ' "$snapshot/tags"; then
+  die "the index has skip-worktree entries, which the snapshot would lack"
+fi
+git checkout-index -a -u
+
+[[ -f git-hooks/checks ]] || die "git-hooks/checks is not in the snapshot"
+if [[ $mode == full ]]; then scope=all; else scope=changed; fi
+mkdir "$snapshot/tmp"
+export CHECKS_BASE=$base CHECKS_SCOPE=$scope CHECKS_TMP=$snapshot/tmp \
+  PREK_HOME=$snapshot/prek
+bash git-hooks/checks "$mode"

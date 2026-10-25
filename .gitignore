@@ -78,3 +78,6 @@ git/config.local
 # Claude Code session/local state — repo-local backstop; do not rely solely on
 # the global excludesFile, which only covers settings.local.json by name.
 **/.claude/
+
+# ruff, run by editors or by hand; git-hooks/checks runs it with --no-cache
+.ruff_cache/

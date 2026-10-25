@@ -1,0 +1,354 @@
+#!/bin/bash
+# The checks behind git-hooks/bootstrap, run inside its snapshot: a mode runs
+# prek, and prek runs the checks below with .pre-commit-config.yaml. Scope,
+# exceptions and manual use: docs/architecture/git.md.
+#
+#   checks pre-commit|pre-merge-commit|run|full   run prek for that mode
+#   checks CHECK                                  run one check, as prek does:
+#     whitespace shell python masked-returns clones clones-broad indicators
+#     measure
+
+set -euo pipefail
+
+die() {
+  printf 'checks: %s\n' "$1" >&2
+  exit 1
+}
+
+[[ -n ${CHECKS_SCOPE:-} && -n ${CHECKS_TMP:-} ]] \
+  || die "run through git-hooks/bootstrap, which builds the snapshot"
+
+# Exported in the user's shell, these would pass what the tracked
+# configuration blocks or hide why it failed: ShellCheck adds SHELLCHECK_OPTS
+# to its arguments, prek skips the hooks SKIP or PREK_SKIP name, and ruff
+# writes its findings to RUFF_OUTPUT_FILE instead of the hook's output.
+unset SHELLCHECK_OPTS SKIP PREK_SKIP RUFF_OUTPUT_FILE RUFF_OUTPUT_FORMAT
+
+here=$(dirname -- "${BASH_SOURCE[0]}")
+empty_tree=$(git hash-object -t tree /dev/null)
+base=${CHECKS_BASE:-$empty_tree}
+# A commit that changes the checks or their rules checks every file under them.
+rules=(.editorconfig .gitattributes .shellcheckrc ruff.toml .pre-commit-config.yaml
+  git-hooks/)
+if ! git diff --cached --quiet "$base" -- "${rules[@]}"; then
+  CHECKS_SCOPE=all
+fi
+
+# tmux retires at Milestone 8, so it is not checked or measured.
+excluded=(':!tmux/' ':!bash/tmux-cpp-tools' ':!tests/test_tmux_cpp_tools.py')
+# shfmt cannot parse Zsh's `{ … } always { … }`; .zshrc is reviewed by hand.
+unparsed=(zsh/functions/sysup.zsh zsh/functions/sysup/tool-tests.zsh)
+unformatted=(zsh/.zshrc "${unparsed[@]}")
+semantic_model=jina-code-embeddings-0.5b-F16
+
+need() {
+  local tool
+  for tool; do
+    command -v "$tool" >/dev/null || die "$tool is not installed"
+  done
+}
+
+# Tracked regular files in scope: those the commit changes, or all of them.
+in_scope() {
+  local scope=$1 f
+  if [[ $scope == all ]]; then
+    git ls-files -z -- . "${excluded[@]}"
+  else
+    git diff --cached --name-only -z --diff-filter=d "$base" \
+      -- . "${excluded[@]}"
+  fi | while IFS= read -r -d '' f; do
+    if [[ -f $f && ! -L $f ]]; then
+      printf '%s\0' "$f"
+    fi
+  done
+}
+
+# bash, sh, zsh or python; empty for anything else. Zsh is chosen by path,
+# since two of its startup files have no shebang; Bash and sh by shebang only.
+dialect() {
+  local f=$1 line interp rest
+  case $f in
+    *.zsh | zsh/.zshenv | zsh/.zshrc | zsh/aliases)
+      echo zsh
+      return
+      ;;
+    *.py)
+      echo python
+      return
+      ;;
+  esac
+  IFS= read -r line <"$f" || true
+  line=${line%$'\r'} # a CRLF ending would hide the interpreter
+  [[ $line == '#!'* ]] || return 0
+  read -r interp rest <<<"${line#'#!'}"
+  if [[ ${interp##*/} == env ]]; then
+    read -r interp rest <<<"$rest"
+    # `env -S` splits the rest of the line into the command and its arguments.
+    [[ $interp == -S ]] && read -r interp _ <<<"$rest"
+  fi
+  case ${interp##*/} in
+    bash) echo bash ;;
+    sh | dash) echo sh ;;
+    zsh) echo zsh ;;
+    python | python3 | python3.*) echo python ;;
+  esac
+}
+
+# Sorts the scope's files by dialect: posix holds Bash and sh, shells all three,
+# python the Python files outside tests/ and tests those inside it, and
+# unmarked the .sh and .bash files no dialect claims. The list goes through a
+# file so a failing git fails the check instead of emptying it.
+collect() {
+  local f list=$CHECKS_TMP/scope-$1
+  bash=() sh=() zsh=() posix=() shells=() unmarked=() python=() tests=()
+  in_scope "$1" >"$list"
+  while IFS= read -r -d '' f; do
+    case $(dialect "$f") in
+      bash) bash+=("$f") ;;
+      sh) sh+=("$f") ;;
+      zsh) zsh+=("$f") ;;
+      python)
+        if [[ $f == tests/* ]]; then tests+=("$f"); else python+=("$f"); fi
+        ;;
+      *) [[ $f == *.sh || $f == *.bash ]] && unmarked+=("$f") ;;
+    esac
+  done <"$list"
+  posix=("${bash[@]}" "${sh[@]}")
+  shells=("${posix[@]}" "${zsh[@]}")
+}
+
+# report.py's input: a `format:path` record per file, NUL-separated.
+records() {
+  local format=$1 f
+  shift
+  for f; do
+    printf '%s:%s\0' "$format" "$f"
+  done
+}
+
+formatted() {
+  local f u
+  for f in "${shells[@]}"; do
+    for u in "${unformatted[@]}"; do
+      [[ $f == "$u" ]] && continue 2
+    done
+    printf '%s\0' "$f"
+  done
+}
+
+check_whitespace() {
+  local from=$base
+  [[ $CHECKS_SCOPE == all ]] && from=$empty_tree
+  # Git's default rule, whatever configuration and the user and system
+  # attributes files set: the user's is read from XDG_CONFIG_HOME even without
+  # configuration. Tracked .gitattributes still apply.
+  GIT_ATTR_NOSYSTEM=1 git -c core.whitespace= -c core.attributesFile=/dev/null \
+    diff --cached --check "$from" -- . "${excluded[@]}"
+}
+
+check_shell() {
+  need shellcheck shfmt zsh
+  collect "$CHECKS_SCOPE"
+  local status=0 f
+  for f in "${unmarked[@]}"; do
+    echo "$f has no Bash or sh shebang, so no shell check covers it"
+    status=1
+  done
+  if ((${#shells[@]} == 0)); then
+    echo "no shell files to check"
+    return "$status"
+  fi
+  for f in "${bash[@]}"; do
+    bash -n -- "$f" || status=1
+  done
+  for f in "${sh[@]}"; do
+    # Bash's parse where /bin/sh is Bash; ShellCheck checks these as sh.
+    sh -n -- "$f" || status=1
+  done
+  for f in "${zsh[@]}"; do
+    zsh -n -- "$f" || status=1
+  done
+  if ((${#posix[@]})); then
+    shellcheck --rcfile .shellcheckrc -x -- "${posix[@]}" || status=1
+  fi
+  # No formatting flags: any of them makes shfmt ignore .editorconfig.
+  formatted >"$CHECKS_TMP/formatted"
+  xargs -0r shfmt -d -- <"$CHECKS_TMP/formatted" || status=1
+  return "$status"
+}
+
+check_python() {
+  need ruff
+  collect "$CHECKS_SCOPE"
+  local files=("${python[@]}" "${tests[@]}") status=0
+  if ((${#files[@]} == 0)); then
+    echo "no Python files to check"
+    return 0
+  fi
+  ruff check --config ruff.toml --no-cache -- "${files[@]}" || status=1
+  ruff format --check --config ruff.toml --no-cache -- "${files[@]}" || status=1
+  return "$status"
+}
+
+# Report only until Milestone 0.5 has judged each finding. ShellCheck exits 1
+# for findings and higher when it could not check a file.
+check_masked_returns() {
+  need shellcheck
+  collect "$CHECKS_SCOPE"
+  ((${#posix[@]})) || return 0
+  local status=0
+  # The option's only code; check_shell already reports the default ones.
+  shellcheck --rcfile .shellcheckrc -x -o check-extra-masked-returns -i SC2312 \
+    -f gcc -- "${posix[@]}" || status=$?
+  ((status <= 1))
+}
+
+clone_report() {
+  python3 -I "$here/report.py" clones "$1" "${CHECKS_BASE:-}" "$CHECKS_TMP" \
+    "${@:2}"
+}
+
+# Production code: shell and the Python outside tests/.
+production() {
+  records bash "${shells[@]}"
+  records python "${python[@]}"
+}
+
+check_clones() {
+  need jscpd python3
+  collect all
+  production | clone_report planned
+}
+
+# Candidates for judgment: the token scan adds the tests, and two detectors
+# that do not read shell look at the Python outside tests/.
+check_clones_broad() {
+  need jscpd python3 unshare ip curl llama-server
+  local model=${XDG_CACHE_HOME:-$HOME/.cache}/llama.cpp/$semantic_model.gguf
+  [[ -f $model ]] \
+    || die "$model is missing; the semantic run never downloads it"
+  collect all
+  {
+    production
+    records python "${tests[@]}"
+  } | clone_report broad
+  records python "${python[@]}" | clone_report similarity
+  # Only loopback exists in a new network namespace, so the port cannot
+  # collide and neither the server nor jscpd can reach the network.
+  records python "${python[@]}" \
+    | unshare --user --map-root-user --net \
+      bash "${BASH_SOURCE[0]}" semantic-scan "$model"
+}
+
+# Inside check_clones_broad's namespace: serve the model for this scan only.
+# server is global because the exit trap reads it after the function returns.
+semantic_scan() {
+  local model=$1 port=8080 log=$CHECKS_TMP/llama-server.log status=0
+  local deadline=$((SECONDS + 60))
+  ip link set lo up
+  # Only loopback exists here, so a proxy would make every request fail, and
+  # llama-server reads LLAMA_* settings such as an API key jscpd lacks.
+  unset http_proxy HTTP_PROXY https_proxy HTTPS_PROXY all_proxy ALL_PROXY \
+    "${!LLAMA_@}"
+  # Its caches, such as the GPU driver's, go into the snapshot.
+  XDG_CACHE_HOME=$CHECKS_TMP/cache llama-server -m "$model" --embedding \
+    --pooling last -ngl 99 -c 8192 -ub 8192 -b 8192 \
+    --host 127.0.0.1 --port "$port" </dev/null >"$log" 2>&1 &
+  server=$!
+  trap 'kill "$server" 2>/dev/null; wait "$server" || true' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+  # Each probe is bounded, so a server that accepts but never answers fails.
+  until curl -qsf --connect-timeout 1 --max-time 2 \
+    "http://127.0.0.1:$port/health" >/dev/null; do
+    status=$?
+    if ! kill -0 "$server" 2>/dev/null || ((SECONDS > deadline)); then
+      tail -n 20 -- "$log" >&2
+      die "llama-server did not become healthy in 60 s (last curl exit $status)"
+    fi
+    sleep 0.25
+  done
+  clone_report semantic "http://127.0.0.1:$port/v1"
+}
+
+check_indicators() {
+  need shfmt python3
+  collect "$CHECKS_SCOPE"
+  local f line kind
+  # An executable in no dialect is not checked at all, so say so: one without
+  # a shebang, or one whose interpreter, or `env` options, no check reads.
+  while IFS= read -r -d '' f; do
+    [[ -x $f ]] || continue
+    kind=$(dialect "$f")
+    [[ -z $kind ]] || continue
+    IFS= read -r line <"$f" || true
+    line=${line%$'\r'}
+    if [[ $line == '#!'* ]]; then
+      echo "executable in no checked dialect, not checked: $f ($line)"
+    else
+      echo "executable without a shebang, not checked: $f"
+    fi
+  done <"$CHECKS_TMP/scope-$CHECKS_SCOPE"
+  records bash "${shells[@]}" \
+    | python3 -I "$here/report.py" indicators "${unparsed[@]}"
+}
+
+# The base's own scope comes from its tree, so files deleted since, or no
+# longer in a dialect, are measured too.
+check_measure() {
+  need jscpd python3
+  local old=$CHECKS_TMP/base index=$CHECKS_TMP/base-index
+  local git_dir
+  git_dir=$(git rev-parse --absolute-git-dir)
+  GIT_INDEX_FILE=$index git read-tree "$base"
+  mkdir -- "$old"
+  GIT_INDEX_FILE=$index git checkout-index -a --prefix="$old/"
+  (
+    cd -- "$old"
+    export GIT_DIR=$git_dir GIT_WORK_TREE=$old GIT_INDEX_FILE=$index
+    collect all
+    production
+  ) >"$CHECKS_TMP/base-records"
+  collect all
+  production | python3 -I "$here/report.py" measure "$base" "$CHECKS_TMP" \
+    "$old" "$CHECKS_TMP/base-records"
+}
+
+run_prek() {
+  local stage=$1
+  need prek
+  if [[ $stage == manual ]]; then
+    need shfmt shellcheck ruff jscpd llama-server python3 zsh
+    prek --version
+    printf 'shfmt '
+    shfmt --version
+    shellcheck --version | sed -n 's/^version: /shellcheck /p'
+    ruff --version
+    jscpd --version
+    llama-server --version 2>&1 | sed -n 's/^version: /llama-server /p'
+    python3 --version
+    zsh --version
+    echo "bash $BASH_VERSION"
+    git --version
+    echo "base ${CHECKS_BASE:-none}"
+  fi
+  # prek's exit status is the hook's.
+  prek run --stage "$stage" --color never
+}
+
+case ${1:-} in
+  pre-commit | pre-merge-commit) run_prek "$1" ;;
+  run) run_prek pre-commit ;;
+  full) run_prek manual ;;
+  whitespace) check_whitespace ;;
+  shell) check_shell ;;
+  python) check_python ;;
+  masked-returns) check_masked_returns ;;
+  clones) check_clones ;;
+  clones-broad) check_clones_broad ;;
+  semantic-scan) semantic_scan "$2" ;;
+  indicators) check_indicators ;;
+  measure) check_measure ;;
+  *) die "unknown command '${1:-}'" ;;
+esac

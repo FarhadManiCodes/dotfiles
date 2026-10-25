@@ -76,7 +76,11 @@ and their limitations.
 - Units: `systemd-analyze verify <unit>` plus runtime evidence; verification alone cannot
   prove network ordering or successful execution.
 - Do not run installers, `sysup` or plugin upgrades to validate unrelated edits, and do not
-  reformat unrelated files. Niri and Neovim follow their nested instructions.
+  reformat unrelated files. The only exceptions are Herdr Milestone 0's one-time whitespace
+  fix and its shfmt and `ruff format` reformats of the files its plan lists, each in a commit
+  of its own (`docs/herdr-implementation.md`). Niri and Neovim follow their nested instructions.
+- Before judging a clone that `git-hooks/checks` reports, look it up in
+  `docs/clone-verdicts.md`, and record each new verdict there.
 
 ## Reusable procedures
 

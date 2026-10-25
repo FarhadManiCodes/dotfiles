@@ -1,0 +1,68 @@
+# Run only through git-hooks/bootstrap, which runs prek inside a snapshot of the
+# commit; `prek run` or `prek install` in the checkout would hide unstaged work
+# by rewriting live files (docs/architecture/git.md). git-hooks/checks picks
+# the files itself, so prek passes none.
+repos:
+  - repo: local
+    hooks:
+      - id: whitespace
+        name: whitespace
+        entry: bash git-hooks/checks whitespace
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, pre-merge-commit, manual]
+      - id: shell
+        name: shell syntax, ShellCheck and shfmt
+        entry: bash git-hooks/checks shell
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, pre-merge-commit, manual]
+      - id: python
+        name: ruff lint and format
+        entry: bash git-hooks/checks python
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, pre-merge-commit, manual]
+      - id: masked-returns
+        name: masked return codes (report only)
+        entry: bash git-hooks/checks masked-returns
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [pre-commit, pre-merge-commit, manual]
+      - id: clones
+        name: clones (report only)
+        entry: bash git-hooks/checks clones
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [pre-commit, pre-merge-commit, manual]
+      - id: indicators
+        name: long chains and lines (report only)
+        entry: bash git-hooks/checks indicators
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [pre-commit, pre-merge-commit, manual]
+      - id: clones-broad
+        name: clone candidates for judgment (report only)
+        entry: bash git-hooks/checks clones-broad
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [manual]
+      - id: measure
+        name: size and complexity against the base (report only)
+        entry: bash git-hooks/checks measure
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [manual]
