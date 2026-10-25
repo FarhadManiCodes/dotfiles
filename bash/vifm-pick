@@ -27,7 +27,7 @@
 set -u
 
 cmd="${1:-}"
-xdir="$XDG_RUNTIME_DIR/vifm-pick"
+xdir="${XDG_RUNTIME_DIR:?}/vifm-pick"
 mkdir -p "$xdir"
 chmod 700 "$xdir"
 rm -f "$xdir"/action "$xdir"/path "$xdir"/cd "$xdir"/cp
