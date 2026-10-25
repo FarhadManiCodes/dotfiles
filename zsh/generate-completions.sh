@@ -63,7 +63,7 @@ generate_wrapper() {
     local out="$COMPLETION_DIR/_$tool"
 
     if command -v "$tool" >/dev/null 2>&1; then
-        if [[ -f "$out" ]] && [[ $(find "$out" -mtime -7 2>/dev/null) ]]; then
+        if [[ -f "$out" ]] && [[ -n $(find "$out" -mtime -7 2>/dev/null) ]]; then
              echo -e "  ${GREEN}✓${NC} $tool (cached)"
         else
              # 1. Create the file with #compdef header so Zsh knows to autoload it
