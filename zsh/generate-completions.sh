@@ -37,7 +37,7 @@ generate() {
 
     if command -v "$tool" >/dev/null 2>&1; then
         # Check if file exists and is younger than 7 days
-        if [[ -f "$out" ]] && [[ $(find "$out" -mtime -7 2>/dev/null) ]]; then
+        if [[ -f "$out" ]] && [[ -n $(find "$out" -mtime -7 2>/dev/null) ]]; then
              echo -e "  ${GREEN}✓${NC} $tool (cached)"
         else
              # Run the command
