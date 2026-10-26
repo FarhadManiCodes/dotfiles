@@ -49,7 +49,7 @@ check_etc_baselines() {
   # That partial view is permanent, not a transient failure: this runs without
   # root by design, so the root-only directories are always invisible. Name them,
   # because the set includes sudoers.d, polkit-1/rules.d and system-connections --
-  # "scan incomplete" does not tell you an unowned file could be hiding there.
+  # a bare "scan incomplete" would not tell you an unowned file could hide there.
   etc_complete=1
   etc_files=$(find /etc -type f 2>/dev/null) || etc_complete=0
   if package_files=$(pacman -Qlq 2>/dev/null) && [[ -n $package_files ]]; then
@@ -63,7 +63,8 @@ check_etc_baselines() {
         skip "unowned: ${#unreadable[@]} root-only dir(s) not scanned (no root) — additions elsewhere still checked; -v lists them"
         ((verbose)) && printf '       ~ %s\n' "${unreadable[@]}"
       else
-        skip "unowned: /etc scan incomplete — checking additions only"
+        # Not the root-only directories, so nothing explains the failure.
+        warn "unowned: /etc scan failed, cause unknown — checking additions only"
       fi
     fi
     check_baseline "unowned" "$df_dir/etc/unowned.txt" "$unowned" "$etc_complete"
@@ -81,5 +82,5 @@ check_etc_baselines() {
     warn "pacman backup inventory failed or was empty — modified files not compared"
   fi
 
-  pass "no new paths in the visible /etc inventories (unreadable files excluded)"
+  pass -p "no new paths in the visible /etc inventories (unreadable files excluded)"
 }

@@ -108,17 +108,21 @@ class ConfigDriftTests(unittest.TestCase):
         (self.root / 'live').mkdir()
         self.assertIn(message, self.run_check('check_symlink_integrity', 'git() { :; }'))
 
-    def test_etc_ok_withheld_after_a_skip(self):
+    def test_etc_ok_survives_a_skip(self):
         self.write('etc/unowned.txt', '')
         self.write('etc/modified.txt', '')
         stub = r'''
-find() { [[ $3 == f ]] || { printf '/etc/secret\n'; return; }; printf '/etc/a\n'; return $find_status; }
-pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'; fi; }
+find() { [[ $3 == f ]] || { printf '/etc/secret\n'; return; }; printf '/etc/a\n'; return 1; }
+pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'; return $qii_status; fi; }
 '''
         message = 'no new paths'
-        self.assertIn(message, self.run_check('check_etc_baselines', stub + 'find_status=0'))
-        output = self.run_check('check_etc_baselines', stub + 'find_status=1')
+        output = self.run_check('check_etc_baselines', stub + 'qii_status=0')
         self.assertIn('root-only dir(s) not scanned', output)
+        self.assertIn(message, output)
+        self.assertNotIn(message, self.run_check('check_etc_baselines', stub + 'qii_status=1'))
+        # A scan that fails with no root-only directory to blame saw nothing.
+        output = self.run_check('check_etc_baselines', stub + 'qii_status=0\nfind() { return 1; }')
+        self.assertIn('scan failed, cause unknown', output)
         self.assertNotIn(message, output)
 
     def test_spotify(self):
