@@ -6,6 +6,7 @@ No live configuration, package manager, tmux server or systemd manager is change
 """
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -13,16 +14,13 @@ import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "bash/config-drift"
 
+# The real hdr/ok/warn/skip run, so their counts are under test too; their
+# colour codes are stripped from the output.
 PREAMBLE = r'''
 source "$CONFIG_DRIFT"
-hdr() { :; }
-ok() { printf 'OK %s\n' "$1"; }
-warn() { printf 'WARN %s\n' "$1"; issues=$((issues+1)); }
-skip() { printf 'SKIP %s\n' "$1"; skipped=$((skipped+1)); }
-issues=0
-skipped=0
 verbose=1
 '''
+ANSI = re.compile(r'\x1b\[[0-9;]*m')
 
 
 class ConfigDriftTests(unittest.TestCase):
@@ -63,7 +61,65 @@ class ConfigDriftTests(unittest.TestCase):
             capture_output=True, text=True, timeout=10, check=True,
         )
         self.assertEqual(result.stderr, "")
-        return result.stdout
+        return ANSI.sub('', result.stdout)
+
+    def test_section_ok_rule(self):
+        # pass prints only for a section with no warning and no skip; -p lets
+        # skips through; hdr starts the next section clean.
+        for body, plain, partial in [('', True, True), ('warn w', False, False), ('skip s', False, True)]:
+            with self.subTest(body=body):
+                output = self.run_check(f'hdr one\n{body}\npass plain\npass -p partial\nhdr two\npass fresh')
+                self.assertEqual('ok  plain' in output, plain)
+                self.assertEqual('ok  partial' in output, partial)
+                self.assertIn('ok  fresh', output)
+
+    # Which checks still print their ok after a skip. Each fixture makes the
+    # section skip and nothing else; the control shows the same fixture can
+    # print or withhold the ok at all.
+    def test_root_configs_ok_survives_a_skip(self):
+        setup = 'root_copies() { root_src=(x) root_dst=(y) root_list_bad=0; }'
+        message = 'all compared root configs match'
+        self.assertIn(message, self.run_check('check_root_configs', setup + '\ncheck_root() { skip s; }'))
+        self.assertNotIn(message, self.run_check('check_root_configs', setup + '\ncheck_root() { warn w; }'))
+
+    def test_ownership_ok_survives_a_skip(self):
+        setup = 'root_dst=(/etc/example) root_list_bad=0\ncheck_privileged() { RESULT; }'
+        message = 'root-owned, not writable by others'
+        self.assertIn(message, self.run_check('check_privileged_configs', setup.replace('RESULT', 'skip s')))
+        self.assertNotIn(message, self.run_check('check_privileged_configs', setup.replace('RESULT', 'warn w')))
+
+    def test_plugins_ok_withheld_after_a_skip(self):
+        self.env['HOME'] = str(self.root / 'home')
+        for name in ('fine', 'unreachable'):
+            (self.root / 'live/tmux/plugins' / name / '.git').mkdir(parents=True)
+        setup = 'git() { [[ $2 == */NAME/ ]] && return 1; echo 0; }'
+        message = 'plugins current'
+        self.assertIn(message, self.run_check('check_plugin_staleness', setup.replace('NAME', 'none')))
+        output = self.run_check('check_plugin_staleness', setup.replace('NAME', 'unreachable'))
+        self.assertIn('unreachable: upstream unavailable', output)
+        self.assertNotIn(message, output)
+
+    def test_symlink_ok_withheld_after_a_skip(self):
+        self.env['HOME'] = str(self.root / 'home')
+        message = 'expected config links match'
+        output = self.run_check('check_symlink_integrity', 'git() { :; }')
+        self.assertIn('no installed config directories', output)
+        self.assertNotIn(message, output)
+        (self.root / 'live').mkdir()
+        self.assertIn(message, self.run_check('check_symlink_integrity', 'git() { :; }'))
+
+    def test_etc_ok_withheld_after_a_skip(self):
+        self.write('etc/unowned.txt', '')
+        self.write('etc/modified.txt', '')
+        stub = r'''
+find() { [[ $3 == f ]] || { printf '/etc/secret\n'; return; }; printf '/etc/a\n'; return $find_status; }
+pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'; fi; }
+'''
+        message = 'no new paths'
+        self.assertIn(message, self.run_check('check_etc_baselines', stub + 'find_status=0'))
+        output = self.run_check('check_etc_baselines', stub + 'find_status=1')
+        self.assertIn('root-only dir(s) not scanned', output)
+        self.assertNotIn(message, output)
 
     def test_spotify(self):
         base = 'client_id = "SECRET_TEMPLATE"\nblank = ""\nnumber = 1\n[device]\nvolume = 70\nclient_id = "nested"\n'
@@ -155,6 +211,7 @@ class ConfigDriftTests(unittest.TestCase):
                 output = self.run_check('check_last_pacman_transaction', setup)
                 self.assertIn(expected, output)
                 self.assertIn('clean (last)', output)
+                self.assertNotIn('clean (first)', output)
                 self.assertNotIn('ERROR old', output)
         log.write_text(old)
         self.assertIn('not readable', self.run_check('check_last_pacman_transaction', setup + '\ntail() { return 1; }'))
@@ -325,23 +382,23 @@ class ConfigDriftTests(unittest.TestCase):
         call = 'check_root "$df_dir/source" "$df_dir/destination"'
         self.write('source', 'same')
         self.write('destination', 'same')
-        self.assertIn('COUNTS 0 0', self.run_check(call, 'drift=0'))
+        self.assertIn('COUNTS 0 0', self.run_check(call))
         self.write('destination', 'different')
-        output = self.run_check(call, 'drift=0')
+        output = self.run_check(call)
         self.assertIn('review both before syncing', output)
         self.assertNotIn('copy it back', output)
-        output = self.run_check(call, 'drift=0\ncmp() { return 2; }')
+        output = self.run_check(call, 'cmp() { return 2; }')
         self.assertIn('comparison failed', output)
         self.assertNotIn('differs from', output)
         (self.root / 'source').unlink()
-        self.assertIn('unreadable or missing', self.run_check(call, 'drift=0'))
+        self.assertIn('unreadable or missing', self.run_check(call))
 
     def test_privileged_root_config_checks(self):
         # Every branch is exercised against a fixture, because a permission check
         # that has never been seen to fail is indistinguishable from one that
         # cannot fail. /etc/nftables.conf is the positive control for the clean
         # path: root:root 0644 under root-owned parents.
-        setup = 'priv=0\ndeclare -A parent_seen=()'
+        setup = 'declare -A parent_seen=()'
 
         def run(call):
             return self.run_check(call, setup)
@@ -377,26 +434,33 @@ class ConfigDriftTests(unittest.TestCase):
         # protected, so the parents are walked separately.
         self.assertIn('its contents can be replaced', run(f'check_parents "{conf}"'))
 
+    def test_incomplete_root_list_blocks_the_ownership_ok(self):
+        # The list's warning is printed under the previous section, so this one
+        # has nothing of its own to show and must still not claim a pass.
+        setup = 'root_dst=(/etc/example)\ncheck_privileged() { :; }'
+        self.assertIn(' ok ', self.run_check('check_privileged_configs', setup + '\nroot_list_bad=0'))
+        self.assertNotIn(' ok ', self.run_check('check_privileged_configs', setup + '\nroot_list_bad=1'))
+
     def test_baseline_differences_and_partial_scan(self):
         call = 'check_baseline test "$df_dir/baseline" "$observed" "$complete"'
         self.write('baseline', '# comment\n/etc/b\n/etc/a\n/etc/a\n')
-        output = self.run_check(call, "etc_base=0; observed=$'/etc/c\\n/etc/a'; complete=1")
+        output = self.run_check(call, "observed=$'/etc/c\\n/etc/a'; complete=1")
         self.assertIn('+ /etc/c', output)
         self.assertIn('- /etc/b', output)
-        output = self.run_check(call, "etc_base=0; observed=$'/etc/c\\n/etc/a'; complete=0")
+        output = self.run_check(call, "observed=$'/etc/c\\n/etc/a'; complete=0")
         self.assertIn('+ /etc/c', output)
         self.assertNotIn('- /etc/b', output)
         self.write('baseline', '')
-        output = self.run_check(call, "etc_base=0; observed=''; complete=1")
+        output = self.run_check(call, "observed=''; complete=1")
         self.assertIn('COUNTS 0 0', output)
         (self.root / 'baseline').unlink()
-        self.assertIn('baseline not compared', self.run_check(call, "etc_base=0; observed=''; complete=1"))
+        self.assertIn('baseline not compared', self.run_check(call, "observed=''; complete=1"))
 
     def test_failed_pacman_inventory(self):
         output = self.run_check('check_etc_baselines', 'pacman() { return 1; }; find() { printf "/etc/example\\n"; }')
         self.assertIn('unowned files not compared', output)
         self.assertIn('modified files not compared', output)
-        self.assertNotIn('OK', output)
+        self.assertNotIn(' ok ', output)
 
     def test_pacman_backup_header_and_continuation_paths(self):
         self.write('etc/unowned.txt', '')

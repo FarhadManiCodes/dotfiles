@@ -13,17 +13,15 @@
 check_sioyek_build() {
   hdr "Custom sioyek build"
   local bin=${XDG_DATA_HOME:-$HOME/.local/share}/sioyek/sioyek
-  local launcher=$HOME/.local/bin/sioyek built installed ybad=0
+  local launcher=$HOME/.local/bin/sioyek built installed
   if [[ ! -x $bin ]]; then
     skip "not built (${bin/#$HOME/\~} missing)"
     return
   fi
   if [[ -L $launcher ]]; then
     warn "~/.local/bin/sioyek is a symlink — sioyek then finds no shaders and renders blank pages; rerun install.sh"
-    ybad=1
   elif [[ ! -x $launcher ]] || ! grep -qF "exec \"$bin\"" "$launcher" 2>/dev/null; then
     warn "~/.local/bin/sioyek is missing or not the exec wrapper — rerun install.sh"
-    ybad=1
   fi
   built=$(readelf --dyn-syms -W "$bin" 2>/dev/null | grep -om1 'qt_version_tag@Qt_[0-9.]*')
   built=${built#*@Qt_}
@@ -34,7 +32,6 @@ check_sioyek_build() {
   fi
   if [[ $built != "$installed" ]]; then
     warn "sioyek built against Qt $built but qt6-base is $installed — rebuild (~/Installs/sioyek/UPDATING.md)"
-    ybad=1
   fi
-  ((ybad)) || ok "wrapper in place; built against the installed Qt $installed"
+  pass "wrapper in place; built against the installed Qt $installed"
 }

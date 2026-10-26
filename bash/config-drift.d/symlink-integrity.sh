@@ -12,7 +12,6 @@
 #     then silently stops being the repo's.
 check_symlink_integrity() {
   hdr "Symlink integrity"
-  sbad=0
   declare -A dangling_seen=()
   roots=()
   for root in "${XDG_CONFIG_HOME:-$HOME/.config}" ~/.local/bin ~/.local/share/applications ~/.ssh ~/.claude/skills ~/.agents/skills; do
@@ -25,21 +24,17 @@ check_symlink_integrity() {
       while IFS= read -r link; do
         [[ -z $link ]] && continue
         warn "dangling symlink: ${link/#$HOME/\~}"
-        sbad=1
         dangling_seen["$link"]=1
       done <<<"$dangling"
     else
       warn "symlink scan incomplete — cannot confirm integrity"
-      sbad=1
     fi
   else
     skip "no installed config directories to scan"
-    sbad=1
   fi
   for link in ~/.zshrc ~/.zshenv ~/.duckdbrc ~/.npmrc; do
     if [[ -L $link && ! -e $link ]]; then
       warn "dangling symlink: ${link/#$HOME/\~}"
-      sbad=1
       dangling_seen["$link"]=1
     fi
   done
@@ -108,13 +103,11 @@ check_symlink_integrity() {
           [[ -e $profiles ]] || continue
           if ! profile=$(awk -F= '/^\[Install/{in_install=1} in_install && /^Default=/{print $2; in_install=0}' "$profiles" 2>/dev/null); then
             warn "cannot read Firefox profile mapping — link not checked"
-            sbad=1
             continue
           fi
           [[ -n $profile ]] || continue
           if [[ $profile == *$'\n'* ]]; then
             warn "multiple Firefox default profiles — link mapping needs review"
-            sbad=1
             continue
           fi
           livef=$HOME/.mozilla/firefox/$profile/chrome/userChrome.css
@@ -136,27 +129,21 @@ check_symlink_integrity() {
       esac
       if [[ ! -e $expected ]]; then
         warn "expected repo source unavailable: $rel"
-        sbad=1
       elif [[ -L $livef ]]; then
         if [[ ! -e $livef ]]; then
           [[ -n ${dangling_seen[$livef]:-} ]] || warn "dangling symlink: ${livef/#$HOME/\~}"
-          sbad=1
         elif [[ ! $livef -ef $expected ]]; then
           warn "wrong symlink target: ${livef/#$HOME/\~} (expected $rel)"
-          sbad=1
         fi
       elif [[ -e $livef ]]; then
         warn "detached (not a symlink): ${livef/#$HOME/\~}"
-        sbad=1
       else
         warn "missing expected symlink: ${livef/#$HOME/\~}"
-        sbad=1
       fi
     done <<<"$tracked"
   else
     warn "cannot list tracked files — expected links not checked"
-    sbad=1
   fi
 
-  ((sbad)) || ok "expected config links match; no dangling links found in scanned paths"
+  pass "expected config links match; no dangling links found in scanned paths"
 }

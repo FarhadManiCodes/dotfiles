@@ -11,12 +11,19 @@ verbose=0
 pacman_since=''
 issues=0
 skipped=0
+hdr_issues=0
+hdr_skipped=0
 now=$(date +%s)
 export LC_ALL=C
 shopt -s nullglob
 df_dir=${DOTFILES:-$HOME/dotfiles}
 
-hdr() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
+# A section runs from one hdr to the next. hdr notes the totals, so a check's
+# closing ok can tell whether its section warned or skipped anything.
+hdr() {
+  hdr_issues=$issues hdr_skipped=$skipped
+  printf '\n\033[1m== %s ==\033[0m\n' "$1"
+}
 ok() { printf '   \033[32mok\033[0m  %s\n' "$1"; }
 skip() {
   printf '   \033[34m--\033[0m  %s\n' "$1"
@@ -25,6 +32,13 @@ skip() {
 warn() {
   printf '   \033[33m!!\033[0m  %s\n' "$1"
   issues=$((issues + 1))
+}
+# ok only if this section warned and skipped nothing. -p lets skips through,
+# for a message that itself says what was excluded.
+pass() {
+  local skips=$((skipped - hdr_skipped))
+  [[ $1 == -p ]] && skips=0 && shift
+  ((issues > hdr_issues || skips)) || ok "$1"
 }
 
 # Checks too big to keep inline live one-per-file in config-drift.d/, found
@@ -83,7 +97,6 @@ check_root() { # $1 repo path, $2 installed path
   local -a reader=()
   if [[ ! -r $src ]]; then
     warn "${src#"$df_dir"/} is unreadable or missing — not compared"
-    drift=1
     return
   fi
   if [[ ! -r $dest ]]; then
@@ -93,7 +106,6 @@ check_root() { # $1 repo path, $2 installed path
       reader=(sudo -n)
     elif [[ -x ${dest%/*} && ! -e $dest ]]; then
       warn "$dest is NOT installed — review install-root.sh"
-      drift=1
       return
     else
       skip "$dest needs access to read — not compared"
@@ -106,11 +118,9 @@ check_root() { # $1 repo path, $2 installed path
     0) ;;
     1)
       warn "$dest differs from ${src#"$df_dir"/} — review both before syncing"
-      drift=1
       ;;
     *)
       warn "$dest comparison failed — not compared"
-      drift=1
       ;;
   esac
 }
@@ -150,10 +160,9 @@ root_copies() {
 check_root_configs() {
   hdr "Root configs match the repo"
   root_copies
-  drift=$root_list_bad
   local i
   for i in "${!root_src[@]}"; do check_root "${root_src[i]}" "${root_dst[i]}"; done
-  ((drift)) || ok "all compared root configs match (access exclusions listed above)"
+  pass -p "all compared root configs match (access exclusions listed above)"
 }
 
 # The check above answers "is this the file I wrote?". It cannot answer "can
@@ -181,10 +190,8 @@ check_parents() {
         read -r owner mode <<<"$meta"
         if [[ $owner != root ]]; then
           warn "$d is owned by $owner — its contents can be replaced"
-          priv=1
         elif ((8#$mode & 022)); then
           warn "$d is mode $mode — group/world-writable directory"
-          priv=1
         fi
       else
         skip "$d metadata unreadable — not checked"
@@ -203,7 +210,6 @@ check_privileged() {
   local dest=$1 need_exec=${2:-} meta owner group mode kind
   if [[ -L $dest ]]; then
     warn "$dest is a symlink — install-root.sh copies; a link can leave root-owned space"
-    priv=1
     return
   fi
   if ! meta=$(stat -c '%U %G %a %F' -- "$dest" 2>/dev/null); then
@@ -211,30 +217,17 @@ check_privileged() {
     return
   fi
   read -r owner group mode kind <<<"$meta"
-  [[ $kind == "regular file" ]] || {
-    warn "$dest is a $kind, not a regular file"
-    priv=1
-  }
-  [[ $owner == root && $group == root ]] || {
-    warn "$dest is $owner:$group, not root:root"
-    priv=1
-  }
-  ((8#$mode & 022)) && {
-    warn "$dest is mode $mode — writable by group or others"
-    priv=1
-  }
+  [[ $kind == "regular file" ]] || warn "$dest is a $kind, not a regular file"
+  [[ $owner == root && $group == root ]] || warn "$dest is $owner:$group, not root:root"
+  ((8#$mode & 022)) && warn "$dest is mode $mode — writable by group or others"
   [[ $need_exec == exec && ! -x $dest ]] \
-    && {
-      warn "$dest is mode $mode — not executable, so it will be skipped"
-      priv=1
-    }
+    && warn "$dest is mode $mode — not executable, so it will be skipped"
   check_parents "$dest"
 }
 
 check_privileged_configs() {
   hdr "Root configs are root-owned and unwritable by others"
   [[ -v root_dst ]] || root_copies # standalone (e.g. sourced) use
-  priv=$root_list_bad
   declare -A parent_seen=()
   local dest
   for dest in "${root_dst[@]}"; do
@@ -245,12 +238,12 @@ check_privileged_configs() {
   done
   check_privileged /usr/share/wayland-sessions/niri-isolated.desktop
   check_privileged /usr/local/bin/niri-session-isolated exec
-  ((priv)) || ok "root-owned, not writable by others, under root-owned directories"
+  # The list's own warning was printed under the section above.
+  ((root_list_bad)) || pass -p "root-owned, not writable by others, under root-owned directories"
 }
 
 check_plugin_staleness() {
   hdr "Plugins behind upstream"
-  stale=0
   plugin_count=0
   for d in "${XDG_CONFIG_HOME:-$HOME/.config}"/tmux/plugins/*/ "${XDG_CONFIG_HOME:-$HOME/.config}"/zsh/plugins/*/ ~/.vim/plugged/*/; do
     [[ -e $d/.git ]] || continue
@@ -262,17 +255,15 @@ check_plugin_staleness() {
       plugin_count=$((plugin_count + 1))
       if ((behind > 0)); then
         warn "$name is $behind commits behind its upstream"
-        stale=1
       fi
     else
       skip "$name: upstream unavailable — not compared"
-      stale=1
     fi
   done
   if ((plugin_count == 0)); then
     skip "no plugin repositories could be compared"
-  elif ((stale == 0)); then
-    ok "$plugin_count plugins current (as of the last fetch — sysup refreshes them)"
+  else
+    pass "$plugin_count plugins current (as of the last fetch — sysup refreshes them)"
   fi
 
   # nvim is deliberately not in the loop above — see docs/architecture/neovim.md

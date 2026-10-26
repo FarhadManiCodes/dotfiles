@@ -16,7 +16,6 @@ check_baseline() { # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
   local -a added=() removed=()
   if ! baseline=$(awk '/^\// {print}' "$base" 2>/dev/null | sort -u); then
     warn "${base#"$df_dir"/} is unreadable — baseline not compared"
-    etc_base=1
     return
   fi
   # Sort each side once; one comm computes both additions and removals.
@@ -33,7 +32,6 @@ check_baseline() { # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
   if ((${#added[@]})); then
     warn "$label: ${#added[@]} path(s) not in ${base#"$df_dir"/} — decide and add them"
     printf '       + %s\n' "${added[@]}"
-    etc_base=1
   fi
   if ((complete && ${#removed[@]})); then
     printf '   \033[34m--\033[0m  %s: %s baseline path(s) no longer present\n' \
@@ -44,7 +42,6 @@ check_baseline() { # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
 
 check_etc_baselines() {
   hdr "/etc against its baselines"
-  etc_base=0
   # Keep producer exit statuses: process substitutions would hide pacman failures.
   # find may return a partial view of /etc as a normal user; additions are still
   # useful, but absence from that view is not evidence that a file was removed.
@@ -68,12 +65,10 @@ check_etc_baselines() {
       else
         skip "unowned: /etc scan incomplete — checking additions only"
       fi
-      etc_base=1
     fi
     check_baseline "unowned" "$df_dir/etc/unowned.txt" "$unowned" "$etc_complete"
   else
     warn "pacman file inventory failed or was empty — unowned files not compared"
-    etc_base=1
   fi
 
   # -Qii compares backup-file content, not -Qkk's metadata. Unreadable files
@@ -84,8 +79,7 @@ check_etc_baselines() {
     check_baseline "modified" "$df_dir/etc/modified.txt" "$modified" 0
   else
     warn "pacman backup inventory failed or was empty — modified files not compared"
-    etc_base=1
   fi
 
-  ((etc_base)) || ok "no new paths in the visible /etc inventories (unreadable files excluded)"
+  pass "no new paths in the visible /etc inventories (unreadable files excluded)"
 }

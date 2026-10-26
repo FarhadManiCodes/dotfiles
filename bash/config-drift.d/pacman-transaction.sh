@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2154  # issues: set by config-drift, which sources this file
 # mkinitcpio runs from a PostTransaction hook. When it fails it prints the error
 # into the middle of pacman's output and does NOT fail the transaction, so the
 # only sign is a line you scrolled past -- and you find out at the next boot.
@@ -9,7 +10,7 @@
 # /var/log/pacman.log is 0644 root:root, so this needs no root -- and unlike an
 # update transcript it is persistent and covers transactions run outside sysup.
 check_pacman_transaction() {
-  local block=$1 when tbad=0 line message
+  local block=$1 when line message warned=$issues
   when=${block%%]*}
   when=${when#\[}
   while IFS= read -r line; do
@@ -17,19 +18,17 @@ check_pacman_transaction() {
       ($line == *'==> ERROR'* || $line == *'errors were encountered'*) ]]; then
       message=${line#*\[ALPM-SCRIPTLET\] }
       warn "scriptlet error in transaction ${when}: ${message:0:80}"
-      tbad=1
     fi
   done <<<"$block"
   if [[ $block != *'[ALPM] transaction completed'* ]]; then
     warn "pacman transaction has no completion record (${when})"
-    tbad=1
   fi
   if [[ ($block == *'Updating linux initcpios'* || $block == *'==> Building'*) &&
     $block != *'Initcpio image generation successful'* ]]; then
     warn "initramfs was rebuilt but never reported success (${when}) — check before rebooting"
-    tbad=1
   fi
-  ((tbad)) || ok "clean (${when})"
+  # Several transactions share one section, so each answers for its own.
+  ((issues > warned)) || ok "clean (${when})"
 }
 
 # Standalone: inspect the last transaction. sysup supplies a device:inode:bytes
