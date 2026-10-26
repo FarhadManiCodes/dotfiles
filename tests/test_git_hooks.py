@@ -520,6 +520,19 @@ class Blocking(HookCase):
         code, out = self.stage_and_commit("tests/test_mod.py")
         self.assert_blocked(code, out, RUFF)
 
+    def test_long_python_lines_are_reported_without_blocking(self):
+        # ruff never wraps a comment; the report lists it, in modules and tests.
+        # shfmt cannot parse the def, so a chain count would show as well.
+        long = "# " + "x" * 79 + "\ndef f():\n    pass\n"
+        self.write("py/mod.py", long)
+        self.write("tests/test_mod.py", long)
+        code, out = self.stage_and_commit("py/mod.py", "tests/test_mod.py")
+        self.assert_passed(code, out)
+        report = section(out, INDICATORS)
+        self.assertIn("py/mod.py:1: 81 columns", report)
+        self.assertIn("tests/test_mod.py:1: 81 columns", report)
+        self.assertNotIn("not measured", report)
+
     def test_checks_neither_fix_nor_stage_files(self):
         self.write("bash/tool", "#!/bin/bash\nif true; then\n\techo hi\nfi\n", executable=True)
         self.write("py/mod.py", "x=1\n")
@@ -1064,6 +1077,14 @@ class Reports(Case):
             out.splitlines(),
             ["known:3: pipeline of 4", "known:4: &&/|| chain of 5", "known:6: pipeline of 4", "known:8: 81 columns"],
         )
+
+    def test_python_gets_line_lengths_but_no_chain_count(self):
+        # shfmt cannot parse this, so a chain count would list it as not measured.
+        (self.dir / "tool.py").write_text("if x:\n    pass\n" + "#" * 81 + "\n")
+        (self.dir / "known").write_text("#!/bin/bash\na | b | c | d\n")
+        code, out = self.report(["bash:known", "python:tool.py"], "indicators")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.splitlines(), ["known:2: pipeline of 4", "tool.py:3: 81 columns"])
 
     def test_unparsable_file_is_listed_as_not_measured_and_the_rest_still_are(self):
         (self.dir / "broken").write_text("#!/bin/bash\nif true; then\n" + "#" * 81 + "\n")

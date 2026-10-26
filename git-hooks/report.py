@@ -217,17 +217,18 @@ def chains(node, found, parent_ops=None):
 
 
 def indicators(*unparsed):
-    """Chains are not counted in unparsed, the files shfmt cannot parse, nor in
-    any other file it cannot parse: the blocking shell check fails on those."""
+    """Chains are counted in shell only, and not in unparsed (the files shfmt
+    cannot parse) nor in any other file it cannot parse: the blocking shell
+    check fails on those."""
     files = read_files()
     skipped = list(set(unparsed) & set(files))
-    for f in files:
+    for f, form in files.items():
         notes = [
             (n, f"{len(line)} columns")
             for n, line in enumerate(Path(f).read_text(encoding="utf-8", errors="replace").splitlines(), 1)
             if len(line) > LINE_LIMIT
         ]
-        if f not in unparsed:
+        if form != "python" and f not in unparsed:
             # --to-json reads only stdin, and needs --filename to honour .editorconfig.
             with open(f, "rb") as source:
                 proc = subprocess.run(

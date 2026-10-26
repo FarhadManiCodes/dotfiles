@@ -290,8 +290,10 @@ check_indicators() {
       echo "executable without a shebang, not checked: $f"
     fi
   done <"$CHECKS_TMP/scope-$CHECKS_SCOPE"
-  records bash "${shells[@]}" \
-    | python3 -I "$here/report.py" indicators "${unparsed[@]}"
+  {
+    records bash "${shells[@]}"
+    records python "${python[@]}" "${tests[@]}"
+  } | python3 -I "$here/report.py" indicators "${unparsed[@]}"
 }
 
 # The base's own scope comes from its tree, so files deleted since, or no
