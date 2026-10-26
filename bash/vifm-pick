@@ -180,7 +180,7 @@ case "$cmd" in
       reply cd "$(dirname "$abs")"
     elif [[ -e "$xdir/cp" ]]; then
       reply none
-      printf '%s' "$abs" | wl-copy
+      printf '%s' "$abs" | setsid -f wl-copy
     else
       reply goto "$abs"
     fi
