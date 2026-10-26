@@ -97,35 +97,30 @@ for dir in "$skills_dir"/*/; do
   # that has been moved away is silently useless.
   refs=$(grep -oE 'references/[A-Za-z0-9._-]+\.md' "$md" | sort -u)
   if [[ -n $refs ]]; then
-    missing=0
+    failed=$fail
     while read -r r; do
       [[ -z $r ]] && continue
       checked=$((checked + 1))
-      [[ -f "$dir/$r" ]] || {
-        red "routes to $r, which does not exist"
-        missing=1
-      }
+      [[ -f "$dir/$r" ]] || red "routes to $r, which does not exist"
     done <<<"$refs"
-    ((missing)) || green "$(grep -c . <<<"$refs") reference file(s) exist"
+    ((fail > failed)) || green "$(grep -c . <<<"$refs") reference file(s) exist"
   fi
 
   # --- every bash/ tool it names must exist and be runnable ----------------
   tools=$(grep -oE 'bash/[a-z0-9-]+' "$md" | sed 's|bash/||' | sort -u)
   if [[ -n $tools ]]; then
-    bad=0
+    failed=$fail
     while read -r t; do
       [[ -z $t ]] && continue
       checked=$((checked + 1))
       if [[ ! -f "$df_dir/bash/$t" ]]; then
         red "names bash/$t, which does not exist"
-        bad=1
       elif [[ ! -x "$df_dir/bash/$t" ]]; then
         # An unexecutable helper is present, current, and dead.
         red "bash/$t is not executable"
-        bad=1
       fi
     done <<<"$tools"
-    ((bad)) || green "$(grep -c . <<<"$tools") bash/ tool(s) present and executable"
+    ((fail > failed)) || green "$(grep -c . <<<"$tools") bash/ tool(s) present and executable"
   fi
 done
 

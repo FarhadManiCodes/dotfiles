@@ -92,6 +92,36 @@ class CheckSkillsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("angle bracket", out)
 
+    def test_loop_summary_withheld_after_a_failure(self):
+        # Each loop's green line covers every file it named, so one missing
+        # file must withhold it; the control shows the fixture can print it.
+        text = VALID.format(name="fixture-skill") + "See references/a.md, references/b.md and bash/tool.\n"
+        path = self.skill("fixture-skill", body=text)
+        (path / "references").mkdir()
+        (path / "references/a.md").write_text("a")
+        tool = self.checkout / "bash/tool"
+        tool.write_text("#!/bin/bash\n")
+        tool.chmod(0o755)
+        (path / "references/b.md").write_text("b")
+        code, out = self.run_script()
+        self.assertEqual(code, 0, out)
+        self.assertIn("2 reference file(s) exist", out)
+        self.assertIn("1 bash/ tool(s) present and executable", out)
+        # One loop at a time, so each loop's own count is what withholds it.
+        (path / "references/b.md").unlink()
+        code, out = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertIn("routes to references/b.md", out)
+        self.assertNotIn("reference file(s) exist", out)
+        self.assertIn("1 bash/ tool(s) present and executable", out)
+        (path / "references/b.md").write_text("b")
+        tool.chmod(0o644)
+        code, out = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertIn("bash/tool is not executable", out)
+        self.assertNotIn("present and executable", out)
+        self.assertIn("2 reference file(s) exist", out)
+
     def test_checkout_is_located_through_an_installed_symlink(self):
         self.skill("fixture-skill")
         bindir = self.base / "bin"
