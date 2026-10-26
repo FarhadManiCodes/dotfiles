@@ -116,11 +116,17 @@ Work:
 - Map which files are related and why: shared values, scripts that call each other, one feature spread over several configs. The map's form and location stay open until the groups are known.
 - Judge every repeat and indicator, by the user or an LLM, before changing anything; nothing is merged automatically. Route each finding to a fix, `TODO.md` or `revisit.md`, rejected ones too, with the reason.
 - Decide per group, from the report and with its pros and cons, whether a repeated value is worth a shared or generated file. Until then repeated values stay and live configs stay symlinks.
+- Judge the config-drift findings carried over from Milestone 0's complexity review (2026-10-26) with the rest:
+  - `bash/config-drift.d/symlink-integrity.sh` repeats `install.sh`'s `simple_configs` list, so a config added only to `install.sh` has its link target never checked and nothing says so. It is a candidate for the shared-file decision above.
+  - A missing `config-drift.d/` file is reported only on stderr: its check does not run, and the run still ends with a normal summary.
+  - `${XDG_CONFIG_HOME:-$HOME/.config}` is written out five times, and the symlink check expects ptpython and ipython under `$HOME/.config` while `install.sh` links them under `$XDG_CONFIG_HOME`.
+  - Marginal: most checks use global variables rather than `local`; `check_pacnew` nests `else if`; `pacman-transaction.sh` keeps `${pacman_since:-}` guards that `config-drift`'s own `pacman_since=''` makes unnecessary.
+  - Accepted (user decision, 2026-10-26), for `revisit.md`: without root, any `find /etc` failure is blamed on the root-only directories, so a second cause hides behind that skip.
 - Judge every existing clone, from the planned and the broad settings: fix it, or record it in `docs/clone-verdicts.md` as accepted or a false positive with its reason; it goes to `TODO.md` only when the user decides to defer the fix. That file is where clone findings are routed, rejected ones included. Then decide, from what the audit found, whether clone reporting stays report-only or becomes blocking, and record the decision and its reason here.
 
 Acceptance criteria:
 - [ ] The report exists, can be rerun with the recorded versions and configuration, and covers extensionless scripts (a scan that misses them fails).
-- [ ] Every clone and indicator in the report is judged and routed. Every clone that remains appears in `docs/clone-verdicts.md` or `TODO.md` with its reason.
+- [ ] Every clone and indicator in the report, and every finding carried over from Milestone 0, is judged and routed. Every clone that remains appears in `docs/clone-verdicts.md` or `TODO.md` with its reason.
 - [ ] The decision on whether clone reporting stays report-only or becomes blocking is recorded with its reason; a blocking design, if chosen, gets its own reviewed change.
 - [ ] Live behavior is unchanged: no app config changed meaning without its own reviewed finding.
 
