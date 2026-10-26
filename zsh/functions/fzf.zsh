@@ -20,9 +20,10 @@ export FZF_DEFAULT_OPTS="
 [[ -n "$TMUX" ]] && export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --tmux center,80%"
 
 # Default command for bare `fzf` and Ctrl+T
-# Uses fd: fast, respects .gitignore, excludes .git. --one-file-system (here and in
-# every finder below, search.zsh and vifm-pick) keeps fd out of the ~/Cloud rclone
-# mounts: from ~ it walked the whole Drive (minutes) instead of 0.3 s locally.
+# Uses fd: fast, respects .gitignore, excludes .git. --one-file-system (here
+# and in every finder below, search.zsh and vifm-pick) keeps fd out of the
+# ~/Cloud rclone mounts: from ~ it walked the whole Drive (minutes) instead of
+# 0.3 s locally.
 export FZF_DEFAULT_COMMAND='fd --one-file-system --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 
@@ -34,7 +35,10 @@ export FZF_ALT_C_COMMAND='fd --one-file-system --type d --hidden --follow --excl
 export FZF_ALT_C_OPTS="--preview 'eza --tree --icons --level=2 {}'"
 
 # Ctrl+R — history search; exact match + full command preview
-export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wrap' --bind 'ctrl-p:toggle-preview'"
+export FZF_CTRL_R_OPTS="
+  --exact
+  --preview 'echo {}'
+  --preview-window 'down:3:wrap'"
 
 # ============================================================================
 # Data Science Finders (cherry-picked from old fzf-enhancements)
@@ -45,10 +49,11 @@ export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wra
 # ============================================================================
 
 # Jupyter notebook finder — Enter: edit, Ctrl+D: cd to folder
-# Enter used to launch jupyter (or tmux-jupyter-auto). Neither exists any more:
-# the tmux helper was deleted in 6388290 and jupyter is not installed, so both
-# branches only ever printed "not available". Opens in $EDITOR instead, matching
-# fdata and the application/x-ipynb+json -> vim.desktop mapping in mimeapps.list.
+# Enter used to launch jupyter (or tmux-jupyter-auto). Neither exists any
+# more: the tmux helper was deleted in 6388290 and jupyter is not installed, so
+# both branches only ever printed "not available". Opens in $EDITOR instead,
+# matching fdata and the application/x-ipynb+json -> vim.desktop mapping in
+# mimeapps.list.
 fnb() {
   local -a fd_cmd=(fd --one-file-system --type f --extension ipynb)
   local preview='
