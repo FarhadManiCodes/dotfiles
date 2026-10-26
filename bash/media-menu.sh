@@ -12,6 +12,14 @@ active_player() {
         END { if (!found && paused != "") print paused }'
 }
 
+# The active player, else the one playerctl picks itself; empty if none.
+resolve_player() {
+  local player
+  player=$(active_player)
+  [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+  printf '%s\n' "$player"
+}
+
 # playerctl on the active player, or playerctl's own choice if there is none.
 pc() {
   local player args=()
@@ -23,10 +31,7 @@ pc() {
 # A percentage of track duration, using the same player as the seek action.
 show_progress() {
   local player=${1:-} position length percent times summary pipe=${XDG_RUNTIME_DIR:-}/wob-playback.pipe
-  if [[ -z $player ]]; then
-    player=$(active_player)
-    [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
-  fi
+  [[ -n $player ]] || player=$(resolve_player)
   [[ -n $player ]] || {
     notify-send -t 2000 "Media" "No player available"
     return 1
@@ -64,8 +69,7 @@ show_progress() {
 
 seek_track() {
   local player
-  player=$(active_player)
-  [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+  player=$(resolve_player)
   [[ -n $player ]] || return 1
   playerctl -p "$player" position "$1" || return
   show_progress "$player"
@@ -73,8 +77,7 @@ seek_track() {
 
 toggle_playback() {
   local player
-  player=$(active_player)
-  [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+  player=$(resolve_player)
   [[ -n $player ]] || return 1
   playerctl -p "$player" play-pause || return
   if [[ $(playerctl -p "$player" status 2>/dev/null) == Paused ]]; then
@@ -88,8 +91,7 @@ toggle_playback() {
 # Resolve once so the position and action always refer to the same player.
 previous_track() {
   local player position can_previous args=()
-  player=$(active_player)
-  [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+  player=$(resolve_player)
   [[ -n $player ]] && args=(-p "$player")
   position=$(playerctl "${args[@]}" position 2>/dev/null)
   if [[ $position =~ ^[0-9]+([.][0-9]+)?$ ]] \
@@ -110,8 +112,7 @@ previous_track() {
 
 focus_player() {
   local player app title id
-  player=$(active_player)
-  [[ -n $player ]] || player=$(playerctl -f '{{playerInstance}}' metadata 2>/dev/null)
+  player=$(resolve_player)
   [[ -n $player ]] || return
   case $player in
     spotify_player*) app=spotify-player ;;
