@@ -451,6 +451,9 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
         output = self.run_check(call, "observed=$'/etc/c\\n/etc/a'; complete=1")
         self.assertIn('+ /etc/c', output)
         self.assertIn('- /etc/b', output)
+        # A removed path is information: only the added one counts.
+        self.assertIn('1 baseline path(s) no longer present', output)
+        self.assertIn('COUNTS 1 0', output)
         output = self.run_check(call, "observed=$'/etc/c\\n/etc/a'; complete=0")
         self.assertIn('+ /etc/c', output)
         self.assertNotIn('- /etc/b', output)

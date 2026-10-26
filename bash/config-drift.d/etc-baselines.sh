@@ -34,8 +34,7 @@ check_baseline() { # $1 label, $2 baseline, $3 observed paths, $4 complete (0/1)
     printf '       + %s\n' "${added[@]}"
   fi
   if ((complete && ${#removed[@]})); then
-    printf '   \033[34m--\033[0m  %s: %s baseline path(s) no longer present\n' \
-      "$label" "${#removed[@]}"
+    note "$label: ${#removed[@]} baseline path(s) no longer present"
     ((verbose)) && printf '       - %s\n' "${removed[@]}"
   fi
 }

@@ -33,6 +33,8 @@ warn() {
   printf '   \033[33m!!\033[0m  %s\n' "$1"
   issues=$((issues + 1))
 }
+# Information only: neither a problem nor a gap, so it counts nowhere.
+note() { printf '   \033[34m··\033[0m  %s\n' "$1"; }
 # ok only if this section warned and skipped nothing. -p lets skips through,
 # for a message that itself says what was excluded.
 pass() {
