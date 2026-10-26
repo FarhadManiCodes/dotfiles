@@ -24,7 +24,17 @@ FORMATS = {"bash", "python"}
 # defaults, and the broad one finds renamed copies down to 30 tokens.
 TOKEN_RUNS = {
     "planned": ([], 50),
-    "broad": (["--mode", "strict", "--ignore-identifiers", "--ignore-literals", "--kind", "exact,renamed"], 30),
+    "broad": (
+        [
+            "--mode",
+            "strict",
+            "--ignore-identifiers",
+            "--ignore-literals",
+            "--kind",
+            "exact,renamed",
+        ],
+        30,
+    ),
 }
 MIN_LINES = 5  # jscpd's default, kept by both token runs: a shorter file is never analyzed
 SIMILARITY = ["--similarity", "--kind", "ast"]
@@ -69,13 +79,19 @@ def mapping(files):
     for path, form in files.items():
         name = os.path.basename(path)
         if "," in name or ";" in name:
-            fail(f"{path}: ',' and ';' cannot be expressed in jscpd's name mapping")
+            fail(
+                f"{path}: ',' and ';' cannot be expressed in jscpd's name mapping"
+            )
         if formats.setdefault(name, form) != form:
-            fail(f"{name} is both {formats[name]} and {form}; jscpd maps formats by file name")
+            fail(
+                f"{name} is both {formats[name]} and {form}; jscpd maps formats by file name"
+            )
     names = {}
     for name, form in sorted(formats.items()):
         names.setdefault(form, []).append(name)
-    return ";".join(f"{form}:{','.join(n)}" for form, n in sorted(names.items()))
+    return ";".join(
+        f"{form}:{','.join(n)}" for form, n in sorted(names.items())
+    )
 
 
 def jscpd(files, tmp, *flags, report="jscpd-report", root=None):
@@ -118,8 +134,18 @@ def relative(path, root):
 
 def analyzed(files, tmp, flags):
     """Paths jscpd analyzes with a token run's flags and minimum."""
-    report = jscpd(files, tmp, *flags, "--complexity", "--summary-top", str(len(files)), report="jscpd-complexity")
-    return {relative(f["path"], os.getcwd()) for f in report["summary"]["files"]}
+    report = jscpd(
+        files,
+        tmp,
+        *flags,
+        "--complexity",
+        "--summary-top",
+        str(len(files)),
+        report="jscpd-complexity",
+    )
+    return {
+        relative(f["path"], os.getcwd()) for f in report["summary"]["files"]
+    }
 
 
 def check_count(files, sources, tmp, flags, minimum):
@@ -128,19 +154,27 @@ def check_count(files, sources, tmp, flags, minimum):
         return
     seen = analyzed(files, tmp, [*flags, "--min-tokens", str(minimum)])
     if len(seen) != sources:
-        fail(f"the clone scan analyzed {sources} files and the complexity scan {len(seen)}")
+        fail(
+            f"the clone scan analyzed {sources} files and the complexity scan {len(seen)}"
+        )
     for f in sorted(set(files) - seen):
         # jscpd never analyzes these, whatever the minimums, such as an empty __init__.py.
         if not Path(f).read_bytes().strip():
             print(f"empty, so it cannot hold a clone: {f}")
             continue
-        alone = jscpd({f: files[f]}, tmp, *flags, "--min-tokens", "1", "--min-lines", "1")["statistics"]["total"]
+        alone = jscpd(
+            {f: files[f]}, tmp, *flags, "--min-tokens", "1", "--min-lines", "1"
+        )["statistics"]["total"]
         size = f"{alone['tokens']} tokens, {alone['lines']} lines"
-        if alone["sources"] != 1 or (alone["tokens"] >= minimum and alone["lines"] >= MIN_LINES):
+        if alone["sources"] != 1 or (
+            alone["tokens"] >= minimum and alone["lines"] >= MIN_LINES
+        ):
             fail(f"jscpd skipped {f} ({alone['sources']} files, {size} alone)")
         if f in STANDALONE:
             continue
-        print(f"below the {minimum}-token or {MIN_LINES}-line minimum, so it cannot hold a clone: {f} ({size})")
+        print(
+            f"below the {minimum}-token or {MIN_LINES}-line minimum, so it cannot hold a clone: {f} ({size})"
+        )
 
 
 def scan(kind, files, base, tmp, url):
@@ -148,10 +182,14 @@ def scan(kind, files, base, tmp, url):
     baseline = ["--baseline-from-ref", base] if base else []
     if kind in TOKEN_RUNS:
         flags, minimum = TOKEN_RUNS[kind]
-        report = jscpd(files, tmp, *flags, "--min-tokens", str(minimum), *baseline)
+        report = jscpd(
+            files, tmp, *flags, "--min-tokens", str(minimum), *baseline
+        )
         # Semantic and syntax-tree runs compare functions, so a file without
         # one is not analyzed and no count holds.
-        check_count(files, report["statistics"]["total"]["sources"], tmp, flags, minimum)
+        check_count(
+            files, report["statistics"]["total"]["sources"], tmp, flags, minimum
+        )
         return report
     if kind == "similarity":
         return jscpd(files, tmp, *SIMILARITY, *baseline)
@@ -168,21 +206,29 @@ def clones(kind, base, tmp, url=None):
         fail(f"no files in scope, so the {kind} clone scan would be empty")
     report = scan(kind, files, base, tmp, url)
     new = [d for d in report["duplicates"] if not base or d.get("isNew")]
-    since = f"new since {base[:12]}" if base else "in all files (no base commit)"
+    since = (
+        f"new since {base[:12]}" if base else "in all files (no base commit)"
+    )
     lookup = "Look each up in docs/clone-verdicts.md first."
     if kind != "planned":
-        print(f"Candidates for judgment ({kind}), {since}; false positives are expected. {lookup}")
+        print(
+            f"Candidates for judgment ({kind}), {since}; false positives are expected. {lookup}"
+        )
     elif new:
         print(lookup)
     for d in new:
         a, b = d["firstFile"], d["secondFile"]
-        score = f", similarity {d['similarity']:.3f}" if "similarity" in d else ""
+        score = (
+            f", similarity {d['similarity']:.3f}" if "similarity" in d else ""
+        )
         print(
             f"clone ({d.get('kind', 'exact')}, {d['lines']} lines{score}): "
             f"{relative(a['name'], os.getcwd())}:{a['start']}-{a['end']} <-> "
             f"{relative(b['name'], os.getcwd())}:{b['start']}-{b['end']}"
         )
-    print(f"{len(new)} clones {since}; {len(files)} files listed, {report['statistics']['total']['sources']} analyzed")
+    print(
+        f"{len(new)} clones {since}; {len(files)} files listed, {report['statistics']['total']['sources']} analyzed"
+    )
 
 
 def chain_length(stmt, ops):
@@ -225,7 +271,12 @@ def indicators(*unparsed):
     for f, form in files.items():
         notes = [
             (n, f"{len(line)} columns")
-            for n, line in enumerate(Path(f).read_text(encoding="utf-8", errors="replace").splitlines(), 1)
+            for n, line in enumerate(
+                Path(f)
+                .read_text(encoding="utf-8", errors="replace")
+                .splitlines(),
+                1,
+            )
             if len(line) > LINE_LIMIT
         ]
         if form != "python" and f not in unparsed:
@@ -243,11 +294,17 @@ def indicators(*unparsed):
             else:
                 found = []
                 chains(json.loads(proc.stdout), found)
-                notes += [(line, f"{kind} of {length}") for line, kind, length in found]
+                notes += [
+                    (line, f"{kind} of {length}")
+                    for line, kind, length in found
+                ]
         for line, note in sorted(notes):
             print(f"{f}:{line}: {note}")
     if skipped:
-        print("chains not measured (shfmt cannot parse them): " + ", ".join(sorted(skipped)))
+        print(
+            "chains not measured (shfmt cannot parse them): "
+            + ", ".join(sorted(skipped))
+        )
 
 
 def sizes(files, tmp, root):
@@ -267,18 +324,27 @@ def sizes(files, tmp, root):
         report="jscpd-complexity",
         root=root,
     )
-    return {relative(f["path"], root): (f["lines"], f["bytes"], f["complexity"]) for f in report["summary"]["files"]}
+    return {
+        relative(f["path"], root): (f["lines"], f["bytes"], f["complexity"])
+        for f in report["summary"]["files"]
+    }
 
 
 def measure(base, tmp, old_root, old_records):
     """Report the production files in scope at either end that changed."""
     new, old = read_files(), parse(Path(old_records).read_bytes())
     diff = subprocess.run(
-        ["git", "diff", "--name-only", "--no-renames", "-z", base, "HEAD"], check=True, capture_output=True
+        ["git", "diff", "--name-only", "--no-renames", "-z", base, "HEAD"],
+        check=True,
+        capture_output=True,
     )
     changed = sorted(set(parse_paths(diff.stdout)) & (new.keys() | old.keys()))
     # jscpd reports resolved paths, so a symlink in old_root would match none.
-    before = sizes({f: old[f] for f in changed if f in old}, tmp, os.path.realpath(old_root))
+    before = sizes(
+        {f: old[f] for f in changed if f in old},
+        tmp,
+        os.path.realpath(old_root),
+    )
     after = sizes({f: new[f] for f in changed if f in new}, tmp, os.getcwd())
     print(
         f"Size and jscpd's file-level complexity estimate, {base[:12]} -> HEAD "

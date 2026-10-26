@@ -29,8 +29,10 @@ from pathlib import Path
 
 MODEL = "gemini-2.5-flash"
 TEMPERATURE = 0.0
-ENDPOINT = ("https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{MODEL}:generateContent")
+ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    f"{MODEL}:generateContent"
+)
 TIMEOUT = 120
 SYNC_HINT = "string:x-canonical-private-synchronous:ocr"
 
@@ -61,14 +63,17 @@ def notify(title, body, urgency=None, timeout=None):
         cmd += ["-t", str(timeout)]
     try:
         # A NUL (possible in OCR text) can't go in argv: ValueError otherwise.
-        if subprocess.run(cmd + [title, body.replace("\0", "")]).returncode == 0:
+        if (
+            subprocess.run(cmd + [title, body.replace("\0", "")]).returncode
+            == 0
+        ):
             return
     except OSError:
         pass
     try:
         if sys.stderr.isatty():
             print(f"{title}: {body}", file=sys.stderr)
-    except (OSError, ValueError, AttributeError):  # broken, full or closed stderr
+    except OSError, ValueError, AttributeError:  # broken, full or closed stderr
         pass  # no channel left
 
 
@@ -86,8 +91,11 @@ def single_instance():
     a flock when its holder exits, crash included, so no stale lock survives.
     """
     # A bare fd, not a file object, so nothing closes it before exit.
-    fd = os.open(os.path.join(os.environ["XDG_RUNTIME_DIR"], "capture-ocr.lock"),
-                 os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC, 0o600)
+    fd = os.open(
+        os.path.join(os.environ["XDG_RUNTIME_DIR"], "capture-ocr.lock"),
+        os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC,
+        0o600,
+    )
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
@@ -105,8 +113,10 @@ def api_key():
     key = os.environ.get("GOOGLE_API_KEY")
     if key:
         return key
-    for env_file in (Path.home() / ".config/capture-ocr/google.env",
-                     Path.home() / ".config/paper-refinery/secrets/google.env"):
+    for env_file in (
+        Path.home() / ".config/capture-ocr/google.env",
+        Path.home() / ".config/paper-refinery/secrets/google.env",
+    ):
         if env_file.exists():
             for line in env_file.read_text().splitlines():
                 if line.startswith("GOOGLE_API_KEY="):
@@ -137,11 +147,15 @@ RULES = r"""Rules:
 4. Keep the original structure: paragraph breaks, list items and line order.
 5. Never add, drop or silently correct content. If some text is illegible, write [illegible] in its place instead of guessing. If the image contains no text at all, output nothing."""
 
-OCR_PROMPT = r"""Transcribe all text in this image exactly as written, in its original language. Do not translate anything. Keep spelling, including typos, exactly as shown.
+OCR_PROMPT = (
+    r"""Transcribe all text in this image exactly as written, in its original language. Do not translate anything. Keep spelling, including typos, exactly as shown.
 
-""" + RULES
+"""
+    + RULES
+)
 
-TRANSLATE_PROMPT = r"""Translate the text in this image.
+TRANSLATE_PROMPT = (
+    r"""Translate the text in this image.
 - Decide the source language from the dominant language of the text.
 - If it is not English (German, Persian or any other language), translate it into English.
 - If it is English, translate it into German.
@@ -149,7 +163,9 @@ TRANSLATE_PROMPT = r"""Translate the text in this image.
 - Keep names of people, organisations and products as written, and keep citations as written.
 - Match the register of the source: academic text stays academic. Write fluent, natural text in the target language, not a word-for-word rendering.
 
-""" + RULES
+"""
+    + RULES
+)
 
 
 class Unreachable(Exception):
@@ -159,8 +175,11 @@ class Unreachable(Exception):
 def post_json(open_url, url, payload, headers, who):
     """POST JSON, return the parsed reply. An HTTP error fails with its message;
     a network error raises Unreachable, so the caller picks fallback or failure."""
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(),
-                                 headers={"Content-Type": "application/json", **headers})
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json", **headers},
+    )
     try:
         with open_url(req, timeout=TIMEOUT) as r:
             return json.load(r)
@@ -168,7 +187,9 @@ def post_json(open_url, url, payload, headers, who):
         with e:
             body = e.read().decode(errors="replace")
         try:
-            detail = json.loads(body)["error"]["message"]  # Gemini's error shape
+            detail = json.loads(body)["error"][
+                "message"
+            ]  # Gemini's error shape
         except Exception:
             detail = body[:200]
         fail(f"{who} returned {e.code}. {detail}".strip())
@@ -180,20 +201,31 @@ def post_json(open_url, url, payload, headers, who):
 
 def transcribe(img_bytes, key, prompt):
     """Gemini. Returns (text, truncated); raises Unreachable."""
-    payload = post_json(urllib.request.urlopen, ENDPOINT, {
-        "contents": [{
-            "role": "user",
-            "parts": [
-                # grim writes png by default (grim -h); keep these in step.
-                {"inline_data": {"mime_type": "image/png",
-                                 "data": base64.b64encode(img_bytes).decode()}},
-                {"text": prompt},
+    payload = post_json(
+        urllib.request.urlopen,
+        ENDPOINT,
+        {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        # grim writes png by default (grim -h); keep these in step.
+                        {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": base64.b64encode(img_bytes).decode(),
+                            }
+                        },
+                        {"text": prompt},
+                    ],
+                }
             ],
-        }],
-        "generationConfig": {"temperature": TEMPERATURE},
-    },
+            "generationConfig": {"temperature": TEMPERATURE},
+        },
         # Header, not ?key= -- a query string lands in logs and proxies.
-        {"x-goog-api-key": key}, "Gemini")
+        {"x-goog-api-key": key},
+        "Gemini",
+    )
 
     candidates = payload.get("candidates") or []
     if not candidates:
@@ -233,30 +265,55 @@ def local_transcribe(img_bytes):
     port = free_port()
     # Any local user can reach a localhost port; the key keeps the server ours.
     key = secrets.token_urlsafe(16)
-    server = shlex.join([
-        "llama-server", "-hf", LOCAL_MODEL, "--offline", "-ngl", "99", "-c", "8192",
-        "-np", "1", "--host", "127.0.0.1", "--port", str(port)])
+    server = shlex.join(
+        [
+            "llama-server",
+            "-hf",
+            LOCAL_MODEL,
+            "--offline",
+            "-ngl",
+            "99",
+            "-c",
+            "8192",
+            "-np",
+            "1",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+        ]
+    )
     # A bash supervisor also watches our pid, so a SIGKILLed or SIGTERMed
     # capture-ocr (no finally runs) can't leave the server holding GPU memory.
     # Only the last wait is silenced: it would report the tail killed here as
     # "Killed", while wait -n still reports a server crash ("Segmentation fault").
-    watchdog = (f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
-                "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait 2>/dev/null")
+    watchdog = (
+        f"{server} & srv=$!; tail --pid={os.getpid()} -f /dev/null & "
+        "watch=$!; wait -n; kill -KILL $srv $watch 2>/dev/null; wait 2>/dev/null"
+    )
     log = tempfile.TemporaryFile()
     proc = subprocess.Popen(
-        ["bash", "-c", watchdog], stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+        ["bash", "-c", watchdog],
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=log,
         start_new_session=True,
         # Via the environment, not argv: /proc/<pid>/cmdline is world-readable.
-        env={**os.environ, "LLAMA_API_KEY": key})
+        env={**os.environ, "LLAMA_API_KEY": key},
+    )
     base = f"http://127.0.0.1:{port}"
     try:
         deadline = time.monotonic() + LOCAL_STARTUP
         while True:
-            if proc.poll() is not None:  # e.g. model not downloaded: its log says so
+            if (
+                proc.poll() is not None
+            ):  # e.g. model not downloaded: its log says so
                 log.seek(0)
                 lines = log.read().decode(errors="replace").strip().splitlines()
-                fail("Offline model failed to start: "
-                     + (" | ".join(lines[-3:]) or "no output"))
+                fail(
+                    "Offline model failed to start: "
+                    + (" | ".join(lines[-3:]) or "no output")
+                )
             if time.monotonic() > deadline:
                 fail(f"Offline model not ready after {LOCAL_STARTUP} s.")
             try:
@@ -269,16 +326,33 @@ def local_transcribe(img_bytes):
                 pass
             time.sleep(0.05)
 
-        reply = post_json(DIRECT.open, base + "/v1/chat/completions", {
-            "messages": [{"role": "user", "content": [
-                {"type": "image_url", "image_url": {
-                    "url": "data:image/png;base64," + base64.b64encode(img_bytes).decode()}},
-                {"type": "text", "text": LOCAL_PROMPT}]}],
-            "temperature": 0,
-            # A cap against runaway repetition. The densest page measured needed
-            # about one token per 500 px^2; this allows 2.5x that.
-            "max_tokens": 64 + width * height // 200,
-        }, {"Authorization": f"Bearer {key}"}, "Offline model")
+        reply = post_json(
+            DIRECT.open,
+            base + "/v1/chat/completions",
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": "data:image/png;base64,"
+                                    + base64.b64encode(img_bytes).decode()
+                                },
+                            },
+                            {"type": "text", "text": LOCAL_PROMPT},
+                        ],
+                    }
+                ],
+                "temperature": 0,
+                # A cap against runaway repetition. The densest page measured needed
+                # about one token per 500 px^2; this allows 2.5x that.
+                "max_tokens": 64 + width * height // 200,
+            },
+            {"Authorization": f"Bearer {key}"},
+            "Offline model",
+        )
     finally:
         # The whole group: bash, the server and the watchdog's tail.
         try:
@@ -289,8 +363,12 @@ def local_transcribe(img_bytes):
         log.close()
 
     choice = reply["choices"][0]
-    text = choice["message"]["content"]  # only a missing answer is empty; [] is odd
-    return ("" if text is None else text), choice.get("finish_reason") == "length"
+    text = choice["message"][
+        "content"
+    ]  # only a missing answer is empty; [] is odd
+    return ("" if text is None else text), choice.get(
+        "finish_reason"
+    ) == "length"
 
 
 def clean(text, offline):
@@ -304,7 +382,9 @@ def clean(text, offline):
     """
     blank = r"[\s-]*" if offline else r"\s*"
     if offline:
-        fence = re.fullmatch(r"\s*```\w*\n((?:(?!```).)*?)\n?```\s*", text, re.S)
+        fence = re.fullmatch(
+            r"\s*```\w*\n((?:(?!```).)*?)\n?```\s*", text, re.S
+        )
         if fence:
             text = fence.group(1)
     if re.fullmatch(blank, text.replace("[illegible]", "")):
@@ -315,23 +395,34 @@ def clean(text, offline):
 def main():
     args = sys.argv[1:]
     if args not in ([], ["--translate"]):
-        fail(f"Unknown arguments: {' '.join(args)}. Usage: capture-ocr [--translate]")
+        fail(
+            f"Unknown arguments: {' '.join(args)}. Usage: capture-ocr [--translate]"
+        )
     translate = bool(args)
     single_instance()
     key = api_key()
     img_bytes = capture()
-    notify("OCR", f"{'Translating' if translate else 'Extracting'} text via Gemini...",
-           timeout=3000)
+    notify(
+        "OCR",
+        f"{'Translating' if translate else 'Extracting'} text via Gemini...",
+        timeout=3000,
+    )
 
     offline = False
     try:
-        text, truncated = transcribe(img_bytes, key,
-                                     TRANSLATE_PROMPT if translate else OCR_PROMPT)
+        text, truncated = transcribe(
+            img_bytes, key, TRANSLATE_PROMPT if translate else OCR_PROMPT
+        )
     except Unreachable as e:
         if translate:
-            fail(f"Could not reach Gemini ({e}); translation needs the network.")
-        notify("OCR", f"Gemini unreachable ({e}); reading it offline with GLM-OCR...",
-               timeout=3000)
+            fail(
+                f"Could not reach Gemini ({e}); translation needs the network."
+            )
+        notify(
+            "OCR",
+            f"Gemini unreachable ({e}); reading it offline with GLM-OCR...",
+            timeout=3000,
+        )
         text, truncated = local_transcribe(img_bytes)
         offline = True
     text = clean(text, offline)
@@ -345,12 +436,20 @@ def main():
     subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True)
 
     notify_text = text if len(text) < 150 else text[:147] + "..."
-    done = ("Translation Copied" if translate
-            else "OCR Copied (offline)" if offline else "OCR Copied")
+    done = (
+        "Translation Copied"
+        if translate
+        else "OCR Copied (offline)"
+        if offline
+        else "OCR Copied"
+    )
     if truncated:
-        notify(f"{done} - TRUNCATED", f"Hit the output token limit; text is "
-               f"incomplete. Capture a smaller region.\n{notify_text}",
-               urgency="critical")
+        notify(
+            f"{done} - TRUNCATED",
+            f"Hit the output token limit; text is "
+            f"incomplete. Capture a smaller region.\n{notify_text}",
+            urgency="critical",
+        )
     else:
         notify(done, notify_text)
 
@@ -362,11 +461,16 @@ def run():
         # Every error without a message of its own ends here: missing tools, odd
         # replies, a local server that can't be reached. Only the type is shown --
         # a message can carry file contents or the key (a bad header echoes it).
-        notify("OCR Failed", f"Unexpected {type(e).__name__}; run capture-ocr in a "
-               "terminal for details.", urgency="critical")
+        notify(
+            "OCR Failed",
+            f"Unexpected {type(e).__name__}; run capture-ocr in a "
+            "terminal for details.",
+            urgency="critical",
+        )
         # Only to a terminal, as in notify(): a traceback can quote file contents.
         if sys.stderr and sys.stderr.isatty():
             import traceback
+
             traceback.print_exc()
         sys.exit(1)
 

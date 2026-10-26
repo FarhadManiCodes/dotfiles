@@ -43,7 +43,14 @@ CLONES = "clones (report only)"
 CANDIDATES = "clone candidates for judgment (report only)"
 MEASURE = "size and complexity against the base (report only)"
 
-PROXIES = ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")
+PROXIES = (
+    "http_proxy",
+    "HTTP_PROXY",
+    "https_proxy",
+    "HTTPS_PROXY",
+    "all_proxy",
+    "ALL_PROXY",
+)
 GOOD_BASH = '#!/bin/bash\nset -eu\nprintf "%s\\n" "$1"\n'
 # A function over jscpd's 50-token minimum, valid Bash and Zsh, and clean for
 # every check, so two copies are a clone and nothing else.
@@ -155,7 +162,11 @@ def results(out):
 
 def clean_env():
     """The invoking shell's environment without what could change a check's result."""
-    env = {k: v for k, v in os.environ.items() if not k.startswith(("GIT_", "CHECKS_", "PREK_", "RUFF_", "LLAMA_"))}
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith(("GIT_", "CHECKS_", "PREK_", "RUFF_", "LLAMA_"))
+    }
     for name in ("SHELLCHECK_OPTS", "SKIP", *PROXIES):
         env.pop(name, None)
     return env
@@ -177,7 +188,8 @@ class Case(unittest.TestCase):
         pattern = r"clone \([a-z]+, \d+ lines[^)]*\): {}:\d+-\d+ <-> {}:\d+-\d+"
         names = [re.escape(first), re.escape(second)]
         self.assertTrue(
-            re.search(pattern.format(*names), out) or re.search(pattern.format(*reversed(names)), out),
+            re.search(pattern.format(*names), out)
+            or re.search(pattern.format(*reversed(names)), out),
             f"no clone {first} <-> {second} in:\n{out}",
         )
 
@@ -195,12 +207,18 @@ class HookCase(Case):
         self.runtime.mkdir(mode=0o700)
         self.cache = self.tmp / "cache"
         (self.cache / "llama.cpp").mkdir(parents=True)
-        real_cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-        (self.cache / "llama.cpp" / MODEL).symlink_to(real_cache / "llama.cpp" / MODEL)
+        real_cache = Path(
+            os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
+        )
+        (self.cache / "llama.cpp" / MODEL).symlink_to(
+            real_cache / "llama.cpp" / MODEL
+        )
         self.stubs = self.tmp / "stubs"
         self.stubs.mkdir()
         gitconfig = self.tmp / "gitconfig"
-        gitconfig.write_text("[user]\n\tname = Test\n\temail = test@example.com\n[init]\n\tdefaultBranch = master\n")
+        gitconfig.write_text(
+            "[user]\n\tname = Test\n\temail = test@example.com\n[init]\n\tdefaultBranch = master\n"
+        )
         self.env = clean_env()
         self.env.update(
             GIT_CONFIG_GLOBAL=str(gitconfig),
@@ -235,9 +253,15 @@ class HookCase(Case):
         bin_dir = self.tmp / f"without-{missing}"
         bin_dir.mkdir()
         for directory in os.environ["PATH"].split(":"):
-            for tool in Path(directory).glob("*") if Path(directory).is_dir() else ():
+            for tool in (
+                Path(directory).glob("*") if Path(directory).is_dir() else ()
+            ):
                 link = bin_dir / tool.name
-                if tool.name != missing and not link.exists() and os.access(tool, os.X_OK):
+                if (
+                    tool.name != missing
+                    and not link.exists()
+                    and os.access(tool, os.X_OK)
+                ):
                     link.symlink_to(tool)
         return str(bin_dir)
 
@@ -268,7 +292,9 @@ class HookCase(Case):
 
     def commit(self, *args, cwd=None, env=None):
         """Commit through the hook; every path given is staged first."""
-        return self.run_command("git", "commit", "-m", "change", *args, cwd=cwd, env=env)
+        return self.run_command(
+            "git", "commit", "-m", "change", *args, cwd=cwd, env=env
+        )
 
     def stage_and_commit(self, *names, env=None):
         self.git("add", "--", *names)
@@ -286,7 +312,11 @@ class HookCase(Case):
                 continue
             info = path.lstat()
             data = os.readlink(path) if path.is_symlink() else path.read_bytes()
-            state[str(path.relative_to(root))] = (data, info.st_mode, info.st_mtime_ns)
+            state[str(path.relative_to(root))] = (
+                data,
+                info.st_mode,
+                info.st_mtime_ns,
+            )
         return state
 
     def snapshots(self):
@@ -307,11 +337,20 @@ class Blocking(HookCase):
 
     def test_clean_files_of_every_dialect_pass(self):
         self.write("bash/tool", GOOD_BASH, executable=True)
-        self.write("bin/posix", '#!/bin/sh\nprintf "%s\\n" "$1"\n', executable=True)
-        self.write("zsh/functions/greet.zsh", 'greet() {\n  print -r -- "hello $1"\n}\n')
+        self.write(
+            "bin/posix", '#!/bin/sh\nprintf "%s\\n" "$1"\n', executable=True
+        )
+        self.write(
+            "zsh/functions/greet.zsh",
+            'greet() {\n  print -r -- "hello $1"\n}\n',
+        )
         self.write("zsh/aliases", "alias ll='ls -l'\n")
         self.write("py/mod.py", CLONE_PYTHON)
-        self.write("bin/helper", '#!/usr/bin/env python3\nprint("hello")\n', executable=True)
+        self.write(
+            "bin/helper",
+            '#!/usr/bin/env python3\nprint("hello")\n',
+            executable=True,
+        )
         code, out = self.stage_and_commit(".")
         self.assert_passed(code, out)
         for hook in (WHITESPACE, SHELL, RUFF):
@@ -324,7 +363,10 @@ class Blocking(HookCase):
         self.assertIn("bash/tool", out)
         # Only the shell check fails; the report lists the file as not measured.
         self.assertEqual(results(out)[INDICATORS], "Passed", out)
-        self.assertIn("chains not measured (shfmt cannot parse them): bash/tool", section(out, INDICATORS))
+        self.assertIn(
+            "chains not measured (shfmt cannot parse them): bash/tool",
+            section(out, INDICATORS),
+        )
 
     def test_shellcheck_finding_blocks(self):
         self.write("bash/tool", "#!/bin/bash\necho $1\n", executable=True)
@@ -334,7 +376,9 @@ class Blocking(HookCase):
 
     def test_exported_shellcheck_opts_cannot_pass_a_finding(self):
         self.write("bash/tool", "#!/bin/bash\necho $1\n", executable=True)
-        code, out = self.stage_and_commit("bash/tool", env=self.env | {"SHELLCHECK_OPTS": "-e SC2086"})
+        code, out = self.stage_and_commit(
+            "bash/tool", env=self.env | {"SHELLCHECK_OPTS": "-e SC2086"}
+        )
         self.assert_blocked(code, out, SHELL)
 
     def test_exported_skip_cannot_pass_a_blocking_check(self):
@@ -351,22 +395,38 @@ class Blocking(HookCase):
         self.assertIn("SC1017", out)
 
     def test_sh_script_is_checked_as_sh(self):
-        self.write("bin/posix", '#!/bin/sh\nif [[ -n "$1" ]]; then echo yes; fi\n', executable=True)
+        self.write(
+            "bin/posix",
+            '#!/bin/sh\nif [[ -n "$1" ]]; then echo yes; fi\n',
+            executable=True,
+        )
         code, out = self.stage_and_commit("bin/posix")
         self.assert_blocked(code, out, SHELL)
         self.assertIn("SC3010", out)
 
     def test_env_dash_s_shebang_is_selected(self):
-        self.write("bin/tool", "#!/usr/bin/env -S bash -e\necho $1\n", executable=True)
+        self.write(
+            "bin/tool", "#!/usr/bin/env -S bash -e\necho $1\n", executable=True
+        )
         code, out = self.stage_and_commit("bin/tool")
         self.assert_blocked(code, out, SHELL)
         self.assertIn("SC2086", out)
 
-    def test_tab_indented_extensionless_script_fails_formatting_and_its_fix_passes(self):
-        self.write("bash/tool", '#!/bin/bash\nif [[ -n "$1" ]]; then\n\techo "$1"\nfi\n', executable=True)
+    def test_tab_indented_extensionless_script_fails_formatting_and_its_fix_passes(
+        self,
+    ):
+        self.write(
+            "bash/tool",
+            '#!/bin/bash\nif [[ -n "$1" ]]; then\n\techo "$1"\nfi\n',
+            executable=True,
+        )
         code, out = self.stage_and_commit("bash/tool")
         self.assert_blocked(code, out, SHELL)
-        self.write("bash/tool", '#!/bin/bash\nif [[ -n "$1" ]]; then\n  echo "$1"\nfi\n', executable=True)
+        self.write(
+            "bash/tool",
+            '#!/bin/bash\nif [[ -n "$1" ]]; then\n  echo "$1"\nfi\n',
+            executable=True,
+        )
         code, out = self.stage_and_commit("bash/tool")
         self.assert_passed(code, out)
 
@@ -390,22 +450,40 @@ class Blocking(HookCase):
         self.assert_blocked(code, out, SHELL)
         self.assertIn("lib/part.sh has no Bash or sh shebang", out)
 
-    def test_extensionless_file_without_shebang_is_not_checked_but_reported_when_executable(self):
+    def test_extensionless_file_without_shebang_is_not_checked_but_reported_when_executable(
+        self,
+    ):
         self.write("bin/notes", "if then (\n", executable=True)
         code, out = self.stage_and_commit("bin/notes")
         self.assert_passed(code, out)
-        self.assertIn("executable without a shebang, not checked: bin/notes", out)
+        self.assertIn(
+            "executable without a shebang, not checked: bin/notes", out
+        )
 
     def test_executable_with_an_unread_interpreter_is_reported(self):
-        for shebang in ("#!/usr/bin/env -S -u FOO python3", "#!/usr/bin/env -S uv run --script"):
+        for shebang in (
+            "#!/usr/bin/env -S -u FOO python3",
+            "#!/usr/bin/env -S uv run --script",
+        ):
             with self.subTest(shebang=shebang):
-                self.write("bin/runner", shebang + '\nprint("hi")\n', executable=True)
+                self.write(
+                    "bin/runner", shebang + '\nprint("hi")\n', executable=True
+                )
                 code, out = self.stage_and_commit("bin/runner")
                 self.assert_passed(code, out)
-                self.assertIn(f"executable in no checked dialect, not checked: bin/runner ({shebang})", out)
+                self.assertIn(
+                    f"executable in no checked dialect, not checked: bin/runner ({shebang})",
+                    out,
+                )
 
-    def test_executable_file_selected_by_path_is_not_reported_as_unchecked(self):
-        self.write("zsh/functions/greet.zsh", 'greet() {\n  print -r -- "hello $1"\n}\n', executable=True)
+    def test_executable_file_selected_by_path_is_not_reported_as_unchecked(
+        self,
+    ):
+        self.write(
+            "zsh/functions/greet.zsh",
+            'greet() {\n  print -r -- "hello $1"\n}\n',
+            executable=True,
+        )
         code, out = self.stage_and_commit("zsh/functions/greet.zsh")
         self.assert_passed(code, out)
         self.assertNotIn("not checked", out)
@@ -422,7 +500,9 @@ class Blocking(HookCase):
         code, out = self.stage_and_commit("tmux", "bash/tmux-cpp-tools")
         self.assert_passed(code, out)
 
-    def test_renamed_file_is_checked_under_its_new_name_and_a_deleted_one_is_not(self):
+    def test_renamed_file_is_checked_under_its_new_name_and_a_deleted_one_is_not(
+        self,
+    ):
         self.write("bash/old", "#!/bin/bash\necho $1\n", executable=True)
         self.git("add", "bash/old")
         self.git("commit", "-q", "--no-verify", "-m", "unchecked")
@@ -450,7 +530,10 @@ class Blocking(HookCase):
         for rules in (".shellcheckrc", ".gitattributes", "git-hooks/checks"):
             with self.subTest(rules=rules):
                 path = self.repo / rules
-                path.write_text((path.read_text() if path.exists() else "") + "# a comment\n")
+                path.write_text(
+                    (path.read_text() if path.exists() else "")
+                    + "# a comment\n"
+                )
                 code, out = self.stage_and_commit(rules)
                 self.assert_blocked(code, out, SHELL)
                 self.assertIn("bash/bad", section(out, SHELL))
@@ -464,27 +547,46 @@ class Blocking(HookCase):
     def test_whitespace_still_blocks_when_git_c_turns_the_rule_off(self):
         self.write("notes.txt", "text \n")
         self.git("add", "notes.txt")
-        code, out = self.run_command("git", "-c", "core.whitespace=-trailing-space", "commit", "-m", "change")
+        code, out = self.run_command(
+            "git",
+            "-c",
+            "core.whitespace=-trailing-space",
+            "commit",
+            "-m",
+            "change",
+        )
         self.assert_blocked(code, out, WHITESPACE)
 
-    def test_whitespace_still_blocks_when_user_configuration_turns_the_rule_off(self):
+    def test_whitespace_still_blocks_when_user_configuration_turns_the_rule_off(
+        self,
+    ):
         config = Path(self.env["GIT_CONFIG_GLOBAL"])
-        config.write_text(config.read_text() + "[core]\n\twhitespace = -trailing-space\n")
+        config.write_text(
+            config.read_text() + "[core]\n\twhitespace = -trailing-space\n"
+        )
         self.write("notes.txt", "text \n")
         code, out = self.stage_and_commit("notes.txt")
         self.assert_blocked(code, out, WHITESPACE)
 
-    def test_whitespace_still_blocks_when_a_git_template_turns_the_rule_off(self):
+    def test_whitespace_still_blocks_when_a_git_template_turns_the_rule_off(
+        self,
+    ):
         template = self.tmp / "template"
         template.mkdir()
-        (template / "config").write_text("[core]\n\twhitespace = -trailing-space\n")
+        (template / "config").write_text(
+            "[core]\n\twhitespace = -trailing-space\n"
+        )
         config = Path(self.env["GIT_CONFIG_GLOBAL"])
-        config.write_text(config.read_text() + f"[init]\n\ttemplateDir = {template}\n")
+        config.write_text(
+            config.read_text() + f"[init]\n\ttemplateDir = {template}\n"
+        )
         self.write("notes.txt", "text \n")
         code, out = self.stage_and_commit("notes.txt")
         self.assert_blocked(code, out, WHITESPACE)
 
-    def test_whitespace_still_blocks_when_user_attributes_turn_the_rule_off(self):
+    def test_whitespace_still_blocks_when_user_attributes_turn_the_rule_off(
+        self,
+    ):
         attributes = Path(self.env["XDG_CONFIG_HOME"], "git", "attributes")
         attributes.parent.mkdir(parents=True, exist_ok=True)
         attributes.write_text("* whitespace=-blank-at-eol\n")
@@ -502,7 +604,11 @@ class Blocking(HookCase):
         self.assert_passed(code, out)
 
     def test_unformatted_python_helper_without_extension_blocks(self):
-        self.write("bin/helper", "#!/usr/bin/env python3\nx=1\nprint(x)\n", executable=True)
+        self.write(
+            "bin/helper",
+            "#!/usr/bin/env python3\nx=1\nprint(x)\n",
+            executable=True,
+        )
         code, out = self.stage_and_commit("bin/helper")
         self.assert_blocked(code, out, RUFF)
         self.assertIn("bin/helper", out)
@@ -510,7 +616,9 @@ class Blocking(HookCase):
     def test_exported_ruff_output_file_cannot_hide_a_finding(self):
         self.write("py/mod.py", "import os\n")
         output = self.tmp / "ruff-output"
-        code, out = self.stage_and_commit("py/mod.py", env=self.env | {"RUFF_OUTPUT_FILE": str(output)})
+        code, out = self.stage_and_commit(
+            "py/mod.py", env=self.env | {"RUFF_OUTPUT_FILE": str(output)}
+        )
         self.assert_blocked(code, out, RUFF)
         self.assertIn("F401", out)
         self.assertFalse(output.exists())
@@ -534,7 +642,11 @@ class Blocking(HookCase):
         self.assertNotIn("not measured", report)
 
     def test_checks_neither_fix_nor_stage_files(self):
-        self.write("bash/tool", "#!/bin/bash\nif true; then\n\techo hi\nfi\n", executable=True)
+        self.write(
+            "bash/tool",
+            "#!/bin/bash\nif true; then\n\techo hi\nfi\n",
+            executable=True,
+        )
         self.write("py/mod.py", "x=1\n")
         self.git("add", "bash/tool", "py/mod.py")
         before, staged = self.tree_state(), self.git("diff", "--cached")
@@ -555,15 +667,23 @@ class Blocking(HookCase):
         self.assertEqual(target.stat().st_mtime_ns, before.st_mtime_ns)
 
     def test_untracked_file_cannot_satisfy_a_staged_source(self):
-        self.write("bash/lib.sh", '#!/bin/bash\nhelper() { printf "%s\\n" "$1"; }\n')
-        self.write("bash/tool", '#!/bin/bash\n# shellcheck source=bash/lib.sh\nsource bash/lib.sh\nhelper "$1"\n')
+        self.write(
+            "bash/lib.sh", '#!/bin/bash\nhelper() { printf "%s\\n" "$1"; }\n'
+        )
+        self.write(
+            "bash/tool",
+            '#!/bin/bash\n# shellcheck source=bash/lib.sh\nsource bash/lib.sh\nhelper "$1"\n',
+        )
         code, out = self.stage_and_commit("bash/tool")
         self.assert_blocked(code, out, SHELL)
         self.assertIn("SC1091", out)
 
     def test_missing_tool_fails(self):
         self.write("bash/tool", GOOD_BASH, executable=True)
-        code, out = self.stage_and_commit("bash/tool", env=self.env | {"PATH": self.path_without("shellcheck")})
+        code, out = self.stage_and_commit(
+            "bash/tool",
+            env=self.env | {"PATH": self.path_without("shellcheck")},
+        )
         self.assert_blocked(code, out, SHELL)
         self.assertIn("shellcheck is not installed", out)
 
@@ -577,7 +697,11 @@ class Blocking(HookCase):
         self.assertIn("jscpd failed (2)", out)
 
     def test_masked_return_is_reported_without_blocking(self):
-        self.write("bash/tool", '#!/bin/bash\nset -eu\nprintf "%s\\n" "$(date)"\n', executable=True)
+        self.write(
+            "bash/tool",
+            '#!/bin/bash\nset -eu\nprintf "%s\\n" "$(date)"\n',
+            executable=True,
+        )
         code, out = self.stage_and_commit("bash/tool")
         self.assert_passed(code, out)
         self.assertIn("SC2312", section(out, MASKED))
@@ -621,7 +745,11 @@ class Blocking(HookCase):
 
     def test_unstaged_dispatcher_edit_is_not_used_but_a_staged_one_is(self):
         checks = self.repo / "git-hooks/checks"
-        checks.write_text(checks.read_text().replace("  whitespace) check_whitespace ;;", "  whitespace) exit 1 ;;"))
+        checks.write_text(
+            checks.read_text().replace(
+                "  whitespace) check_whitespace ;;", "  whitespace) exit 1 ;;"
+            )
+        )
         self.write("bash/tool", GOOD_BASH, executable=True)
         code, out = self.stage_and_commit("bash/tool")
         self.assert_passed(code, out)
@@ -639,15 +767,24 @@ class Isolation(HookCase):
 
     def assert_isolated(self, code, out, tree):
         self.assertEqual(code, 0, out)
-        self.assertEqual(self.probe(out, "checks"), ["STAGED mode=pre-commit"], out)
+        self.assertEqual(
+            self.probe(out, "checks"), ["STAGED mode=pre-commit"], out
+        )
         self.assertEqual(self.probe(out, "tree"), [tree], out)
-        self.assertEqual(self.probe(out, "unstaged") + self.probe(out, "untracked"), [], out)
+        self.assertEqual(
+            self.probe(out, "unstaged") + self.probe(out, "untracked"), [], out
+        )
         (index,) = self.probe(out, "index")
-        self.assertRegex(index, rf"^{re.escape(str(self.runtime))}/herdr-hook\.[^/]+/repo/\.git/index$")
+        self.assertRegex(
+            index,
+            rf"^{re.escape(str(self.runtime))}/herdr-hook\.[^/]+/repo/\.git/index$",
+        )
         self.assertEqual(self.snapshots(), [])
 
     def edit_live_dispatcher(self):
-        (self.repo / "git-hooks/checks").write_text(PROBE.replace("MARKER", "LIVE"))
+        (self.repo / "git-hooks/checks").write_text(
+            PROBE.replace("MARKER", "LIVE")
+        )
 
     def test_plain_commit_with_unstaged_edits_and_untracked_files(self):
         self.write("sub/file", "one\n")
@@ -697,7 +834,9 @@ class Isolation(HookCase):
         self.write("sub/file", "one\ntwo\nthree\n")
         code, out = self.commit()
         self.assert_isolated(code, out, self.git("rev-parse", "HEAD^{tree}"))
-        self.assertEqual((self.repo / "sub/file").read_text(), "one\ntwo\nthree\n")
+        self.assertEqual(
+            (self.repo / "sub/file").read_text(), "one\ntwo\nthree\n"
+        )
 
     def test_amend_checks_the_amended_index_against_the_replaced_commit(self):
         self.write("sub/file", "one\n")
@@ -708,15 +847,21 @@ class Isolation(HookCase):
         self.git("add", "sub/file")
         code, out = self.commit("--amend")
         self.assert_isolated(code, out, self.git("rev-parse", "HEAD^{tree}"))
-        self.assertEqual(self.probe(out, "base"), [f"{replaced} scope=changed"], out)
+        self.assertEqual(
+            self.probe(out, "base"), [f"{replaced} scope=changed"], out
+        )
         self.assertEqual(self.git("show", "HEAD:sub/file"), "two")
 
     def test_on_demand_run_from_a_subdirectory_leaves_the_index(self):
         self.write("sub/file", "one\n")
         self.git("add", "sub/file")
-        tree = self.git("write-tree")  # stores a cache tree, so before the copy below
+        tree = self.git(
+            "write-tree"
+        )  # stores a cache tree, so before the copy below
         index = (self.repo / ".git/index").read_bytes()
-        code, out = self.run_command("bash", "../git-hooks/bootstrap", "run", cwd=self.repo / "sub")
+        code, out = self.run_command(
+            "bash", "../git-hooks/bootstrap", "run", cwd=self.repo / "sub"
+        )
         self.assertEqual(self.probe(out, "checks"), ["STAGED mode=run"], out)
         self.assertEqual(self.probe(out, "tree"), [tree], out)
         self.assertEqual(code, 0, out)
@@ -728,7 +873,11 @@ class Isolation(HookCase):
         code, out = self.run_command("git", "commit", "-m", "first", cwd=repo)
         self.assertEqual(code, 0, out)
         self.assertEqual(self.probe(out, "base"), ["scope=changed"], out)
-        self.assertEqual(self.probe(out, "tree"), [self.git("rev-parse", "HEAD^{tree}", cwd=repo)], out)
+        self.assertEqual(
+            self.probe(out, "tree"),
+            [self.git("rev-parse", "HEAD^{tree}", cwd=repo)],
+            out,
+        )
 
     def test_clean_no_ff_merge_runs_pre_merge_commit(self):
         self.git("switch", "-q", "-c", "side")
@@ -740,11 +889,19 @@ class Isolation(HookCase):
         self.git("add", "main")
         self.git("commit", "-q", "--no-verify", "-m", "main")
         base = self.head()
-        code, out = self.run_command("git", "merge", "--no-ff", "-m", "merge", "side")
+        code, out = self.run_command(
+            "git", "merge", "--no-ff", "-m", "merge", "side"
+        )
         self.assertEqual(code, 0, out)
-        self.assertEqual(self.probe(out, "checks"), ["STAGED mode=pre-merge-commit"], out)
-        self.assertEqual(self.probe(out, "base"), [f"{base} scope=changed"], out)
-        self.assertEqual(self.probe(out, "tree"), [self.git("rev-parse", "HEAD^{tree}")], out)
+        self.assertEqual(
+            self.probe(out, "checks"), ["STAGED mode=pre-merge-commit"], out
+        )
+        self.assertEqual(
+            self.probe(out, "base"), [f"{base} scope=changed"], out
+        )
+        self.assertEqual(
+            self.probe(out, "tree"), [self.git("rev-parse", "HEAD^{tree}")], out
+        )
 
     def test_failing_check_blocks_and_its_status_passes_through(self):
         self.write("exit-status", "3\n")
@@ -761,7 +918,11 @@ class Isolation(HookCase):
         self.write("file", "one\n")
         self.git("add", "file")
         code, out = self.commit()
-        self.assert_fails(code, out, "git-hooks/bootstrap differs from the copy in this commit")
+        self.assert_fails(
+            code,
+            out,
+            "git-hooks/bootstrap differs from the copy in this commit",
+        )
         self.assertEqual(self.probe(out, "checks"), [])
 
     def test_staged_bootstrap_edit_left_out_of_a_path_commit_aborts(self):
@@ -770,7 +931,11 @@ class Isolation(HookCase):
         self.write("file", "one\n")
         self.git("add", "git-hooks/bootstrap", "file")
         code, out = self.commit("file")
-        self.assert_fails(code, out, "git-hooks/bootstrap differs from the copy in this commit")
+        self.assert_fails(
+            code,
+            out,
+            "git-hooks/bootstrap differs from the copy in this commit",
+        )
         self.assertEqual(self.probe(out, "checks"), [])
 
     def test_bootstrap_not_yet_added_aborts(self):
@@ -780,7 +945,9 @@ class Isolation(HookCase):
         self.write("file", "one\n")
         self.git("add", "file")
         code, out = self.commit()
-        self.assert_fails(code, out, "git-hooks/bootstrap is not in this commit; add it first")
+        self.assert_fails(
+            code, out, "git-hooks/bootstrap is not in this commit; add it first"
+        )
         self.assertNotIn("removes", out)
 
     def test_branch_without_the_bootstrap_lets_the_commit_through(self):
@@ -789,7 +956,9 @@ class Isolation(HookCase):
         self.git("add", "file")
         code, out = self.commit()
         self.assertEqual(code, 0, out)
-        self.assertIn("this branch has no git-hooks/bootstrap; no checks run", out)
+        self.assertIn(
+            "this branch has no git-hooks/bootstrap; no checks run", out
+        )
 
     def test_bootstrap_deleted_but_still_staged_aborts(self):
         (self.repo / "git-hooks/bootstrap").unlink()
@@ -797,7 +966,9 @@ class Isolation(HookCase):
         self.git("add", "file")
         code, out = self.commit()
         self.assert_fails(
-            code, out, "git-hooks/bootstrap is staged but missing; restore it with git restore git-hooks/bootstrap"
+            code,
+            out,
+            "git-hooks/bootstrap is staged but missing; restore it with git restore git-hooks/bootstrap",
         )
         self.assertEqual(self.git("log", "-1", "--format=%s"), "tooling")
 
@@ -823,16 +994,26 @@ class Isolation(HookCase):
         self.git("add", "file")
         self.git("commit", "-q", "--no-verify", "-m", "old")
         self.write("git-hooks/bootstrap", bootstrap)
-        code, out = self.run_command("bash", "git-hooks/bootstrap", "full", self.head())
-        self.assert_fails(code, out, "git-hooks/bootstrap is not in HEAD; commit it first")
+        code, out = self.run_command(
+            "bash", "git-hooks/bootstrap", "full", self.head()
+        )
+        self.assert_fails(
+            code, out, "git-hooks/bootstrap is not in HEAD; commit it first"
+        )
 
-    def test_commit_removing_the_bootstrap_fails_while_the_hooks_are_installed(self):
+    def test_commit_removing_the_bootstrap_fails_while_the_hooks_are_installed(
+        self,
+    ):
         for remove in (["rm", "-q"], ["rm", "-q", "--cached"]):
             with self.subTest(remove=remove):
                 self.git(*remove, "git-hooks/bootstrap")
                 code, out = self.commit()
-                self.assert_fails(code, out, "this commit removes git-hooks/bootstrap")
-                self.assertEqual(self.git("log", "-1", "--format=%s"), "tooling")
+                self.assert_fails(
+                    code, out, "this commit removes git-hooks/bootstrap"
+                )
+                self.assertEqual(
+                    self.git("log", "-1", "--format=%s"), "tooling"
+                )
                 self.git("reset", "-q", "--hard")
 
     def test_stale_installed_hook_is_warned_about_without_blocking(self):
@@ -843,7 +1024,9 @@ class Isolation(HookCase):
         stub.write_text(stub.read_text() + "# an older copy\n")
         code, out = self.commit("--allow-empty")
         self.assertEqual(code, 0, out)
-        self.assertIn(f"warning: {stub} differs from git-hooks/hook; copy it again", out)
+        self.assertIn(
+            f"warning: {stub} differs from git-hooks/hook; copy it again", out
+        )
 
     def test_split_index_fails(self):
         self.git("update-index", "--split-index")
@@ -895,8 +1078,13 @@ class Clones(HookCase):
         code, out = self.stage_and_commit("bash/two")
         self.assert_passed(code, out)
         self.assert_clone(section(out, CLONES), "bash/one", "bash/two")
-        self.assertIn("Look each up in docs/clone-verdicts.md first.", section(out, CLONES))
-        self.assertIn(f"1 clones new since {self.git('rev-parse', 'HEAD~1')[:12]}", out)
+        self.assertIn(
+            "Look each up in docs/clone-verdicts.md first.",
+            section(out, CLONES),
+        )
+        self.assertIn(
+            f"1 clones new since {self.git('rev-parse', 'HEAD~1')[:12]}", out
+        )
 
     def test_first_commit_reports_every_clone(self):
         repo = self.tmp / "first"
@@ -924,9 +1112,15 @@ class Clones(HookCase):
         self.assert_passed(code, out)
         self.assert_clone(out, "zsh/aliases", "zsh/tool")
 
-    def test_python_clone_is_reported_but_a_test_clone_only_by_the_broad_run(self):
+    def test_python_clone_is_reported_but_a_test_clone_only_by_the_broad_run(
+        self,
+    ):
         self.write("py/one.py", CLONE_PYTHON)
-        self.write("bin/two", "#!/usr/bin/env python3\n" + CLONE_PYTHON, executable=True)
+        self.write(
+            "bin/two",
+            "#!/usr/bin/env python3\n" + CLONE_PYTHON,
+            executable=True,
+        )
         self.write("tests/test_one.py", CLONE_PYTHON)
         self.write("tests/test_two.py", CLONE_PYTHON)
         code, out = self.stage_and_commit(".")
@@ -954,9 +1148,17 @@ class FullRun(HookCase):
         self.write("py/settings.py", SIMILAR_PYTHON)
         self.write("py/count_loop.py", COUNT_LOOP)
         self.write("py/count_counter.py", COUNT_COUNTER)
-        self.write("py/loader.py", CLONE_PYTHON + "\n\ndef keys(path):\n    return sorted(load(path, {}))\n")
+        self.write(
+            "py/loader.py",
+            CLONE_PYTHON
+            + "\n\ndef keys(path):\n    return sorted(load(path, {}))\n",
+        )
         # The same path, Bash at the base and Python now.
-        self.write("bin/tool", '#!/usr/bin/env python3\nprint("hello")\n', executable=True)
+        self.write(
+            "bin/tool",
+            '#!/usr/bin/env python3\nprint("hello")\n',
+            executable=True,
+        )
         self.git("add", "-A")
         self.git("commit", "-q", "--no-verify", "-m", "branch")
         before = self.tree_state()
@@ -973,7 +1175,9 @@ class FullRun(HookCase):
             "http_proxy": "http://192.0.2.1:9",
             "LLAMA_API_KEY": "secret",
         }
-        code, out = self.run_command("bash", "git-hooks/bootstrap", "full", base, env=env)
+        code, out = self.run_command(
+            "bash", "git-hooks/bootstrap", "full", base, env=env
+        )
         self.assert_passed(code, out)
         planned, broad = (
             section(out, CLONES),
@@ -983,29 +1187,43 @@ class FullRun(HookCase):
         self.assertNotIn("tests/test_", planned)
         self.assertIn("Candidates for judgment (broad)", broad)
         self.assert_clone(broad, "tests/test_one.py", "tests/test_two.py")
-        similarity = broad[broad.index("Candidates for judgment (similarity)") :]
-        similarity, semantic = similarity.split("Candidates for judgment (semantic)")
+        similarity = broad[
+            broad.index("Candidates for judgment (similarity)") :
+        ]
+        similarity, semantic = similarity.split(
+            "Candidates for judgment (semantic)"
+        )
         self.assertIn(f"new since {base[:12]}", similarity)
         self.assert_clone(similarity, "py/loader.py", "py/settings.py")
         self.assertIn(f"new since {base[:12]}", semantic)
         self.assert_clone(semantic, "py/count_loop.py", "py/count_counter.py")
         measure = section(out, MEASURE)
-        self.assertRegex(measure, rf"bash/gone: \(3, {len(GOOD_BASH)}, \d+\) -> not in scope")
-        self.assertRegex(measure, r"bash/two: not in scope -> \(\d+, \d+, \d+\)")
+        self.assertRegex(
+            measure, rf"bash/gone: \(3, {len(GOOD_BASH)}, \d+\) -> not in scope"
+        )
+        self.assertRegex(
+            measure, r"bash/two: not in scope -> \(\d+, \d+, \d+\)"
+        )
         self.assertIn("pkg/__init__.py: not in scope -> not measured", measure)
         for changed in ("bin/tool", "py/loader.py"):
-            self.assertRegex(measure, rf"{changed}: \(\d+, \d+, \d+\) -> \(\d+, \d+, \d+\)")
+            self.assertRegex(
+                measure, rf"{changed}: \(\d+, \d+, \d+\) -> \(\d+, \d+, \d+\)"
+            )
         self.assertEqual(self.tree_state(), before)
         self.assertFalse((self.cache / "jscpd").exists())
 
     def test_missing_tool_fails_the_full_run_by_name(self):
         env = self.env | {"PATH": self.path_without("llama-server")}
-        code, out = self.run_command("bash", "git-hooks/bootstrap", "full", self.head(), env=env)
+        code, out = self.run_command(
+            "bash", "git-hooks/bootstrap", "full", self.head(), env=env
+        )
         self.assert_fails(code, out, "llama-server is not installed")
 
     def test_semantic_run_fails_without_the_model(self):
         (self.cache / "llama.cpp" / MODEL).unlink()
-        code, out = self.run_command("bash", "git-hooks/bootstrap", "full", self.head())
+        code, out = self.run_command(
+            "bash", "git-hooks/bootstrap", "full", self.head()
+        )
         self.assert_blocked(code, out, CANDIDATES)
         self.assertIn("the semantic run never downloads it", out)
 
@@ -1019,7 +1237,9 @@ class FullRun(HookCase):
             "exit 1\n"
         )
         stub.chmod(0o755)
-        code, out = self.run_command("bash", "git-hooks/bootstrap", "full", self.head())
+        code, out = self.run_command(
+            "bash", "git-hooks/bootstrap", "full", self.head()
+        )
         self.assert_blocked(code, out, CANDIDATES)
         self.assertIn("llama-server did not become healthy", out)
         namespace, *links = seen.read_text().split()
@@ -1057,7 +1277,9 @@ class Reports(Case):
         return proc.returncode, proc.stdout + proc.stderr
 
     def clones(self, records):
-        return self.report(records, "clones", "planned", "", str(self.dir / "tmp"))
+        return self.report(
+            records, "clones", "planned", "", str(self.dir / "tmp")
+        )
 
     def test_chain_and_line_counter_on_known_input(self):
         (self.dir / "known").write_text(
@@ -1075,7 +1297,12 @@ class Reports(Case):
         self.assertEqual(code, 0, out)
         self.assertEqual(
             out.splitlines(),
-            ["known:3: pipeline of 4", "known:4: &&/|| chain of 5", "known:6: pipeline of 4", "known:8: 81 columns"],
+            [
+                "known:3: pipeline of 4",
+                "known:4: &&/|| chain of 5",
+                "known:6: pipeline of 4",
+                "known:8: 81 columns",
+            ],
         )
 
     def test_python_gets_line_lengths_but_no_chain_count(self):
@@ -1084,13 +1311,22 @@ class Reports(Case):
         (self.dir / "known").write_text("#!/bin/bash\na | b | c | d\n")
         code, out = self.report(["bash:known", "python:tool.py"], "indicators")
         self.assertEqual(code, 0, out)
-        self.assertEqual(out.splitlines(), ["known:2: pipeline of 4", "tool.py:3: 81 columns"])
+        self.assertEqual(
+            out.splitlines(),
+            ["known:2: pipeline of 4", "tool.py:3: 81 columns"],
+        )
 
-    def test_unparsable_file_is_listed_as_not_measured_and_the_rest_still_are(self):
-        (self.dir / "broken").write_text("#!/bin/bash\nif true; then\n" + "#" * 81 + "\n")
+    def test_unparsable_file_is_listed_as_not_measured_and_the_rest_still_are(
+        self,
+    ):
+        (self.dir / "broken").write_text(
+            "#!/bin/bash\nif true; then\n" + "#" * 81 + "\n"
+        )
         (self.dir / "known").write_text("#!/bin/bash\na | b | c | d\n")
         (self.dir / "named").write_text("#!/bin/bash\n")
-        code, out = self.report(["bash:named", "bash:broken", "bash:known"], "indicators", "named")
+        code, out = self.report(
+            ["bash:named", "bash:broken", "bash:known"], "indicators", "named"
+        )
         self.assertEqual(code, 0, out)
         self.assertEqual(
             out.splitlines(),
@@ -1106,22 +1342,39 @@ class Reports(Case):
         (self.dir / "tiny").write_text("#!/bin/bash\necho hi\n")
         code, out = self.clones(["bash:one", "bash:tiny"])
         self.assertEqual(code, 0, out)
-        self.assertRegex(out, r"below the 50-token or 5-line minimum, so it cannot hold a clone: tiny \(\d+ tokens")
+        self.assertRegex(
+            out,
+            r"below the 50-token or 5-line minimum, so it cannot hold a clone: tiny \(\d+ tokens",
+        )
         # Over both token minimums, but under 5 lines, which jscpd never analyzes.
         words = " ".join(f"w{n}" for n in range(40))
         (self.dir / "short").write_text(f"#!/bin/bash\nprintf '%s' {words}\n")
         for kind in ("planned", "broad"):
-            code, out = self.report(["bash:one", "bash:short"], "clones", kind, "", str(self.dir / "tmp"))
+            code, out = self.report(
+                ["bash:one", "bash:short"],
+                "clones",
+                kind,
+                "",
+                str(self.dir / "tmp"),
+            )
             self.assertEqual(code, 0, out)
-            self.assertRegex(out, r"cannot hold a clone: short \(\d+ tokens, 2 lines\)")
+            self.assertRegex(
+                out, r"cannot hold a clone: short \(\d+ tokens, 2 lines\)"
+            )
         for name in ("__init__.py", "blank.py"):
-            (self.dir / name).write_text("" if name == "__init__.py" else "\n  \n")
-        code, out = self.clones(["bash:one", "python:__init__.py", "python:blank.py"])
+            (self.dir / name).write_text(
+                "" if name == "__init__.py" else "\n  \n"
+            )
+        code, out = self.clones(
+            ["bash:one", "python:__init__.py", "python:blank.py"]
+        )
         self.assertEqual(code, 0, out)
         self.assertIn("empty, so it cannot hold a clone: __init__.py", out)
         self.assertIn("empty, so it cannot hold a clone: blank.py", out)
         # jscpd skips files over 1 MB whatever their size in tokens.
-        (self.dir / "huge").write_text("".join(f"echo {n}\n" for n in range(150_000)))
+        (self.dir / "huge").write_text(
+            "".join(f"echo {n}\n" for n in range(150_000))
+        )
         code, out = self.clones(["bash:one", "bash:huge"])
         self.assert_fails(code, out, "jscpd skipped huge")
 

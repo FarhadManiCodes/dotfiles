@@ -4,6 +4,7 @@
 
 No live configuration, package manager, tmux server or systemd manager is changed.
 """
+
 import os
 from pathlib import Path
 import re
@@ -16,11 +17,11 @@ SOURCE = Path(__file__).resolve().parents[1] / "bash/config-drift"
 
 # The real hdr/ok/warn/skip run, so their counts are under test too; their
 # colour codes are stripped from the output.
-PREAMBLE = r'''
+PREAMBLE = r"""
 source "$CONFIG_DRIFT"
 verbose=1
-'''
-ANSI = re.compile(r'\x1b\[[0-9;]*m')
+"""
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class ConfigDriftTests(unittest.TestCase):
@@ -29,7 +30,11 @@ class ConfigDriftTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.config_drift = SOURCE
-        self.env = dict(os.environ, DOTFILES=str(self.root), XDG_CONFIG_HOME=str(self.root / "live"))
+        self.env = dict(
+            os.environ,
+            DOTFILES=str(self.root),
+            XDG_CONFIG_HOME=str(self.root / "live"),
+        )
 
     def write(self, name, content):
         path = self.root / name
@@ -43,12 +48,14 @@ class ConfigDriftTests(unittest.TestCase):
         root; used only by tests exercising check_last_pacman_transaction. The entry
         file itself needs no patching, but still locates config-drift.d/ relative to
         its own path, so a full sibling directory has to exist alongside it."""
-        entry = self.write('config-drift-patched', SOURCE.read_text())
-        checks_dir = self.root / 'config-drift.d'
+        entry = self.write("config-drift-patched", SOURCE.read_text())
+        checks_dir = self.root / "config-drift.d"
         checks_dir.mkdir(exist_ok=True)
-        for real in (SOURCE.parent / 'config-drift.d').glob('*.sh'):
-            if real.name == 'pacman-transaction.sh':
-                text = real.read_text().replace('plog=/var/log/pacman.log', 'plog="$df_dir/pacman.log"')
+        for real in (SOURCE.parent / "config-drift.d").glob("*.sh"):
+            if real.name == "pacman-transaction.sh":
+                text = real.read_text().replace(
+                    "plog=/var/log/pacman.log", 'plog="$df_dir/pacman.log"'
+                )
                 (checks_dir / real.name).write_text(text)
             else:
                 (checks_dir / real.name).symlink_to(real)
@@ -56,423 +63,640 @@ class ConfigDriftTests(unittest.TestCase):
 
     def run_check(self, call, setup=""):
         result = subprocess.run(
-            ["bash", "-c", PREAMBLE + setup + "\n" + call + '\nprintf "COUNTS %s %s\\n" "$issues" "$skipped"\n'],
+            [
+                "bash",
+                "-c",
+                PREAMBLE
+                + setup
+                + "\n"
+                + call
+                + '\nprintf "COUNTS %s %s\\n" "$issues" "$skipped"\n',
+            ],
             env=dict(self.env, CONFIG_DRIFT=str(self.config_drift)),
-            capture_output=True, text=True, timeout=10, check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
         )
         self.assertEqual(result.stderr, "")
-        return ANSI.sub('', result.stdout)
+        return ANSI.sub("", result.stdout)
 
     def test_section_ok_rule(self):
         # pass prints only for a section with no warning and no skip; -p lets
         # skips through; hdr starts the next section clean.
-        for body, plain, partial in [('', True, True), ('warn w', False, False), ('skip s', False, True)]:
+        for body, plain, partial in [
+            ("", True, True),
+            ("warn w", False, False),
+            ("skip s", False, True),
+        ]:
             with self.subTest(body=body):
-                output = self.run_check(f'hdr one\n{body}\npass plain\npass -p partial\nhdr two\npass fresh')
-                self.assertEqual('ok  plain' in output, plain)
-                self.assertEqual('ok  partial' in output, partial)
-                self.assertIn('ok  fresh', output)
+                output = self.run_check(
+                    f"hdr one\n{body}\npass plain\npass -p partial\nhdr two\npass fresh"
+                )
+                self.assertEqual("ok  plain" in output, plain)
+                self.assertEqual("ok  partial" in output, partial)
+                self.assertIn("ok  fresh", output)
 
     # Which checks still print their ok after a skip. Each fixture makes the
     # section skip and nothing else; the control shows the same fixture can
     # print or withhold the ok at all.
     def test_root_configs_ok_survives_a_skip(self):
-        setup = 'root_copies() { root_src=(x) root_dst=(y) root_list_bad=0; }'
-        message = 'all compared root configs match'
-        self.assertIn(message, self.run_check('check_root_configs', setup + '\ncheck_root() { skip s; }'))
-        self.assertNotIn(message, self.run_check('check_root_configs', setup + '\ncheck_root() { warn w; }'))
+        setup = "root_copies() { root_src=(x) root_dst=(y) root_list_bad=0; }"
+        message = "all compared root configs match"
+        self.assertIn(
+            message,
+            self.run_check(
+                "check_root_configs", setup + "\ncheck_root() { skip s; }"
+            ),
+        )
+        self.assertNotIn(
+            message,
+            self.run_check(
+                "check_root_configs", setup + "\ncheck_root() { warn w; }"
+            ),
+        )
 
     def test_ownership_ok_survives_a_skip(self):
-        setup = 'root_dst=(/etc/example) root_list_bad=0\ncheck_privileged() { RESULT; }'
-        message = 'under root-owned directories (unreadable paths listed above excluded)'
-        self.assertIn(message, self.run_check('check_privileged_configs', setup.replace('RESULT', 'skip s')))
-        self.assertNotIn(message, self.run_check('check_privileged_configs', setup.replace('RESULT', 'warn w')))
+        setup = "root_dst=(/etc/example) root_list_bad=0\ncheck_privileged() { RESULT; }"
+        message = "under root-owned directories (unreadable paths listed above excluded)"
+        self.assertIn(
+            message,
+            self.run_check(
+                "check_privileged_configs", setup.replace("RESULT", "skip s")
+            ),
+        )
+        self.assertNotIn(
+            message,
+            self.run_check(
+                "check_privileged_configs", setup.replace("RESULT", "warn w")
+            ),
+        )
 
     def test_plugins_ok_withheld_after_a_skip(self):
-        self.env['HOME'] = str(self.root / 'home')
-        for name in ('fine', 'unreachable'):
-            (self.root / 'live/tmux/plugins' / name / '.git').mkdir(parents=True)
-        setup = 'git() { [[ $2 == */NAME/ ]] && return 1; echo 0; }'
-        message = 'plugins current'
-        self.assertIn(message, self.run_check('check_plugin_staleness', setup.replace('NAME', 'none')))
-        output = self.run_check('check_plugin_staleness', setup.replace('NAME', 'unreachable'))
-        self.assertIn('unreachable: upstream unavailable', output)
+        self.env["HOME"] = str(self.root / "home")
+        for name in ("fine", "unreachable"):
+            (self.root / "live/tmux/plugins" / name / ".git").mkdir(
+                parents=True
+            )
+        setup = "git() { [[ $2 == */NAME/ ]] && return 1; echo 0; }"
+        message = "plugins current"
+        self.assertIn(
+            message,
+            self.run_check(
+                "check_plugin_staleness", setup.replace("NAME", "none")
+            ),
+        )
+        output = self.run_check(
+            "check_plugin_staleness", setup.replace("NAME", "unreachable")
+        )
+        self.assertIn("unreachable: upstream unavailable", output)
         self.assertNotIn(message, output)
 
     def test_symlink_ok_withheld_after_a_skip(self):
-        self.env['HOME'] = str(self.root / 'home')
-        message = 'expected config links match'
-        output = self.run_check('check_symlink_integrity', 'git() { :; }')
-        self.assertIn('no installed config directories', output)
+        self.env["HOME"] = str(self.root / "home")
+        message = "expected config links match"
+        output = self.run_check("check_symlink_integrity", "git() { :; }")
+        self.assertIn("no installed config directories", output)
         self.assertNotIn(message, output)
-        (self.root / 'live').mkdir()
-        self.assertIn(message, self.run_check('check_symlink_integrity', 'git() { :; }'))
+        (self.root / "live").mkdir()
+        self.assertIn(
+            message, self.run_check("check_symlink_integrity", "git() { :; }")
+        )
 
     def test_etc_ok_survives_a_skip(self):
-        self.write('etc/unowned.txt', '')
-        self.write('etc/modified.txt', '')
-        stub = r'''
+        self.write("etc/unowned.txt", "")
+        self.write("etc/modified.txt", "")
+        stub = r"""
 find() { [[ $3 == f ]] || { printf '/etc/secret\n'; return; }; printf '/etc/a\n'; return 1; }
 pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'; return $qii_status; fi; }
-'''
-        message = 'no new paths'
-        output = self.run_check('check_etc_baselines', stub + 'qii_status=0')
-        self.assertIn('root-only dir(s) not scanned', output)
+"""
+        message = "no new paths"
+        output = self.run_check("check_etc_baselines", stub + "qii_status=0")
+        self.assertIn("root-only dir(s) not scanned", output)
         self.assertIn(message, output)
-        self.assertNotIn(message, self.run_check('check_etc_baselines', stub + 'qii_status=1'))
+        self.assertNotIn(
+            message,
+            self.run_check("check_etc_baselines", stub + "qii_status=1"),
+        )
         # A scan that fails with no root-only directory to blame saw nothing.
-        output = self.run_check('check_etc_baselines', stub + 'qii_status=0\nfind() { return 1; }')
-        self.assertIn('scan failed, cause unknown', output)
+        output = self.run_check(
+            "check_etc_baselines", stub + "qii_status=0\nfind() { return 1; }"
+        )
+        self.assertIn("scan failed, cause unknown", output)
         self.assertNotIn(message, output)
 
     def test_spotify(self):
         base = 'client_id = "SECRET_TEMPLATE"\nblank = ""\nnumber = 1\n[device]\nvolume = 70\nclient_id = "nested"\n'
         cases = [
             (base.replace("SECRET_TEMPLATE", "SECRET_LIVE"), None),
-            ('# comment\n' + base.replace('number = 1', 'number=1 # same'), None),
-            (base.replace('client_id = "SECRET_TEMPLATE"\n', ''), None),
-            (base.replace('volume = 70', 'volume = 71'), 'different setting: "device"'),
-            (base.replace('client_id = "nested"', 'client_id = "other"'), 'different setting: "device"'),
-            (base.replace('blank = ""', 'blank = "nonempty"'), 'different setting: "blank"'),
-            (base.replace('number = 1\n', ''), 'missing from live config: "number"'),
-            ('extra = 1\n' + base, 'only in live config: "extra"'),
-            (base.replace('number = 1', 'number = true'), 'different setting: "number"'),
-            ('client_id = "SECRET_INVALID', 'not compared: live config'),
-            (None, 'not compared: live config'),
+            (
+                "# comment\n" + base.replace("number = 1", "number=1 # same"),
+                None,
+            ),
+            (base.replace('client_id = "SECRET_TEMPLATE"\n', ""), None),
+            (
+                base.replace("volume = 70", "volume = 71"),
+                'different setting: "device"',
+            ),
+            (
+                base.replace('client_id = "nested"', 'client_id = "other"'),
+                'different setting: "device"',
+            ),
+            (
+                base.replace('blank = ""', 'blank = "nonempty"'),
+                'different setting: "blank"',
+            ),
+            (
+                base.replace("number = 1\n", ""),
+                'missing from live config: "number"',
+            ),
+            ("extra = 1\n" + base, 'only in live config: "extra"'),
+            (
+                base.replace("number = 1", "number = true"),
+                'different setting: "number"',
+            ),
+            ('client_id = "SECRET_INVALID', "not compared: live config"),
+            (None, "not compared: live config"),
         ]
-        template = self.write('spotify-player/app.toml', base)
-        live = self.root / 'live/spotify-player/app.toml'
+        template = self.write("spotify-player/app.toml", base)
+        live = self.root / "live/spotify-player/app.toml"
         for value, expected in cases:
             with self.subTest(value=value):
                 if value is None:
                     live.unlink(missing_ok=True)
                 else:
-                    self.write('live/spotify-player/app.toml', value)
-                output = self.run_check('check_spotify_config')
-                self.assertNotIn('SECRET', output)
-                self.assertIn('COUNTS 0 0' if expected is None else 'COUNTS 1 0', output)
+                    self.write("live/spotify-player/app.toml", value)
+                output = self.run_check("check_spotify_config")
+                self.assertNotIn("SECRET", output)
+                self.assertIn(
+                    "COUNTS 0 0" if expected is None else "COUNTS 1 0", output
+                )
                 if expected:
                     self.assertIn(expected, output)
                 self.assertEqual(template.read_text(), base)
-                self.assertEqual(live.read_text() if live.exists() else None, value)
-        self.write('live/spotify-player/app.toml', base)
-        for value in ['invalid = [', None]:
+                self.assertEqual(
+                    live.read_text() if live.exists() else None, value
+                )
+        self.write("live/spotify-player/app.toml", base)
+        for value in ["invalid = [", None]:
             if value is None:
                 template.unlink()
             else:
                 template.write_text(value)
-            output = self.run_check('check_spotify_config')
-            self.assertIn('not compared: template', output)
-            self.assertIn('COUNTS 1 0', output)
-        output = self.run_check('check_spotify_config', 'python3() { return 127; }')
-        self.assertIn('not compared: Python check failed', output)
+            output = self.run_check("check_spotify_config")
+            self.assertIn("not compared: template", output)
+            self.assertIn("COUNTS 1 0", output)
+        output = self.run_check(
+            "check_spotify_config", "python3() { return 127; }"
+        )
+        self.assertIn("not compared: Python check failed", output)
 
     def test_toml_nested_order_and_types(self):
         cases = [
-            ('x = {a=1, b={c=2, d=3}}', 'x = {b={d=3, c=2}, a=1}', False),
-            ('x = [nan, 2]', 'x = [nan, 2]', False),
-            ('x = [1, 2]', 'x = [2, 1]', True),
-            ('x = 1', 'x = 1.0', True),
-            ('x = 2026-09-06', 'x = "2026-09-06"', True),
+            ("x = {a=1, b={c=2, d=3}}", "x = {b={d=3, c=2}, a=1}", False),
+            ("x = [nan, 2]", "x = [nan, 2]", False),
+            ("x = [1, 2]", "x = [2, 1]", True),
+            ("x = 1", "x = 1.0", True),
+            ("x = 2026-09-06", 'x = "2026-09-06"', True),
         ]
         for template, live, differs in cases:
             with self.subTest(template=template, live=live):
-                self.write('spotify-player/app.toml', template)
-                self.write('live/spotify-player/app.toml', live)
-                self.assertIn(f'COUNTS {int(differs)} 0', self.run_check('check_spotify_config'))
+                self.write("spotify-player/app.toml", template)
+                self.write("live/spotify-player/app.toml", live)
+                self.assertIn(
+                    f"COUNTS {int(differs)} 0",
+                    self.run_check("check_spotify_config"),
+                )
 
     def test_last_transaction_only_and_incomplete_transaction(self):
         self.config_drift = self.patched_pacman_log_path()
-        old = '[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n'
-        new = '[new] [ALPM] transaction started\n[new] [ALPM] transaction completed\n'
-        self.write('pacman.log', old + new)
-        output = self.run_check('check_last_pacman_transaction')
-        self.assertIn('clean (new)', output)
-        self.assertNotIn('ERROR old', output)
-        self.write('pacman.log', '[new] [ALPM] transaction started\n')
-        self.assertIn('no completion record', self.run_check('check_last_pacman_transaction'))
-        self.write('pacman.log', new + '[new] [ALPM-SCRIPTLET] ==> Building image\n')
-        self.assertIn('never reported success', self.run_check('check_last_pacman_transaction'))
-        (self.root / 'pacman.log').unlink()
-        self.assertIn('not readable', self.run_check('check_last_pacman_transaction'))
+        old = "[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n"
+        new = "[new] [ALPM] transaction started\n[new] [ALPM] transaction completed\n"
+        self.write("pacman.log", old + new)
+        output = self.run_check("check_last_pacman_transaction")
+        self.assertIn("clean (new)", output)
+        self.assertNotIn("ERROR old", output)
+        self.write("pacman.log", "[new] [ALPM] transaction started\n")
+        self.assertIn(
+            "no completion record",
+            self.run_check("check_last_pacman_transaction"),
+        )
+        self.write(
+            "pacman.log", new + "[new] [ALPM-SCRIPTLET] ==> Building image\n"
+        )
+        self.assertIn(
+            "never reported success",
+            self.run_check("check_last_pacman_transaction"),
+        )
+        (self.root / "pacman.log").unlink()
+        self.assertIn(
+            "not readable", self.run_check("check_last_pacman_transaction")
+        )
 
     def test_update_transaction_window(self):
         self.config_drift = self.patched_pacman_log_path()
-        old = '[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n'
-        log = self.write('pacman.log', old)
+        old = "[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n"
+        log = self.write("pacman.log", old)
         st = log.stat()
-        boundary = f'{st.st_dev}:{st.st_ino}:{st.st_size}'
-        setup = f'pacman_since={boundary}'
-        failed = '[first] [ALPM] transaction started\n[first] [ALPM] transaction completed\n[first] [ALPM-SCRIPTLET] ==> ERROR failed hook\n'
-        good = '[last] [ALPM] transaction started\n[last] [ALPM] transaction completed\n[last] [ALPM-SCRIPTLET] Initcpio image generation successful\n'
+        boundary = f"{st.st_dev}:{st.st_ino}:{st.st_size}"
+        setup = f"pacman_since={boundary}"
+        failed = "[first] [ALPM] transaction started\n[first] [ALPM] transaction completed\n[first] [ALPM-SCRIPTLET] ==> ERROR failed hook\n"
+        good = "[last] [ALPM] transaction started\n[last] [ALPM] transaction completed\n[last] [ALPM-SCRIPTLET] Initcpio image generation successful\n"
         for first, expected in [
-            (failed, 'failed hook'),
-            ('[first] [ALPM] transaction started\n', 'no completion record (first)'),
-            ('[first] [ALPM] transaction started\n[first] [ALPM] transaction completed\n[first] [ALPM-SCRIPTLET] ==> Building image\n', 'never reported success (first)'),
+            (failed, "failed hook"),
+            (
+                "[first] [ALPM] transaction started\n",
+                "no completion record (first)",
+            ),
+            (
+                "[first] [ALPM] transaction started\n[first] [ALPM] transaction completed\n[first] [ALPM-SCRIPTLET] ==> Building image\n",
+                "never reported success (first)",
+            ),
         ]:
             with self.subTest(expected=expected):
                 log.write_text(old + first + good)
-                output = self.run_check('check_last_pacman_transaction', setup)
+                output = self.run_check("check_last_pacman_transaction", setup)
                 self.assertIn(expected, output)
-                self.assertIn('clean (last)', output)
-                self.assertNotIn('clean (first)', output)
-                self.assertNotIn('ERROR old', output)
+                self.assertIn("clean (last)", output)
+                self.assertNotIn("clean (first)", output)
+                self.assertNotIn("ERROR old", output)
         log.write_text(old)
-        self.assertIn('not readable', self.run_check('check_last_pacman_transaction', setup + '\ntail() { return 1; }'))
-        self.assertIn('no new ALPM transaction', self.run_check('check_last_pacman_transaction', setup))
-        log.write_text('')
-        self.assertIn('coverage incomplete', self.run_check('check_last_pacman_transaction', setup))
-        log.rename(self.root / 'rotated.log')
-        self.write('pacman.log', old + good)
-        self.assertIn('coverage incomplete', self.run_check('check_last_pacman_transaction', setup))
-        self.assertIn('boundary unavailable', self.run_check('check_last_pacman_transaction', 'pacman_since=unavailable'))
+        self.assertIn(
+            "not readable",
+            self.run_check(
+                "check_last_pacman_transaction",
+                setup + "\ntail() { return 1; }",
+            ),
+        )
+        self.assertIn(
+            "no new ALPM transaction",
+            self.run_check("check_last_pacman_transaction", setup),
+        )
+        log.write_text("")
+        self.assertIn(
+            "coverage incomplete",
+            self.run_check("check_last_pacman_transaction", setup),
+        )
+        log.rename(self.root / "rotated.log")
+        self.write("pacman.log", old + good)
+        self.assertIn(
+            "coverage incomplete",
+            self.run_check("check_last_pacman_transaction", setup),
+        )
+        self.assertIn(
+            "boundary unavailable",
+            self.run_check(
+                "check_last_pacman_transaction", "pacman_since=unavailable"
+            ),
+        )
         log.unlink()
-        self.assertIn('coverage incomplete', self.run_check('check_last_pacman_transaction', setup))
+        self.assertIn(
+            "coverage incomplete",
+            self.run_check("check_last_pacman_transaction", setup),
+        )
 
     def test_sysup_boundary_and_failure_reporting(self):
-        source = (Path(__file__).resolve().parents[1] / 'zsh/functions/sysup.zsh').read_text()
-        stage = source.split('  _sysup_header "System & AUR (paru -Syu)"', 1)[1].split('  _sysup_header "uv tools"', 1)[0]
-        final = source.split('  _sysup_header "Config drift"', 1)[1].split('  local _recorded', 1)[0]
-        helper = source.split('_sysup_pacnew() {', 1)[1].split('\n}', 1)[0]
-        stage = stage.replace('/var/log/pacman.log', '"$HOME/pacman.log"')
-        log = self.write('pacman.log', 'old log\n')
+        source = (
+            Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
+        ).read_text()
+        stage = source.split('  _sysup_header "System & AUR (paru -Syu)"', 1)[
+            1
+        ].split('  _sysup_header "uv tools"', 1)[0]
+        final = source.split('  _sysup_header "Config drift"', 1)[1].split(
+            "  local _recorded", 1
+        )[0]
+        helper = source.split("_sysup_pacnew() {", 1)[1].split("\n}", 1)[0]
+        stage = stage.replace("/var/log/pacman.log", '"$HOME/pacman.log"')
+        log = self.write("pacman.log", "old log\n")
         st = log.stat()
-        expected = f'--pacman-since {st.st_dev}:{st.st_ino}:{st.st_size}'
-        checker = self.write('.local/bin/config-drift', '#!/bin/sh\nprintf "CHECK %s\\n" "$*"\nexit 9\n')
+        expected = f"--pacman-since {st.st_dev}:{st.st_ino}:{st.st_size}"
+        checker = self.write(
+            ".local/bin/config-drift",
+            '#!/bin/sh\nprintf "CHECK %s\\n" "$*"\nexit 9\n',
+        )
         checker.chmod(0o755)
         for status in (0, 42):
             with self.subTest(status=status):
                 script = (
-                    'paru() { print NEW >> "$HOME/pacman.log"; return ' + str(status) + '; }\n'
-                    + '_sysup_pacnew() {' + helper + '\n}\n'
-                    + 'run_update() {' + stage + '\necho LATER_STEPS\n' + final + '\nreturn 0\n}\n'
-                    + 'run_update\nresult=$?\necho RESULT=$result\n'
+                    'paru() { print NEW >> "$HOME/pacman.log"; return '
+                    + str(status)
+                    + "; }\n"
+                    + "_sysup_pacnew() {"
+                    + helper
+                    + "\n}\n"
+                    + "run_update() {"
+                    + stage
+                    + "\necho LATER_STEPS\n"
+                    + final
+                    + "\nreturn 0\n}\n"
+                    + "run_update\nresult=$?\necho RESULT=$result\n"
                 )
-                log.write_text('old log\n')
-                result = subprocess.run(['zsh', '-f', '-c', script],
-                    env=dict(self.env, HOME=str(self.root)), capture_output=True, text=True, check=True, timeout=10)
-                self.assertEqual(result.stderr, '')
-                self.assertEqual(result.stdout.count('CHECK '), 1)
-                self.assertIn('CHECK ' + expected, result.stdout)
-                self.assertIn(f'RESULT={status}', result.stdout)
-                self.assertEqual('LATER_STEPS' in result.stdout, status == 0)
+                log.write_text("old log\n")
+                result = subprocess.run(
+                    ["zsh", "-f", "-c", script],
+                    env=dict(self.env, HOME=str(self.root)),
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=10,
+                )
+                self.assertEqual(result.stderr, "")
+                self.assertEqual(result.stdout.count("CHECK "), 1)
+                self.assertIn("CHECK " + expected, result.stdout)
+                self.assertIn(f"RESULT={status}", result.stdout)
+                self.assertEqual("LATER_STEPS" in result.stdout, status == 0)
 
     def test_sioyek_build(self):
-        home = self.root / 'home'
-        self.env['HOME'] = str(home)
-        self.env['XDG_DATA_HOME'] = str(home / '.local/share')
-        binary = self.write('home/.local/share/sioyek/sioyek', '')
+        home = self.root / "home"
+        self.env["HOME"] = str(home)
+        self.env["XDG_DATA_HOME"] = str(home / ".local/share")
+        binary = self.write("home/.local/share/sioyek/sioyek", "")
         binary.chmod(0o755)
-        launcher = home / '.local/bin/sioyek'
+        launcher = home / ".local/bin/sioyek"
         launcher.parent.mkdir(parents=True)
         stubs = (
             'readelf() { printf "  1: 0 0 OBJECT GLOBAL DEFAULT UND qt_version_tag@Qt_%s (2)\\n" "$BUILT_QT"; }\n'
             'pacman() { printf "qt6-base %s-1\\n" "$INSTALLED_QT"; }\n'
         )
-        self.env.update(BUILT_QT='6.12', INSTALLED_QT='6.12.0')
+        self.env.update(BUILT_QT="6.12", INSTALLED_QT="6.12.0")
         launcher.symlink_to(binary)
-        self.assertIn('is a symlink', self.run_check('check_sioyek_build', stubs))
+        self.assertIn(
+            "is a symlink", self.run_check("check_sioyek_build", stubs)
+        )
         launcher.unlink()
         launcher.write_text(f'#!/bin/sh\nexec "{binary}" "$@"\n')
         launcher.chmod(0o755)
-        self.assertIn('COUNTS 0 0', self.run_check('check_sioyek_build', stubs))
-        self.env['BUILT_QT'] = '6.11'
-        self.assertIn('built against Qt 6.11 but qt6-base is 6.12', self.run_check('check_sioyek_build', stubs))
+        self.assertIn("COUNTS 0 0", self.run_check("check_sioyek_build", stubs))
+        self.env["BUILT_QT"] = "6.11"
+        self.assertIn(
+            "built against Qt 6.11 but qt6-base is 6.12",
+            self.run_check("check_sioyek_build", stubs),
+        )
         binary.unlink()
-        self.assertIn('COUNTS 0 1', self.run_check('check_sioyek_build', stubs))
+        self.assertIn("COUNTS 0 1", self.run_check("check_sioyek_build", stubs))
 
     def test_expected_links(self):
-        self.env['HOME'] = str(self.root / 'home')
-        live = self.root / 'live'
+        self.env["HOME"] = str(self.root / "home")
+        live = self.root / "live"
         live.mkdir()
-        target = self.write('starship.toml', 'config')
-        link = live / 'starship.toml'
-        self.write('tracked', 'starship.toml\n')
+        target = self.write("starship.toml", "config")
+        link = live / "starship.toml"
+        self.write("tracked", "starship.toml\n")
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('missing expected symlink', self.run_check('check_symlink_integrity', setup))
-        link.write_text('config')
-        self.assertIn('detached (not a symlink)', self.run_check('check_symlink_integrity', setup))
+        self.assertIn(
+            "missing expected symlink",
+            self.run_check("check_symlink_integrity", setup),
+        )
+        link.write_text("config")
+        self.assertIn(
+            "detached (not a symlink)",
+            self.run_check("check_symlink_integrity", setup),
+        )
         link.unlink()
-        wrong = self.write('other.toml', 'config')
+        wrong = self.write("other.toml", "config")
         link.symlink_to(wrong)
-        self.assertIn('wrong symlink target', self.run_check('check_symlink_integrity', setup))
+        self.assertIn(
+            "wrong symlink target",
+            self.run_check("check_symlink_integrity", setup),
+        )
         link.unlink()
-        link.symlink_to('../starship.toml')
-        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
+        link.symlink_to("../starship.toml")
+        self.assertIn(
+            "COUNTS 0 0", self.run_check("check_symlink_integrity", setup)
+        )
         # Valid links unrelated to the installer may point outside the repo.
-        external = self.write('home/external', 'external')
-        (live / 'unmanaged').symlink_to(external)
-        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
+        external = self.write("home/external", "external")
+        (live / "unmanaged").symlink_to(external)
+        self.assertIn(
+            "COUNTS 0 0", self.run_check("check_symlink_integrity", setup)
+        )
         target.unlink()
-        output = self.run_check('check_symlink_integrity', setup)
-        self.assertIn('expected repo source unavailable', output)
-        self.assertNotIn('expected config links match', output)
-        target.write_text('config')
+        output = self.run_check("check_symlink_integrity", setup)
+        self.assertIn("expected repo source unavailable", output)
+        self.assertNotIn("expected config links match", output)
+        target.write_text("config")
         link.unlink()
-        link.symlink_to('absent')
-        self.assertEqual(self.run_check('check_symlink_integrity', setup).count('dangling symlink:'), 1)
-        self.assertIn('cannot list tracked files', self.run_check('check_symlink_integrity', 'git() { return 1; }'))
+        link.symlink_to("absent")
+        self.assertEqual(
+            self.run_check("check_symlink_integrity", setup).count(
+                "dangling symlink:"
+            ),
+            1,
+        )
+        self.assertIn(
+            "cannot list tracked files",
+            self.run_check("check_symlink_integrity", "git() { return 1; }"),
+        )
 
     def test_hidden_bash_helper_is_not_an_expected_link(self):
-        self.env['HOME'] = str(self.root / 'home')
-        (self.root / 'live').mkdir()
-        self.write('bash/.pdf-meta.js', 'helper')
-        source = self.write('bash/pdf-meta', 'wrapper')
-        link = self.root / 'home/.local/bin/pdf-meta'
+        self.env["HOME"] = str(self.root / "home")
+        (self.root / "live").mkdir()
+        self.write("bash/.pdf-meta.js", "helper")
+        source = self.write("bash/pdf-meta", "wrapper")
+        link = self.root / "home/.local/bin/pdf-meta"
         link.parent.mkdir(parents=True)
         link.symlink_to(source)
-        self.write('tracked', 'bash/.pdf-meta.js\nbash/pdf-meta\n')
+        self.write("tracked", "bash/.pdf-meta.js\nbash/pdf-meta\n")
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
+        self.assertIn(
+            "COUNTS 0 0", self.run_check("check_symlink_integrity", setup)
+        )
         link.unlink()
-        output = self.run_check('check_symlink_integrity', setup)
-        self.assertIn('missing expected symlink: ~/.local/bin/pdf-meta', output)
-        self.assertNotIn('.pdf-meta.js', output)
+        output = self.run_check("check_symlink_integrity", setup)
+        self.assertIn("missing expected symlink: ~/.local/bin/pdf-meta", output)
+        self.assertNotIn(".pdf-meta.js", output)
 
     def test_directory_and_special_link_mappings(self):
-        self.env['HOME'] = str(self.root / 'home')
+        self.env["HOME"] = str(self.root / "home")
         mappings = {
-            'nvim': 'live/nvim',
-            'vim/vimrc': 'live/vim',
-            'pcmanfm-qt/settings.conf': 'live/pcmanfm-qt/default/settings.conf',
-            'containers/pg.container': 'live/containers/systemd/pg.container',
-            'applications/example.desktop': 'home/.local/share/applications/example.desktop',
-            'ptpython/config.py': 'home/.config/ptpython/config.py',
-            'skills/example/SKILL.md': 'home/.claude/skills/example',
-            'zsh/.zshrc': 'home/.zshrc',
+            "nvim": "live/nvim",
+            "vim/vimrc": "live/vim",
+            "pcmanfm-qt/settings.conf": "live/pcmanfm-qt/default/settings.conf",
+            "containers/pg.container": "live/containers/systemd/pg.container",
+            "applications/example.desktop": "home/.local/share/applications/example.desktop",
+            "ptpython/config.py": "home/.config/ptpython/config.py",
+            "skills/example/SKILL.md": "home/.claude/skills/example",
+            "zsh/.zshrc": "home/.zshrc",
         }
         for rel, dest in mappings.items():
-            if rel == 'nvim':
+            if rel == "nvim":
                 source = self.root / rel
                 source.mkdir()
             else:
-                source = self.write(rel, 'config')
-            if rel in ('vim/vimrc', 'skills/example/SKILL.md'):
+                source = self.write(rel, "config")
+            if rel in ("vim/vimrc", "skills/example/SKILL.md"):
                 source = source.parent
             link = self.root / dest
             link.parent.mkdir(parents=True, exist_ok=True)
             link.symlink_to(source)
-        self.write('tracked', '\n'.join(mappings))
+        self.write("tracked", "\n".join(mappings))
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
-        link = self.root / 'live/nvim'
+        self.assertIn(
+            "COUNTS 0 0", self.run_check("check_symlink_integrity", setup)
+        )
+        link = self.root / "live/nvim"
         link.unlink()
-        link.symlink_to(self.root / 'vim')
-        self.assertIn('wrong symlink target', self.run_check('check_symlink_integrity', setup))
+        link.symlink_to(self.root / "vim")
+        self.assertIn(
+            "wrong symlink target",
+            self.run_check("check_symlink_integrity", setup),
+        )
         link.unlink()
         link.mkdir()
-        self.assertIn('detached (not a symlink)', self.run_check('check_symlink_integrity', setup))
+        self.assertIn(
+            "detached (not a symlink)",
+            self.run_check("check_symlink_integrity", setup),
+        )
 
     def test_optional_and_copy_link_exceptions(self):
-        self.env['HOME'] = str(self.root / 'home')
-        (self.root / 'live').mkdir()
-        names = ['spotify-player/app.toml', 'etc/vconsole.conf', 'pam/swaylock',
-                 'README.md', 'TODO.md', 'firefox/userChrome.css']
+        self.env["HOME"] = str(self.root / "home")
+        (self.root / "live").mkdir()
+        names = [
+            "spotify-player/app.toml",
+            "etc/vconsole.conf",
+            "pam/swaylock",
+            "README.md",
+            "TODO.md",
+            "firefox/userChrome.css",
+        ]
         for rel in names:
-            self.write(rel, 'config')
-        self.write('home/.vimrc', 'generated bootstrap')
-        self.write('live/spotify-player/app.toml', 'local copy')
-        self.write('tracked', '\n'.join(names))
+            self.write(rel, "config")
+        self.write("home/.vimrc", "generated bootstrap")
+        self.write("live/spotify-player/app.toml", "local copy")
+        self.write("tracked", "\n".join(names))
         setup = 'git() { cat "$df_dir/tracked"; }'
-        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
-        self.write('home/.mozilla/firefox/profiles.ini', '[Install123]\nDefault=example.default\n')
-        self.assertIn('missing expected symlink', self.run_check('check_symlink_integrity', setup))
-        dest = self.root / 'home/.mozilla/firefox/example.default/chrome/userChrome.css'
+        self.assertIn(
+            "COUNTS 0 0", self.run_check("check_symlink_integrity", setup)
+        )
+        self.write(
+            "home/.mozilla/firefox/profiles.ini",
+            "[Install123]\nDefault=example.default\n",
+        )
+        self.assertIn(
+            "missing expected symlink",
+            self.run_check("check_symlink_integrity", setup),
+        )
+        dest = (
+            self.root
+            / "home/.mozilla/firefox/example.default/chrome/userChrome.css"
+        )
         dest.parent.mkdir(parents=True)
-        dest.symlink_to(self.root / 'firefox/userChrome.css')
-        self.assertIn('COUNTS 0 0', self.run_check('check_symlink_integrity', setup))
+        dest.symlink_to(self.root / "firefox/userChrome.css")
+        self.assertIn(
+            "COUNTS 0 0", self.run_check("check_symlink_integrity", setup)
+        )
 
     def test_root_comparison_status(self):
         call = 'check_root "$df_dir/source" "$df_dir/destination"'
-        self.write('source', 'same')
-        self.write('destination', 'same')
-        self.assertIn('COUNTS 0 0', self.run_check(call))
-        self.write('destination', 'different')
+        self.write("source", "same")
+        self.write("destination", "same")
+        self.assertIn("COUNTS 0 0", self.run_check(call))
+        self.write("destination", "different")
         output = self.run_check(call)
-        self.assertIn('review both before syncing', output)
-        self.assertNotIn('copy it back', output)
-        output = self.run_check(call, 'cmp() { return 2; }')
-        self.assertIn('comparison failed', output)
-        self.assertNotIn('differs from', output)
-        (self.root / 'source').unlink()
-        self.assertIn('unreadable or missing', self.run_check(call))
+        self.assertIn("review both before syncing", output)
+        self.assertNotIn("copy it back", output)
+        output = self.run_check(call, "cmp() { return 2; }")
+        self.assertIn("comparison failed", output)
+        self.assertNotIn("differs from", output)
+        (self.root / "source").unlink()
+        self.assertIn("unreadable or missing", self.run_check(call))
 
     def test_privileged_root_config_checks(self):
         # Every branch is exercised against a fixture, because a permission check
         # that has never been seen to fail is indistinguishable from one that
         # cannot fail. /etc/nftables.conf is the positive control for the clean
         # path: root:root 0644 under root-owned parents.
-        setup = 'declare -A parent_seen=()'
+        setup = "declare -A parent_seen=()"
 
         def run(call):
             return self.run_check(call, setup)
 
-        self.assertIn('COUNTS 0 0', run('check_privileged /etc/nftables.conf'))
+        self.assertIn("COUNTS 0 0", run("check_privileged /etc/nftables.conf"))
 
-        target = self.write('real', 'x')
-        link = self.root / 'link'
+        target = self.write("real", "x")
+        link = self.root / "link"
         link.symlink_to(target)
-        self.assertIn('is a symlink', run(f'check_privileged "{link}"'))
+        self.assertIn("is a symlink", run(f'check_privileged "{link}"'))
 
-        conf = self.write('conf', 'x')
-        self.assertIn('not root:root', run(f'check_privileged "{conf}"'))
+        conf = self.write("conf", "x")
+        self.assertIn("not root:root", run(f'check_privileged "{conf}"'))
 
         conf.chmod(0o666)
-        self.assertIn('writable by group or others', run(f'check_privileged "{conf}"'))
+        self.assertIn(
+            "writable by group or others", run(f'check_privileged "{conf}"')
+        )
 
         # Absent state is reported as not checked and counted as a skip, never
         # as a pass.
         missing = run(f'check_privileged "{self.root}/absent"')
-        self.assertIn('metadata unreadable', missing)
-        self.assertIn('COUNTS 0 1', missing)
+        self.assertIn("metadata unreadable", missing)
+        self.assertIn("COUNTS 0 1", missing)
 
-        adir = self.root / 'adir'
+        adir = self.root / "adir"
         adir.mkdir()
-        self.assertIn('not a regular file', run(f'check_privileged "{adir}"'))
+        self.assertIn("not a regular file", run(f'check_privileged "{adir}"'))
 
         conf.chmod(0o644)
-        self.assertIn('not executable', run(f'check_privileged "{conf}" exec'))
-        self.assertNotIn('not executable', run(f'check_privileged "{conf}"'))
+        self.assertIn("not executable", run(f'check_privileged "{conf}" exec'))
+        self.assertNotIn("not executable", run(f'check_privileged "{conf}"'))
 
         # A root-owned file under a directory someone else can write is not
         # protected, so the parents are walked separately.
-        self.assertIn('its contents can be replaced', run(f'check_parents "{conf}"'))
+        self.assertIn(
+            "its contents can be replaced", run(f'check_parents "{conf}"')
+        )
 
     def test_incomplete_root_list_blocks_the_ownership_ok(self):
         # The list's warning is printed under the previous section, so this one
         # has nothing of its own to show and must still not claim a pass.
-        setup = 'root_dst=(/etc/example)\ncheck_privileged() { :; }'
-        self.assertIn(' ok ', self.run_check('check_privileged_configs', setup + '\nroot_list_bad=0'))
-        self.assertNotIn(' ok ', self.run_check('check_privileged_configs', setup + '\nroot_list_bad=1'))
+        setup = "root_dst=(/etc/example)\ncheck_privileged() { :; }"
+        self.assertIn(
+            " ok ",
+            self.run_check(
+                "check_privileged_configs", setup + "\nroot_list_bad=0"
+            ),
+        )
+        self.assertNotIn(
+            " ok ",
+            self.run_check(
+                "check_privileged_configs", setup + "\nroot_list_bad=1"
+            ),
+        )
 
     def test_baseline_differences_and_partial_scan(self):
         call = 'check_baseline test "$df_dir/baseline" "$observed" "$complete"'
-        self.write('baseline', '# comment\n/etc/b\n/etc/a\n/etc/a\n')
+        self.write("baseline", "# comment\n/etc/b\n/etc/a\n/etc/a\n")
         output = self.run_check(call, "observed=$'/etc/c\\n/etc/a'; complete=1")
-        self.assertIn('+ /etc/c', output)
-        self.assertIn('- /etc/b', output)
+        self.assertIn("+ /etc/c", output)
+        self.assertIn("- /etc/b", output)
         # A removed path is information: only the added one counts.
-        self.assertIn('1 baseline path(s) no longer present', output)
-        self.assertIn('COUNTS 1 0', output)
+        self.assertIn("1 baseline path(s) no longer present", output)
+        self.assertIn("COUNTS 1 0", output)
         output = self.run_check(call, "observed=$'/etc/c\\n/etc/a'; complete=0")
-        self.assertIn('+ /etc/c', output)
-        self.assertNotIn('- /etc/b', output)
-        self.write('baseline', '')
+        self.assertIn("+ /etc/c", output)
+        self.assertNotIn("- /etc/b", output)
+        self.write("baseline", "")
         output = self.run_check(call, "observed=''; complete=1")
-        self.assertIn('COUNTS 0 0', output)
-        (self.root / 'baseline').unlink()
-        self.assertIn('baseline not compared', self.run_check(call, "observed=''; complete=1"))
+        self.assertIn("COUNTS 0 0", output)
+        (self.root / "baseline").unlink()
+        self.assertIn(
+            "baseline not compared",
+            self.run_check(call, "observed=''; complete=1"),
+        )
 
     def test_failed_pacman_inventory(self):
-        output = self.run_check('check_etc_baselines', 'pacman() { return 1; }; find() { printf "/etc/example\\n"; }')
-        self.assertIn('unowned files not compared', output)
-        self.assertIn('modified files not compared', output)
-        self.assertNotIn(' ok ', output)
+        output = self.run_check(
+            "check_etc_baselines",
+            'pacman() { return 1; }; find() { printf "/etc/example\\n"; }',
+        )
+        self.assertIn("unowned files not compared", output)
+        self.assertIn("modified files not compared", output)
+        self.assertNotIn(" ok ", output)
 
     def test_pacman_backup_header_and_continuation_paths(self):
-        self.write('etc/unowned.txt', '')
-        self.write('etc/modified.txt', '/etc/one\n/etc/two\n')
-        stub = r'''
+        self.write("etc/unowned.txt", "")
+        self.write("etc/modified.txt", "/etc/one\n/etc/two\n")
+        stub = r"""
 find() { printf '/etc/one\n/etc/two\n'; }
 pacman() {
   if [[ $1 == -Qlq ]]; then
@@ -481,27 +705,35 @@ pacman() {
     printf 'Backup Files    : /etc/one [modified]\n                  /etc/two [modified]\n'
   fi
 }
-'''
-        output = self.run_check('check_etc_baselines', stub)
-        self.assertIn('COUNTS 0 0', output)
-        self.assertNotIn('Backup Files', output)
+"""
+        output = self.run_check("check_etc_baselines", stub)
+        self.assertIn("COUNTS 0 0", output)
+        self.assertNotIn("Backup Files", output)
 
     def test_pacdiff_failure_is_not_empty_success(self):
-        self.assertIn('none pending', self.run_check('check_pacnew', 'pacdiff() { return 0; }'))
-        output = self.run_check('check_pacnew', 'pacdiff() { return 1; }')
-        self.assertIn('pacdiff failed', output)
-        self.assertNotIn('none pending', output)
+        self.assertIn(
+            "none pending",
+            self.run_check("check_pacnew", "pacdiff() { return 0; }"),
+        )
+        output = self.run_check("check_pacnew", "pacdiff() { return 1; }")
+        self.assertIn("pacdiff failed", output)
+        self.assertNotIn("none pending", output)
 
     def test_user_units_batched_and_status_checked(self):
-        self.write('systemd/user/a.service', '[Service]\nExecStart=/bin/true\n')
-        self.write('systemd/user/b.timer', '[Timer]\nOnBootSec=1\n')
-        self.write('systemd/user/c.socket', '[Socket]\nListenStream=%t/c\n')
-        stub = 'systemd-analyze() { [[ $1 == --user && $2 == verify && $# == 5 ]]; }'
-        self.assertIn('3 user unit files verify clean', self.run_check('check_systemd_units', stub))
-        output = self.run_check('check_systemd_units', 'systemd-analyze() { return 1; }')
-        self.assertIn('verification needs attention (exit 1)', output)
-        self.assertNotIn('verify clean', output)
+        self.write("systemd/user/a.service", "[Service]\nExecStart=/bin/true\n")
+        self.write("systemd/user/b.timer", "[Timer]\nOnBootSec=1\n")
+        self.write("systemd/user/c.socket", "[Socket]\nListenStream=%t/c\n")
+        stub = "systemd-analyze() { [[ $1 == --user && $2 == verify && $# == 5 ]]; }"
+        self.assertIn(
+            "3 user unit files verify clean",
+            self.run_check("check_systemd_units", stub),
+        )
+        output = self.run_check(
+            "check_systemd_units", "systemd-analyze() { return 1; }"
+        )
+        self.assertIn("verification needs attention (exit 1)", output)
+        self.assertNotIn("verify clean", output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

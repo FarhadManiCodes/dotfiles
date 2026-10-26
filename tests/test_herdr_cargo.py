@@ -1,4 +1,5 @@
 """Exercise the Cargo/Zig helper with fixtures; never download, build or install tools."""
+
 import fcntl
 import hashlib
 import io
@@ -36,8 +37,15 @@ class HerdrCargoTests(unittest.TestCase):
         self.tempdir = self.base / "tmp"
         self.tempdir.mkdir()
         self.log = self.base / "calls.jsonl"
-        self.fixture("release.json", json.dumps({"tag_name": "v0.9.5", "draft": False, "prerelease": False}))
-        self.fixture("release.yml", """steps:
+        self.fixture(
+            "release.json",
+            json.dumps(
+                {"tag_name": "v0.9.5", "draft": False, "prerelease": False}
+            ),
+        )
+        self.fixture(
+            "release.yml",
+            """steps:
   - name: Rust
     uses: dtolnay/rust-toolchain@commit
     with:
@@ -50,9 +58,15 @@ class HerdrCargoTests(unittest.TestCase):
     uses: oven-sh/setup-bun@commit
     with:
       version: 1.3.14
-""")
-        self.fixture("build.zig.zon", '.{\n .minimum_zig_version = "0.16.0",\n}\n')
-        self.fixture("Cargo.toml", '[package]\nname = "herdr"\nversion = "0.9.5"\n[dependencies]\n')
+""",
+        )
+        self.fixture(
+            "build.zig.zon", '.{\n .minimum_zig_version = "0.16.0",\n}\n'
+        )
+        self.fixture(
+            "Cargo.toml",
+            '[package]\nname = "herdr"\nversion = "0.9.5"\n[dependencies]\n',
+        )
         archive = self.fixtures / "zig.tar.xz"
         payload = b'#!/bin/sh\nprintf "%s\\n" "0.16.0"\n'
         with tarfile.open(archive, "w:xz") as bundle:
@@ -65,13 +79,21 @@ class HerdrCargoTests(unittest.TestCase):
         # Deliberately construct the environment: no inherited Cargo roots,
         # flags, shell hooks, credentials, XDG directories or locale settings.
         self.env = {
-            "HOME": str(self.home), "PATH": f"{self.bin}:/usr/bin:/bin",
-            "CARGO_HOME": str(self.root), "XDG_CACHE_HOME": str(self.cache),
-            "TMPDIR": str(self.tempdir), "LC_ALL": "C", "NO_COLOR": "1",
-            "FIXTURES": str(self.fixtures), "CALL_LOG": str(self.log),
-            "LIVE_ROOT": str(self.root), "TEST_COMMIT": COMMIT,
+            "HOME": str(self.home),
+            "PATH": f"{self.bin}:/usr/bin:/bin",
+            "CARGO_HOME": str(self.root),
+            "XDG_CACHE_HOME": str(self.cache),
+            "TMPDIR": str(self.tempdir),
+            "LC_ALL": "C",
+            "NO_COLOR": "1",
+            "FIXTURES": str(self.fixtures),
+            "CALL_LOG": str(self.log),
+            "LIVE_ROOT": str(self.root),
+            "TEST_COMMIT": COMMIT,
         }
-        self.stub("curl", '''
+        self.stub(
+            "curl",
+            """
 import shutil
 args = sys.argv[1:]
 url = next(a for a in args if a.startswith("https://"))
@@ -84,8 +106,11 @@ if os.environ.get("FETCH_FAIL") == name:
     print("fixture download failure", file=sys.stderr)
     sys.exit(22)
 shutil.copyfile(Path(os.environ["FIXTURES"]) / name, out)
-''')
-        self.stub("git", '''
+""",
+        )
+        self.stub(
+            "git",
+            """
 log({"tool":"git", "args":sys.argv[1:]})
 if os.environ.get("HOLD_GIT"):
     import time
@@ -96,14 +121,20 @@ if os.environ.get("ANNOTATED"):
     print(os.environ["TEST_COMMIT"] + "\\trefs/tags/v0.9.5^{}")
 else:
     print(os.environ["TEST_COMMIT"] + "\\trefs/tags/v0.9.5")
-''')
-        self.stub("rustc", '''
+""",
+        )
+        self.stub(
+            "rustc",
+            """
 if sys.argv[1:] == ["--print", "target-cpus"]:
     print("native - Select host (currently " + os.environ.get("HOST_CPU", "znver4") + ").")
 else:
     print("rustc 1.99.1\\nhost: x86_64-unknown-linux-gnu")
-''')
-        self.stub("cargo", '''
+""",
+        )
+        self.stub(
+            "cargo",
+            """
 args = sys.argv[1:]
 if args == ["--version"]:
     print("cargo 1.99.1")
@@ -141,34 +172,55 @@ metadata = {"installs":{key:{"bins":["herdr"], "profile":"release"}}}
 if os.environ.get("MUTATE_LIVE") and is_stage:
     with (Path(os.environ["LIVE_ROOT"]) / "bin/herdr").open("a") as stream:
         stream.write("# concurrent change\\n")
-''')
+""",
+        )
 
     def fixture(self, name, text):
         (self.fixtures / name).write_text(text)
 
     def zig_index(self, version="0.16.0", checksum=None):
-        self.fixture("zig-index.json", json.dumps({version: {"x86_64-linux": {
-            "tarball": f"https://ziglang.org/download/{version}/zig-x86_64-linux-{version}.tar.xz",
-            "shasum": checksum or self.zig_sha}}}))
+        self.fixture(
+            "zig-index.json",
+            json.dumps(
+                {
+                    version: {
+                        "x86_64-linux": {
+                            "tarball": f"https://ziglang.org/download/{version}/zig-x86_64-linux-{version}.tar.xz",
+                            "shasum": checksum or self.zig_sha,
+                        }
+                    }
+                }
+            ),
+        )
 
     def stub(self, name, body):
-        header = '''#!/usr/bin/python3
+        header = """#!/usr/bin/python3
 import json, os, sys
 from pathlib import Path
 def log(value):
     with open(os.environ["CALL_LOG"], "a") as stream:
         stream.write(json.dumps(value) + "\\n")
-'''
+"""
         path = self.bin / name
         path.write_text(header + body)
         path.chmod(0o755)
 
     def run_helper(self, *args):
-        return subprocess.run(["/bin/bash", str(SOURCE), *args], env=self.env,
-                              cwd=self.base, capture_output=True, text=True, timeout=15)
+        return subprocess.run(
+            ["/bin/bash", str(SOURCE), *args],
+            env=self.env,
+            cwd=self.base,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
 
     def calls(self, tool=None):
-        rows = [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
+        rows = (
+            [json.loads(line) for line in self.log.read_text().splitlines()]
+            if self.log.exists()
+            else []
+        )
         return [r for r in rows if tool is None or r["tool"] == tool]
 
     def installed(self, version="0.9.4", commit=OLD_COMMIT, registry=False):
@@ -176,9 +228,15 @@ def log(value):
         binary = self.root / "bin/herdr"
         binary.write_text(f"#!/bin/sh\nprintf '%s\\n' 'herdr {version}'\n")
         binary.chmod(0o755)
-        source = "registry+https://github.com/rust-lang/crates.io-index" if registry else f"git+{REPO}?tag=v{version}#{commit}"
+        source = (
+            "registry+https://github.com/rust-lang/crates.io-index"
+            if registry
+            else f"git+{REPO}?tag=v{version}#{commit}"
+        )
         key = f"herdr {version} ({source})"
-        (self.root / ".crates2.json").write_text(json.dumps({"installs": {key: {"bins": ["herdr"]}}}))
+        (self.root / ".crates2.json").write_text(
+            json.dumps({"installs": {key: {"bins": ["herdr"]}}})
+        )
         return binary.read_bytes()
 
     def assert_clean(self):
@@ -195,7 +253,9 @@ def log(value):
         self.assertFalse(self.root.exists())
         self.assertFalse(self.cache.exists())
         self.assertEqual(self.calls("cargo"), [])
-        self.assertFalse(any(r["url"].endswith(".tar.xz") for r in self.calls("curl")))
+        self.assertFalse(
+            any(r["url"].endswith(".tar.xz") for r in self.calls("curl"))
+        )
         self.assert_clean()
 
     def test_update_absent_skips_without_network_or_directories(self):
@@ -212,7 +272,9 @@ def log(value):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         calls = self.calls("cargo")
         self.assertEqual(len(calls), 2)
-        self.assertEqual([call["lock_fds"] for call in calls], [[], []])  # builds must not inherit the lock
+        self.assertEqual(
+            [call["lock_fds"] for call in calls], [[], []]
+        )  # builds must not inherit the lock
         self.assertNotIn("--force", calls[0]["args"])
         self.assertIn("--force", calls[1]["args"])
         self.assertIn(str(self.root), calls[1]["args"])
@@ -231,13 +293,21 @@ def log(value):
             self.assertIsNone(env["CARGO_ENCODED_RUSTFLAGS"])
             self.assertIsNone(env["CARGO_INCREMENTAL"])
             self.assertTrue(env["CARGO_TARGET_DIR"].startswith(str(self.cache)))
-            self.assertEqual(env["CARGO_TARGET_DIR"], env["CARGO_BUILD_BUILD_DIR"])
-        self.assertEqual(calls[0]["env"]["CARGO_TARGET_DIR"], calls[1]["env"]["CARGO_TARGET_DIR"])
+            self.assertEqual(
+                env["CARGO_TARGET_DIR"], env["CARGO_BUILD_BUILD_DIR"]
+            )
+        self.assertEqual(
+            calls[0]["env"]["CARGO_TARGET_DIR"],
+            calls[1]["env"]["CARGO_TARGET_DIR"],
+        )
         record = json.loads((self.root / ".herdr-cargo.json").read_text())
         self.assertEqual(record["commit"], COMMIT)
         self.assertEqual(record["zig"], "0.16.0")
         self.assertIn("lto=fat", record["recipe"])
-        self.assertEqual(record["binary_sha256"], hashlib.sha256((self.root / "bin/herdr").read_bytes()).hexdigest())
+        self.assertEqual(
+            record["binary_sha256"],
+            hashlib.sha256((self.root / "bin/herdr").read_bytes()).hexdigest(),
+        )
         self.assert_clean()
 
     def test_matching_install_skips_compiler_and_archive_download(self):
@@ -291,7 +361,9 @@ def log(value):
                 result = self.run_helper("--update")
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual((self.root / "bin/herdr").read_bytes(), before)
-                self.assertEqual((self.root / ".crates2.json").read_bytes(), metadata)
+                self.assertEqual(
+                    (self.root / ".crates2.json").read_bytes(), metadata
+                )
                 self.assertEqual(len(self.calls("cargo")), 1)
                 self.assertFalse((self.root / ".herdr-cargo.json").exists())
                 self.assert_clean()
@@ -315,7 +387,10 @@ def log(value):
         self.assertEqual(reason.read_text(), "Zig archive checksum mismatch\n")
 
     def test_cargo_version_without_spaces_around_equals_is_read(self):
-        self.fixture("Cargo.toml", '[package]\nname = "herdr"\nversion="0.9.5"\n[dependencies]\n')
+        self.fixture(
+            "Cargo.toml",
+            '[package]\nname = "herdr"\nversion="0.9.5"\n[dependencies]\n',
+        )
         result = self.run_helper("--check")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("disagree", result.stderr)
@@ -341,18 +416,33 @@ def log(value):
         self.assert_clean()
 
     def test_newer_compiler_is_not_substituted_for_ci_pin(self):
-        self.fixture("zig-index.json", json.dumps({"0.18.0": {"x86_64-linux": {
-            "tarball": "https://ziglang.org/download/0.18.0/zig-x86_64-linux-0.18.0.tar.xz",
-            "shasum": self.zig_sha}}}))
+        self.fixture(
+            "zig-index.json",
+            json.dumps(
+                {
+                    "0.18.0": {
+                        "x86_64-linux": {
+                            "tarball": "https://ziglang.org/download/0.18.0/zig-x86_64-linux-0.18.0.tar.xz",
+                            "shasum": self.zig_sha,
+                        }
+                    }
+                }
+            ),
+        )
         result = self.run_helper("--install")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.calls("cargo"), [])
-        self.assertFalse(any(r["url"].endswith(".tar.xz") for r in self.calls("curl")))
+        self.assertFalse(
+            any(r["url"].endswith(".tar.xz") for r in self.calls("curl"))
+        )
         self.assert_clean()
 
     def test_changed_ci_format_and_inconsistent_minimum_fail_closed(self):
-        for content in ("steps: []\n", (self.fixtures / "release.yml").read_text()
-                        + "  - uses: someone/setup-zig@commit\n    with:\n      version: 0.17.0\n"):
+        for content in (
+            "steps: []\n",
+            (self.fixtures / "release.yml").read_text()
+            + "  - uses: someone/setup-zig@commit\n    with:\n      version: 0.17.0\n",
+        ):
             with self.subTest(content=content):
                 self.fixture("release.yml", content)
                 result = self.run_helper("--install")
@@ -362,16 +452,32 @@ def log(value):
                 self.assert_clean()
 
     def test_engine_minimum_newer_than_ci_pin_is_rejected(self):
-        self.fixture("build.zig.zon", '.{\n .minimum_zig_version = "0.17.0",\n}\n')
+        self.fixture(
+            "build.zig.zon", '.{\n .minimum_zig_version = "0.17.0",\n}\n'
+        )
         result = self.run_helper("--check")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("older than the engine minimum", result.stderr)
 
     def test_prerelease_or_tag_version_mismatch_is_rejected(self):
-        self.fixture("release.json", json.dumps({"tag_name":"v0.9.6-preview.1", "draft":False, "prerelease":True}))
+        self.fixture(
+            "release.json",
+            json.dumps(
+                {
+                    "tag_name": "v0.9.6-preview.1",
+                    "draft": False,
+                    "prerelease": True,
+                }
+            ),
+        )
         result = self.run_helper("--check")
         self.assertNotEqual(result.returncode, 0)
-        self.fixture("release.json", json.dumps({"tag_name":"v0.9.5", "draft":False, "prerelease":False}))
+        self.fixture(
+            "release.json",
+            json.dumps(
+                {"tag_name": "v0.9.5", "draft": False, "prerelease": False}
+            ),
+        )
         self.fixture("Cargo.toml", '[package]\nversion = "0.9.6"\n')
         result = self.run_helper("--check")
         self.assertNotEqual(result.returncode, 0)
@@ -403,7 +509,9 @@ def log(value):
         result = self.run_helper("--install")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Zen 4 host", result.stderr)
-        self.assertFalse(any(r["url"].endswith(".tar.xz") for r in self.calls("curl")))
+        self.assertFalse(
+            any(r["url"].endswith(".tar.xz") for r in self.calls("curl"))
+        )
 
     def test_concurrent_change_during_build_is_not_overwritten(self):
         before = self.installed()
@@ -411,7 +519,10 @@ def log(value):
         result = self.run_helper("--update")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("changed while the build", result.stderr)
-        self.assertEqual((self.root / "bin/herdr").read_bytes(), before + b"# concurrent change\n")
+        self.assertEqual(
+            (self.root / "bin/herdr").read_bytes(),
+            before + b"# concurrent change\n",
+        )
         self.assertEqual(len(self.calls("cargo")), 1)
         self.assert_clean()
 
@@ -428,12 +539,22 @@ def log(value):
         before = self.installed()
         ready = self.base / "building"
         self.env["HOLD_BUILD"] = str(ready)
-        proc = subprocess.Popen(["/bin/bash", str(SOURCE), "--update"], env=self.env,
-                                cwd=self.base, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                text=True, start_new_session=True)
+        proc = subprocess.Popen(
+            ["/bin/bash", str(SOURCE), "--update"],
+            env=self.env,
+            cwd=self.base,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
         try:
             deadline = time.monotonic() + 10
-            while not ready.exists() and time.monotonic() < deadline and proc.poll() is None:
+            while (
+                not ready.exists()
+                and time.monotonic() < deadline
+                and proc.poll() is None
+            ):
                 time.sleep(0.02)
             self.assertTrue(ready.exists())
             os.killpg(proc.pid, signal.SIGINT)
@@ -451,12 +572,22 @@ def log(value):
         # child in a new group, so Ctrl-C then waited for the whole 90 s limit.
         held = self.base / "git-held"
         self.env["HOLD_GIT"] = str(held)
-        proc = subprocess.Popen(["/bin/bash", str(SOURCE), "--check"], env=self.env, cwd=self.base,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                start_new_session=True)
+        proc = subprocess.Popen(
+            ["/bin/bash", str(SOURCE), "--check"],
+            env=self.env,
+            cwd=self.base,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
         try:
             deadline = time.monotonic() + 10
-            while not held.exists() and time.monotonic() < deadline and proc.poll() is None:
+            while (
+                not held.exists()
+                and time.monotonic() < deadline
+                and proc.poll() is None
+            ):
                 time.sleep(0.02)
             self.assertTrue(held.exists())
             started = time.monotonic()
@@ -471,7 +602,9 @@ def log(value):
 
     def test_arguments_help_and_explicit_root(self):
         self.assertEqual(self.run_helper("--help").returncode, 0)
-        self.assertNotEqual(self.run_helper("--install", "--check").returncode, 0)
+        self.assertNotEqual(
+            self.run_helper("--install", "--check").returncode, 0
+        )
         self.assertNotEqual(self.run_helper("--root").returncode, 0)
         self.assertNotEqual(self.run_helper("--typo").returncode, 0)
         self.assertEqual(self.calls(), [])

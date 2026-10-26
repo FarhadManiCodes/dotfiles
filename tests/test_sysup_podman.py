@@ -30,18 +30,30 @@ class PodmanImageUpdateTests(unittest.TestCase):
         self.env = dict(os.environ)
         self.env.pop("NO_COLOR", None)
         self.env.update(
-            PATH=str(self.bin), HOME=str(self.root), XDG_CONFIG_HOME=str(self.root / "config"),
-            XDG_RUNTIME_DIR=str(self.root), LC_ALL="C", SYSUP_TEST_LOG=str(self.log),
-            SYSUP_PULL_MARKER=str(self.marker), SYSUP_BEFORE="old", SYSUP_AFTER="new",
-            SYSUP_SERVICE_STATE="inactive", SYSUP_PULL_FAIL="",
+            PATH=str(self.bin),
+            HOME=str(self.root),
+            XDG_CONFIG_HOME=str(self.root / "config"),
+            XDG_RUNTIME_DIR=str(self.root),
+            LC_ALL="C",
+            SYSUP_TEST_LOG=str(self.log),
+            SYSUP_PULL_MARKER=str(self.marker),
+            SYSUP_BEFORE="old",
+            SYSUP_AFTER="new",
+            SYSUP_SERVICE_STATE="inactive",
+            SYSUP_PULL_FAIL="",
             SHPOOL_SESSION_NAME="sysup-test",
         )
 
         for name in ("stat", "flock", "paru", "uv", "cargo", "claude"):
-            self.script(name, f'''printf '{name} %s\\n' "$*" >> "$SYSUP_TEST_LOG"
+            self.script(
+                name,
+                f"""printf '{name} %s\\n' "$*" >> "$SYSUP_TEST_LOG"
 exit 0
-''')
-        self.script("podman", '''
+""",
+            )
+        self.script(
+            "podman",
+            """
 case "$1 $2" in
   'image inspect')
     printf 'inspect %s\\n' "$3" >> "$SYSUP_TEST_LOG"
@@ -56,8 +68,11 @@ case "$1 $2" in
     printf 'yes\\n' > "$SYSUP_PULL_MARKER" ;;
   *) exit 2 ;;
 esac
-''')
-        self.script("systemctl", '''
+""",
+        )
+        self.script(
+            "systemctl",
+            """
 case "$1 $2" in
   '--user show')
     printf 'show %s\\n' "$3" >> "$SYSUP_TEST_LOG"
@@ -66,7 +81,8 @@ case "$1 $2" in
     printf 'restart %s\\n' "$3" >> "$SYSUP_TEST_LOG" ;;
   *) exit 2 ;;
 esac
-''')
+""",
+        )
 
     def script(self, name, body):
         path = self.bin / name
@@ -75,10 +91,11 @@ esac
 
     def quadlet(self, name, image):
         (self.quadlets / f"{name}.container").write_text(
-            f"[Container]\nImage={image}\n")
+            f"[Container]\nImage={image}\n"
+        )
 
     def run_sysup(self, *args):
-        code = '''
+        code = """
 source "$1"
 shift
 for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
@@ -88,10 +105,13 @@ for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
 done
 _sysup_pacnew() { print -r -- "config-drift $*" >> "$SYSUP_TEST_LOG"; }
 sysup "$@"
-'''
+"""
         return subprocess.run(
             [ZSH, "-f", "-c", code, "test", str(SOURCE), *args],
-            env=self.env, capture_output=True, text=True, timeout=30,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
 
     def calls(self):
@@ -101,8 +121,12 @@ sysup "$@"
         result = self.run_sysup()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertNotIn("Container images", result.stdout)
-        self.assertFalse(any(c.startswith(("inspect", "pull", "show", "restart"))
-                             for c in self.calls()))
+        self.assertFalse(
+            any(
+                c.startswith(("inspect", "pull", "show", "restart"))
+                for c in self.calls()
+            )
+        )
 
     def test_option_updates_stopped_quadlet_without_starting_it(self):
         result = self.run_sysup("--podman-images")
@@ -142,10 +166,16 @@ sysup "$@"
         self.assertIn("==> Config drift", result.stdout)
         self.assertNotIn("==> sysup done", result.stdout)
         calls = self.calls()
-        self.assertTrue(any(c.startswith("config-drift --pacman-since ")
-                            for c in calls), calls)
-        self.assertLess(next(i for i, c in enumerate(calls) if c.startswith("pull ")),
-                        next(i for i, c in enumerate(calls) if c.startswith("config-drift ")))
+        self.assertTrue(
+            any(c.startswith("config-drift --pacman-since ") for c in calls),
+            calls,
+        )
+        self.assertLess(
+            next(i for i, c in enumerate(calls) if c.startswith("pull ")),
+            next(
+                i for i, c in enumerate(calls) if c.startswith("config-drift ")
+            ),
+        )
         self.assertFalse(any(c.startswith("restart ") for c in self.calls()))
 
     def test_unknown_option_does_no_update_work(self):

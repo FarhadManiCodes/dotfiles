@@ -6,6 +6,7 @@ Covers what the runner depends on: absent or empty input fails rather than
 reporting a clean run, a real defect is still named when nothing else was
 asserted, and the checkout is located from the script rather than from $PWD.
 """
+
 from pathlib import Path
 import re
 import shutil
@@ -43,13 +44,18 @@ class CheckSkillsTests(unittest.TestCase):
     def skill(self, name, body=None):
         path = self.checkout / "skills" / name
         path.mkdir(parents=True)
-        (path / "SKILL.md").write_text(body if body is not None else VALID.format(name=name))
+        (path / "SKILL.md").write_text(
+            body if body is not None else VALID.format(name=name)
+        )
         return path
 
     def run_script(self, command=None, cwd=None):
         result = subprocess.run(
             ["bash", str(command or self.script)],
-            cwd=str(cwd or self.base), capture_output=True, text=True, timeout=30,
+            cwd=str(cwd or self.base),
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         return result.returncode, ANSI.sub("", result.stdout + result.stderr)
 
@@ -79,14 +85,21 @@ class CheckSkillsTests(unittest.TestCase):
         self.assertNotIn("no skills asserted", out)
 
     def test_description_without_a_trigger_fails(self):
-        self.skill("fixture-skill", body=VALID.format(name="fixture-skill").replace("Use when", "Use before"))
+        self.skill(
+            "fixture-skill",
+            body=VALID.format(name="fixture-skill").replace(
+                "Use when", "Use before"
+            ),
+        )
         code, out = self.run_script()
         self.assertEqual(code, 1)
         self.assertIn("must state the trigger", out)
 
     def test_description_is_read_past_a_blank_line(self):
         body = VALID.format(name="fixture-skill").replace(
-            "real skills directory.\n", "real skills directory.\n\n  A second <paragraph>.\n")
+            "real skills directory.\n",
+            "real skills directory.\n\n  A second <paragraph>.\n",
+        )
         self.skill("fixture-skill", body=body)
         code, out = self.run_script()
         self.assertEqual(code, 1)
@@ -95,7 +108,10 @@ class CheckSkillsTests(unittest.TestCase):
     def test_loop_summary_withheld_after_a_failure(self):
         # Each loop's green line covers every file it named, so one missing
         # file must withhold it; the control shows the fixture can print it.
-        text = VALID.format(name="fixture-skill") + "See references/a.md, references/b.md and bash/tool.\n"
+        text = (
+            VALID.format(name="fixture-skill")
+            + "See references/a.md, references/b.md and bash/tool.\n"
+        )
         path = self.skill("fixture-skill", body=text)
         (path / "references").mkdir()
         (path / "references/a.md").write_text("a")

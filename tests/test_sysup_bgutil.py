@@ -2,6 +2,7 @@
 
 No network, live helper, uv installation, or system update is touched.
 """
+
 import os
 from pathlib import Path
 import shutil
@@ -26,29 +27,46 @@ class BgutilUpdateTests(unittest.TestCase):
         self.bin.mkdir()
         self.log = self.root / "calls"
         self.env = dict(
-            os.environ, PATH=f"{self.bin}:/usr/bin:/bin",
-            BGUTIL_HELPER=str(self.helper), BGUTIL_UPSTREAM=str(self.upstream),
-            BGUTIL_TOOLS=str(self.root / "tools"), BGUTIL_LOG=str(self.log),
-            BGUTIL_PLUGIN="2.0.0", BGUTIL_FAIL="", BGUTIL_BUILD_VERSION="2.0.0",
+            os.environ,
+            PATH=f"{self.bin}:/usr/bin:/bin",
+            BGUTIL_HELPER=str(self.helper),
+            BGUTIL_UPSTREAM=str(self.upstream),
+            BGUTIL_TOOLS=str(self.root / "tools"),
+            BGUTIL_LOG=str(self.log),
+            BGUTIL_PLUGIN="2.0.0",
+            BGUTIL_FAIL="",
+            BGUTIL_BUILD_VERSION="2.0.0",
             BGUTIL_NET="up",
-            GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
+            GIT_CONFIG_NOSYSTEM="1",
+            GIT_CONFIG_GLOBAL="/dev/null",
             XDG_RUNTIME_DIR=str(self.root),
         )
-        self.script(self.root / "tools/yt-dlp/bin/python", '''
+        self.script(
+            self.root / "tools/yt-dlp/bin/python",
+            """
 [ "$BGUTIL_FAIL" = metadata ] && exit 1
 printf '%s\n' "$BGUTIL_PLUGIN"
-''')
-        self.script(self.bin / "curl", '''
+""",
+        )
+        self.script(
+            self.bin / "curl",
+            """
 printf 'curl %s\n' "$*" >> "$BGUTIL_LOG"
 [ "$BGUTIL_NET" = down ] && exit 7
 exit 0
-''')
-        self.script(self.bin / "uv", '''
+""",
+        )
+        self.script(
+            self.bin / "uv",
+            """
 printf 'uv %s\n' "$*" >> "$BGUTIL_LOG"
 [ "$*" = 'tool dir' ] || exit 1
 printf '%s\n' "$BGUTIL_TOOLS"
-''')
-        self.script(self.bin / "git", f'''
+""",
+        )
+        self.script(
+            self.bin / "git",
+            f"""
 if [ "$1" = clone ]; then
     printf 'clone %s\n' "$5" >> "$BGUTIL_LOG"
     [ "$BGUTIL_FAIL" = fetch ] && exit 1
@@ -56,8 +74,11 @@ if [ "$1" = clone ]; then
     exec {GIT} clone --quiet --branch "$5" "$BGUTIL_UPSTREAM" "$7"
 fi
 exec {GIT} "$@"
-''')
-        self.script(self.bin / "npm", '''
+""",
+        )
+        self.script(
+            self.bin / "npm",
+            """
 printf 'npm %s\n' "$*" >> "$BGUTIL_LOG"
 [ "$*" = 'ci --ignore-scripts --no-audit --no-fund' ] || exit 1
 [ "$BGUTIL_FAIL" = npm ] && exit 1
@@ -66,8 +87,11 @@ if [ "$BGUTIL_FAIL" = concurrent_edit ]; then
 fi
 mkdir -p node_modules/.bin
 ln -s ../../compiler.sh node_modules/.bin/tsc
-''')
-        self.script(self.bin / "mv", f'''
+""",
+        )
+        self.script(
+            self.bin / "mv",
+            f"""
 if [ "${{3##*/}}" = repo ]; then
     [ "$BGUTIL_FAIL" = swap ] && exit 1
     if [ "$BGUTIL_FAIL" = interrupt ]; then
@@ -76,14 +100,23 @@ if [ "${{3##*/}}" = repo ]; then
     fi
 fi
 exec {MV} "$@"
-''')
+""",
+        )
         self.write(self.helper / "README", "original helper\n")
         self.write(self.helper / ".gitignore", "server/build/\n")
-        self.write(self.helper / "server/build/generate_once.js", 'console.log("1.3.1");\n')
+        self.write(
+            self.helper / "server/build/generate_once.js",
+            'console.log("1.3.1");\n',
+        )
         self.init_repo(self.helper)
         self.write(self.upstream / "README", "new helper\n")
-        self.write(self.upstream / ".gitignore", "server/build/\nserver/node_modules/\n")
-        self.script(self.upstream / "server/compiler.sh", '''
+        self.write(
+            self.upstream / ".gitignore",
+            "server/build/\nserver/node_modules/\n",
+        )
+        self.script(
+            self.upstream / "server/compiler.sh",
+            """
 printf 'compile\n' >> "$BGUTIL_LOG"
 [ "$BGUTIL_FAIL" = compile ] && exit 1
 mkdir -p build
@@ -99,7 +132,8 @@ if (process.env.BGUTIL_FAIL === "token") { process.exit(1); }
 console.log('{"poToken":"stub"}');
 JS
 fi
-''')
+""",
+        )
         self.init_repo(self.upstream)
         self.git(self.upstream, "tag", "2.0.0")
 
@@ -113,9 +147,21 @@ fi
 
     def git(self, directory, *args):
         subprocess.run(
-            [GIT, "-C", str(directory), "-c", "core.hooksPath=/dev/null",
-             "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
-             *args], env=self.env, capture_output=True, check=True,
+            [
+                GIT,
+                "-C",
+                str(directory),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.invalid",
+                *args,
+            ],
+            env=self.env,
+            capture_output=True,
+            check=True,
         )
 
     def init_repo(self, directory):
@@ -126,7 +172,10 @@ fi
     def run_update(self, code='source "$1"; _sysup_bgutil "$2"'):
         return subprocess.run(
             ["zsh", "-f", "-c", code, "test", str(SOURCE), str(self.helper)],
-            env=self.env, capture_output=True, text=True, timeout=30,
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
 
     def calls(self):
@@ -136,7 +185,9 @@ fi
         return list(self.root.glob("helper with spaces.update.*/previous"))
 
     def assert_original_preserved(self):
-        self.assertEqual((self.helper / "README").read_text(), "original helper\n")
+        self.assertEqual(
+            (self.helper / "README").read_text(), "original helper\n"
+        )
         self.assertFalse(list(self.root.glob("helper with spaces.update.*")))
 
     def test_matching_version_does_not_fetch_or_build(self):
@@ -158,26 +209,43 @@ fi
         result = self.run_update()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.helper / "README").read_text(), "new helper\n")
-        self.assertIn('"2.0.0"', (self.helper / "server/build/generate_once.js").read_text())
+        self.assertIn(
+            '"2.0.0"',
+            (self.helper / "server/build/generate_once.js").read_text(),
+        )
         self.assertIn("clone 2.0.0\n", self.calls())
         self.assertEqual(len(self.backups()), 1)
-        self.assertEqual((self.backups()[0] / "README").read_text(), "original helper\n")
+        self.assertEqual(
+            (self.backups()[0] / "README").read_text(), "original helper\n"
+        )
         again = self.run_update()
         self.assertEqual(again.returncode, 0, again.stderr)
         self.assertEqual(self.calls().count("clone"), 1)
 
     def test_failed_updates_preserve_old_helper(self):
-        for failure in ("metadata", "fetch", "npm", "compile", "validation", "swap", "interrupt"):
+        for failure in (
+            "metadata",
+            "fetch",
+            "npm",
+            "compile",
+            "validation",
+            "swap",
+            "interrupt",
+        ):
             with self.subTest(failure=failure):
                 self.env["BGUTIL_FAIL"] = failure
                 result = self.run_update()
-                self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertNotEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
                 self.assert_original_preserved()
 
     def test_build_skips_install_scripts(self):
         result = self.run_update()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("npm ci --ignore-scripts --no-audit --no-fund\n", self.calls())
+        self.assertIn(
+            "npm ci --ignore-scripts --no-audit --no-fund\n", self.calls()
+        )
 
     def test_token_generation_is_the_gate_when_youtube_is_reachable(self):
         # --version alone passed during the --ignore-scripts evaluation from a
@@ -205,7 +273,9 @@ fi
     def test_successful_token_generation_is_reported(self):
         result = self.run_update()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("verified: the new helper generated a token", result.stdout)
+        self.assertIn(
+            "verified: the new helper generated a token", result.stdout
+        )
         # The happy path must not consult the network probe at all.
         self.assertNotIn("curl", self.calls())
 
@@ -225,7 +295,9 @@ fi
         self.assert_original_preserved()
 
     def test_unusable_current_build_is_repaired(self):
-        self.write(self.helper / "server/build/generate_once.js", "process.exit(1);\n")
+        self.write(
+            self.helper / "server/build/generate_once.js", "process.exit(1);\n"
+        )
         result = self.run_update()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual((self.helper / "README").read_text(), "new helper\n")
@@ -248,17 +320,17 @@ fi
         self.assertFalse(self.backups())
 
     def test_helper_does_not_replace_parent_exit_trap(self):
-        result = self.run_update('''
+        result = self.run_update("""
 source "$1"
 trap 'echo parent-cleanup' EXIT
 _sysup_bgutil "$2" || exit 1
-''')
+""")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.count("parent-cleanup"), 1)
 
     def test_sysup_stops_after_uv_if_helper_update_fails(self):
         self.env["SHPOOL_SESSION_NAME"] = "sysup-test"
-        result = self.run_update('''
+        result = self.run_update("""
 source "$1"
 systemd-inhibit() { return 0; }
 _sysup_mirrorlist_check() { :; }
@@ -267,9 +339,12 @@ uv() { echo "uv $*"; }
 _sysup_bgutil() { echo helper-failed; return 1; }
 cargo() { echo must-not-run; }
 sysup
-''')
+""")
         self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertLess(result.stdout.index("uv tool upgrade --all"), result.stdout.index("helper-failed"))
+        self.assertLess(
+            result.stdout.index("uv tool upgrade --all"),
+            result.stdout.index("helper-failed"),
+        )
         self.assertIn("mismatched", result.stdout)
         self.assertNotIn("must-not-run", result.stdout)
         self.assertNotIn("sysup done", result.stdout)

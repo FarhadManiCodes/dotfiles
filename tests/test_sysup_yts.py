@@ -6,6 +6,7 @@ Nothing real is touched: the real `make install` would replace the live yts
 binary. The checkout, the install state and the binary directory are
 arguments for that reason.
 """
+
 import os
 from pathlib import Path
 import shutil
@@ -30,9 +31,13 @@ class YtsInstallTests(unittest.TestCase):
         self.bin.mkdir()
         self.log = self.root / "calls"
         self.env = dict(
-            os.environ, PATH=f"{self.bin}:/usr/bin:/bin",
-            YTS_LOG=str(self.log), YTS_PREFIX=str(self.prefix), YTS_FAIL="",
-            GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
+            os.environ,
+            PATH=f"{self.bin}:/usr/bin:/bin",
+            YTS_LOG=str(self.log),
+            YTS_PREFIX=str(self.prefix),
+            YTS_FAIL="",
+            GIT_CONFIG_NOSYSTEM="1",
+            GIT_CONFIG_GLOBAL="/dev/null",
         )
 
         # A checkout with one commit.
@@ -46,14 +51,19 @@ class YtsInstallTests(unittest.TestCase):
         # An install whose stamp is behind HEAD, so the default case updates.
         self.prefix.mkdir()
         (self.prefix / ".installed-commit").write_text("0" * 40 + "\n")
-        self.script(self.bindir / "yts", '''
+        self.script(
+            self.bindir / "yts",
+            """
 printf 'yts %s\\n' "$*" >> "$YTS_LOG"
 [ "$YTS_FAIL" = run ] && exit 1
 exit 0
-''')
+""",
+        )
 
         # make -C <repo> <target>; install writes the stamp like yts's Makefile.
-        self.script(self.bin / "make", '''
+        self.script(
+            self.bin / "make",
+            """
 printf 'make %s -j%s\\n' "$3" "$CMAKE_BUILD_PARALLEL_LEVEL" >> "$YTS_LOG"
 case "$3" in
   test)
@@ -63,7 +73,8 @@ case "$3" in
     git -C "$2" rev-parse HEAD > "$YTS_PREFIX/.installed-commit" ;;
 esac
 exit 0
-''')
+""",
+        )
 
     def write(self, path, content):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -75,21 +86,50 @@ exit 0
 
     def git(self, *args):
         subprocess.run(
-            [GIT, "-C", str(self.repo), "-c", "core.hooksPath=/dev/null",
-             "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
-             *args], env=self.env, capture_output=True, check=True,
+            [
+                GIT,
+                "-C",
+                str(self.repo),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "user.name=Fixture",
+                "-c",
+                "user.email=fixture@example.invalid",
+                *args,
+            ],
+            env=self.env,
+            capture_output=True,
+            check=True,
         )
 
     def rev_parse(self):
-        out = subprocess.run([GIT, "-C", str(self.repo), "rev-parse", "HEAD"],
-                             env=self.env, capture_output=True, text=True, check=True)
+        out = subprocess.run(
+            [GIT, "-C", str(self.repo), "rev-parse", "HEAD"],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         return out.stdout.strip()
 
     def run_step(self):
         return subprocess.run(
-            ["zsh", "-f", "-c", 'source "$1"; _sysup_yts "$2" "$3" "$4"',
-             "test", str(SOURCE), str(self.repo), str(self.prefix), str(self.bindir)],
-            env=self.env, capture_output=True, text=True, timeout=30,
+            [
+                "zsh",
+                "-f",
+                "-c",
+                'source "$1"; _sysup_yts "$2" "$3" "$4"',
+                "test",
+                str(SOURCE),
+                str(self.repo),
+                str(self.prefix),
+                str(self.bindir),
+            ],
+            env=self.env,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
 
     def calls(self):
@@ -106,7 +146,9 @@ exit 0
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(f"Installed {self.head[:7]}", result.stdout)
         # Tests gate the install, so they must run first; both build with -j8.
-        self.assertEqual(self.calls().splitlines()[:2], ["make test -j8", "make install -j8"])
+        self.assertEqual(
+            self.calls().splitlines()[:2], ["make test -j8", "make install -j8"]
+        )
         # And the installed binary must actually be run.
         self.assertIn("yts --version", self.calls())
         self.assertEqual(self.stamp(), self.head)
