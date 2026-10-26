@@ -239,7 +239,8 @@ check_privileged_configs() {
   check_privileged /usr/share/wayland-sessions/niri-isolated.desktop
   check_privileged /usr/local/bin/niri-session-isolated exec
   # The list's own warning was printed under the section above.
-  ((root_list_bad)) || pass -p "root-owned, not writable by others, under root-owned directories"
+  ((root_list_bad)) \
+    || pass -p "root-owned, not writable by others, under root-owned directories (unreadable paths listed above excluded)"
 }
 
 check_plugin_staleness() {

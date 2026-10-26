@@ -84,7 +84,7 @@ class ConfigDriftTests(unittest.TestCase):
 
     def test_ownership_ok_survives_a_skip(self):
         setup = 'root_dst=(/etc/example) root_list_bad=0\ncheck_privileged() { RESULT; }'
-        message = 'root-owned, not writable by others'
+        message = 'under root-owned directories (unreadable paths listed above excluded)'
         self.assertIn(message, self.run_check('check_privileged_configs', setup.replace('RESULT', 'skip s')))
         self.assertNotIn(message, self.run_check('check_privileged_configs', setup.replace('RESULT', 'warn w')))
 
