@@ -311,7 +311,11 @@ class HookCase(Case):
             if ".git" in path.relative_to(root).parts or path.is_dir():
                 continue
             info = path.lstat()
-            data = os.readlink(path) if path.is_symlink() else path.read_bytes()
+            data = (
+                os.readlink(path)  # noqa: PTH115 - pathlib tidies the target; the snapshot must see it as stored
+                if path.is_symlink()
+                else path.read_bytes()
+            )
             state[str(path.relative_to(root))] = (
                 data,
                 info.st_mode,
@@ -1243,7 +1247,9 @@ class FullRun(HookCase):
         self.assert_blocked(code, out, CANDIDATES)
         self.assertIn("llama-server did not become healthy", out)
         namespace, *links = seen.read_text().split()
-        self.assertNotEqual(namespace, os.readlink("/proc/self/ns/net"))
+        self.assertNotEqual(
+            namespace, str(Path("/proc/self/ns/net").readlink())
+        )
         self.assertEqual(links, ["lo"])
 
 

@@ -92,7 +92,7 @@ def single_instance():
     """
     # A bare fd, not a file object, so nothing closes it before exit.
     fd = os.open(
-        os.path.join(os.environ["XDG_RUNTIME_DIR"], "capture-ocr.lock"),
+        Path(os.environ["XDG_RUNTIME_DIR"]) / "capture-ocr.lock",
         os.O_WRONLY | os.O_CREAT | os.O_CLOEXEC,
         0o600,
     )

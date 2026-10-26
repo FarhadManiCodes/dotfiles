@@ -77,7 +77,7 @@ def mapping(files):
     """
     formats = {}
     for path, form in files.items():
-        name = os.path.basename(path)
+        name = Path(path).name
         if "," in name or ";" in name:
             fail(
                 f"{path}: ',' and ';' cannot be expressed in jscpd's name mapping"
@@ -115,7 +115,7 @@ def jscpd(files, tmp, *flags, report="jscpd-report", root=None):
         ],
         cwd=root,
         # The semantic run's embeddings cache goes into the snapshot.
-        env=os.environ | {"XDG_CACHE_HOME": os.path.join(tmp, "cache")},
+        env=os.environ | {"XDG_CACHE_HOME": str(Path(tmp) / "cache")},
         capture_output=True,
         encoding="utf-8",
         check=False,
@@ -143,9 +143,7 @@ def analyzed(files, tmp, flags):
         str(len(files)),
         report="jscpd-complexity",
     )
-    return {
-        relative(f["path"], os.getcwd()) for f in report["summary"]["files"]
-    }
+    return {relative(f["path"], Path.cwd()) for f in report["summary"]["files"]}
 
 
 def check_count(files, sources, tmp, flags, minimum):
@@ -223,8 +221,8 @@ def clones(kind, base, tmp, url=None):
         )
         print(
             f"clone ({d.get('kind', 'exact')}, {d['lines']} lines{score}): "
-            f"{relative(a['name'], os.getcwd())}:{a['start']}-{a['end']} <-> "
-            f"{relative(b['name'], os.getcwd())}:{b['start']}-{b['end']}"
+            f"{relative(a['name'], Path.cwd())}:{a['start']}-{a['end']} <-> "
+            f"{relative(b['name'], Path.cwd())}:{b['start']}-{b['end']}"
         )
     print(
         f"{len(new)} clones {since}; {len(files)} files listed, {report['statistics']['total']['sources']} analyzed"
@@ -345,7 +343,7 @@ def measure(base, tmp, old_root, old_records):
         tmp,
         os.path.realpath(old_root),
     )
-    after = sizes({f: new[f] for f in changed if f in new}, tmp, os.getcwd())
+    after = sizes({f: new[f] for f in changed if f in new}, tmp, Path.cwd())
     print(
         f"Size and jscpd's file-level complexity estimate, {base[:12]} -> HEAD "
         "(lines, bytes, complexity; an indicator, not a per-function measure):"
