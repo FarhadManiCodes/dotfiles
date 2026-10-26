@@ -159,23 +159,17 @@ case "$cmd" in
     ;;
 
   fdata)
-    result=$(fd --one-file-system --type f \
-      -e csv -e tsv -e jsonl -e ndjson \
-      -e json -e yaml -e yml \
-      -e parquet -e avro -e orc -e feather \
-      -e xlsx -e xls \
-      -e pkl -e pickle -e joblib \
-      -e h5 -e hdf5 \
-      -e pt -e pth -e onnx \
-      --exclude __pycache__ --exclude node_modules --exclude venv \
-      2>/dev/null \
-      | fzf \
-        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-        --bind "ctrl-v:execute-silent(touch '$xdir/cp')+accept" \
-        --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
-        --preview-window=hidden,right:40% \
-        --bind 'ctrl-p:toggle-preview' \
-        --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
+    exts=(csv tsv jsonl ndjson json yaml yml parquet avro orc feather
+      xlsx xls pkl pickle joblib h5 hdf5 pt pth onnx)
+    fd_cmd=(fd --one-file-system --type f "${exts[@]/#/--extension=}"
+      --exclude __pycache__ --exclude node_modules --exclude venv)
+    result=$("${fd_cmd[@]}" 2>/dev/null | fzf \
+      --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
+      --bind "ctrl-v:execute-silent(touch '$xdir/cp')+accept" \
+      --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
+      --preview-window=hidden,right:40% \
+      --bind 'ctrl-p:toggle-preview' \
+      --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
     [[ -z "$result" ]] && exit 0
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
     if [[ -e "$xdir/cd" ]]; then
