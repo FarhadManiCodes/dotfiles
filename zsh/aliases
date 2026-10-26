@@ -6,40 +6,41 @@
 # EZA - Basic Listing
 # ============================================================================
 if command -v eza >/dev/null 2>&1; then
-  alias ls='eza'                    # Base replacement
-  alias l='eza'                     # Short form
-  alias l.='eza -d .* --color=auto' # Dotfiles only
+  alias ls='eza'
+  alias l='eza'
+  # Dotfiles only
+  alias l.='eza -d .* --color=auto'
 
   # ============================================================================
   # EZA - Standard Views
   # ============================================================================
-  alias ll='eza -l --icons --git --group-directories-first'     # Long format + git status
-  alias la='eza -la --icons --git --group-directories-first'    # Long + all (including hidden)
-  alias lh='eza -la --icons --header --group-directories-first' # Long + all + column headers
+  alias ll='eza -l --icons --git --group-directories-first'
+  alias la='eza -la --icons --git --group-directories-first'
+  alias lh='eza -la --icons --header --group-directories-first'
 
   # ============================================================================
   # EZA - Filtered Views (Developer-focused)
   # ============================================================================
-  alias lsd='eza -D --icons'                     # Directories only
-  alias lsf='eza -f --icons'                     # Files only
-  alias lgit='eza -l --icons --git --git-ignore' # Respect .gitignore
-  alias lr='eza -lR --icons'                     # Recursive long format
+  alias lsd='eza -D --icons'
+  alias lsf='eza -f --icons'
+  alias lgit='eza -l --icons --git --git-ignore'
+  alias lr='eza -lR --icons'
 
   # ============================================================================
   # EZA - Sorted Views
   # ============================================================================
-  alias lz='eza -l --icons --sort=size'       # Sort by size (largest first)
-  alias lm='eza -l --icons --sort=modified'   # Recently modified first
-  alias lx='eza -lh --icons --sort=extension' # Group by file type
+  alias lz='eza -l --icons --sort=size'
+  alias lm='eza -l --icons --sort=modified'
+  alias lx='eza -lh --icons --sort=extension'
 
   # ============================================================================
   # EZA - Tree Views (Hybrid Approach)
   # ============================================================================
   # Eza tree variants with 'et' prefix
-  alias et='eza -T --icons --level=2'                          # Quick eza tree (2 levels)
-  alias et1='eza -T --icons --level=1'                         # Ultra-shallow (1 level)
-  alias et3='eza -T --icons --level=3'                         # Explicit 3 levels
-  alias eta='eza -T -a --icons --level=2 --ignore-glob=".git"' # With hidden files
+  alias et='eza -T --icons --level=2'
+  alias et1='eza -T --icons --level=1'
+  alias et3='eza -T --icons --level=3'
+  alias eta='eza -T -a --icons --level=2 --ignore-glob=".git"'
 
   # Developer-focused tree (ignore build artifacts, deps, etc.)
   alias treez='eza -T -L 3 --icons --ignore-glob=".*|*.egg-info|*.log|*.lock" --ignore-glob="node_modules|__pycache__|venv|dist|build|cmake-build-*|_build|target|coverage"'
@@ -47,24 +48,25 @@ if command -v eza >/dev/null 2>&1; then
   # ============================================================================
   # EZA - Interactive & Utility
   # ============================================================================
-  alias lf='eza -la --icons | fzf'     # Interactive fuzzy filter
-  alias lgrep='eza -la --icons | grep' # Quick grep filtering
+  alias lf='eza -la --icons | fzf'
+  alias lgrep='eza -la --icons | grep'
 fi
 
 # ============================================================================
 # TREE - Keep standalone tree with colors (for deep/fast operations)
 # ============================================================================
 if command -v tree >/dev/null 2>&1; then
-  alias tree='tree -C' # Add colors to tree
+  alias tree='tree -C'
 fi
 
 # ============================================================================
 # ZOXIDE (Better cd)
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
-  alias cd="z"   # Replace cd with z
-  alias cdi="zi" # Interactive directory selection
-  alias zz="z -" # Jump to previous directory
+  alias cd="z"
+  # Interactive directory picker; zz jumps back to the previous directory
+  alias cdi="zi"
+  alias zz="z -"
 fi
 
 # ============================================================================
@@ -78,10 +80,10 @@ alias ....='builtin cd ../../..'
 # TRASH (trash-cli — FreeDesktop unified trash)
 # ============================================================================
 if command -v trash-put >/dev/null 2>&1; then
-  alias tp='trash-put'           # Move to trash
-  alias tl='trash-list'          # List trash contents
-  alias te='trash-empty'         # Empty trash
-  alias trestore='trash-restore' # Restore from trash (interactive)
+  alias tp='trash-put'
+  alias tl='trash-list'
+  alias te='trash-empty'
+  alias trestore='trash-restore'
 fi
 
 # ============================================================================
@@ -113,7 +115,8 @@ alias vi="vim"
 # ============================================================================
 # UTILITY COMMANDS
 # ============================================================================
-alias plc='fc -ln -1' # Print Last Command
+# Print the last command
+alias plc='fc -ln -1'
 alias zsh-update='~/.config/zsh/update-plugins.sh'
 # sysup is a function (zsh/functions/sysup.zsh) — full system + tooling update
 # sysclean is a function (zsh/functions/sysclean.zsh) — smart system & cache cleanup
