@@ -212,6 +212,7 @@ def log(value):
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
 
     def calls(self, tool=None):

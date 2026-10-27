@@ -218,7 +218,8 @@ _sysup_nvim_health() { print NVIM-START; sleep 30; }
         )
         # a second sysup in the same shell must neither be locked out nor inherit the handler
         lock = subprocess.run(
-            ["flock", "-n", str(self.runtime / "sysup.lock"), "true"]
+            ["flock", "-n", str(self.runtime / "sysup.lock"), "true"],
+            check=False,
         )
         self.assertEqual(lock.returncode, 0, "the lock file is still held")
 

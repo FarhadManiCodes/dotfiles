@@ -71,6 +71,7 @@ class PapisFuzzelTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         ).returncode
 
     def labels(self):

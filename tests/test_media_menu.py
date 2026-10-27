@@ -92,6 +92,7 @@ class MediaMenuStopTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
 
     def calls(self, name=None):

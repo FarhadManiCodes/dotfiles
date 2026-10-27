@@ -81,6 +81,7 @@ class SyscleanTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         self.assertEqual(
             result.stderr, "", f"unexpected stderr:\n{result.stderr}"
@@ -428,6 +429,7 @@ fi
             capture_output=True,
             text=True,
             timeout=30,
+            check=True,
         )
         self.assertEqual(result.stderr, "", result.stderr)
         return result.stdout

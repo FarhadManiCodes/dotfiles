@@ -61,6 +61,7 @@ class SioyekPapisNoteTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         ).returncode
 
     def read(self, name):
@@ -69,7 +70,7 @@ class SioyekPapisNoteTests(unittest.TestCase):
 
     def today(self):
         return subprocess.run(
-            ["date", "+%F"], capture_output=True, text=True
+            ["date", "+%F"], capture_output=True, text=True, check=True
         ).stdout.strip()
 
     def test_first_capture_registers_the_note_and_quotes_the_selection(self):

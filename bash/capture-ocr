@@ -69,7 +69,9 @@ def notify(title, body, urgency=None, timeout=None):
     try:
         # A NUL (possible in OCR text) can't go in argv: ValueError otherwise.
         if (
-            subprocess.run([*cmd, title, body.replace("\0", "")]).returncode
+            subprocess.run(
+                [*cmd, title, body.replace("\0", "")], check=False
+            ).returncode
             == 0
         ):
             return
@@ -131,7 +133,7 @@ def api_key():
 
 def capture():
     """Select a region and grab it as PNG. ESC exits quietly."""
-    sel = subprocess.run(["slurp"], capture_output=True, text=True)
+    sel = subprocess.run(["slurp"], capture_output=True, text=True, check=False)
     if sel.returncode != 0:
         # ESC and a real failure both exit 1; only ESC prints this (slurp 1.5).
         if "selection cancelled" in sel.stderr:

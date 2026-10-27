@@ -98,6 +98,7 @@ class SioyekPapisTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
         self.assertIn(proc.returncode, (0, 1), proc.stderr)
         return proc

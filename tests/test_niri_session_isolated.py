@@ -412,6 +412,7 @@ if stage == "start" and config["block"]:
                 input=script,
                 text=True,
                 capture_output=True,
+                check=False,
             )
             self.assertEqual(lint.returncode, 0, lint.stdout + lint.stderr)
         for forbidden in (
@@ -438,6 +439,7 @@ if stage == "start" and config["block"]:
             ["/usr/bin/desktop-file-validate", str(entry)],
             capture_output=True,
             text=True,
+            check=False,
         )
         # Accept future validators that recognise DesktopNames, while rejecting
         # any other diagnostic from the installed validator.

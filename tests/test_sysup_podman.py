@@ -111,6 +111,7 @@ sysup "$@"
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
 
     def calls(self):

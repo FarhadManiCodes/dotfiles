@@ -59,6 +59,7 @@ class CliphistStoreGuardTests(unittest.TestCase):
             env=dict(self.env, **env),
             capture_output=True,
             timeout=8,
+            check=False,
         )
 
     def calls(self):
@@ -225,6 +226,7 @@ class CliphistStoreGuardTests(unittest.TestCase):
             env=env,
             capture_output=True,
             timeout=8,
+            check=False,
         )
         self.assertEqual(result.returncode, 0)
         self.assertIsNone(self.calls()[0]["state"])

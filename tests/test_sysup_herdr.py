@@ -45,6 +45,7 @@ exit "$TEST_STATUS"
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
 
     def test_dispatches_update_only_and_propagates_failure(self):
@@ -87,6 +88,7 @@ claude() { print -r -- claude >> "$TEST_LOG"; }
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
 
     def assert_warned_and_continued(self, result, failure):
@@ -136,6 +138,7 @@ _sysup_herdr() {{ _sysup_herdr_real {wrapper}; }}
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
         self.assertEqual(result.returncode, 1)
         self.assertEqual(

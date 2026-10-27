@@ -169,6 +169,7 @@ pwd > "$PWD_LOG"
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(self.fzf_log.read_text())

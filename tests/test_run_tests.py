@@ -96,6 +96,7 @@ class RunTestsTests(unittest.TestCase):
             text=True,
             timeout=120,
             env=dict(env, SKILLS_LOG=str(self.skills_log)),
+            check=False,
         )
         return result.returncode, ANSI.sub("", result.stdout)
 

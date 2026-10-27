@@ -87,6 +87,7 @@ class PdfMetaTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
 
     def test_preview(self):

@@ -55,6 +55,7 @@ class CheckSkillsTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         return result.returncode, ANSI.sub("", result.stdout + result.stderr)
 

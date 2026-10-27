@@ -102,6 +102,7 @@ fi
             text=True,
             capture_output=True,
             timeout=3,
+            check=False,
         )
 
     def assert_status(self, *, active):
@@ -114,6 +115,7 @@ fi
             text=True,
             capture_output=True,
             timeout=3,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stderr, "")

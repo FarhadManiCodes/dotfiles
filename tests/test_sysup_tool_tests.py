@@ -54,6 +54,7 @@ class ToolTestsStepTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
 
     def test_each_suite_runs_isolated_on_the_newest_versions(self):
@@ -192,6 +193,7 @@ class ToolTestsStepTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=30,
+            check=True,
         )
         self.assertNotIn("got stdin", result.stdout)
 

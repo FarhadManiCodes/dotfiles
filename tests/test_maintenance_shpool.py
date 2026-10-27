@@ -54,6 +54,7 @@ _sysup_prune_claude_versions() { print -r -- cleanup-body; exit 23; }
             capture_output=True,
             text=True,
             timeout=15,
+            check=False,
         )
 
     def test_outside_session_dispatches_arguments_and_returns_client_status(

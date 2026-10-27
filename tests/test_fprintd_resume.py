@@ -42,6 +42,7 @@ class FprintdResumeTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout + result.stderr, "")

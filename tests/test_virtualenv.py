@@ -44,6 +44,7 @@ class VirtualenvTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
 
     def stub(self, name, body):

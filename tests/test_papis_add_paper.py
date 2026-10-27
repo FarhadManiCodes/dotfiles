@@ -79,6 +79,7 @@ class PapisAddPaperTests(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=20,
+            check=False,
         ).returncode
 
     def logged(self):

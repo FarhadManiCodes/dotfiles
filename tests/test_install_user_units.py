@@ -103,6 +103,7 @@ exit 0
             text=True,
             capture_output=True,
             timeout=20,
+            check=False,
         )
 
     def test_success_reports_enabled_and_exits_zero(self):
