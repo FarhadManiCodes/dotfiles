@@ -1,0 +1,22 @@
+[Unit]
+Description=Archive Claude Code token usage before transcript cleanup
+OnFailure=notify-failure@%n.service
+
+[Service]
+Type=oneshot
+# Copies per-message token usage from ~/.claude/projects/**/*.jsonl into
+# ~/.claude/burn/state/activity.json. Claude Code deletes transcripts after
+# cleanupPeriodDays (30), and this history is the data for calibrating the
+# weekly-allowance forecast in ~/.claude/burn. Incremental: only transcripts
+# modified since the last run are re-read.
+ExecStart=/usr/bin/python3 -I %h/.claude/burn/burn.py archive
+Nice=10
+IOSchedulingClass=idle
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.claude/burn/state
+PrivateTmp=yes
+PrivateNetwork=yes
+UMask=0077

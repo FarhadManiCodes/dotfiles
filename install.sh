@@ -323,6 +323,9 @@ units_to_enable=(
   # than every push. Socket-activated: enabling the socket is enough, the
   # service starts on first use.
   ssh-agent.socket
+  # Daily copy of Claude Code token usage into ~/.claude/burn/state before the
+  # 30-day transcript cleanup deletes it (weekly-allowance forecast data).
+  claude-burn-archive.timer
 )
 failed_user_units=()
 for unit in "${units_to_enable[@]}"; do

@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily archive of Claude Code token usage
+
+[Timer]
+OnCalendar=daily
+# A laptop is often asleep at midnight; run the missed one at the next wake/boot.
+Persistent=true
+RandomizedDelaySec=15min
+
+[Install]
+WantedBy=timers.target
