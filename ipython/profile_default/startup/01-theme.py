@@ -3,7 +3,7 @@ from pathlib import Path
 state_file = Path.home() / ".local/state/foot_theme_state"
 try:
     mode = state_file.read_text().strip()
-except Exception:
+except OSError:
     mode = "dark"
 
 ip = get_ipython()

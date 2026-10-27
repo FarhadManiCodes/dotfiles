@@ -24,7 +24,7 @@ def _detect_foot_theme():
             if state_file.read_text().strip() == "light"
             else "onedark"
         )
-    except Exception:
+    except OSError:
         return "onedark"
 
 

@@ -173,6 +173,12 @@ class Unreachable(Exception):
     """The server could not be contacted at all, as opposed to answering badly."""
 
 
+# What reading an error body as {"error": {"message": ...}} raises when it has
+# another shape: not JSON, a missing key, or a list, string, number or null
+# where a dict was.
+UNEXPECTED_SHAPE = (ValueError, LookupError, TypeError)
+
+
 def post_json(open_url, url, payload, headers, who):
     """POST JSON, return the parsed reply. An HTTP error fails with its message;
     a network error raises Unreachable, so the caller picks fallback or failure."""
@@ -191,7 +197,7 @@ def post_json(open_url, url, payload, headers, who):
             detail = json.loads(body)["error"][
                 "message"
             ]  # Gemini's error shape
-        except Exception:
+        except UNEXPECTED_SHAPE:
             detail = body[:200]
         fail(f"{who} returned {e.code}. {detail}".strip())
     except urllib.error.URLError as e:
@@ -456,7 +462,7 @@ def main():
 def run():
     try:
         main()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - the last resort, explained below
         # Every error without a message of its own ends here: missing tools, odd
         # replies, a local server that can't be reached. Only the type is shown --
         # a message can carry file contents or the key (a bad header echoes it).
