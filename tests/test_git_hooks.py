@@ -265,7 +265,7 @@ class HookCase(Case):
                     link.symlink_to(tool)
         return str(bin_dir)
 
-    def write(self, name, text, executable=False):
+    def write(self, name, text, *, executable=False):
         path = self.repo / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text)

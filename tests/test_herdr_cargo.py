@@ -222,7 +222,7 @@ def log(value):
         )
         return [r for r in rows if tool is None or r["tool"] == tool]
 
-    def installed(self, version="0.9.4", commit=OLD_COMMIT, registry=False):
+    def installed(self, version="0.9.4", commit=OLD_COMMIT, *, registry=False):
         (self.root / "bin").mkdir(parents=True)
         binary = self.root / "bin/herdr"
         binary.write_text(f"#!/bin/sh\nprintf '%s\\n' 'herdr {version}'\n")

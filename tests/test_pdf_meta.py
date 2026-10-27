@@ -10,7 +10,7 @@ import unittest
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/pdf-meta"
 
 
-def make_pdf(path, title=None, author=None, with_text=True):
+def make_pdf(path, title=None, author=None, *, with_text=True):
     def pdf_string(value):
         return (
             b"<"

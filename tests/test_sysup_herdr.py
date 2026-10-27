@@ -32,7 +32,7 @@ exit "$TEST_STATUS"
             "SHPOOL_SESSION_NAME": "fixture",
         }
 
-    def run_step(self, source=SOURCE, explicit=True):
+    def run_step(self, source=SOURCE, *, explicit=True):
         code = (
             'source "$1"; _sysup_herdr "$2"'
             if explicit

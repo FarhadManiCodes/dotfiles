@@ -117,7 +117,7 @@ class HardwareReadingsTests(unittest.TestCase):
         self.assertIn("Time:     3h 0m remaining", result.stdout)
         return result.stdout
 
-    def assert_readings(self, snapshot, values, warning=False, **env):
+    def assert_readings(self, snapshot, values, *, warning=False, **env):
         for caller in ("notification", "batt"):
             with self.subTest(caller=caller):
                 output = self.run_caller(caller, snapshot, **env)

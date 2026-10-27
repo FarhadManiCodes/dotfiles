@@ -66,7 +66,7 @@ class SyscleanTests(unittest.TestCase):
 
     # --- harness ---------------------------------------------------------------
 
-    def run_section(self, code, setup="", rewrite=True):
+    def run_section(self, code, setup="", *, rewrite=True):
         """Run one extracted section. Asserts stderr is empty, which is the
         whole point for the glob cases: zsh reports `no matches found` there,
         and a bare `2>/dev/null` on the command cannot catch it."""
@@ -397,7 +397,7 @@ fi
 
     # --- step 10: NVMe health -------------------------------------------------
 
-    def _run_nvme(self, report, devices=True):
+    def _run_nvme(self, report, *, devices=True):
         """Source the whole file with only the device glob pointed at a fixture,
         so the function under test is the real one rather than a slice. The real
         jq parses the report; smartctl is a stub that prints it."""

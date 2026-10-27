@@ -90,7 +90,7 @@ exit 0
         path.chmod(0o755)
 
     def run_install(
-        self, failures="", herdr_failure=False, herdr_interrupted=False
+        self, failures="", *, herdr_failure=False, herdr_interrupted=False
     ):
         self.env["FAIL_UNITS"] = failures
         self.env["HERDR_FAIL"] = (
