@@ -361,9 +361,11 @@ check. The hook fails when:
   hook is an unstaged edit ("restore it with git restore git-hooks/bootstrap").
 
 The removal commit takes `git-hooks/`, `.pre-commit-config.yaml`,
-`tests/test_git_hooks.py`, this file and the hook lines in `AGENTS.md`. Editors also
-read `.editorconfig`, `.shellcheckrc` and `ruff.toml`, so decide on those separately.
-`.git-blame-ignore-revs` and its test can stay: blame still uses them.
+`tests/test_git_hooks.py` and this file, and rewords or drops every other mention of
+them, which `git grep -n -e git-hooks -e pre-commit-config` lists. Editors also read
+`.editorconfig`, `.shellcheckrc` and `ruff.toml`, so decide on those separately.
+`.git-blame-ignore-revs` and its test can stay, since blame still uses them; move
+"The blame list" and the blame setting from this file to `git.md` first.
 
 ## Measurement limits
 
