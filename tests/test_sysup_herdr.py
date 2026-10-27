@@ -182,7 +182,8 @@ _sysup_herdr() {{ _sysup_herdr_real {wrapper}; }}
                 self.assert_warned_and_continued(
                     result,
                     f"uv tool upgrade failed (exit {status})"
-                    "; tools, including yt-dlp and its token helper, may be outdated or mismatched; see the output above",
+                    "; tools, including yt-dlp and its token helper, may be outdated"
+                    " or mismatched; see the output above",
                 )
 
     def test_a_failed_yts_install_is_repeated_at_the_end(self):

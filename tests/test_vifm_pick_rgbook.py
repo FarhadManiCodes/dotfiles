@@ -80,14 +80,22 @@ class RgbookTests(unittest.TestCase):
             '#!/bin/sh\n{ printf "sioyek\\n"; printf "%s\\n" "$@"; } > "$OPEN_LOG"\n'
         )
         (self.bin / "sioyek").chmod(0o755)
-        (self.bin / "pdf-meta").write_text(
-            '#!/bin/sh\n[ "$PDF_META_FAIL" = 1 ] && exit 1\n'
-            'if [ "$1" = preview ]; then\n'
-            '  case "$2" in *.pdf) printf "Title: Sample\\nAuthor: Ada\\nPages: 3\\n\\nFirst page:\\nOpening page content\\n" ;; *) exit 1 ;; esac\n'
-            "else\n"
-            '  case "$3" in 1) echo 186.000 ;; 2) echo 279.000 ;; 3) echo 421.000 ;; *) exit 1 ;; esac\n'
-            "fi\n"
-        )
+        (self.bin / "pdf-meta").write_text(r"""#!/bin/sh
+[ "$PDF_META_FAIL" = 1 ] && exit 1
+if [ "$1" = preview ]; then
+  case "$2" in
+    *.pdf) printf "Title: Sample\nAuthor: Ada\nPages: 3\n\nFirst page:\nOpening page content\n" ;;
+    *) exit 1 ;;
+  esac
+else
+  case "$3" in
+    1) echo 186.000 ;;
+    2) echo 279.000 ;;
+    3) echo 421.000 ;;
+    *) exit 1 ;;
+  esac
+fi
+""")
         (self.bin / "pdf-meta").chmod(0o755)
         (self.bin / "vifm").write_text(
             '#!/bin/sh\nprintf "%s\\n" "$@" > "$VIFM_LOG"\n'

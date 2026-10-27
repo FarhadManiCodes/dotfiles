@@ -67,7 +67,8 @@ class FprintdResumeTests(unittest.TestCase):
         self.assertEqual(calls, "--no-block try-restart fprintd.service\n")
         self.assertEqual(
             logs,
-            "-t fprintd-resume post: FAILED to submit conditional restart request for fprintd.service: mock manager refused request\n",
+            "-t fprintd-resume post: FAILED to submit conditional restart request"
+            " for fprintd.service: mock manager refused request\n",
         )
 
 

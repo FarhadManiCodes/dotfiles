@@ -60,12 +60,16 @@ class ToolTestsStepTests(unittest.TestCase):
     def test_each_suite_runs_isolated_on_the_newest_versions(self):
         result = self.run_zsh(f"_sysup_tool_tests {self.projects}; print rc=$?")
         self.assertIn("rc=0", result.stdout, result.stderr)
+        uv_run = (
+            "{}|run --isolated --upgrade --no-compile-bytecode"
+            " {}python -m pytest -q -p no:cacheprovider"
+        )
         self.assertEqual(
             sorted(self.log.read_text().splitlines()),
             [
-                "audio_text|run --isolated --upgrade --no-compile-bytecode python -m pytest -q -p no:cacheprovider",
-                "mathunicode|run --isolated --upgrade --no-compile-bytecode python -m pytest -q -p no:cacheprovider",
-                "paper-refinery|run --isolated --upgrade --no-compile-bytecode --extra dev python -m pytest -q -p no:cacheprovider",
+                uv_run.format("audio_text", ""),
+                uv_run.format("mathunicode", ""),
+                uv_run.format("paper-refinery", "--extra dev "),
             ],
         )
         self.assertIn("mathunicode: 5 passed in 0.1s", result.stdout)

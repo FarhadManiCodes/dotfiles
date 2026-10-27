@@ -23,6 +23,16 @@ verbose=1
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
+def transaction(stamp, *scriptlet, completed=True):
+    """pacman.log lines for one transaction, each tagged with `stamp`: its
+    start, its completion unless `completed` is false, then hook output."""
+    lines = [f"[{stamp}] [ALPM] transaction started"]
+    if completed:
+        lines.append(f"[{stamp}] [ALPM] transaction completed")
+    lines += [f"[{stamp}] [ALPM-SCRIPTLET] {line}" for line in scriptlet]
+    return "".join(f"{line}\n" for line in lines)
+
+
 class ConfigDriftTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="config-drift-test-")
@@ -269,20 +279,18 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
 
     def test_last_transaction_only_and_incomplete_transaction(self):
         self.config_drift = self.patched_pacman_log_path()
-        old = "[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n"
-        new = "[new] [ALPM] transaction started\n[new] [ALPM] transaction completed\n"
+        old = transaction("old", "==> ERROR old", completed=False)
+        new = transaction("new")
         self.write("pacman.log", old + new)
         output = self.run_check("check_last_pacman_transaction")
         self.assertIn("clean (new)", output)
         self.assertNotIn("ERROR old", output)
-        self.write("pacman.log", "[new] [ALPM] transaction started\n")
+        self.write("pacman.log", transaction("new", completed=False))
         self.assertIn(
             "no completion record",
             self.run_check("check_last_pacman_transaction"),
         )
-        self.write(
-            "pacman.log", new + "[new] [ALPM-SCRIPTLET] ==> Building image\n"
-        )
+        self.write("pacman.log", transaction("new", "==> Building image"))
         self.assertIn(
             "never reported success",
             self.run_check("check_last_pacman_transaction"),
@@ -294,21 +302,21 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
 
     def test_update_transaction_window(self):
         self.config_drift = self.patched_pacman_log_path()
-        old = "[old] [ALPM] transaction started\n[old] [ALPM-SCRIPTLET] ==> ERROR old\n"
+        old = transaction("old", "==> ERROR old", completed=False)
         log = self.write("pacman.log", old)
         st = log.stat()
         boundary = f"{st.st_dev}:{st.st_ino}:{st.st_size}"
         setup = f"pacman_since={boundary}"
-        failed = "[first] [ALPM] transaction started\n[first] [ALPM] transaction completed\n[first] [ALPM-SCRIPTLET] ==> ERROR failed hook\n"
-        good = "[last] [ALPM] transaction started\n[last] [ALPM] transaction completed\n[last] [ALPM-SCRIPTLET] Initcpio image generation successful\n"
+        failed = transaction("first", "==> ERROR failed hook")
+        good = transaction("last", "Initcpio image generation successful")
         for first, expected in [
             (failed, "failed hook"),
             (
-                "[first] [ALPM] transaction started\n",
+                transaction("first", completed=False),
                 "no completion record (first)",
             ),
             (
-                "[first] [ALPM] transaction started\n[first] [ALPM] transaction completed\n[first] [ALPM-SCRIPTLET] ==> Building image\n",
+                transaction("first", "==> Building image"),
                 "never reported success (first)",
             ),
         ]:
