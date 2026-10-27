@@ -186,7 +186,7 @@ UNEXPECTED_SHAPE = (ValueError, LookupError, TypeError)
 def post_json(open_url, url, payload, headers, who):
     """POST JSON, return the parsed reply. An HTTP error fails with its message;
     a network error raises Unreachable, so the caller picks fallback or failure."""
-    req = urllib.request.Request(
+    req = urllib.request.Request(  # noqa: S310 - fixed https or loopback URLs
         url,
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", **headers},
