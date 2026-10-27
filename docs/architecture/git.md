@@ -41,3 +41,5 @@ produced no starship log at all, and the git pre-warm in `niri/config.kdl` was d
 the same evening — it only ever raced the boot storm rather than removing anything, which
 is what made the warning intermittent. If it returns, `~/.cache/starship/` is the
 evidence and the pre-warm is a `git revert` away.
+
+The commit checks are in `git-hooks.md`.

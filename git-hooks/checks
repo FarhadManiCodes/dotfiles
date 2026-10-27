@@ -1,7 +1,7 @@
 #!/bin/bash
 # The checks behind git-hooks/bootstrap, run inside its snapshot: a mode runs
 # prek, and prek runs the checks below with .pre-commit-config.yaml. Scope,
-# exceptions and manual use: docs/architecture/git.md.
+# exceptions and manual use: docs/architecture/git-hooks.md.
 #
 #   checks pre-commit|pre-merge-commit|run|full   run prek for that mode
 #   checks CHECK                                  run one check, as prek does:

@@ -22,6 +22,8 @@ state before acting. Read the file for the app you're touching before changing i
 - [Tmux](architecture/tmux.md) — identity segment, ssh detection
 - [nvtop](architecture/nvtop.md) — GPU process columns and private saved preferences
 - [Git](architecture/git.md) — submodule push guard, `core.fsmonitor` off
+- [Git hooks](architecture/git-hooks.md) — commit checks, run in a snapshot of what Git is about
+  to record
 - [SSH](architecture/ssh.md) — passphrase-protected key, agent lifetime
 - [Firefox](architecture/firefox.md) — userChrome, about:config
 - [Tridactyl](architecture/tridactyl.md) — Firefox vim bindings

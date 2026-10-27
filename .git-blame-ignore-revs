@@ -1,4 +1,5 @@
-# Commits git blame skips, through blame.ignoreRevsFile (docs/architecture/git.md).
+# Commits git blame skips, through blame.ignoreRevsFile
+# (docs/architecture/git-hooks.md).
 # One full, lowercase commit ID per line, with no comment after it. Git accepts
 # more, but an abbreviated ID makes every blame fail. tests/test_blame_ignore_revs.py
 # enforces this form and checks each ID is an ancestor of HEAD.

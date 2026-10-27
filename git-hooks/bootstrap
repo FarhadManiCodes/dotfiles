@@ -2,8 +2,8 @@
 # Runs this repository's checks in a disposable clone holding exactly what is
 # checked, so unstaged work and live symlinked configs are never touched.
 # Called by the .git/hooks stubs (git-hooks/hook) and on demand; see
-# docs/architecture/git.md. This is the only file used from the live checkout:
-# everything it runs comes from the snapshot.
+# docs/architecture/git-hooks.md. This is the only file used from the live
+# checkout: everything it runs comes from the snapshot.
 #
 #   bootstrap pre-commit|pre-merge-commit|run   the commit's index and the
 #                                               files it changes
