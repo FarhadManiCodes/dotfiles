@@ -90,7 +90,7 @@ class SingleInstanceTests(unittest.TestCase):
 
     def run_once(self):
         proc = self.start()
-        out, err = proc.communicate(timeout=10)
+        _out, err = proc.communicate(timeout=10)
         return proc.returncode, err.decode()
 
     def start_blocked(self):
@@ -118,7 +118,7 @@ class SingleInstanceTests(unittest.TestCase):
 
     def test_failing_selector_is_not_a_silent_cancel(self):
         self.fake("slurp", "echo 'failed to create display' >&2\nexit 1")
-        code, err = self.run_once()
+        code, _err = self.run_once()
         self.assertEqual(code, 1)
         self.assertIn(
             "slurp failed: failed to create display",
@@ -130,7 +130,7 @@ class SingleInstanceTests(unittest.TestCase):
         (self.root / ".config/capture-ocr/google.env").mkdir(
             parents=True
         )  # a dir: read fails
-        code, err = self.run_once()
+        code, _err = self.run_once()
         self.assertEqual(code, 1)
         self.assertIn(
             "Unexpected IsADirectoryError", self.notify_log.read_text()
@@ -547,7 +547,7 @@ class OfflineFallbackTests(unittest.TestCase):
 
     def run_script(self, *args):
         proc = self.start(*args)
-        out, err = proc.communicate(timeout=30)
+        _out, err = proc.communicate(timeout=30)
         return proc.returncode, err.decode()
 
     def notices(self):
