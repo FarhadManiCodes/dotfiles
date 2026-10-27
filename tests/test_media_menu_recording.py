@@ -104,7 +104,7 @@ fi
             timeout=3,
         )
 
-    def assert_status(self, active):
+    def assert_status(self, *, active):
         before = {p.name: p.read_bytes() for p in self.runtime.iterdir()}
         notices = self.base / "notices"
         previous_notices = notices.read_bytes() if notices.exists() else None
@@ -156,7 +156,7 @@ fi
             "overlapping toggle stopped the recorder",
         )
         self.assertEqual((self.runtime / "toggle-record.pid").read_text(), pid)
-        self.assert_status(True)
+        self.assert_status(active=True)
         self.assertEqual(
             (self.base / "recorders").read_text().splitlines(), [pid.strip()]
         )
@@ -171,17 +171,17 @@ fi
 
     def test_sequential_start_stop_and_restart(self):
         self.assertEqual(self.run_toggle().returncode, 0)
-        self.assert_status(True)
+        self.assert_status(active=True)
         self.assertEqual(self.run_toggle().returncode, 0)
-        self.assert_status(False)
+        self.assert_status(active=False)
         self.assertEqual(self.run_toggle().returncode, 0)
         self.assertEqual(
             len((self.base / "recorders").read_text().splitlines()), 2
         )
-        self.assert_status(True)
+        self.assert_status(active=True)
 
     def test_cancelled_inactive_menu_is_read_only(self):
-        self.assert_status(False)
+        self.assert_status(active=False)
         self.assertEqual(list(self.runtime.iterdir()), [])
         self.assertFalse((self.base / "notices").exists())
 
