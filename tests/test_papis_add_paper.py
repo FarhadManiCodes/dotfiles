@@ -86,7 +86,9 @@ class PapisAddPaperTests(unittest.TestCase):
 
     def notices(self):
         return [
-            l for l in self.logged().splitlines() if l.startswith("notify:")
+            line
+            for line in self.logged().splitlines()
+            if line.startswith("notify:")
         ]
 
     def test_doi_already_in_library_skips_the_prompt(self):

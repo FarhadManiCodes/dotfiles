@@ -88,18 +88,20 @@ class PapisFuzzelTests(unittest.TestCase):
         self.assertEqual(len(labels), 3)
         self.assertTrue(
             any(
-                "Control notes" in l and l.endswith("#control #sciml")
-                for l in labels
+                "Control notes" in label and label.endswith("#control #sciml")
+                for label in labels
             )
         )
         # A plain-string tags field (a hand edit, `papis --set tags x`) is read as is.
         self.assertTrue(
             any(
-                "Numerical Optimization" in l and l.endswith("#book")
-                for l in labels
+                "Numerical Optimization" in label and label.endswith("#book")
+                for label in labels
             )
         )
-        self.assertTrue(any("No file here" in l and "↗" in l for l in labels))
+        self.assertTrue(
+            any("No file here" in label and "↗" in label for label in labels)
+        )
 
     def test_books_view_lists_only_entries_tagged_book(self):
         self.run_script("--books")

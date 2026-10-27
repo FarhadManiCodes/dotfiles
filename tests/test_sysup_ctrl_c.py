@@ -304,7 +304,7 @@ paru() {{ print PARU-START; sleep 30; }}
             args="; print -r -- RESTORED:${functions[TRAPINT]}",
         )
         restored = [
-            l for l in out.splitlines() if l.startswith("RESTORED:")
+            line for line in out.splitlines() if line.startswith("RESTORED:")
         ]  # not the echoed command line
         self.assertEqual(len(restored), 1, out)
         self.assertIn("USER-HANDLER", restored[0])
