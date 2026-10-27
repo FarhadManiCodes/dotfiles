@@ -341,3 +341,48 @@ To add one:
 3. Never squash or rebase that branch: either gives the reformat a new ID, and the
    listed one then matches nothing, which the ancestor test catches. Herdr's milestone
    branches land with `--no-ff` merges for this reason.
+
+## Removal
+
+To stop the checks in one checkout, delete its two hooks; nothing else runs them:
+
+```sh
+rm .git/hooks/pre-commit .git/hooks/pre-merge-commit
+```
+
+To remove the checks from the repository, first delete the hooks in every checkout that
+has them, then commit the removal. While the hooks are installed they refuse a commit
+that removes `git-hooks/bootstrap`, so the checks cannot be removed by a commit they
+check. The hook fails when:
+
+- the commit removes `git-hooks/bootstrap` while HEAD has it ("delete
+  .git/hooks/pre-commit and pre-merge-commit first");
+- `git-hooks/bootstrap` is deleted from the working tree but still staged, which to the
+  hook is an unstaged edit ("restore it with git restore git-hooks/bootstrap").
+
+The removal commit takes `git-hooks/`, `.pre-commit-config.yaml`,
+`tests/test_git_hooks.py`, this file and the hook lines in `AGENTS.md`. Editors also
+read `.editorconfig`, `.shellcheckrc` and `ruff.toml`, so decide on those separately.
+`.git-blame-ignore-revs` and its test can stay: blame still uses them.
+
+## Measurement limits
+
+- Python functions: ruff blocks one above a McCabe complexity of 8 (`C901`), or with
+  more than 6 return statements, 12 branches, 5 arguments or 50 statements (pylint's
+  limits, through ruff). Such a function is split, or its line says why it is not.
+- Shell functions: no per-function limit. No analyzer that understands Bash and Zsh has
+  been validated, so none is claimed. The `indicators` report stands in: pipelines and
+  `&&`/`||` chains longer than 3, where 4 is acceptable after review. Python gets no
+  chain count, since shfmt cannot read it.
+- Line length: Python blocks above 120 columns (ruff's `E501`) and is reported above 80;
+  shell is only reported above 80. Columns are counted as characters, so a tab or a wide
+  character counts as one.
+- File size and complexity: `measure`, in the full run only, reports each changed
+  production file's lines, bytes and jscpd's complexity estimate, before and after; an
+  empty file or one over 1 MB shows "not measured", and a file missing at one end "not
+  in scope". The estimate is for the whole file, not each function: an indicator for
+  review, not a limit.
+- Clones: the planned scan keeps jscpd's defaults (mild mode, 50 tokens, 5 lines), and
+  the broad scan in the full run goes down to 30 tokens with the same 5 lines. Neither
+  reports a clone from a file below its minimums; the report names most such files,
+  with their size.
