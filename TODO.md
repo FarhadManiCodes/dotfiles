@@ -41,6 +41,7 @@ Off-machine backup remains deferred.
 | 24. Claude release cleanup | Investigation only | Establish active-session risks and choose a retention policy |
 | 25. Consistent battery reporting in batt | Planned | Align estimates and state labels with the status menu |
 | 26. sysup upgrade lifecycle | Investigation only | Test dependency replacement, partial failures and recovery reporting |
+| 27. ptipython in the venv, with preloads | Open 2026-10-27; after Herdr Milestone 0 | Pick the venv, measure startup, then install |
 
 ## 1. Off-machine backup
 
@@ -465,3 +466,13 @@ path is chosen, with no heavy dependency pulled in.
 **Investigation:** inspect `zsh/functions/sysup.zsh`, its modules under `zsh/functions/sysup/`, and `docs/architecture/zsh.md`. Map which commands and on-disk helpers later steps resolve after paru, uv, Cargo, Herdr and plugin updates. Distinguish functions already loaded in the shell from external commands, dynamically loaded libraries and files reopened later. Check dependent-step ordering, whether a failed prerequisite permits unsafe continuation, and whether the final status describes actual completed, failed and skipped work. Inspect current behavior before proposing snapshots, version pinning or additional infrastructure. Keep Claude active-release retention in item 24 as a related but separate investigation.
 
 **Acceptance criteria:** exercise the real orchestration with isolated command substitutes and temporary homes: an early update replaces a helper with a compatible version, an incompatible or missing version, or fails after partially changing fixture state. Confirm later steps either use a supported dependency or stop/skip with a clear reason; partial work never becomes an unqualified success. Check non-zero final status where appropriate, accurate failure summaries and actionable retry instructions; retries must not blindly repeat unsafe completed actions. Prove fixtures reached the intended transition and assert resulting files/calls as well as messages. Report existing protections, demonstrated gaps and coverage limits; recommend only evidence-backed changes. Do not run live `sysup`, upgrade packages, alter repositories or replace real tools as a test.
+
+## 27. Run ptipython from the venv, with numpy, polars and SymPy preloaded
+
+**Requested 2026-10-27, after Herdr Milestone 0.** The user's Python REPL is `ptipython`. The only copy is the `ptpython` uv tool, whose environment has no IPython, so it stops with "IPython not found"; and a uv tool runs its own interpreter, so even `ptpython` cannot import an activated venv's packages (tested 2026-10-27: `ModuleNotFoundError: No module named 'polars'` with a venv that has polars active).
+
+**Decide first:** which environment gets IPython, ptpython and SymPy: a central venv under `$CENTRAL_VENVS` (none exists yet; `zsh/functions/virtualenv.zsh` manages them) or a project venv. IPython is today only in `~/projects/academic_suche/.venv`. Read `skills/python-venv` first. Related to item 12; decide the two venvs together.
+
+**Plan:** install `ptpython` into that environment, so `ptipython` sees its packages. `ptipython` reads the IPython profile, its `exec_lines` and `startup/*.py` included, and applies `ptpython/config.py` on top, so one set of preloads serves both REPLs. Herdr Milestone 0 moves the imports (`numpy as np`, `polars as pl`, `Path`) from `startup/00-imports.py` into `c.InteractiveShellApp.exec_lines` in `ipython/profile_default/ipython_config.py`, one entry each: IPython runs each entry on its own, so a venv missing numpy still loads the rest, where the startup file stopped at the first failed import. Add SymPy there, with `init_printing()` for Unicode formulas in the terminal; pandas is not preloaded, polars takes its place. Remove the uv tool once the environment's copy works, and record where ptpython is installed from.
+
+**Acceptance criteria:** with the venv active, `ptipython` starts, uses the ptpython config (theme toggle, Vi mode) and has `np`, `pl`, `Path` and SymPy loaded; plain `ipython` does too. A venv without one of the packages still starts both REPLs, with the other preloads available. Startup time with and without the preloads is measured with hyperfine (polars alone imported in about 114 ms, 2026-10-27), and the user accepts the cost.
