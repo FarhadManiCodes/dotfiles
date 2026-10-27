@@ -134,3 +134,72 @@ checkout.
 (`git update-index --split-index`), when it has skip-worktree entries (as a sparse
 checkout makes), or when `git-hooks/bootstrap` is not tracked yet ("add it first"). None
 of these is used here.
+
+## Scope
+
+**Which files.** The checks look at tracked regular files. Every check but whitespace
+skips symlinks; the whitespace check reads a symlink's target path as its content, so a
+target ending in a space fails it. The contents of the submodules (`nvim`,
+`notifiers`) are never checked. The tmux files
+(`tmux/`, `bash/tmux-cpp-tools`, `tests/test_tmux_cpp_tools.py`) are left out, because
+tmux retires at Herdr Milestone 8.
+
+**Which of them a commit checks.** A commit checks each file it adds or changes compared
+with HEAD, the whole file and not only the changed lines; whitespace is the exception,
+checked only on the lines the commit adds. So:
+
+- `git commit --amend` checks what the amend changes compared with the commit it
+  replaces;
+- a merge checks every file it brings in, compared with the branch merged into;
+- the first commit in a repository, with no HEAD, checks every file.
+
+A commit that changes `.editorconfig`, `.gitattributes`, `.shellcheckrc`, `ruff.toml`,
+`.pre-commit-config.yaml` or anything under `git-hooks/` checks every file instead, and
+every line for whitespace, so a new rule fails that commit rather than a later,
+unrelated one. The full run (see "Manual runs") checks every file too. The clone report
+works the other way: at every commit it scans every shell file and every Python file
+outside `tests/`, and reports only the clones that are new compared with HEAD (see
+"Blocking and report-only").
+
+A file brought in by a commit that ran no hook (see "How it runs") is checked again only
+when a later commit changes it, when a commit changes one of the rule files above, or
+by the full run; whitespace on its unchanged lines only by the last two.
+
+**Which check reads which file.** Every file in scope gets the whitespace check. The
+language checks choose files by dialect:
+
+- Zsh: by path (files ending in `.zsh`, `zsh/.zshenv`, `zsh/.zshrc`, `zsh/aliases`) or
+  by a `zsh` shebang.
+- Python: files ending in `.py`, or a `python`, `python3` or `python3.<n>` shebang.
+  ruff checks the files under `tests/` like any other; the clone and size reports leave
+  them out, and only the full run's broad clone scan adds them.
+- Bash and sh: by shebang only: `bash`, `sh` or `dash`, named directly or through `env`
+  (also `env -S`).
+
+A file ending in `.sh` or `.bash` that no dialect claims fails the shell check. An
+executable that no dialect claims, without a shebang or with an interpreter or `env`
+option no check reads, is not checked; the report-only indicators check names it when
+the file is in the commit's scope, as above.
+"Exceptions" covers the files the checks read but do not format, and what no check
+covers.
+
+## Exceptions
+
+**Zsh has no linter.** ShellCheck refuses Zsh, and no maintained Zsh linter is
+packaged, so Zsh files get only `zsh -n` (syntax) and shfmt's formatting check.
+
+**Three Zsh files are not formatted.** shfmt cannot parse Zsh's `{ … } always { … }`
+block, which `zsh/functions/sysup.zsh` and `zsh/functions/sysup/tool-tests.zsh` use
+correctly and keep; `zsh/.zshrc` changes rarely and is reviewed by hand. shfmt's
+formatting check skips all three; they keep `zsh -n` and the other checks. The
+long-chains report cannot measure the two shfmt cannot parse and lists them as not
+measured.
+
+**A new Zsh startup file must be added by path.** Zsh is chosen by path because
+`zsh/.zshenv` and `zsh/aliases` have no shebang. A new startup file without one, such
+as `zsh/.zprofile`, is not checked until it is added to the path list in `dialect()` in
+`git-hooks/checks`; if shfmt does not recognise its name as Zsh, it also needs a
+`shell_variant = zsh` section in `.editorconfig`, as `zsh/aliases` has.
+
+**sh files get Bash's syntax check.** `sh -n` runs `/bin/sh`, which here is Bash, so it
+parses them as Bash would; ShellCheck checks them as POSIX sh.
