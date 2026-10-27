@@ -131,7 +131,9 @@ class HardwareReadingsTests(unittest.TestCase):
                     self.assertEqual(output, expected)
                 else:
                     for label, value in zip(
-                        ("CPU", "GPU", "NVMe", "Fan 1", "Fan 2"), values
+                        ("CPU", "GPU", "NVMe", "Fan 1", "Fan 2"),
+                        values,
+                        strict=True,
                     ):
                         self.assertIn(f"{label + ':':<10}{value}\n", output)
                     self.assertEqual(
