@@ -31,8 +31,6 @@ one that grows past the minimum is scanned and its clones reported as usual.
 - `bash/open-detached`: a command run by name, from vifm and shells.
 - `bash/pdf-meta`: a command run by name; it starts `.pdf-meta.js` under mutool.
 - `ipython/profile_default/ipython_config.py`: IPython reads it by name.
-- `ipython/profile_default/startup/00-imports.py`: IPython runs it by name at
-  startup.
 
 Decided 2026-10-25; a map of how files group for jscpd is planned for later.
 

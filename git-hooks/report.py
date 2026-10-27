@@ -56,7 +56,6 @@ STANDALONE = {
     "bash/open-detached",
     "bash/pdf-meta",
     "ipython/profile_default/ipython_config.py",
-    "ipython/profile_default/startup/00-imports.py",
 }
 CHAIN_LIMIT = 3
 LINE_LIMIT = 80
