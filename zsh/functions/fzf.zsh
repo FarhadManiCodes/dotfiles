@@ -84,8 +84,10 @@ fdata() {
   local -a exts=(csv tsv jsonl ndjson json yaml yml parquet avro orc feather
     xlsx xls pkl pickle joblib h5 hdf5 pt pth onnx)
   # git/ignore hides data formats such as *.parquet everywhere; fd finds it
-  # through XDG_CONFIG_HOME, so pointing that away shows them. Its build/,
-  # bin/ and target/ rules go too; each repository's .gitignore still applies.
+  # through XDG_CONFIG_HOME, so pointing that away shows them. Its directory
+  # rules go too (build/, _build/, build_*/, bin/, ENV/, /target/,
+  # /dbt_packages/, /logs/), so data files in them show; each repository's
+  # .gitignore still applies.
   local -a fd_cmd=(env XDG_CONFIG_HOME=/nonexistent
     fd --one-file-system --type f --extension=${^exts}
     --exclude __pycache__ --exclude node_modules --exclude venv)
