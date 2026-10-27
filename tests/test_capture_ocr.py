@@ -32,6 +32,13 @@ SCRIPT = Path(__file__).resolve().parents[1] / "bash/capture-ocr"
 
 class PromptFileTests(unittest.TestCase):
     def test_a_missing_prompt_file_fails_before_the_capture(self):
+        self.assert_unreadable_prompt_fails_before_the_capture(None)
+
+    def test_a_prompt_file_that_is_not_utf8_fails_before_the_capture(self):
+        self.assert_unreadable_prompt_fails_before_the_capture(b"\xff\xfe\x00")
+
+    def assert_unreadable_prompt_fails_before_the_capture(self, ocr_prompt):
+        """Run the script with this ocr.prompt.md, absent when None."""
         # Installed as a link in a bin directory, the script finds its prompts
         # through its own real path, never beside the link.
         temp = tempfile.TemporaryDirectory(prefix="capture-ocr-test-")
@@ -42,6 +49,8 @@ class PromptFileTests(unittest.TestCase):
         prompts.mkdir(parents=True)
         script.write_bytes(SCRIPT.read_bytes())
         (prompts / "rules.prompt.md").write_text("Rules:\n")
+        if ocr_prompt is not None:
+            (prompts / "ocr.prompt.md").write_bytes(ocr_prompt)
         bin_ = root / "bin"
         bin_.mkdir()
         (bin_ / "capture-ocr").symlink_to(script)

@@ -150,6 +150,10 @@ def capture():
 # only the script onto PATH.
 PROMPTS = Path(__file__).resolve().parent / "capture-ocr.d"
 
+# What reading a prompt file raises when it is missing or unreadable, or holds
+# bytes that are not UTF-8.
+PROMPT_UNREADABLE = (OSError, UnicodeDecodeError)
+
 
 def read_prompt(name):
     """The `name` prompt followed by the shared rules, as the model reads them."""
@@ -158,7 +162,7 @@ def read_prompt(name):
         path = PROMPTS / f"{part}.prompt.md"
         try:
             text = path.read_text(encoding="utf-8")
-        except OSError:
+        except PROMPT_UNREADABLE:
             fail(f"Cannot read the prompt file {path}.")
         # A text file ends with a newline; the prompt does not.
         parts.append(text.removesuffix("\n"))
