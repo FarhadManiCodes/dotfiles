@@ -167,7 +167,8 @@ def clean_env():
         for k, v in os.environ.items()
         if not k.startswith(("GIT_", "CHECKS_", "PREK_", "RUFF_", "LLAMA_"))
     }
-    for name in ("SHELLCHECK_OPTS", "SKIP", *PROXIES):
+    shell_startup = ("BASH_ENV", "ENV", "SHELLOPTS", "BASHOPTS")
+    for name in ("SHELLCHECK_OPTS", "SKIP", *shell_startup, *PROXIES):
         env.pop(name, None)
     return env
 
