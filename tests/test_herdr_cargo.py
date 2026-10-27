@@ -272,9 +272,8 @@ def log(value):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         calls = self.calls("cargo")
         self.assertEqual(len(calls), 2)
-        self.assertEqual(
-            [call["lock_fds"] for call in calls], [[], []]
-        )  # builds must not inherit the lock
+        # builds must not inherit the lock
+        self.assertEqual([call["lock_fds"] for call in calls], [[], []])
         self.assertNotIn("--force", calls[0]["args"])
         self.assertIn("--force", calls[1]["args"])
         self.assertIn(str(self.root), calls[1]["args"])

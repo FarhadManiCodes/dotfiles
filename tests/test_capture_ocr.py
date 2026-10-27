@@ -169,9 +169,8 @@ class SingleInstanceTests(unittest.TestCase):
 
     def test_unreadable_key_file_notifies_instead_of_a_silent_traceback(self):
         del self.env["GOOGLE_API_KEY"]
-        (self.root / ".config/capture-ocr/google.env").mkdir(
-            parents=True
-        )  # a dir: read fails
+        # a dir: read fails
+        (self.root / ".config/capture-ocr/google.env").mkdir(parents=True)
         code, _err = self.run_once()
         self.assertEqual(code, 1)
         self.assertIn(
@@ -238,9 +237,8 @@ class ModeTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.ocr = load_script()
-        self.ocr.single_instance = lambda: (
-            None
-        )  # covered by SingleInstanceTests
+        # covered by SingleInstanceTests
+        self.ocr.single_instance = lambda: None
         self.sent = []
 
     def gemini(self, text, finish="STOP"):
@@ -582,9 +580,8 @@ class OfflineFallbackTests(unittest.TestCase):
             os.killpg(proc.pid, signal.SIGKILL)
         proc.communicate()
         pid = self.root / "server.pid"
-        if (
-            pid.exists()
-        ):  # the fake runs in its own session; never leave it behind
+        # the fake runs in its own session; never leave it behind
+        if pid.exists():
             with contextlib.suppress(ProcessLookupError):
                 os.kill(int(pid.read_text()), signal.SIGKILL)
 
@@ -717,9 +714,8 @@ class OfflineFallbackTests(unittest.TestCase):
                         time.sleep(0.05)
                     os.kill(proc.pid, sig)
                     proc.wait()
-                    deadline = (
-                        time.monotonic() + 5
-                    )  # tail --pid polls once a second
+                    # tail --pid polls once a second
+                    deadline = time.monotonic() + 5
                     while self.server_alive():
                         self.assertLess(
                             time.monotonic(),

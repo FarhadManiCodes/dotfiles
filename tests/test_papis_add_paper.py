@@ -31,9 +31,8 @@ class PapisAddPaperTests(unittest.TestCase):
         )
         self.entry("lee", "ref: Lee_2026\neprint: 2602.23859v2\n")
         self.fake("notify-send", 'echo "notify: $*" >> "$LOG"')
-        self.fake(
-            "curl", "exit 6"
-        )  # offline: the key suggestion falls back to the identifier
+        # offline: the key suggestion falls back to the identifier
+        self.fake("curl", "exit 6")
         self.fake(
             "footclient",
             'echo "prompt" >> "$LOG"; for a; do last=$a; done\n'

@@ -190,9 +190,8 @@ def post_json(open_url, url, payload, headers, who):
         with e:
             body = e.read().decode(errors="replace")
         try:
-            detail = json.loads(body)["error"][
-                "message"
-            ]  # Gemini's error shape
+            # Gemini's error shape
+            detail = json.loads(body)["error"]["message"]
         except UNEXPECTED_SHAPE:
             detail = body[:200]
         fail(f"{who} returned {e.code}. {detail}".strip())
@@ -308,9 +307,8 @@ def local_transcribe(img_bytes):
     try:
         deadline = time.monotonic() + LOCAL_STARTUP
         while True:
-            if (
-                proc.poll() is not None
-            ):  # e.g. model not downloaded: its log says so
+            # e.g. model not downloaded: its log says so
+            if proc.poll() is not None:
                 log.seek(0)
                 lines = log.read().decode(errors="replace").strip().splitlines()
                 fail(
@@ -364,9 +362,8 @@ def local_transcribe(img_bytes):
         log.close()
 
     choice = reply["choices"][0]
-    text = choice["message"][
-        "content"
-    ]  # only a missing answer is empty; [] is odd
+    # only a missing answer is empty; [] is odd
+    text = choice["message"]["content"]
     return ("" if text is None else text), choice.get(
         "finish_reason"
     ) == "length"

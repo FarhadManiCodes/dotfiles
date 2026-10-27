@@ -81,9 +81,8 @@ class ToolTestsStepTests(unittest.TestCase):
             'print rc=$?; print -r -- "NOTE: ${_sysup_notes[*]}"'
         )
         self.assertIn("rc=1", result.stdout, result.stderr)
-        self.assertEqual(
-            len(self.log.read_text().splitlines()), 3
-        )  # the others still ran
+        # the others still ran
+        self.assertEqual(len(self.log.read_text().splitlines()), 3)
         return result.stdout
 
     def test_a_failing_suite_is_recorded_with_its_summary(self):
@@ -102,9 +101,8 @@ class ToolTestsStepTests(unittest.TestCase):
         self.assertIn("error: no solution found", out)
         self.log.unlink()
         out = self.run_failing("tests")
-        self.assertEqual(
-            out.count("1 failed, 4 passed in 0.1s"), 2
-        )  # the header and the output tail
+        # the header and the output tail
+        self.assertEqual(out.count("1 failed, 4 passed in 0.1s"), 2)
 
     def test_nothing_collected_is_not_reported_as_a_broken_tool(self):
         out = self.run_failing("nothing")

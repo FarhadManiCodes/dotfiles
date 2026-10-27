@@ -339,9 +339,8 @@ class SioyekPapisTests(unittest.TestCase):
         self,
     ):
         self.paper("long-2021", title="Shielded agents in the wild")
-        self.select(
-            "[2]", CURL_OUT='{"message":{"items":[]}}'
-        )  # "Shielded agents" is lee-2026's, exactly
+        # "Shielded agents" is lee-2026's, exactly
+        self.select("[2]", CURL_OUT='{"message":{"items":[]}}')
         self.assertEqual(
             self.opened(), f"--new-window {self.papers}/lee-2026/paper.pdf\n"
         )
@@ -365,9 +364,8 @@ class SioyekPapisTests(unittest.TestCase):
         self,
     ):
         self.paper("novak-2-2019", doi="10.1000/novak2", title="Something else")
-        self.select(
-            "[3]"
-        )  # reference doi 10.1000/novak, title "Unknown operators"
+        # reference doi 10.1000/novak, title "Unknown operators"
+        self.select("[3]")
         self.assertEqual(
             self.read("papis"),
             "add --from doi 10.1000/novak --no-edit --batch\n",
@@ -445,9 +443,8 @@ class SioyekPapisTests(unittest.TestCase):
         pdf = self.host(references=refs, markers=[])
         for selection in ("(Li, 2020)", "(Smith, 2020)"):
             self.select(selection, pdf, CURL_OUT='{"message":{"items":[]}}')
-        self.assertEqual(
-            self.read("papis") + self.read("fuzzel"), ""
-        )  # Ali / Goldsmith not taken
+        # Ali / Goldsmith not taken
+        self.assertEqual(self.read("papis") + self.read("fuzzel"), "")
         self.select("(Berg et al., 2020)", pdf)  # a compound surname still is
         self.assertEqual(
             self.read("papis"),
@@ -476,12 +473,10 @@ class SioyekPapisTests(unittest.TestCase):
         ]
         pdf = self.host(references=refs, markers=[])
         self.select("(Müller, 2020)", pdf, CURL_OUT='{"message":{"items":[]}}')
-        self.assertEqual(
-            self.read("papis") + self.read("fuzzel"), ""
-        )  # Møller is not Müller
-        self.select(
-            "(Åström et al., 2020)", pdf
-        )  # but a name still matches itself
+        # Møller is not Müller
+        self.assertEqual(self.read("papis") + self.read("fuzzel"), "")
+        # but a name still matches itself
+        self.select("(Åström et al., 2020)", pdf)
         self.assertEqual(
             self.read("papis"),
             "add --from doi 10.1000/astrom --no-edit --batch\n",

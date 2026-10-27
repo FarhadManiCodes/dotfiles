@@ -859,9 +859,8 @@ class Isolation(HookCase):
     def test_on_demand_run_from_a_subdirectory_leaves_the_index(self):
         self.write("sub/file", "one\n")
         self.git("add", "sub/file")
-        tree = self.git(
-            "write-tree"
-        )  # stores a cache tree, so before the copy below
+        # stores a cache tree, so before the copy below
+        tree = self.git("write-tree")
         index = (self.repo / ".git/index").read_bytes()
         code, out = self.run_command(
             "bash", "../git-hooks/bootstrap", "run", cwd=self.repo / "sub"

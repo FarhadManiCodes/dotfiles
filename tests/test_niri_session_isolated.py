@@ -385,9 +385,8 @@ if stage == "start" and config["block"]:
         self.assertEqual(first.returncode, 143)
         self.assertEqual(set(self.mutations()[-1][2:]), MANAGED)
         self.fixture["block"] = False
-        self.assertEqual(
-            self.run_launcher()[0], 0
-        )  # lock released, same inode reusable
+        # lock released, same inode reusable
+        self.assertEqual(self.run_launcher()[0], 0)
 
     def test_other_signals(self):
         self.fixture["block"] = True

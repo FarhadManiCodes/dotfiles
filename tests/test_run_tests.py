@@ -20,11 +20,8 @@ SOURCE = Path(__file__).resolve().parents[1] / "bash/run-tests"
 ANSI = re.compile(r"\033\[[0-9;]*m")
 
 PASSING = "import unittest\n\n\nclass Fixture(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
-SUBMODULES = (
-    "mic-notify",
-    "net-notify",
-    "power-notify",
-)  # suites from the notifiers submodule
+# suites from the notifiers submodule
+SUBMODULES = ("mic-notify", "net-notify", "power-notify")
 ALL_PASS = ["pass  unittest", "pass  skills"] + [
     f"pass  {s}" for s in SUBMODULES
 ]

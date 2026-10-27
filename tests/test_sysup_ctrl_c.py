@@ -449,9 +449,8 @@ class TimeoutForegroundTests(unittest.TestCase):
         uses = [
             p.name for p in files if "timeout --foreground" in p.read_text()
         ]
-        self.assertGreaterEqual(
-            len(uses), 3, uses
-        )  # the scan found the calls it protects
+        # the scan found the calls it protects
+        self.assertGreaterEqual(len(uses), 3, uses)
 
 
 if __name__ == "__main__":
