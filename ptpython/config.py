@@ -19,13 +19,11 @@ def _detect_foot_theme():
 
     state_file = Path.home() / ".local/state/foot_theme_state"
     try:
-        return (
-            "papercolor"
-            if state_file.read_text().strip() == "light"
-            else "onedark"
-        )
+        # A corrupt file is not "light", so it gives the default theme.
+        text = state_file.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return "onedark"
+    return "papercolor" if text.strip() == "light" else "onedark"
 
 
 def set_onedark_terminal():
