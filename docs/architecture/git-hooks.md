@@ -203,3 +203,60 @@ as `zsh/.zprofile`, is not checked until it is added to the path list in `dialec
 
 **sh files get Bash's syntax check.** `sh -n` runs `/bin/sh`, which here is Bash, so it
 parses them as Bash would; ShellCheck checks them as POSIX sh.
+
+## Blocking and report-only
+
+Each item under `hooks:` in `.pre-commit-config.yaml` is one check. A blocking check
+stops the commit or merge when it finds something; a report-only check prints what it
+finds and lets the commit through. A report-only check's `name:` ends in "(report
+only)" and it sets `verbose: true`, so prek prints its output even when it passes; a
+blocking check's output appears only when it fails.
+
+**Blocking, at every commit and in the full run:**
+
+- `whitespace`: Git's default whitespace rule, whatever your configuration sets:
+  trailing whitespace, a space before a tab in indentation, blank lines at the end of a
+  file, and leftover conflict markers.
+- `shell`: `bash -n`, `sh -n` and `zsh -n`; ShellCheck with `.shellcheckrc` on Bash and
+  sh; `shfmt -d` on all three dialects except the files under "Exceptions"; and a file
+  ending in `.sh` or `.bash` that no dialect claims.
+- `python`: `ruff check` and `ruff format --check`, both with `ruff.toml`.
+
+**Report-only, at every commit and in the full run:**
+
+- `masked-returns`: ShellCheck's `check-extra-masked-returns` on Bash and sh, commands
+  whose failure goes unnoticed. It stays report-only until Milestone 0.5 has fixed or
+  suppressed each finding; then it joins `.shellcheckrc` and blocks.
+- `clones`: jscpd's token clones among the shell files and the Python outside `tests/`
+  that are new compared with the base: HEAD at a commit, the given base in the full
+  run. With no HEAD, as at a first commit, it reports every clone. Clones are judged at
+  milestone review, and each verdict goes in `docs/clone-verdicts.md`.
+- `indicators`: pipelines and `&&`/`||` chains longer than 3 in shell, lines over 80
+  columns in shell and Python, and executables no check reads (see "Scope").
+
+**Report-only, in the full run only:**
+
+- `clones-broad`: candidates for judgment. A stricter token scan that also finds renamed
+  copies and includes the tests, and two Python-only detectors on the Python outside
+  `tests/`: near-copies by syntax tree, and functions that do the same thing written
+  differently.
+- `measure`: for each production file that changed since the base commit, its size and
+  jscpd's file-level complexity estimate, before and after.
+
+**When a report-only check still fails.** It exits non-zero, which stops the commit or
+the full run, when its result could not be trusted:
+
+- any check: a tool it needs is missing;
+- `masked-returns`: ShellCheck could not check a file;
+- `clones` and `clones-broad`: the scan would be wrong, because jscpd fails or writes no
+  report, leaves out a file big enough to hold a clone, a file name contains `,` or `;`,
+  or a shell file and a Python file share a name; `clones-broad` also when the model
+  file is missing or the embeddings server does not answer;
+- `measure`: jscpd fails.
+
+So a Bash script named `a,b.sh` (with a `#!/bin/bash` shebang) stops every commit
+through the report-only `clones` check until it is renamed, because that check scans
+every file at every commit.
+
+A failed `pre-merge-commit` leaves the merge in progress: fix the cause and finish it
+with `git commit`, or run `git merge --abort`.
