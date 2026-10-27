@@ -330,7 +330,7 @@ class ModeTests(unittest.TestCase):
         for tty in (True, False):
             with self.subTest(tty=tty):
                 err = io.StringIO()
-                err.isatty = lambda: tty
+                err.isatty = mock.Mock(return_value=tty)
                 with self.gemini("Anfahrt"), mock.patch("sys.stderr", err):
                     self.assertEqual(self.run_main(), 0)
                 self.assertEqual("OCR Copied: Anfahrt" in err.getvalue(), tty)
