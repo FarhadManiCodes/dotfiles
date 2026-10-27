@@ -7,9 +7,6 @@ Copy this file to $XDG_CONFIG_HOME/ptpython/config.py
 import atexit
 import sys
 
-from prompt_toolkit.filters import ViInsertMode
-from prompt_toolkit.key_binding.key_processor import KeyPress
-from prompt_toolkit.keys import Keys
 from prompt_toolkit.styles import Style
 from ptpython.layout import CompletionVisualisation
 

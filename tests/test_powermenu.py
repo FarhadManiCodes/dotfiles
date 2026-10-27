@@ -1,7 +1,6 @@
 """Power-menu requests use isolated substitutes; no real power or mount actions."""
 
 import json
-import os
 from pathlib import Path
 import subprocess
 import tempfile
