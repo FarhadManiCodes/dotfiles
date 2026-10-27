@@ -359,7 +359,7 @@ class ModeTests(unittest.TestCase):
                 b'{"candidates": [{"content": {"parts": ["x"]}}]}',
             )
         ]
-        for urlopen in answers + [http_error]:
+        for urlopen in [*answers, http_error]:
             fallback = mock.Mock(return_value=("offline text", False))
             with (
                 self.subTest(urlopen=urlopen),

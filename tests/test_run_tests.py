@@ -121,14 +121,14 @@ class RunTestsTests(unittest.TestCase):
         code, out = self.run_runner()
         self.assertEqual(code, 0)
         self.assertEqual(
-            self.summary(out), ["pass, skips  unittest"] + ALL_PASS[1:]
+            self.summary(out), ["pass, skips  unittest", *ALL_PASS[1:]]
         )
 
     def test_failing_suite_does_not_stop_later_suites(self):
         self.fixture(unittest_body=FAILING)
         code, out = self.run_runner()
         self.assertEqual(code, 1)
-        self.assertEqual(self.summary(out), ["FAIL  unittest"] + ALL_PASS[1:])
+        self.assertEqual(self.summary(out), ["FAIL  unittest", *ALL_PASS[1:]])
         self.assertTrue(
             self.skills_log.exists(), "later suite did not run after a failure"
         )
@@ -138,7 +138,7 @@ class RunTestsTests(unittest.TestCase):
         code, out = self.run_runner()
         self.assertEqual(code, 1)
         self.assertEqual(
-            self.summary(out), ["pass  unittest", "FAIL  skills"] + ALL_PASS[2:]
+            self.summary(out), ["pass  unittest", "FAIL  skills", *ALL_PASS[2:]]
         )
 
     def test_a_failing_submodule_suite_fails_the_run(self):
@@ -156,8 +156,12 @@ class RunTestsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(
             self.summary(out),
-            ALL_PASS[:2]
-            + ["pass  mic-notify", "FAIL  net-notify", "pass  power-notify"],
+            [
+                *ALL_PASS[:2],
+                "pass  mic-notify",
+                "FAIL  net-notify",
+                "pass  power-notify",
+            ],
         )
 
     def test_an_unfetched_submodule_is_not_a_pass(self):

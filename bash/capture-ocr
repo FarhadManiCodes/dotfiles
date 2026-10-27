@@ -64,7 +64,7 @@ def notify(title, body, urgency=None, timeout=None):
     try:
         # A NUL (possible in OCR text) can't go in argv: ValueError otherwise.
         if (
-            subprocess.run(cmd + [title, body.replace("\0", "")]).returncode
+            subprocess.run([*cmd, title, body.replace("\0", "")]).returncode
             == 0
         ):
             return
