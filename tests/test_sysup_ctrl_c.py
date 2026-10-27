@@ -170,11 +170,11 @@ claude() {{ print -r -- CLAUDE-RAN >> "$TEST_LOG"; }}
         self,
     ):
         out = self.run_sysup(
-            f"""
-_sysup_herdr() {{ print -r -- partial > "$HERDR_CARGO_REASON_FILE"; }}
-_sysup_plugins() {{ print PLUGINS-START; sleep 30; }}
-_sysup_nvim_health() {{ print NVIM-START; sleep 30; }}
-_sysup_fwupd_refresh_if_stale() {{ print -r -- LATER-STEP >> "$TEST_LOG"; }}
+            """
+_sysup_herdr() { print -r -- partial > "$HERDR_CARGO_REASON_FILE"; }
+_sysup_plugins() { print PLUGINS-START; sleep 30; }
+_sysup_nvim_health() { print NVIM-START; sleep 30; }
+_sysup_fwupd_refresh_if_stale() { print -r -- LATER-STEP >> "$TEST_LOG"; }
 """,
             presses=[
                 ("PLUGINS-START", "Ctrl-C: skipping"),
