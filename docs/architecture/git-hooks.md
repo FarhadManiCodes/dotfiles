@@ -91,3 +91,46 @@ in its patch file. `git-hooks/checks` refuses to run unless `CHECKS_SCOPE` and
 `CHECKS_TMP` are set, which only the bootstrap does; never set them yourself. That
 refusal comes only after prek has rewritten the files, so it does not make running prek
 safe.
+
+## Setup in a fresh clone
+
+A clone gets neither the hooks nor the blame setting; Git copies neither. In the new
+checkout, from its top directory:
+
+```sh
+install -m 0755 git-hooks/hook .git/hooks/pre-commit
+install -m 0755 git-hooks/hook .git/hooks/pre-merge-commit
+git config blame.ignoreRevsFile ':(optional).git-blame-ignore-revs'
+```
+
+**The hooks** are copies, not symlinks, so they still run on a branch that has no
+`git-hooks/` (see "How it runs", step 1). After a change to `git-hooks/hook`, run the
+two `install` lines again; until then the bootstrap prints a warning at every commit,
+without blocking it. Git ignores `.git/hooks` when `core.hooksPath` is set;
+`git config --get core.hooksPath` must print nothing.
+
+**The blame setting** makes `git blame` skip the formatting commits listed in
+`.git-blame-ignore-revs`, so each line shows the commit that last changed what it does.
+`:(optional)` lets blame work where that file is missing, such as on a branch older than
+it; without it, every blame there fails. `git blame --ignore-revs-file=` (empty) turns
+the list off for one run; `git -c blame.ignoreRevsFile=` does not.
+
+**Tools.** Every commit needs `prek`, `shellcheck`, `shfmt`, `ruff`, `jscpd`,
+`python3`, `zsh`, `bash` and `git` on the `PATH`; a missing one stops the commit and
+names it. `prek` and `jscpd` are Cargo installs in `~/.cargo/bin`, `shellcheck` comes
+from the AUR package `shellcheck-bin`, and the rest are Arch packages. Here only
+`zsh/.zshenv` puts `~/.cargo/bin` on the `PATH`: Git run from a Zsh shell finds them,
+but a program that niri or a systemd user service starts directly does not have it, and
+a commit made from such a program fails the same way. The full run also needs
+`unshare`, `ip`, `curl`, `llama-server` and the model file
+`~/.cache/llama.cpp/jina-code-embeddings-0.5b-F16.gguf` (under `$XDG_CACHE_HOME` when
+that is set). No version is pinned: the checks use whatever is installed.
+
+**The snapshot directory.** `$XDG_RUNTIME_DIR` must be set and exist; without it the
+bootstrap stops rather than build the snapshot somewhere else, such as inside the
+checkout.
+
+**Other refusals.** The bootstrap also stops, with a message, when the index is split
+(`git update-index --split-index`), when it has skip-worktree entries (as a sparse
+checkout makes), or when `git-hooks/bootstrap` is not tracked yet ("add it first"). None
+of these is used here.

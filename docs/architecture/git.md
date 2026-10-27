@@ -42,4 +42,4 @@ the same evening — it only ever raced the boot storm rather than removing anyt
 is what made the warning intermittent. If it returns, `~/.cache/starship/` is the
 evidence and the pre-warm is a `git revert` away.
 
-The commit checks are in `git-hooks.md`.
+The commit checks and the blame setting are in `git-hooks.md`.
