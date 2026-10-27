@@ -434,6 +434,12 @@ class Blocking(HookCase):
         )
         self.assert_passed(code, out)
 
+    def test_tracked_eol_attribute_does_not_change_the_checked_files(self):
+        self.write(".gitattributes", "* text eol=crlf\n")
+        self.write("bash/good", GOOD_BASH, executable=True)
+        code, out = self.stage_and_commit(".gitattributes", "bash/good")
+        self.assert_passed(code, out)
+
     def test_crlf_shebang_is_selected(self):
         self.write("bash/tool", "#!/bin/bash\r\necho hi\r\n", executable=True)
         code, out = self.stage_and_commit("bash/tool")

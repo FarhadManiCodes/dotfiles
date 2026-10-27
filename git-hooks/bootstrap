@@ -104,11 +104,15 @@ out=$(git clone -q --template= --shared --no-checkout "$top" "$work" 2>&1) \
   || die "cannot clone $top: $out"
 cd "$work"
 # From here on, Git sees only the snapshot's own configuration and no user or
-# system attributes file, so a setting such as core.autocrlf or an eol
-# attribute cannot change what is checked. Git reads the user's attributes
-# file from XDG_CONFIG_HOME unless core.attributesFile names another.
+# system attributes file, so a setting such as core.autocrlf cannot change
+# what is checked. Git reads the user's attributes file from XDG_CONFIG_HOME
+# unless core.attributesFile names another. info/attributes outranks a tracked
+# .gitattributes, so no eol rule, filter or encoding changes the stored bytes
+# on the way into the snapshot, and no filter program runs.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_ATTR_NOSYSTEM=1
 git config core.attributesFile /dev/null
+mkdir -p .git/info
+echo '* -text -filter -ident -working-tree-encoding' >.git/info/attributes
 if [[ -n $head ]]; then
   git update-ref --no-deref HEAD "$head"
 fi
