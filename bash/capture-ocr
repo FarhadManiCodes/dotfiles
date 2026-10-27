@@ -144,35 +144,25 @@ def capture():
 
 # Two keys, two prompts: one prompt that both transcribed and translated had to
 # guess which the user wanted, and translated German it was only asked to copy.
-# Shared rules keep the modes from drifting apart. Raw strings: the rules hold
-# LaTeX, and "\tag" in a plain string is a tab. Measured against the old
-# combined prompt in revisit.md.
-RULES = r"""Rules:
-1. Output ONLY the resulting text: no preamble, notes or explanations, and do not wrap the whole output in a code block.
-2. Plain text: do not add Markdown formatting for bold, italics or headings. Characters that are part of the text itself, such as _ * # in code or shell commands, are kept. Keep list markers and numbering as shown.
-3. Mathematics: write formulas, equations and matrices as LaTeX. Math inside a sentence uses `$...$`. An equation set on its own line uses `$$...$$`, with no newline directly inside `$$`, and its equation number becomes `\tag{...}`. Other symbols and icons (arrows, check marks, bullets) are copied as the character itself, not LaTeX.
-4. Keep the original structure: paragraph breaks, list items and line order.
-5. Never add, drop or silently correct content. If some text is illegible, write [illegible] in its place instead of guessing. If the image contains no text at all, output nothing."""
+# Shared rules keep the modes from drifting apart. Measured against the old
+# combined prompt in revisit.md. The prompts are plain text files beside the
+# script's real path, as config-drift finds config-drift.d/: install.sh links
+# only the script onto PATH.
+PROMPTS = Path(__file__).resolve().parent / "capture-ocr.d"
 
-OCR_PROMPT = (
-    r"""Transcribe all text in this image exactly as written, in its original language. Do not translate anything. Keep spelling, including typos, exactly as shown.
 
-"""
-    + RULES
-)
-
-TRANSLATE_PROMPT = (
-    r"""Translate the text in this image.
-- Decide the source language from the dominant language of the text.
-- If it is not English (German, Persian or any other language), translate it into English.
-- If it is English, translate it into German.
-- Do not translate code, commands, file names, paths, URLs, identifiers or mathematics; copy them exactly.
-- Keep names of people, organisations and products as written, and keep citations as written.
-- Match the register of the source: academic text stays academic. Write fluent, natural text in the target language, not a word-for-word rendering.
-
-"""
-    + RULES
-)
+def read_prompt(name):
+    """The `name` prompt followed by the shared rules, as the model reads them."""
+    parts = []
+    for part in (name, "rules"):
+        path = PROMPTS / f"{part}.prompt.md"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            fail(f"Cannot read the prompt file {path}.")
+        # A text file ends with a newline; the prompt does not.
+        parts.append(text.removesuffix("\n"))
+    return "\n\n".join(parts)
 
 
 class Unreachable(Exception):
@@ -410,6 +400,7 @@ def main():
             f"Unknown arguments: {' '.join(args)}. Usage: capture-ocr [--translate]"
         )
     translate = bool(args)
+    prompt = read_prompt("translate" if translate else "ocr")
     single_instance()
     key = api_key()
     img_bytes = capture()
@@ -421,9 +412,7 @@ def main():
 
     offline = False
     try:
-        text, truncated = transcribe(
-            img_bytes, key, TRANSLATE_PROMPT if translate else OCR_PROMPT
-        )
+        text, truncated = transcribe(img_bytes, key, prompt)
     except Unreachable as e:
         if translate:
             fail(

@@ -339,9 +339,11 @@ perfectly. Where they differed:
 ## capture-ocr split into exact (Mod+Print) and translate (Mod+Shift+Print) — ADOPTED (measured, 2026-09-25)
 
 The one prompt both transcribed and translated German, so it had to guess intent: on a
-captured email it translated German job titles the user only wanted copied. Now
-`OCR_PROMPT` never translates and `TRANSLATE_PROMPT` always does (non-English → English,
-English → German), sharing one `RULES` block. Same model, same dynamic thinking. Measured
+captured email it translated German job titles the user only wanted copied. Now the
+OCR prompt never translates and the translation prompt always does (non-English →
+English, English → German), sharing one block of rules (since 2026-10-27 the files
+`ocr.prompt.md`, `translate.prompt.md` and `rules.prompt.md` in `bash/capture-ocr.d/`).
+Same model, same dynamic thinking. Measured
 on 14 user captures (web, terminal, code, German, Persian, handwritten/printed math, two
 paper pages, tiny text, blanks); fixtures, scripts and `final_*` results stay outside the
 repo, in `~/projects/ocr_bench`. Numbers below are from the final prompts, with the old
@@ -365,8 +367,8 @@ prompt run alongside.
   (`.dmg` kept), printed math → German prose with the LaTeX unchanged apart from one stray
   `)` in 1 of 2 runs. A page mixing English and German took 5.8–10.4 s, single-language
   pages 2.5–6.7 s.
-- **Recheck:** with any model change, and before editing `RULES` — re-run the lemma page
-  5× and the blank crops 5× (`lemma_score.py`, `prompt_check.py` in that folder);
+- **Recheck:** with any model change, and before editing `rules.prompt.md` — re-run the
+  lemma page 5× and the blank crops 5× (`lemma_score.py`, `prompt_check.py` in that folder);
   single runs swung both ways on this model.
 
 ## Local GLM-OCR as capture-ocr's engine — REJECTED; kept as the offline fallback (measured, 2026-09-25)

@@ -30,6 +30,49 @@ import zlib
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/capture-ocr"
 
 
+class PromptFileTests(unittest.TestCase):
+    def test_a_missing_prompt_file_fails_before_the_capture(self):
+        # Installed as a link in a bin directory, the script finds its prompts
+        # through its own real path, never beside the link.
+        temp = tempfile.TemporaryDirectory(prefix="capture-ocr-test-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        script = root / "repo/capture-ocr"
+        prompts = root / "repo/capture-ocr.d"
+        prompts.mkdir(parents=True)
+        script.write_bytes(SCRIPT.read_bytes())
+        (prompts / "rules.prompt.md").write_text("Rules:\n")
+        bin_ = root / "bin"
+        bin_.mkdir()
+        (bin_ / "capture-ocr").symlink_to(script)
+        notify_log = root / "notify.log"
+        for name, body in (
+            ("notify-send", f'echo "$*" >> {notify_log}'),
+            ("slurp", f"echo called >> {root / 'slurp.log'}; exit 1"),
+        ):
+            (bin_ / name).write_text(f"#!/bin/sh\n{body}\n")
+            (bin_ / name).chmod(0o755)
+        result = subprocess.run(
+            [sys.executable, "-B", str(bin_ / "capture-ocr")],
+            env={
+                "PATH": str(bin_),
+                "HOME": str(root),
+                "XDG_RUNTIME_DIR": str(root),
+                "GOOGLE_API_KEY": "unused",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(
+            f"Cannot read the prompt file {prompts / 'ocr.prompt.md'}.",
+            notify_log.read_text(),
+        )
+        self.assertFalse((root / "slurp.log").exists())
+
+
 class SingleInstanceTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix="capture-ocr-test-")
@@ -234,7 +277,7 @@ class ModeTests(unittest.TestCase):
     def test_default_transcribes(self):
         with self.gemini("Anfahrt"):
             self.assertEqual(self.run_main(), 0)
-        self.assertEqual(self.prompt_sent(), self.ocr.OCR_PROMPT)
+        self.assertEqual(self.prompt_sent(), self.ocr.read_prompt("ocr"))
         self.assertEqual(self.clipboard.read_text(), "Anfahrt")
         self.assertIn("OCR Copied", self.notify_log.read_text())
         self.assertIn("Extracting text", self.notify_log.read_text())
@@ -242,7 +285,7 @@ class ModeTests(unittest.TestCase):
     def test_translate_flag_translates(self):
         with self.gemini("Directions"):
             self.assertEqual(self.run_main("--translate"), 0)
-        self.assertEqual(self.prompt_sent(), self.ocr.TRANSLATE_PROMPT)
+        self.assertEqual(self.prompt_sent(), self.ocr.read_prompt("translate"))
         self.assertEqual(self.clipboard.read_text(), "Directions")
         self.assertIn("Translation Copied", self.notify_log.read_text())
         self.assertIn("Translating text", self.notify_log.read_text())
@@ -256,8 +299,13 @@ class ModeTests(unittest.TestCase):
 
     def test_prompts_share_rules_and_hold_no_escapes(self):
         # A plain string once turned the rules' "\\tag" into a tab.
-        for prompt in (self.ocr.OCR_PROMPT, self.ocr.TRANSLATE_PROMPT):
-            self.assertTrue(prompt.endswith(self.ocr.RULES))
+        rules = (SCRIPT.parent / "capture-ocr.d/rules.prompt.md").read_text(
+            encoding="utf-8"
+        )
+        for name in ("ocr", "translate"):
+            prompt = self.ocr.read_prompt(name)
+            self.assertTrue(prompt.endswith("\n\n" + rules.removesuffix("\n")))
+            self.assertFalse(prompt.endswith("\n"))
             self.assertNotIn("\t", prompt)
             self.assertIn("\\tag{...}", prompt)
 
