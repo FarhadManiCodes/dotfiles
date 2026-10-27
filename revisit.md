@@ -1017,3 +1017,20 @@ No reinstall. Recheck if a later package still reports the old version or calcul
 behavior fails. The four pacman download staging directories found alongside this
 were a separate cleanup issue; `sysclean` now removes directories and reports failures
 (see `docs/architecture/sysclean.md`).
+
+## `git-hooks/checks`: a semantic server that died before the trap runs gives exit 1 — ACCEPTED (2026-10-27)
+
+`semantic_scan` stops its `llama-server` with `trap 'kill "$server" 2>/dev/null; wait
+"$server" || true' EXIT` under `set -e`. When the server has already died, `kill` fails
+and the run exits 1 although its report is complete. Reproduced in a scratch script: a
+background process that had exited gave exit 1, a live one gave 0.
+
+- **Reached only when** the server dies after answering its health check and the scan has
+  ended. A server that dies earlier fails the scan with its own message.
+- **Cost:** a misleading non-zero exit on the manual full run. It never changes what the
+  scan finds, and no commit hook runs the scan.
+- **Why not fixed:** the one-line fix is `kill "$server" 2>/dev/null || true`, but its
+  test needs a stub that answers `/health` and jscpd's embedding requests and then dies,
+  a small HTTP server for a rare, manual-only, report-only case (user decision).
+
+Recheck if the full run exits 1 with a complete report: the trap is the first suspect.
