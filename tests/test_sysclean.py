@@ -418,9 +418,11 @@ fi
                 "zsh",
                 "-f",
                 "-c",
-                'smartctl() { print -r -- "$SMART_REPORT" }\n'
-                'sudo() { "$@" }\n'
-                f"source {script}\n_sysclean_nvme_health\n",
+                (
+                    'smartctl() { print -r -- "$SMART_REPORT" }\n'
+                    'sudo() { "$@" }\n'
+                    f"source {script}\n_sysclean_nvme_health\n"
+                ),
             ],
             env=dict(self.env, SMART_REPORT=report),
             capture_output=True,
