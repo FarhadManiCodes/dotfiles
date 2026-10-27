@@ -78,7 +78,10 @@ and their limitations.
 - Do not run installers, `sysup` or plugin upgrades to validate unrelated edits, and do not
   reformat unrelated files. The only exceptions are Herdr Milestone 0's one-time whitespace
   fix and its shfmt and `ruff format` reformats of the files its plan lists, each in a commit
-  of its own (`docs/herdr-implementation.md`). Niri and Neovim follow their nested instructions.
+  of its own (`docs/herdr-implementation.md`), and a correction after a tool upgrade that
+  reformats the files the upgrade made fail, one that reformats many files in a commit of
+  its own, holding only the reformat, listed in `.git-blame-ignore-revs`
+  (`docs/architecture/git-hooks.md`). Niri and Neovim follow their nested instructions.
 - Before judging a clone that `git-hooks/checks` reports, look it up in
   `docs/clone-verdicts.md`, and record each new verdict there.
 

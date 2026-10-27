@@ -109,11 +109,13 @@ two `install` lines again; until then the bootstrap prints a warning at every co
 without blocking it. Git ignores `.git/hooks` when `core.hooksPath` is set;
 `git config --get core.hooksPath` must print nothing.
 
-**The blame setting** makes `git blame` skip the formatting commits listed in
-`.git-blame-ignore-revs`, so each line shows the commit that last changed what it does.
+**The blame setting** makes `git blame` skip the commits listed in
+`.git-blame-ignore-revs`, which only change layout (one exception is noted under "The
+blame list"), so each line usually shows the commit that last changed what it does.
 `:(optional)` lets blame work where that file is missing, such as on a branch older than
-it; without it, every blame there fails. `git blame --ignore-revs-file=` (empty) turns
-the list off for one run; `git -c blame.ignoreRevsFile=` does not.
+it; without it, every blame there fails.
+`git blame --ignore-revs-file=` (empty) turns the list off for one run;
+`git -c blame.ignoreRevsFile=` does not.
 
 **Tools.** Every commit needs `prek`, `shellcheck`, `shfmt`, `ruff`, `jscpd`,
 `python3`, `zsh`, `bash` and `git` on the `PATH`; a missing one stops the commit and
@@ -296,3 +298,46 @@ milestone review's notes. A commit and `bootstrap run` print no versions.
 **The checks' own tests.** `tests/test_git_hooks.py` and
 `tests/test_blame_ignore_revs.py` test the checks and the blame list;
 `bash bash/run-tests` runs them with the other suites.
+
+## After a tool upgrade
+
+The checks use whatever versions are installed (see "Setup in a fresh clone") and
+nothing holds a tool back, so an upgrade can make tracked code fail a check it passed
+before. It shows when a commit changes that code, when one changes the rule files (see
+"Scope"), or in the full run. Then:
+
+- Correct the code in the next commit, ahead of other work.
+- A correction may reformat the files the upgrade made fail, although `AGENTS.md`
+  otherwise rules out reformatting unrelated files (user decision, 2026-10-27).
+- One that reformats many files is a commit of its own, holding only the reformat, and
+  is listed in the blame list (see below).
+
+To see which versions changed, compare the full run's version lines with those saved in
+the last milestone review's notes. It does not print `sh`, `unshare`, `ip` or `curl`, so
+check their packages with `pacman -Q bash util-linux iproute2 curl`.
+
+## The blame list
+
+`.git-blame-ignore-revs` lists commits that only change layout, such as a reformat,
+apart from one line of the plan that Milestone 0's comment move also rewrote, as its
+comment there says. `git blame` skips them, through the setting under "Setup in a
+fresh clone", and shows for each of their lines the earlier commit that last changed
+it; a line the commit split or joined may still show it.
+`tests/test_blame_ignore_revs.py` enforces two rules:
+
+- Each ID is a full, lowercase, 40-character commit ID with nothing after it on its
+  line but whitespace, which the whitespace check rejects anyway. Git rejects an
+  abbreviated ID, and every blame then fails; it accepts uppercase or a comment after
+  an ID, but the test does not. By convention each entry's comment goes on the line
+  above it.
+- Each ID is an ancestor of HEAD.
+
+To add one:
+
+1. Commit the reformat on its own.
+2. In the next commit on the same branch, add its ID (`git rev-parse HEAD`, run straight
+   after the reformat commit). A commit cannot list itself: its ID exists only once it
+   is made.
+3. Never squash or rebase that branch: either gives the reformat a new ID, and the
+   listed one then matches nothing, which the ancestor test catches. Herdr's milestone
+   branches land with `--no-ff` merges for this reason.
