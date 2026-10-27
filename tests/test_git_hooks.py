@@ -410,6 +410,30 @@ class Blocking(HookCase):
             code, out = self.commit(env=self.env | {name: "shell"})
             self.assert_blocked(code, out, SHELL)
 
+    def test_inherited_bash_startup_settings_do_not_reach_the_checks(self):
+        startup = self.tmp / "bash-env"
+        startup.write_text("PATH=/usr/bin:/bin\n")  # hides prek
+        self.write("bash/tool", GOOD_BASH, executable=True)
+        self.git("add", "bash/tool")
+        # Tried one at a time: the stub's sh exports SHELLOPTS with posix
+        # added, and Bash in POSIX mode ignores BASH_ENV.
+        for name, value in (
+            ("BASH_ENV", str(startup)),
+            ("SHELLOPTS", "noclobber"),
+        ):
+            code, out = self.commit(env=self.env | {name: value})
+            self.assert_passed(code, out)
+            self.git("reset", "-q", "--soft", "HEAD~1")
+        # By hand, Bash has read SHELLOPTS before the bootstrap starts; the
+        # checks still run without it.
+        code, out = self.run_command(
+            "bash",
+            "git-hooks/bootstrap",
+            "run",
+            env=self.env | {"SHELLOPTS": "noclobber"},
+        )
+        self.assert_passed(code, out)
+
     def test_crlf_shebang_is_selected(self):
         self.write("bash/tool", "#!/bin/bash\r\necho hi\r\n", executable=True)
         code, out = self.stage_and_commit("bash/tool")

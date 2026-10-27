@@ -10,6 +10,12 @@
 #   bootstrap full <base>                       HEAD's tree, every file in scope
 
 set -euo pipefail
+# No check's Bash takes startup settings from the caller: BASH_ENV would
+# source a file into each, and an exported SHELLOPTS or BASHOPTS would turn on
+# options such as noclobber. Those two are read-only, so they are only
+# unexported.
+unset BASH_ENV ENV
+export -n SHELLOPTS BASHOPTS
 
 self=git-hooks/bootstrap
 die() {

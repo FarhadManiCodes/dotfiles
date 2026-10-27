@@ -20,4 +20,6 @@ if [ ! -f "$top/git-hooks/bootstrap" ]; then
   echo "$hook: this branch has no git-hooks/bootstrap; no checks run" >&2
   exit 0
 fi
-exec bash "$top/git-hooks/bootstrap" "$hook"
+# Bash would read these before the bootstrap could drop them.
+exec env -u BASH_ENV -u ENV -u SHELLOPTS -u BASHOPTS \
+  bash "$top/git-hooks/bootstrap" "$hook"
