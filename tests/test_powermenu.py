@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/powermenu"
 
 # Absolute interpreter and private PATH: a missing substitute cannot fall through

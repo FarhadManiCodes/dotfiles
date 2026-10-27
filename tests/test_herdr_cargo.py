@@ -13,7 +13,6 @@ import tempfile
 import time
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "bash/herdr-cargo"
 COMMIT = "b" * 40

@@ -26,7 +26,6 @@ import unittest
 from unittest import mock
 import zlib
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/capture-ocr"
 
 

@@ -12,7 +12,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SOURCE = Path(__file__).resolve().parents[1] / "bash/config-drift"
 
 # The real hdr/ok/warn/skip run, so their counts are under test too; their

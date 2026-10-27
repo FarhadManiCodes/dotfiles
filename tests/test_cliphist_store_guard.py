@@ -1,7 +1,7 @@
 """Exercise watched streams without touching the real clipboard or history."""
 
-import json
 import hashlib
+import json
 import os
 from pathlib import Path
 import signal
@@ -9,7 +9,6 @@ import subprocess
 import tempfile
 import time
 import unittest
-
 
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/cliphist-store-guard"
 STORE = """#!/usr/bin/python3

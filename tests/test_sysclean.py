@@ -22,7 +22,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SOURCE_PATH = Path(__file__).resolve().parents[1] / "zsh/functions/sysclean.zsh"
 SOURCE = SOURCE_PATH.read_text()
 

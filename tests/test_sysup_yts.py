@@ -11,9 +11,8 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import unittest
 import tempfile
-
+import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
 GIT = shutil.which("git")

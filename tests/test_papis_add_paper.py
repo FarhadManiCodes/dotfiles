@@ -13,7 +13,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/papis-add-paper"
 
 

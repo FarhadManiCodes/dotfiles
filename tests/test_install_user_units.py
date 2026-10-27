@@ -6,7 +6,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("INSTALLER_UNDER_TEST", ROOT / "install.sh"))
 DOTFILES = Path(os.environ.get("INSTALLER_DOTFILES", ROOT))

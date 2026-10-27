@@ -10,7 +10,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
 GIT = shutil.which("git")
 MV = shutil.which("mv")

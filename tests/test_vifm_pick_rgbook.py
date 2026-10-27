@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 ANSI = re.compile(r"\033\[[0-9;]*m")
 

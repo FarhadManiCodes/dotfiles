@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
 ZSH = shutil.which("zsh")
 AWK = shutil.which("awk")

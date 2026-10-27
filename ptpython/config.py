@@ -4,13 +4,13 @@ Toggle between themes with Ctrl+T, Ctrl+T
 Copy this file to $XDG_CONFIG_HOME/ptpython/config.py
 """
 
-import sys
 import atexit
+import sys
+
 from prompt_toolkit.filters import ViInsertMode
 from prompt_toolkit.key_binding.key_processor import KeyPress
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.styles import Style
-
 from ptpython.layout import CompletionVisualisation
 
 __all__ = ["configure"]

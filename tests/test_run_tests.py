@@ -16,7 +16,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 SOURCE = Path(__file__).resolve().parents[1] / "bash/run-tests"
 ANSI = re.compile(r"\033\[[0-9;]*m")
 

@@ -6,7 +6,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 FUNCTIONS = Path(__file__).resolve().parents[1] / "zsh/functions"
 
 

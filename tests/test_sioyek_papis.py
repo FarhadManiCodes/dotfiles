@@ -14,7 +14,6 @@ import tempfile
 import time
 import unittest
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/sioyek-papis"
 
 

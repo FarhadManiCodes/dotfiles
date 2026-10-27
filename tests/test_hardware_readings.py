@@ -6,7 +6,6 @@ import subprocess
 import tempfile
 import unittest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = {
     "k10temp-pci-abcd": {"Tctl": {"temp1_input": 39.25}},

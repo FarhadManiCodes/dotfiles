@@ -8,7 +8,6 @@ import tempfile
 import time
 import unittest
 
-
 SOURCE = Path(__file__).resolve().parents[1] / "bash/media-menu.sh"
 
 
