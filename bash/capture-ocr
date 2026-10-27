@@ -47,6 +47,10 @@ LOCAL_STARTUP = 30
 DIRECT = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
+# What checking or writing to a missing, closed, broken or full stderr raises.
+STDERR_GONE = (OSError, ValueError, AttributeError)
+
+
 def notify(title, body, urgency=None, timeout=None):
     """Best-effort desktop notification.
 
@@ -74,7 +78,7 @@ def notify(title, body, urgency=None, timeout=None):
     try:
         if sys.stderr.isatty():
             print(f"{title}: {body}", file=sys.stderr)
-    except OSError, ValueError, AttributeError:  # broken, full or closed stderr
+    except STDERR_GONE:
         pass  # no channel left
 
 
