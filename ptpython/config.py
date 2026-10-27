@@ -13,7 +13,7 @@ from ptpython.layout import CompletionVisualisation
 __all__ = ["configure"]
 
 
-# Global theme state — auto-detect from foot terminal state
+# The starting theme follows foot's state file.
 def _detect_foot_theme():
     from pathlib import Path
 
@@ -26,9 +26,6 @@ def _detect_foot_theme():
         )
     except OSError:
         return "onedark"
-
-
-current_theme = _detect_foot_theme()
 
 
 def set_onedark_terminal():
@@ -52,34 +49,31 @@ def reset_terminal_colors():
     sys.stdout.flush()
 
 
-def toggle_theme(repl):
-    """Toggle between OneDark and PaperColor themes."""
-    global current_theme
-
-    if current_theme == "onedark":
-        current_theme = "papercolor"
+def toggle_theme(repl, theme):
+    """Switch from `theme` to the other one; return the new theme."""
+    if theme == "onedark":
         repl.use_ui_colorscheme("papercolor")
         repl.use_code_colorscheme("default")  # Light scheme for syntax
         set_papercolor_terminal()
         print("🌞 Switched to PaperColor Light theme")
-    else:
-        current_theme = "onedark"
-        repl.use_ui_colorscheme("onedark")
-        repl.use_code_colorscheme("monokai")  # Dark scheme for syntax
-        set_onedark_terminal()
-        print("🌙 Switched to OneDark theme")
+        return "papercolor"
+    repl.use_ui_colorscheme("onedark")
+    repl.use_code_colorscheme("monokai")  # Dark scheme for syntax
+    set_onedark_terminal()
+    print("🌙 Switched to OneDark theme")
+    return "onedark"
 
 
-def configure(repl):
+def configure(repl):  # noqa: PLR0915 - one statement per ptpython setting
     """
     Configuration method. This is called during the start-up of ptpython.
 
     :param repl: `PythonRepl` instance.
     """
-    global current_theme
+    theme = _detect_foot_theme()
 
     # Set terminal colors to match detected theme
-    if current_theme == "onedark":
+    if theme == "onedark":
         set_onedark_terminal()
     else:
         set_papercolor_terminal()
@@ -193,7 +187,7 @@ def configure(repl):
     )
 
     # Set default theme
-    if current_theme == "onedark":
+    if theme == "onedark":
         repl.use_ui_colorscheme("onedark")
         repl.use_code_colorscheme("monokai")
     else:
@@ -204,7 +198,8 @@ def configure(repl):
     @repl.add_key_binding("c-t", "c-t")
     def _(event):
         """Toggle between OneDark and PaperColor themes"""
-        toggle_theme(repl)
+        nonlocal theme
+        theme = toggle_theme(repl, theme)
 
 
 # OneDark UI colorscheme
