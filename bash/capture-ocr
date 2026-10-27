@@ -9,6 +9,7 @@
 # machinery none of this uses. History in revisit.md.
 
 import base64
+import contextlib
 import fcntl
 import http.client
 import json
@@ -355,10 +356,8 @@ def local_transcribe(img_bytes):
         )
     finally:
         # The whole group: bash, the server and the watchdog's tail.
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         proc.wait()
         log.close()
 

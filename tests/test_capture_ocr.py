@@ -10,6 +10,7 @@ run the script for real with Gemini made unreachable (https_proxy at a closed
 port) and a fake llama-server that serves the local API.
 """
 
+import contextlib
 import importlib.machinery
 import importlib.util
 import io
@@ -82,10 +83,8 @@ class SingleInstanceTests(unittest.TestCase):
 
     def kill(self, proc):
         # The whole group, even after the script exits: its slurp may still be running.
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         proc.communicate()
 
     def run_once(self):
@@ -531,19 +530,15 @@ class OfflineFallbackTests(unittest.TestCase):
         return proc
 
     def kill(self, proc):
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         proc.communicate()
         pid = self.root / "server.pid"
         if (
             pid.exists()
         ):  # the fake runs in its own session; never leave it behind
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 os.kill(int(pid.read_text()), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
 
     def run_script(self, *args):
         proc = self.start(*args)

@@ -4,6 +4,7 @@ An interactive shell is the only faithful setting: zsh aborts a function on SIGI
 `zsh -c`, and the terminal delivers the signal to the whole foreground process group.
 """
 
+import contextlib
 import os
 from pathlib import Path
 import pty
@@ -70,10 +71,8 @@ class Terminal:
                 os.kill(self.pid, sig)
             except OSError:
                 break
-        try:
+        with contextlib.suppress(OSError):
             os.waitpid(self.pid, 0)
-        except OSError:
-            pass
         os.close(self.fd)
 
 

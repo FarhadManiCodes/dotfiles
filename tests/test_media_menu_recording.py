@@ -1,5 +1,6 @@
 """Exercise recording through the real media menu with isolated substitutes."""
 
+import contextlib
 import os
 from pathlib import Path
 import signal
@@ -90,10 +91,8 @@ fi
             process.communicate(timeout=5)
         if (self.base / "recorders").exists():
             for pid in (self.base / "recorders").read_text().splitlines():
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     os.kill(int(pid), signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
         self.tmp.cleanup()
 
     def run_toggle(self):

@@ -4,6 +4,7 @@ No runtime override exists in the installed launcher. Real flock and the shell's
 signal handling are exercised; neither fake can contact a systemd manager.
 """
 
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -144,10 +145,8 @@ if stage == "start" and config["block"]:
 
         def reap():
             # Also reap fake clients if an assertion failed while the launcher waited.
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
             process.communicate(timeout=5)
 
         self.addCleanup(reap)
