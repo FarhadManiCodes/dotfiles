@@ -260,3 +260,39 @@ every file at every commit.
 
 A failed `pre-merge-commit` leaves the merge in progress: fix the cause and finish it
 with `git commit`, or run `git merge --abort`.
+
+## Manual runs
+
+Both commands build a snapshot as the hooks do, and work from anywhere in the checkout
+given the path to the bootstrap. They are the only way to run the checks by hand: never
+use prek to run them ("How it runs" lists the read-only prek commands that are safe).
+
+- `bash git-hooks/bootstrap run` checks what is staged now, as a plain `git commit`
+  would: the same checks, compared with HEAD, without committing. `git commit -a` and
+  `git commit <path>` commit different content, so stage that content first to check
+  it. Like a plain commit, it stops while the working tree's `git-hooks/bootstrap`
+  differs from the staged copy.
+- `bash git-hooks/bootstrap full <base>` checks HEAD's tree, not what is staged or
+  edited: every check, the two full-run-only ones included, over every file in scope
+  (see "Scope"). `<base>` is a commit: the clone reports show clones new since it, and
+  `measure` compares sizes with it. It needs a HEAD commit and stops while the working
+  tree's `git-hooks/bootstrap` differs from HEAD's. It also needs the extra tools and
+  the model file listed under "Setup in a fresh clone", and starts a local embeddings
+  server for the semantic clone scan.
+
+Herdr's plan runs the full run before each milestone review, with the commit the
+milestone branch started from:
+
+```sh
+bash git-hooks/bootstrap full "$(git merge-base master HEAD)"
+```
+
+**Tool versions.** Before its checks, the full run prints the versions of prek, shfmt,
+ShellCheck, ruff, jscpd, llama-server, Python, Zsh, Bash and Git, and the base commit.
+It does not print those of `sh`, `unshare`, `ip` or `curl`, or say which model file it
+used. Nothing saves these lines: copy them wherever a run must be repeatable, such as a
+milestone review's notes. A commit and `bootstrap run` print no versions.
+
+**The checks' own tests.** `tests/test_git_hooks.py` and
+`tests/test_blame_ignore_revs.py` test the checks and the blame list;
+`bash bash/run-tests` runs them with the other suites.
