@@ -372,6 +372,23 @@ class Blocking(HookCase):
             section(out, INDICATORS),
         )
 
+    def test_merge_bringing_in_a_syntax_error_blocks(self):
+        self.git("switch", "-q", "-c", "side")
+        self.write("bash/tool", "#!/bin/bash\nif then\n", executable=True)
+        self.git("add", "bash/tool")
+        self.git("commit", "-q", "--no-verify", "-m", "side")
+        self.git("switch", "-q", "master")
+        self.write("main", "main\n")
+        self.git("add", "main")
+        self.git("commit", "-q", "--no-verify", "-m", "main")
+        before = self.head()
+        code, out = self.run_command(
+            "git", "merge", "--no-ff", "-m", "merge", "side"
+        )
+        self.assert_blocked(code, out, SHELL)
+        self.assertIn("bash/tool", section(out, SHELL))
+        self.assertEqual(self.head(), before)
+
     def test_shellcheck_finding_blocks(self):
         self.write("bash/tool", "#!/bin/bash\necho $1\n", executable=True)
         code, out = self.stage_and_commit("bash/tool")
@@ -1088,6 +1105,21 @@ class Clones(HookCase):
         self.assertIn(
             f"1 clones new since {self.git('rev-parse', 'HEAD~1')[:12]}", out
         )
+
+    def test_merge_creating_a_clone_between_two_branches_reports_it(self):
+        self.git("switch", "-q", "-c", "side")
+        self.write("bash/two", "#!/bin/bash\n" + CLONE_SHELL, executable=True)
+        self.git("add", "bash/two")
+        self.git("commit", "-q", "--no-verify", "-m", "side")
+        self.git("switch", "-q", "master")
+        self.write("bash/one", "#!/bin/bash\n" + CLONE_SHELL, executable=True)
+        self.git("add", "bash/one")
+        self.git("commit", "-q", "--no-verify", "-m", "main")
+        code, out = self.run_command(
+            "git", "merge", "--no-ff", "-m", "merge", "side"
+        )
+        self.assert_passed(code, out)
+        self.assert_clone(section(out, CLONES), "bash/one", "bash/two")
 
     def test_first_commit_reports_every_clone(self):
         repo = self.tmp / "first"
