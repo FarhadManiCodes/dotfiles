@@ -154,7 +154,7 @@ fi
 # let them choose.
 for f in /usr/lib/systemd/system-sleep/*; do
   [ -e "$f" ] || continue
-  case "${f##*/}" in tlp) continue ;; esac   # package-owned, not ours
+  case "${f##*/}" in tlp) continue ;; esac # package-owned, not ours
   if [ ! -x "$f" ]; then
     echo "  ⚠ $f is NOT executable — systemd-sleep will skip it."
     echo "    Deliberate? leave it. Otherwise: sudo chmod +x $f"

@@ -6,7 +6,10 @@
 # Find the active cmake build directory by looking for CMakeCache.txt
 _cmake_build_dir() {
   for d in build build-san cmake-build-debug cmake-build-release cmake-build cmake-build-*(N); do
-    [[ -f "$d/CMakeCache.txt" ]] && { echo "$d"; return 0 }
+    [[ -f "$d/CMakeCache.txt" ]] && {
+      echo "$d"
+      return 0
+    }
   done
   return 1
 }
@@ -39,7 +42,10 @@ cmake-san() {
 # Usage: cb [-- <cmake-build-args>]  e.g. cb -- -j4
 cb() {
   local dir
-  dir=$(_cmake_build_dir) || { echo "❌ No cmake build dir found. Run cmake-init first."; return 1 }
+  dir=$(_cmake_build_dir) || {
+    echo "❌ No cmake build dir found. Run cmake-init first."
+    return 1
+  }
   cmake --build "$dir" "$@"
 }
 
@@ -47,7 +53,10 @@ cb() {
 # Usage: cbt <target>
 cbt() {
   local dir
-  dir=$(_cmake_build_dir) || { echo "❌ No cmake build dir found. Run cmake-init first."; return 1 }
+  dir=$(_cmake_build_dir) || {
+    echo "❌ No cmake build dir found. Run cmake-init first."
+    return 1
+  }
   cmake --build "$dir" --target "${1:?Usage: cbt <target>}"
 }
 
@@ -55,14 +64,20 @@ cbt() {
 # Usage: ct [-R <regex>] [-V] etc.
 ct() {
   local dir
-  dir=$(_cmake_build_dir) || { echo "❌ No cmake build dir found. Run cmake-init first."; return 1 }
+  dir=$(_cmake_build_dir) || {
+    echo "❌ No cmake build dir found. Run cmake-init first."
+    return 1
+  }
   ctest --test-dir "$dir" --output-on-failure "$@"
 }
 
 # Symlink compile_commands.json into the current dir for clangd (run from project root)
 ccdb() {
   local dir
-  dir=$(_cmake_build_dir) || { echo "❌ No cmake build dir found. Run cmake-init first."; return 1 }
+  dir=$(_cmake_build_dir) || {
+    echo "❌ No cmake build dir found. Run cmake-init first."
+    return 1
+  }
   if [[ ! -f "$dir/compile_commands.json" ]]; then
     echo "❌ No compile_commands.json in $dir"
     echo "💡 Make sure CMAKE_EXPORT_COMPILE_COMMANDS=ON is set"

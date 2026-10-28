@@ -5,23 +5,40 @@ set -o pipefail
 notify() { notify-send -a "" -u critical "Mic Control" "$1"; }
 
 # Each line: "<action>:<id> TAB <label>"; fuzzel shows the label, returns the id.
-menu=$({ pactl -f json list sources; pactl -f json list source-outputs; } |
-    jq -rs --arg d "$(pactl get-default-source)" '
+menu=$({
+  pactl -f json list sources
+  pactl -f json list source-outputs
+} \
+  | jq -rs --arg d "$(pactl get-default-source)" '
     (.[0][] | select(.monitor_source == "")
         | "src:\(.name)\t[src] \(if .name == $d then "* " else "  " end)\(.description)"),
     (.[1][] | select(.properties["object.id"] and .properties["application.name"])
         | "kill:\(.properties["object.id"])\t[kill] \(.properties["application.name"])")') \
-    || { notify "Could not list inputs"; exit 1; }
-[[ -n $menu ]] || { notify-send -a "" "Mic Control" "No inputs or recordings found"; exit 0; }
+  || {
+    notify "Could not list inputs"
+    exit 1
+  }
+[[ -n $menu ]] || {
+  notify-send -a "" "Mic Control" "No inputs or recordings found"
+  exit 0
+}
 
 choice=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
-    --prompt " Mic  " --width 50 <<<"$menu")
+  --prompt " Mic  " --width 50 <<<"$menu")
 case $choice in
-    src:*)
-        err=$(pactl set-default-source "${choice#src:}" 2>&1) || { notify "Could not switch: $err"; exit 1; }
-        label=$(awk -F'\t' -v c="$choice" '$1 == c { print $2 }' <<<"$menu")
-        notify-send -a "" -u low " Default input: ${label#\[src\] ??}" ;;
-    kill:*)
-        err=$(pw-cli destroy "${choice#kill:}" 2>&1) || { notify "Could not stop it: $err"; exit 1; }
-        notify-send -a "" -u low " Recording stopped" ;;
+  src:*)
+    err=$(pactl set-default-source "${choice#src:}" 2>&1) || {
+      notify "Could not switch: $err"
+      exit 1
+    }
+    label=$(awk -F'\t' -v c="$choice" '$1 == c { print $2 }' <<<"$menu")
+    notify-send -a "" -u low " Default input: ${label#\[src\] ??}"
+    ;;
+  kill:*)
+    err=$(pw-cli destroy "${choice#kill:}" 2>&1) || {
+      notify "Could not stop it: $err"
+      exit 1
+    }
+    notify-send -a "" -u low " Recording stopped"
+    ;;
 esac

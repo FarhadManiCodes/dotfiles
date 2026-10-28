@@ -76,7 +76,35 @@ and their limitations.
 - Units: `systemd-analyze verify <unit>` plus runtime evidence; verification alone cannot
   prove network ordering or successful execution.
 - Do not run installers, `sysup` or plugin upgrades to validate unrelated edits, and do not
-  reformat unrelated files. Niri and Neovim follow their nested instructions.
+  reformat unrelated files. The only exceptions are Herdr Milestone 0's one-time whitespace
+  fix and its shfmt and `ruff format` reformats of the files its plan lists, each in a commit
+  of its own (`docs/herdr-implementation.md`), and a correction after a tool upgrade that
+  reformats the files the upgrade made fail, one that reformats many files in a commit of
+  its own, holding only the reformat, listed in `.git-blame-ignore-revs`
+  (`docs/architecture/git-hooks.md`). Niri and Neovim follow their nested instructions.
+- Where they are installed (see `docs/architecture/git-hooks.md`), the `pre-commit` and
+  `pre-merge-commit` hooks run no tests: they run `git-hooks/checks` on what a commit or
+  merge records. A rebase, cherry-pick, revert or `git am` usually runs neither hook, so
+  count its commits as unchecked. When a hook stops a commit or merge, fix the cause;
+  never bypass it, with `--no-verify` or otherwise. Adding a suppression comment, or
+  changing a check or its settings (`git-hooks/`, `.pre-commit-config.yaml`,
+  `.shellcheckrc`, `ruff.toml`, `.editorconfig`, `.gitattributes`), to let a commit or
+  merge through needs the user's agreement. Run `git-hooks/checks` by hand only through
+  `bash git-hooks/bootstrap run` (what is staged) or `bash git-hooks/bootstrap full <base>`
+  (HEAD's tree, not staged or unstaged changes; `<base>` and the extra tools it needs are
+  under "Manual runs"). The only prek commands to run are `prek --version`, `prek list`
+  and `prek validate-config .pre-commit-config.yaml`; never run the Python `pre-commit`
+  tool. Any other prek command can run the checks in the live working tree or replace
+  the hooks.
+- Format a shell file you change with `shfmt -w <file>`, or check it with
+  `shfmt -d <file>`, adding no other flag: the style lives only in `.editorconfig`, and
+  any parser or printer flag (`-ln`, `-i`, `-s` and the like) makes shfmt ignore it.
+  Never run it on files the checks do not format: `tmux/`, `bash/tmux-cpp-tools`,
+  submodules, `zsh/.zshrc`, `zsh/functions/sysup.zsh` and
+  `zsh/functions/sysup/tool-tests.zsh` (`docs/architecture/git-hooks.md`, "Scope" and
+  "Exceptions").
+- Before judging a clone that `git-hooks/checks` reports, look it up in
+  `docs/clone-verdicts.md`, and record each new verdict there.
 
 ## Reusable procedures
 

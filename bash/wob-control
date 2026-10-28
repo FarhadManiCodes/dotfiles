@@ -1,7 +1,7 @@
 #!/bin/bash
 # Volume, brightness and mute keys (niri): show the level on wob's bar (the FIFO
 # wob.socket listens on) and keep the ThinkPad mute LEDs in step.
-pipe=$XDG_RUNTIME_DIR/wobpipe
+pipe=${XDG_RUNTIME_DIR:-}/wobpipe
 # Without the socket, `> "$pipe"` would create a plain file there, and wob.socket
 # then fails with "File exists" until it is removed: skip the bar instead.
 [ -p "$pipe" ] || pipe=/dev/null
@@ -10,21 +10,40 @@ sink=@DEFAULT_AUDIO_SINK@ source=@DEFAULT_AUDIO_SOURCE@
 muted() { wpctl get-volume "$1" | grep -q MUTED; }
 # One computed value, so a failed `set 1` can't fall through to `set 0` and
 # darken the LED while muted.
-led() { local on=0; muted "$2" && on=1; brightnessctl --device "$1" set "$on" >/dev/null 2>&1; }
+led() {
+  local on=0
+  muted "$2" && on=1
+  brightnessctl --device "$1" set "$on" >/dev/null 2>&1
+}
 # Rounded: int() made 0.29 read as 28.
-show_volume() { wpctl get-volume "$sink" | awk '{ printf "%d volume\n", $2 * 100 + 0.5 }' > "$pipe"; }
-show_brightness() { brightnessctl -m set "$1" | awk -F, '{ print $4 + 0, "brightness" }' > "$pipe"; }
+show_volume() { wpctl get-volume "$sink" | awk '{ printf "%d volume\n", $2 * 100 + 0.5 }' >"$pipe"; }
+show_brightness() { brightnessctl -m set "$1" | awk -F, '{ print $4 + 0, "brightness" }' >"$pipe"; }
 
 case $1 in
-    volume-up)       wpctl set-mute "$sink" 0; wpctl set-volume -l 1.0 "$sink" 5%+; show_volume ;;
-    volume-down)     wpctl set-mute "$sink" 0; wpctl set-volume "$sink" 5%-; show_volume ;;
-    volume-mute)
-        wpctl set-mute "$sink" toggle; led platform::mute "$sink"
-        if muted "$sink"; then echo "0 muted" > "$pipe"; else show_volume; fi ;;
-    brightness-up)   show_brightness +5% ;;
-    brightness-down) show_brightness 5%- ;;
-    mic-mute)
-        wpctl set-mute "$source" toggle; led platform::micmute "$source"
-        if muted "$source"; then echo "0 mic" > "$pipe"; else echo "100 mic" > "$pipe"; fi ;;
-    led-sync)        led platform::mute "$sink"; led platform::micmute "$source" ;;
+  volume-up)
+    wpctl set-mute "$sink" 0
+    wpctl set-volume -l 1.0 "$sink" 5%+
+    show_volume
+    ;;
+  volume-down)
+    wpctl set-mute "$sink" 0
+    wpctl set-volume "$sink" 5%-
+    show_volume
+    ;;
+  volume-mute)
+    wpctl set-mute "$sink" toggle
+    led platform::mute "$sink"
+    if muted "$sink"; then echo "0 muted" >"$pipe"; else show_volume; fi
+    ;;
+  brightness-up) show_brightness +5% ;;
+  brightness-down) show_brightness 5%- ;;
+  mic-mute)
+    wpctl set-mute "$source" toggle
+    led platform::micmute "$source"
+    if muted "$source"; then echo "0 mic" >"$pipe"; else echo "100 mic" >"$pipe"; fi
+    ;;
+  led-sync)
+    led platform::mute "$sink"
+    led platform::micmute "$source"
+    ;;
 esac

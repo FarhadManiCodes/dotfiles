@@ -9,7 +9,7 @@
 
 sysclean() {
   if [[ -z ${SHPOOL_SESSION_NAME:-} ]]; then
-    if ! (( $+functions[keep] )); then
+    if ! (($+functions[keep])); then
       print -u2 'sysclean: shpool/keep is required; install shpool and reload ~/.zshrc'
       return 1
     fi
@@ -45,7 +45,7 @@ sysclean() {
   local -a partials=(/var/cache/pacman/pkg/download-*(N) /var/cache/pacman/pkg/*.part(N))
   if [[ -e /var/lib/pacman/db.lck || -L /var/lib/pacman/db.lck ]]; then
     echo "   Pacman lock exists — partial download cleanup skipped."
-  elif (( ${#partials} )); then
+  elif ((${#partials})); then
     # Pacman also leaves private download-* staging directories on interruption.
     # Take the same exclusive lock as libalpm: a precheck alone races a new
     # transaction starting while sudo waits for authentication. Only remove our
@@ -101,7 +101,7 @@ sysclean() {
   echo "==> 3. Orphaned system packages"
   local -a orphans
   orphans=($(pacman -Qtdq 2>/dev/null))
-  if (( ${#orphans[@]} )); then
+  if ((${#orphans[@]})); then
     echo "   ${#orphans[@]} orphaned package(s): ${orphans[*]}"
     sudo pacman -Rs "${orphans[@]}"
   elif ! pacman -Qq >/dev/null 2>&1; then
@@ -158,7 +158,7 @@ sysclean() {
   # on an empty directory, which is its normal state, and the old unconditional
   # echo then claimed the dumps had been cleared.
   local -a dumps=(/var/lib/systemd/coredump/*(N))
-  if (( ${#dumps} )); then
+  if ((${#dumps})); then
     sudo rm -rf -- "${dumps[@]}"
     echo "   Removed ${#dumps} coredump(s)."
   else
@@ -191,12 +191,12 @@ sysclean() {
     # file-history/<session-uuid>/) belongs to Claude Code, which is free to
     # change it. Refusing to act on an empty answer is the same rule the rest
     # of this repo's probes follow.
-    if (( ${#_live} == 0 )); then
+    if ((${#_live} == 0)); then
       echo "   !! no sessions found under ${claude_proj/#$HOME/~} — not pruning"
     else
       local d removed=0
       for d in "$claude_hist"/*(N/); do
-        [[ -z ${_live[${d:t}]} ]] && rm -rf -- "$d" && (( removed++ ))
+        [[ -z ${_live[${d:t}]} ]] && rm -rf -- "$d" && ((removed++))
       done
       echo "   Removed $removed orphaned file-history dir(s)."
     fi
@@ -210,7 +210,7 @@ sysclean() {
     # (N) again: this one works today only because both profiles happen to have
     # a cache2/, and would abort the removal for both if either did not.
     local -a ffcache=(~/.cache/mozilla/firefox/*/cache2/*(N))
-    if (( ${#ffcache} )); then
+    if ((${#ffcache})); then
       rm -rf -- "${ffcache[@]}"
       echo "   Firefox web asset cache cleared (${#ffcache} entries)."
     else
@@ -247,13 +247,22 @@ sysclean() {
 # fields that move first come from the same log for free: wear, spare capacity
 # against the vendor's own threshold, and media errors.
 _sysclean_nvme_health() {
-  command -v smartctl >/dev/null 2>&1 || { echo "   smartmontools not installed — skipping"; return 0 }
-  command -v jq       >/dev/null 2>&1 || { echo "   jq not installed — skipping"; return 0 }
+  command -v smartctl >/dev/null 2>&1 || {
+    echo "   smartmontools not installed — skipping"
+    return 0
+  }
+  command -v jq >/dev/null 2>&1 || {
+    echo "   jq not installed — skipping"
+    return 0
+  }
 
   # Controller devices, not namespaces: /dev/nvme0, not /dev/nvme0n1. (N) so an
   # absent device skips rather than passing the glob through literally.
   local -a devs=(/dev/nvme[0-9](N))
-  (( ${#devs} )) || { echo "   no NVMe controller found — skipping"; return 0 }
+  ((${#devs})) || {
+    echo "   no NVMe controller found — skipping"
+    return 0
+  }
 
   local dev json k v
   for dev in $devs; do
@@ -282,7 +291,7 @@ _sysclean_nvme_health() {
       [[ ${h[$f]} == <-> ]] || bad=1
     done
     [[ ${h[passed]} == (true|false) ]] || bad=1
-    if (( bad )); then
+    if ((bad)); then
       echo "   ⚠ $dev: smartctl output missing expected fields — health NOT checked"
       continue
     fi
@@ -291,12 +300,12 @@ _sysclean_nvme_health() {
     [[ ${h[passed]} == true ]] || problems+=("SMART overall health self-assessment FAILED")
     # The JSON field is a decimal, so "0x${h[crit]}" mislabelled it: a
     # critical_warning of 16 printed as 0x16 when the flags are 0x10.
-    (( h[crit] ))                  && problems+=("critical warning flags set ($(printf '0x%02x' ${h[crit]}))")
-    (( h[spare] < h[spare_min] ))  && problems+=("spare capacity ${h[spare]}% is below the drive's own ${h[spare_min]}% threshold")
-    (( h[used] >= 80 ))            && problems+=("${h[used]}% of rated write endurance used")
-    (( h[media] ))                 && problems+=("${h[media]} media/data-integrity error(s)")
+    ((h[crit])) && problems+=("critical warning flags set ($(printf '0x%02x' ${h[crit]}))")
+    ((h[spare] < h[spare_min])) && problems+=("spare capacity ${h[spare]}% is below the drive's own ${h[spare_min]}% threshold")
+    ((h[used] >= 80)) && problems+=("${h[used]}% of rated write endurance used")
+    ((h[media])) && problems+=("${h[media]} media/data-integrity error(s)")
 
-    if (( ${#problems} )); then
+    if ((${#problems})); then
       echo "   ⚠ $dev needs attention:"
       printf '        %s\n' "${problems[@]}"
       echo "        full report: sudo smartctl -x $dev"

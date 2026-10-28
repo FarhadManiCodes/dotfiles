@@ -1,0 +1,25 @@
+#!/bin/sh
+# Copied, not linked, to .git/hooks/pre-commit and .git/hooks/pre-merge-commit
+# (docs/architecture/git-hooks.md), so it still runs on a branch
+# without the checks.
+top=$(git rev-parse --show-toplevel) || exit 1
+hook=$(basename "$0")
+if [ ! -f "$top/git-hooks/bootstrap" ]; then
+  # Deleted but still staged is an unstaged edit, which the bootstrap refuses.
+  if git cat-file -e :git-hooks/bootstrap 2>/dev/null; then
+    echo "$hook: git-hooks/bootstrap is staged but missing;" \
+      "restore it with git restore git-hooks/bootstrap" >&2
+    exit 1
+  fi
+  # The checks are removed by deleting the hooks, not by a commit they check.
+  if git cat-file -e HEAD:git-hooks/bootstrap 2>/dev/null; then
+    echo "$hook: this commit removes git-hooks/bootstrap; to remove the" \
+      "checks, delete .git/hooks/pre-commit and pre-merge-commit first" >&2
+    exit 1
+  fi
+  echo "$hook: this branch has no git-hooks/bootstrap; no checks run" >&2
+  exit 0
+fi
+# Bash would read these before the bootstrap could drop them.
+exec env -u BASH_ENV -u ENV -u SHELLOPTS -u BASHOPTS \
+  bash "$top/git-hooks/bootstrap" "$hook"

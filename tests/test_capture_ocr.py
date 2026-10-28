@@ -9,6 +9,8 @@ Gemini response, so they can see which prompt was sent. OfflineFallbackTests
 run the script for real with Gemini made unreachable (https_proxy at a closed
 port) and a fake llama-server that serves the local API.
 """
+
+import contextlib
 import importlib.machinery
 import importlib.util
 import io
@@ -25,8 +27,59 @@ import unittest
 from unittest import mock
 import zlib
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "bash/capture-ocr"
+
+
+class PromptFileTests(unittest.TestCase):
+    def test_a_missing_prompt_file_fails_before_the_capture(self):
+        self.assert_unreadable_prompt_fails_before_the_capture(None)
+
+    def test_a_prompt_file_that_is_not_utf8_fails_before_the_capture(self):
+        self.assert_unreadable_prompt_fails_before_the_capture(b"\xff\xfe\x00")
+
+    def assert_unreadable_prompt_fails_before_the_capture(self, ocr_prompt):
+        """Run the script with this ocr.prompt.md, absent when None."""
+        # Installed as a link in a bin directory, the script finds its prompts
+        # through its own real path, never beside the link.
+        temp = tempfile.TemporaryDirectory(prefix="capture-ocr-test-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        script = root / "repo/capture-ocr"
+        prompts = root / "repo/capture-ocr.d"
+        prompts.mkdir(parents=True)
+        script.write_bytes(SCRIPT.read_bytes())
+        (prompts / "rules.prompt.md").write_text("Rules:\n")
+        if ocr_prompt is not None:
+            (prompts / "ocr.prompt.md").write_bytes(ocr_prompt)
+        bin_ = root / "bin"
+        bin_.mkdir()
+        (bin_ / "capture-ocr").symlink_to(script)
+        notify_log = root / "notify.log"
+        for name, body in (
+            ("notify-send", f'echo "$*" >> {notify_log}'),
+            ("slurp", f"echo called >> {root / 'slurp.log'}; exit 1"),
+        ):
+            (bin_ / name).write_text(f"#!/bin/sh\n{body}\n")
+            (bin_ / name).chmod(0o755)
+        result = subprocess.run(
+            [sys.executable, "-B", str(bin_ / "capture-ocr")],
+            env={
+                "PATH": str(bin_),
+                "HOME": str(root),
+                "XDG_RUNTIME_DIR": str(root),
+                "GOOGLE_API_KEY": "unused",
+            },
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(
+            f"Cannot read the prompt file {prompts / 'ocr.prompt.md'}.",
+            notify_log.read_text(),
+        )
+        self.assertFalse((root / "slurp.log").exists())
 
 
 class SingleInstanceTests(unittest.TestCase):
@@ -42,13 +95,20 @@ class SingleInstanceTests(unittest.TestCase):
         self.fake("notify-send", f'echo "$*" >> {self.notify_log}')
         # Parked while the flag file exists, the way an open region selector is.
         # The flag is checked before logging, so once the log shows a call it has parked.
-        self.fake("slurp", f"if [ -e {self.block} ]; then echo called >> {self.slurp_log}; "
-                           f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\n"
-                           # What slurp 1.5 prints on ESC; any other exit 1 is a failure.
-                           "echo 'selection cancelled' >&2\nexit 1")
+        self.fake(
+            "slurp",
+            f"if [ -e {self.block} ]; then echo called >> {self.slurp_log}; "
+            f"exec /usr/bin/sleep 30; fi\necho called >> {self.slurp_log}\n"
+            # What slurp 1.5 prints on ESC; any other exit 1 is a failure.
+            "echo 'selection cancelled' >&2\nexit 1",
+        )
         # Pinned, not inherited: only the fakes are on PATH.
-        self.env = {"PATH": str(self.bin), "HOME": str(self.root),
-                    "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused"}
+        self.env = {
+            "PATH": str(self.bin),
+            "HOME": str(self.root),
+            "XDG_RUNTIME_DIR": str(self.root),
+            "GOOGLE_API_KEY": "unused",
+        }
 
     def fake(self, name, body):
         path = self.bin / name
@@ -56,26 +116,32 @@ class SingleInstanceTests(unittest.TestCase):
         path.chmod(0o755)
 
     def slurp_calls(self):
-        return len(self.slurp_log.read_text().splitlines()) if self.slurp_log.exists() else 0
+        return (
+            len(self.slurp_log.read_text().splitlines())
+            if self.slurp_log.exists()
+            else 0
+        )
 
     def start(self):
-        proc = subprocess.Popen([sys.executable, "-B", str(SCRIPT)], env=self.env,
-                                start_new_session=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(
+            [sys.executable, "-B", str(SCRIPT)],
+            env=self.env,
+            start_new_session=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
         self.addCleanup(self.kill, proc)
         return proc
 
     def kill(self, proc):
         # The whole group, even after the script exits: its slurp may still be running.
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         proc.communicate()
 
     def run_once(self):
         proc = self.start()
-        out, err = proc.communicate(timeout=10)
+        _out, err = proc.communicate(timeout=10)
         return proc.returncode, err.decode()
 
     def start_blocked(self):
@@ -84,8 +150,12 @@ class SingleInstanceTests(unittest.TestCase):
         first = self.start()
         deadline = time.monotonic() + 10
         while self.slurp_calls() == 0:
-            self.assertIsNone(first.poll(), "first run exited before reaching slurp")
-            self.assertLess(time.monotonic(), deadline, "first run never reached slurp")
+            self.assertIsNone(
+                first.poll(), "first run exited before reaching slurp"
+            )
+            self.assertLess(
+                time.monotonic(), deadline, "first run never reached slurp"
+            )
             time.sleep(0.05)
         self.block.unlink()
         return first
@@ -99,22 +169,30 @@ class SingleInstanceTests(unittest.TestCase):
 
     def test_failing_selector_is_not_a_silent_cancel(self):
         self.fake("slurp", "echo 'failed to create display' >&2\nexit 1")
-        code, err = self.run_once()
+        code, _err = self.run_once()
         self.assertEqual(code, 1)
-        self.assertIn("slurp failed: failed to create display", self.notify_log.read_text())
+        self.assertIn(
+            "slurp failed: failed to create display",
+            self.notify_log.read_text(),
+        )
 
     def test_unreadable_key_file_notifies_instead_of_a_silent_traceback(self):
         del self.env["GOOGLE_API_KEY"]
-        (self.root / ".config/capture-ocr/google.env").mkdir(parents=True)  # a dir: read fails
-        code, err = self.run_once()
+        # a dir: read fails
+        (self.root / ".config/capture-ocr/google.env").mkdir(parents=True)
+        code, _err = self.run_once()
         self.assertEqual(code, 1)
-        self.assertIn("Unexpected IsADirectoryError", self.notify_log.read_text())
+        self.assertIn(
+            "Unexpected IsADirectoryError", self.notify_log.read_text()
+        )
 
     def test_second_run_during_first_only_says_so(self):
         first = self.start_blocked()
         code, err = self.run_once()
         self.assertEqual((code, err), (0, ""))
-        self.assertEqual(self.slurp_calls(), 1, "second run opened another selector")
+        self.assertEqual(
+            self.slurp_calls(), 1, "second run opened another selector"
+        )
         self.assertIn("Already running", self.notify_log.read_text())
         self.assertIsNone(first.poll(), "first run should be left alone")
 
@@ -132,7 +210,8 @@ class SingleInstanceTests(unittest.TestCase):
 def load_script():
     loader = importlib.machinery.SourceFileLoader("capture_ocr", str(SCRIPT))
     module = importlib.util.module_from_spec(
-        importlib.util.spec_from_loader("capture_ocr", loader))
+        importlib.util.spec_from_loader("capture_ocr", loader)
+    )
     loader.exec_module(module)
     return module
 
@@ -148,26 +227,47 @@ class ModeTests(unittest.TestCase):
         self.notify_log = self.root / "notify.log"
         self.clipboard = self.root / "clipboard"
         for name, body in [
-                ("slurp", f"echo called >> {self.slurp_log}\necho '0,0 10x10'"),
-                ("grim", "printf PNG"),
-                ("wl-copy", f"/usr/bin/cat > {self.clipboard}"),
-                ("notify-send", f'printf "%s\\n" "$*" >> {self.notify_log}')]:
+            ("slurp", f"echo called >> {self.slurp_log}\necho '0,0 10x10'"),
+            ("grim", "printf PNG"),
+            ("wl-copy", f"/usr/bin/cat > {self.clipboard}"),
+            ("notify-send", f'printf "%s\\n" "$*" >> {self.notify_log}'),
+        ]:
             (bin_ / name).write_text(f"#!/bin/sh\n{body}\n")
             (bin_ / name).chmod(0o755)
-        patcher = mock.patch.dict(os.environ, {"PATH": str(bin_), "HOME": str(self.root),
-                                               "GOOGLE_API_KEY": "unused"}, clear=True)
+        patcher = mock.patch.dict(
+            os.environ,
+            {
+                "PATH": str(bin_),
+                "HOME": str(self.root),
+                "GOOGLE_API_KEY": "unused",
+            },
+            clear=True,
+        )
         patcher.start()
         self.addCleanup(patcher.stop)
         self.ocr = load_script()
-        self.ocr.single_instance = lambda: None  # covered by SingleInstanceTests
+        # covered by SingleInstanceTests
+        self.ocr.single_instance = lambda: None
         self.sent = []
 
     def gemini(self, text, finish="STOP"):
         """Fake urlopen answering every request with `text`."""
+
         def urlopen(req, timeout):
             self.sent.append(json.loads(req.data))
-            return io.BytesIO(json.dumps({"candidates": [{
-                "content": {"parts": [{"text": text}]}, "finishReason": finish}]}).encode())
+            return io.BytesIO(
+                json.dumps(
+                    {
+                        "candidates": [
+                            {
+                                "content": {"parts": [{"text": text}]},
+                                "finishReason": finish,
+                            }
+                        ]
+                    }
+                ).encode()
+            )
+
         return mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen)
 
     def run_main(self, *args):
@@ -184,7 +284,7 @@ class ModeTests(unittest.TestCase):
     def test_default_transcribes(self):
         with self.gemini("Anfahrt"):
             self.assertEqual(self.run_main(), 0)
-        self.assertEqual(self.prompt_sent(), self.ocr.OCR_PROMPT)
+        self.assertEqual(self.prompt_sent(), self.ocr.read_prompt("ocr"))
         self.assertEqual(self.clipboard.read_text(), "Anfahrt")
         self.assertIn("OCR Copied", self.notify_log.read_text())
         self.assertIn("Extracting text", self.notify_log.read_text())
@@ -192,7 +292,7 @@ class ModeTests(unittest.TestCase):
     def test_translate_flag_translates(self):
         with self.gemini("Directions"):
             self.assertEqual(self.run_main("--translate"), 0)
-        self.assertEqual(self.prompt_sent(), self.ocr.TRANSLATE_PROMPT)
+        self.assertEqual(self.prompt_sent(), self.ocr.read_prompt("translate"))
         self.assertEqual(self.clipboard.read_text(), "Directions")
         self.assertIn("Translation Copied", self.notify_log.read_text())
         self.assertIn("Translating text", self.notify_log.read_text())
@@ -200,12 +300,19 @@ class ModeTests(unittest.TestCase):
     def test_truncated_translation_says_so(self):
         with self.gemini("Direc", finish="MAX_TOKENS"):
             self.assertEqual(self.run_main("--translate"), 0)
-        self.assertIn("Translation Copied - TRUNCATED", self.notify_log.read_text())
+        self.assertIn(
+            "Translation Copied - TRUNCATED", self.notify_log.read_text()
+        )
 
     def test_prompts_share_rules_and_hold_no_escapes(self):
         # A plain string once turned the rules' "\\tag" into a tab.
-        for prompt in (self.ocr.OCR_PROMPT, self.ocr.TRANSLATE_PROMPT):
-            self.assertTrue(prompt.endswith(self.ocr.RULES))
+        rules = (SCRIPT.parent / "capture-ocr.d/rules.prompt.md").read_text(
+            encoding="utf-8"
+        )
+        for name in ("ocr", "translate"):
+            prompt = self.ocr.read_prompt(name)
+            self.assertTrue(prompt.endswith("\n\n" + rules.removesuffix("\n")))
+            self.assertFalse(prompt.endswith("\n"))
             self.assertNotIn("\t", prompt)
             self.assertIn("\\tag{...}", prompt)
 
@@ -225,11 +332,20 @@ class ModeTests(unittest.TestCase):
         # and a quota error must not silently switch to the offline model.
         def urlopen(req, timeout):
             raise self.ocr.urllib.error.HTTPError(
-                req.full_url, 429, "Too Many Requests", {},
-                io.BytesIO(b'{"error": {"message": "quota"}}'))
+                req.full_url,
+                429,
+                "Too Many Requests",
+                {},
+                io.BytesIO(b'{"error": {"message": "quota"}}'),
+            )
+
         fallback = mock.Mock(return_value=("offline text", False))
-        with mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen), \
-                mock.patch.object(self.ocr, "local_transcribe", fallback, create=True):
+        with (
+            mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen),
+            mock.patch.object(
+                self.ocr, "local_transcribe", fallback, create=True
+            ),
+        ):
             self.assertEqual(self.run_main(), 1)
         self.assertIn("Gemini returned 429. quota", self.notify_log.read_text())
         fallback.assert_not_called()
@@ -238,15 +354,19 @@ class ModeTests(unittest.TestCase):
         clean = self.ocr.clean
         two_blocks = "```a\nx\n```\nprose\n```b\ny\n```"
         for answer, offline, expected in [
-                ("[illegible]", False, ""), (" [illegible]\n[illegible] ", True, ""),
-                ("See [illegible] page", False, "See [illegible] page"),
-                ("$=$", True, "$=$"), ("```foo```", True, "```foo```"),
-                # GLM-OCR's measured blank answers; from Gemini the same is content.
-                ("---", True, ""), ("---", False, "---"),
-                ("```markdown\n\n```", True, ""),
-                ("```\nx = 1\n```", True, "x = 1"),
-                ("```\nx = 1\n```", False, "```\nx = 1\n```"),
-                (two_blocks, True, two_blocks)]:
+            ("[illegible]", False, ""),
+            (" [illegible]\n[illegible] ", True, ""),
+            ("See [illegible] page", False, "See [illegible] page"),
+            ("$=$", True, "$=$"),
+            ("```foo```", True, "```foo```"),
+            # GLM-OCR's measured blank answers; from Gemini the same is content.
+            ("---", True, ""),
+            ("---", False, "---"),
+            ("```markdown\n\n```", True, ""),
+            ("```\nx = 1\n```", True, "x = 1"),
+            ("```\nx = 1\n```", False, "```\nx = 1\n```"),
+            (two_blocks, True, two_blocks),
+        ]:
             with self.subTest(answer=answer, offline=offline):
                 self.assertEqual(clean(answer, offline), expected)
 
@@ -258,11 +378,13 @@ class ModeTests(unittest.TestCase):
 
     def test_failed_notifier_falls_back_to_a_terminal_only(self):
         # The body can be screen text: never into a non-terminal stderr (a log).
-        (Path(os.environ["PATH"]) / "notify-send").write_text("#!/bin/sh\nexit 1\n")
+        (Path(os.environ["PATH"]) / "notify-send").write_text(
+            "#!/bin/sh\nexit 1\n"
+        )
         for tty in (True, False):
             with self.subTest(tty=tty):
                 err = io.StringIO()
-                err.isatty = lambda: tty
+                err.isatty = mock.Mock(return_value=tty)
                 with self.gemini("Anfahrt"), mock.patch("sys.stderr", err):
                     self.assertEqual(self.run_main(), 0)
                 self.assertEqual("OCR Copied: Anfahrt" in err.getvalue(), tty)
@@ -275,29 +397,49 @@ class ModeTests(unittest.TestCase):
     def test_odd_gemini_replies_end_in_one_visible_failure(self):
         closed = io.BytesIO(b"x")
         closed.close()  # an error body that can't be read
+
         def http_error(req, timeout):
-            raise self.ocr.urllib.error.HTTPError(req.full_url, 500, "boom", {}, closed)
-        answers = [lambda req, timeout, b=b: io.BytesIO(b) for b in (
-            b"<html>proxy</html>", b"[]", b'{"candidates": ["x"]}',
-            b'{"candidates": {"0": {}}}', b'{"candidates": [{"content": {"parts": ["x"]}}]}')]
-        for urlopen in answers + [http_error]:
+            raise self.ocr.urllib.error.HTTPError(
+                req.full_url, 500, "boom", {}, closed
+            )
+
+        answers = [
+            lambda req, timeout, b=b: io.BytesIO(b)
+            for b in (
+                b"<html>proxy</html>",
+                b"[]",
+                b'{"candidates": ["x"]}',
+                b'{"candidates": {"0": {}}}',
+                b'{"candidates": [{"content": {"parts": ["x"]}}]}',
+            )
+        ]
+        for urlopen in [*answers, http_error]:
             fallback = mock.Mock(return_value=("offline text", False))
-            with self.subTest(urlopen=urlopen), \
-                    mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen), \
-                    mock.patch.object(self.ocr, "local_transcribe", fallback):
+            with (
+                self.subTest(urlopen=urlopen),
+                mock.patch.object(self.ocr.urllib.request, "urlopen", urlopen),
+                mock.patch.object(self.ocr, "local_transcribe", fallback),
+            ):
                 self.notify_log.unlink(missing_ok=True)
                 self.assertEqual(self.run_main(), 1)
-                self.assertIn("OCR Failed Unexpected", self.notify_log.read_text())
+                self.assertIn(
+                    "OCR Failed Unexpected", self.notify_log.read_text()
+                )
                 fallback.assert_not_called()  # Gemini answered: never offline
 
     def test_connection_cut_mid_reply_counts_as_unreachable(self):
         class Cut(io.BytesIO):
             def read(self, *a):
                 raise self_ocr.http.client.IncompleteRead(b"partial", 74)
+
         self_ocr = self.ocr
         fallback = mock.Mock(return_value=("offline text", False))
-        with mock.patch.object(self.ocr.urllib.request, "urlopen", lambda req, timeout: Cut()), \
-                mock.patch.object(self.ocr, "local_transcribe", fallback):
+        with (
+            mock.patch.object(
+                self.ocr.urllib.request, "urlopen", lambda req, timeout: Cut()
+            ),
+            mock.patch.object(self.ocr, "local_transcribe", fallback),
+        ):
             self.assertEqual(self.run_main(), 0)
         fallback.assert_called_once()
         self.assertEqual(self.clipboard.read_text(), "offline text")
@@ -306,8 +448,10 @@ class ModeTests(unittest.TestCase):
         for args in (["--translte"], ["--translate", "junk"]):
             with self.subTest(args=args), self.gemini("unused"):
                 self.assertEqual(self.run_main(*args), 1)
-                self.assertIn(f"Unknown arguments: {' '.join(args)}",
-                              self.notify_log.read_text())
+                self.assertIn(
+                    f"Unknown arguments: {' '.join(args)}",
+                    self.notify_log.read_text(),
+                )
         self.assertFalse(self.slurp_log.exists())
         self.assertEqual(self.sent, [])
 
@@ -373,13 +517,22 @@ http.server.HTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
 def png(width, height):
     """A valid 1-bit grayscale PNG; only its IHDR size matters to the script."""
+
     def chunk(kind, data):
-        return (struct.pack(">I", len(data)) + kind + data
-                + struct.pack(">I", zlib.crc32(kind + data)))
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data))
+        )
+
     rows = b"".join(b"\0" + b"\0" * ((width + 7) // 8) for _ in range(height))
-    return (b"\x89PNG\r\n\x1a\n"
-            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 1, 0, 0, 0, 0))
-            + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 1, 0, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(rows))
+        + chunk(b"IEND", b"")
+    )
 
 
 class OfflineFallbackTests(unittest.TestCase):
@@ -395,10 +548,11 @@ class OfflineFallbackTests(unittest.TestCase):
         self.notify_log = self.root / "notify.log"
         self.clipboard = self.root / "clipboard"
         for name, body in [
-                ("slurp", "echo '0,0 300x100'"),
-                ("grim", f"exec /usr/bin/cat {self.root / 'capture.png'}"),
-                ("wl-copy", f"exec /usr/bin/cat > {self.clipboard}"),
-                ("notify-send", f'printf "%s\\n" "$*" >> {self.notify_log}')]:
+            ("slurp", "echo '0,0 300x100'"),
+            ("grim", f"exec /usr/bin/cat {self.root / 'capture.png'}"),
+            ("wl-copy", f"exec /usr/bin/cat > {self.clipboard}"),
+            ("notify-send", f'printf "%s\\n" "$*" >> {self.notify_log}'),
+        ]:
             (bin_ / name).write_text(f"#!/bin/sh\n{body}\n")
             (bin_ / name).chmod(0o755)
         (bin_ / "llama-server").write_text(FAKE_LLAMA_SERVER)
@@ -407,36 +561,42 @@ class OfflineFallbackTests(unittest.TestCase):
         # on PATH, so a broken fake fails instead of running the real program.
         for tool in ("bash", "tail"):
             (bin_ / tool).symlink_to(f"/usr/bin/{tool}")
-        self.env = {"PATH": str(bin_), "HOME": str(self.root),
-                    "XDG_RUNTIME_DIR": str(self.root), "GOOGLE_API_KEY": "unused",
-                    # Gemini is https: a closed proxy port makes it unreachable.
-                    "https_proxy": "http://127.0.0.1:1", "no_proxy": "",
-                    "FAKE_DIR": str(self.root),
-                    "FAKE_REPLY": "Anfahrt"}
+        self.env = {
+            "PATH": str(bin_),
+            "HOME": str(self.root),
+            "XDG_RUNTIME_DIR": str(self.root),
+            "GOOGLE_API_KEY": "unused",
+            # Gemini is https: a closed proxy port makes it unreachable.
+            "https_proxy": "http://127.0.0.1:1",
+            "no_proxy": "",
+            "FAKE_DIR": str(self.root),
+            "FAKE_REPLY": "Anfahrt",
+        }
 
     def start(self, *args):
-        proc = subprocess.Popen([sys.executable, "-B", str(SCRIPT), *args], env=self.env,
-                                start_new_session=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen(
+            [sys.executable, "-B", str(SCRIPT), *args],
+            env=self.env,
+            start_new_session=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
         self.addCleanup(self.kill, proc)
         return proc
 
     def kill(self, proc):
-        try:
+        with contextlib.suppress(ProcessLookupError):
             os.killpg(proc.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
         proc.communicate()
         pid = self.root / "server.pid"
-        if pid.exists():  # the fake runs in its own session; never leave it behind
-            try:
+        # the fake runs in its own session; never leave it behind
+        if pid.exists():
+            with contextlib.suppress(ProcessLookupError):
                 os.kill(int(pid.read_text()), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
 
     def run_script(self, *args):
         proc = self.start(*args)
-        out, err = proc.communicate(timeout=30)
+        _out, err = proc.communicate(timeout=30)
         return proc.returncode, err.decode()
 
     def notices(self):
@@ -459,7 +619,9 @@ class OfflineFallbackTests(unittest.TestCase):
         self.assertEqual(argv[argv.index("-hf") + 1], self.MODEL)
         self.assertEqual(argv[argv.index("--host") + 1], "127.0.0.1")
         request = json.loads((self.root / "request.json").read_text())
-        self.assertEqual(request["messages"][0]["content"][1]["text"], "Text Recognition:")
+        self.assertEqual(
+            request["messages"][0]["content"][1]["text"], "Text Recognition:"
+        )
         self.assertEqual(request["max_tokens"], 64 + 300 * 100 // 200)
         self.assertFalse(self.server_alive(), "server left running")
 
@@ -487,11 +649,18 @@ class OfflineFallbackTests(unittest.TestCase):
         # Not bash's report of the watchdog's tail, which it kills on the way out.
         self.env["FAKE_MODE"] = "silent"
         self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("Offline model failed to start: no output", self.notices())
+        self.assertIn(
+            "Offline model failed to start: no output", self.notices()
+        )
 
     def test_blank_outputs_are_no_text_but_symbols_are_kept(self):
-        for reply, blank in [("---", True), ("\n```markdown\n\n```", True),
-                             ("$=$", False), ("\u2192", False), ("```foo```", False)]:
+        for reply, blank in [
+            ("---", True),
+            ("\n```markdown\n\n```", True),
+            ("$=$", False),
+            ("\u2192", False),
+            ("```foo```", False),
+        ]:
             with self.subTest(reply=reply):
                 self.env["FAKE_REPLY"] = reply
                 self.notify_log.unlink(missing_ok=True)
@@ -502,10 +671,15 @@ class OfflineFallbackTests(unittest.TestCase):
 
     def test_odd_local_replies_end_in_one_visible_failure(self):
         self.env["FAKE_MODE"] = "garbage"
-        for raw in ("not json", "[]", '{"choices": []}', '{"choices": ["x"]}',
-                    '{"choices": [{"message": "s"}]}',
-                    '{"choices": [{"message": {"content": ["a"]}}]}',
-                    '{"choices": [{"message": {"content": []}}]}'):
+        for raw in (
+            "not json",
+            "[]",
+            '{"choices": []}',
+            '{"choices": ["x"]}',
+            '{"choices": [{"message": "s"}]}',
+            '{"choices": [{"message": {"content": ["a"]}}]}',
+            '{"choices": [{"message": {"content": []}}]}',
+        ):
             with self.subTest(raw=raw):
                 self.env["FAKE_RAW"] = raw
                 self.notify_log.unlink(missing_ok=True)
@@ -517,7 +691,9 @@ class OfflineFallbackTests(unittest.TestCase):
     def test_local_http_error_shows_its_body(self):
         self.env["FAKE_MODE"] = "http500"
         self.assertEqual(self.run_script()[0], 1)
-        self.assertIn("Offline model returned 500. boom: out of memory", self.notices())
+        self.assertIn(
+            "Offline model returned 500. boom: out of memory", self.notices()
+        )
 
     def test_output_limit_is_reported_as_truncated(self):
         self.env.update(FAKE_REPLY="Anf", FAKE_FINISH="length")
@@ -527,7 +703,10 @@ class OfflineFallbackTests(unittest.TestCase):
     def test_killed_caller_takes_the_server_down(self):
         # SIGKILL and SIGTERM run no finally: only the watchdog can stop the
         # server, whether it is still starting or already answering.
-        for mode, reached in (("slowstart", "server.pid"), ("hang", "request.json")):
+        for mode, reached in (
+            ("slowstart", "server.pid"),
+            ("hang", "request.json"),
+        ):
             for sig in (signal.SIGKILL, signal.SIGTERM):
                 with self.subTest(phase=mode, signal=sig.name):
                     for f in ("server.pid", "request.json"):
@@ -536,13 +715,22 @@ class OfflineFallbackTests(unittest.TestCase):
                     proc = self.start()
                     deadline = time.monotonic() + 20
                     while not (self.root / reached).exists():
-                        self.assertLess(time.monotonic(), deadline, f"never reached {reached}")
+                        self.assertLess(
+                            time.monotonic(),
+                            deadline,
+                            f"never reached {reached}",
+                        )
                         time.sleep(0.05)
                     os.kill(proc.pid, sig)
                     proc.wait()
-                    deadline = time.monotonic() + 5  # tail --pid polls once a second
+                    # tail --pid polls once a second
+                    deadline = time.monotonic() + 5
                     while self.server_alive():
-                        self.assertLess(time.monotonic(), deadline, "server outlived its caller")
+                        self.assertLess(
+                            time.monotonic(),
+                            deadline,
+                            "server outlived its caller",
+                        )
                         time.sleep(0.1)
 
     def test_invalid_key_is_reported_without_echoing_it(self):

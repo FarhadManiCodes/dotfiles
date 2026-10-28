@@ -20,9 +20,10 @@ export FZF_DEFAULT_OPTS="
 [[ -n "$TMUX" ]] && export FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS --tmux center,80%"
 
 # Default command for bare `fzf` and Ctrl+T
-# Uses fd: fast, respects .gitignore, excludes .git. --one-file-system (here and in
-# every finder below, search.zsh and vifm-pick) keeps fd out of the ~/Cloud rclone
-# mounts: from ~ it walked the whole Drive (minutes) instead of 0.3 s locally.
+# Uses fd: fast, respects .gitignore, excludes .git. --one-file-system (here
+# and in every finder below, search.zsh and vifm-pick) keeps fd out of the
+# ~/Cloud rclone mounts: from ~ it walked the whole Drive (minutes) instead of
+# 0.3 s locally.
 export FZF_DEFAULT_COMMAND='fd --one-file-system --type f --hidden --follow --exclude .git'
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 
@@ -34,7 +35,10 @@ export FZF_ALT_C_COMMAND='fd --one-file-system --type d --hidden --follow --excl
 export FZF_ALT_C_OPTS="--preview 'eza --tree --icons --level=2 {}'"
 
 # Ctrl+R — history search; exact match + full command preview
-export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wrap' --bind 'ctrl-p:toggle-preview'"
+export FZF_CTRL_R_OPTS="
+  --exact
+  --preview 'echo {}'
+  --preview-window 'down:3:wrap'"
 
 # ============================================================================
 # Data Science Finders (cherry-picked from old fzf-enhancements)
@@ -45,24 +49,29 @@ export FZF_CTRL_R_OPTS="--exact --preview 'echo {}' --preview-window 'down:3:wra
 # ============================================================================
 
 # Jupyter notebook finder — Enter: edit, Ctrl+D: cd to folder
-# Enter used to launch jupyter (or tmux-jupyter-auto). Neither exists any more:
-# the tmux helper was deleted in 6388290 and jupyter is not installed, so both
-# branches only ever printed "not available". Opens in $EDITOR instead, matching
-# fdata and the application/x-ipynb+json -> vim.desktop mapping in mimeapps.list.
+# Enter used to launch jupyter (or tmux-jupyter-auto). Neither exists any
+# more: the tmux helper was deleted in 6388290 and jupyter is not installed, so
+# both branches only ever printed "not available". Opens in $EDITOR instead,
+# matching fdata and the application/x-ipynb+json -> vim.desktop mapping in
+# mimeapps.list.
 fnb() {
-  local result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null |
-    fzf --preview 'echo "📊 Size: $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "📅 Modified: $(ls -l {} 2>/dev/null | awk "{print \$6, \$7, \$8}" || echo "unknown")" && echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo "unknown")"' \
-      --preview-window='right:30%' \
-      --expect 'ctrl-d' \
-      --bind 'ctrl-o:execute(timeout 2 open-detached "$(dirname {})")' \
-      --header 'Enter: edit notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
+  local -a fd_cmd=(fd --one-file-system --type f --extension ipynb)
+  local preview='
+    echo "📊 Size: $(du -h --apparent-size {} 2>/dev/null | cut -f1)"
+    echo "📅 Modified: $(date -r {} "+%F %R" 2>/dev/null)"
+    echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"'
+  local result=$("${fd_cmd[@]}" 2>/dev/null | fzf --preview "$preview" \
+    --preview-window='right:30%' \
+    --expect 'ctrl-d' \
+    --bind 'ctrl-o:execute(timeout 2 open-detached "$(dirname {})")' \
+    --header 'Enter: edit notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
 
   local key file
   _fzf_split "$result" key file
 
-  if [ -n "$file" ]; then
+  if [[ -n "$file" ]]; then
     local dir=$(dirname "$file")
-    if [ "$key" = "ctrl-d" ]; then
+    if [[ "$key" == "ctrl-d" ]]; then
       cd "$dir" && pwd
     else
       ${EDITOR:-vim} "$file"
@@ -72,26 +81,28 @@ fnb() {
 
 # Data/model file finder — Enter: edit, Ctrl+D: cd, Ctrl+V: copy path
 fdata() {
+  local -a exts=(csv tsv jsonl ndjson json yaml yml parquet avro orc feather
+    xlsx xls pkl pickle joblib h5 hdf5 pt pth onnx)
+  # git/ignore hides data formats such as *.parquet everywhere; fd finds it
+  # through XDG_CONFIG_HOME, so pointing that away shows them. Its directory
+  # rules go too (build/, _build/, build_*/, bin/, ENV/, /target/,
+  # /dbt_packages/, /logs/), so data files in them show; each repository's
+  # .gitignore still applies.
+  local -a fd_cmd=(env XDG_CONFIG_HOME=/nonexistent
+    fd --one-file-system --type f --extension=${^exts}
+    --exclude __pycache__ --exclude node_modules --exclude venv)
+  local preview='
+    echo "📁 $(basename {})"
+    echo "📊 $(du -h --apparent-size {} 2>/dev/null | cut -f1)"
+    echo
+    bat --color=always --style=plain --line-range=:12 {} 2>/dev/null \
+      || head -8 {} 2>/dev/null'
   local result
-  result=$(fd --one-file-system --type f \
-    -e csv -e tsv -e jsonl -e ndjson \
-    -e json -e yaml -e yml \
-    -e parquet -e avro -e orc -e feather \
-    -e xlsx -e xls \
-    -e pkl -e pickle -e joblib \
-    -e h5 -e hdf5 \
-    -e pt -e pth -e onnx \
-    --exclude __pycache__ --exclude node_modules --exclude venv |
-    fzf --preview='echo "📁 $(basename {})" && echo "📊 $(ls -lh {} 2>/dev/null | awk "{print \$5}" || echo "unknown")" && echo "" &&
-                   if command -v bat >/dev/null 2>&1; then
-                     bat --color=always --style=plain --line-range=:12 {} 2>/dev/null || head -8 {} 2>/dev/null
-                   else
-                     head -8 {} 2>/dev/null
-                   fi' \
-      --preview-window='right:40%' \
-      --expect 'ctrl-d,ctrl-v' \
-      --bind 'ctrl-o:execute(open-detached "$(dirname {})")' \
-      --header '📊 Data & Model Files | Enter: edit | Ctrl+D: cd | Ctrl+V: copy path | Ctrl+O: open folder')
+  result=$("${fd_cmd[@]}" 2>/dev/null | fzf --preview="$preview" \
+    --preview-window='right:40%' \
+    --expect 'ctrl-d,ctrl-v' \
+    --bind 'ctrl-o:execute(open-detached "$(dirname {})")' \
+    --header '📊 Data & Model Files | Enter: edit | Ctrl+D: cd | Ctrl+V: copy path | Ctrl+O: open folder')
 
   local key file
   _fzf_split "$result" key file

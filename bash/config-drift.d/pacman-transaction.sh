@@ -1,4 +1,5 @@
-# shellcheck shell=bash
+#!/bin/bash
+# shellcheck disable=SC2154  # issues: set by config-drift, which sources this file
 # mkinitcpio runs from a PostTransaction hook. When it fails it prints the error
 # into the middle of pacman's output and does NOT fail the transaction, so the
 # only sign is a line you scrolled past -- and you find out at the next boot.
@@ -9,23 +10,25 @@
 # /var/log/pacman.log is 0644 root:root, so this needs no root -- and unlike an
 # update transcript it is persistent and covers transactions run outside sysup.
 check_pacman_transaction() {
-  local block=$1 when tbad=0 line message
-  when=${block%%]*}; when=${when#\[}
+  local block=$1 when line message warned=$issues
+  when=${block%%]*}
+  when=${when#\[}
   while IFS= read -r line; do
     if [[ $line == *'[ALPM-SCRIPTLET]'* &&
-          ( $line == *'==> ERROR'* || $line == *'errors were encountered'* ) ]]; then
+      ($line == *'==> ERROR'* || $line == *'errors were encountered'*) ]]; then
       message=${line#*\[ALPM-SCRIPTLET\] }
-      warn "scriptlet error in transaction ${when}: ${message:0:80}"; tbad=1
+      warn "scriptlet error in transaction ${when}: ${message:0:80}"
     fi
   done <<<"$block"
   if [[ $block != *'[ALPM] transaction completed'* ]]; then
-    warn "pacman transaction has no completion record (${when})"; tbad=1
+    warn "pacman transaction has no completion record (${when})"
   fi
-  if [[ ( $block == *'Updating linux initcpios'* || $block == *'==> Building'* ) &&
-        $block != *'Initcpio image generation successful'* ]]; then
-    warn "initramfs was rebuilt but never reported success (${when}) — check before rebooting"; tbad=1
+  if [[ ($block == *'Updating linux initcpios'* || $block == *'==> Building'*) &&
+    $block != *'Initcpio image generation successful'* ]]; then
+    warn "initramfs was rebuilt but never reported success (${when}) — check before rebooting"
   fi
-  ((tbad)) || ok "clean (${when})"
+  # Several transactions share one section, so each answers for its own.
+  ((issues > warned)) || ok "clean (${when})"
 }
 
 # Standalone: inspect the last transaction. sysup supplies a device:inode:bytes
@@ -41,11 +44,11 @@ check_last_pacman_transaction() {
   if [[ -n $pacman_since ]]; then
     if [[ $pacman_since == unavailable ]]; then
       warn "pacman log boundary unavailable — update transactions not checked"
-    elif ! current=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) ||\
-         [[ ${current%:*} != "${pacman_since%:*}" ]] ||\
-         (( ${current##*:} < ${pacman_since##*:} )); then
+    elif ! current=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) \
+      || [[ ${current%:*} != "${pacman_since%:*}" ]] \
+      || ((${current##*:} < ${pacman_since##*:})); then
       warn "pacman log replaced, truncated or unavailable — update coverage incomplete"
-    elif ! block=$(tail -c "+$(( ${pacman_since##*:} + 1 ))" "$plog" 2>/dev/null); then
+    elif ! block=$(tail -c "+$((${pacman_since##*:} + 1))" "$plog" 2>/dev/null); then
       warn "$plog is not readable — update transactions not checked"
     else
       transaction=''
@@ -63,8 +66,8 @@ check_last_pacman_transaction() {
       else
         ok "no new ALPM transaction recorded since update started"
       fi
-      if ! after=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) ||\
-         [[ ${after%:*} != "${current%:*}" ]] || (( ${after##*:} < ${current##*:} )); then
+      if ! after=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) \
+        || [[ ${after%:*} != "${current%:*}" ]] || ((${after##*:} < ${current##*:})); then
         warn "pacman log changed during read — update coverage incomplete"
       fi
     fi

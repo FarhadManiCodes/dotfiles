@@ -9,15 +9,21 @@ menu=$(pactl -f json list sinks | jq -r --arg d "$(pactl get-default-sink)" '
     .[] | .active_port as $p
     | select(([.ports[] | select(.name == $p) | .availability] | first) != "not available")
     | "\(.name)\t\(if .name == $d then "* " else "  " end)\(.description)"') \
-    || { notify "Could not list the outputs"; exit 1; }
+  || {
+    notify "Could not list the outputs"
+    exit 1
+  }
 [[ -n $menu ]] || exit 0
 
 sink=$(fuzzel --dmenu --only-match --with-nth=2 --accept-nth=1 \
-    --prompt " Audio  " --width 50 <<<"$menu")
+  --prompt " Audio  " --width 50 <<<"$menu")
 [[ -n $sink ]] || exit 0
 
-err=$(pactl set-default-sink "$sink" 2>&1) || { notify "Could not switch: $err"; exit 1; }
+err=$(pactl set-default-sink "$sink" 2>&1) || {
+  notify "Could not switch: $err"
+  exit 1
+}
 # Move what is already playing, too.
 pactl list short sink-inputs | while read -r id _; do
-    pactl move-sink-input "$id" "$sink"
+  pactl move-sink-input "$id" "$sink"
 done

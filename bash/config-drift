@@ -11,15 +11,37 @@ verbose=0
 pacman_since=''
 issues=0
 skipped=0
+hdr_issues=0
+hdr_skipped=0
 now=$(date +%s)
 export LC_ALL=C
 shopt -s nullglob
 df_dir=${DOTFILES:-$HOME/dotfiles}
 
-hdr() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
-ok()   { printf '   \033[32mok\033[0m  %s\n' "$1"; }
-skip() { printf '   \033[34m--\033[0m  %s\n' "$1"; skipped=$((skipped+1)); }
-warn() { printf '   \033[33m!!\033[0m  %s\n' "$1"; issues=$((issues+1)); }
+# A section runs from one hdr to the next. hdr notes the totals, so a check's
+# closing ok can tell whether its section warned or skipped anything.
+hdr() {
+  hdr_issues=$issues hdr_skipped=$skipped
+  printf '\n\033[1m== %s ==\033[0m\n' "$1"
+}
+ok() { printf '   \033[32mok\033[0m  %s\n' "$1"; }
+skip() {
+  printf '   \033[34m--\033[0m  %s\n' "$1"
+  skipped=$((skipped + 1))
+}
+warn() {
+  printf '   \033[33m!!\033[0m  %s\n' "$1"
+  issues=$((issues + 1))
+}
+# Information only: neither a problem nor a gap, so it counts nowhere.
+note() { printf '   \033[34m··\033[0m  %s\n' "$1"; }
+# ok only if this section warned and skipped nothing. -p lets skips through,
+# for a message that itself says what was excluded.
+pass() {
+  local skips=$((skipped - hdr_skipped))
+  [[ $1 == -p ]] && skips=0 && shift
+  ((issues > hdr_issues || skips)) || ok "$1"
+}
 
 # Checks too big to keep inline live one-per-file in config-drift.d/, found
 # through this script's own real path (install.sh symlinks bash/* into
@@ -54,7 +76,7 @@ check_pacnew() {
         base=${f%.pacnew}
         if [[ -r $f && -r $base ]]; then
           n=$(diff "$base" "$f" 2>/dev/null | grep -c '^[<>]')
-          age=$(( ( now - $(stat -c %Y "$f") ) / 86400 ))
+          age=$(((now - $(stat -c %Y "$f")) / 86400))
           printf '       %-46s %4s changed lines, %s days old\n' "${f#/etc/}" "$n" "$age"
           if ((verbose)); then
             diff -u "$base" "$f" 2>/dev/null | sed -n '3,$p' | sed 's/^/         /'
@@ -72,11 +94,11 @@ check_pacnew() {
 # point at a user-writable path; sysctl.d and zram-generator.conf are read at
 # boot before $HOME is guaranteed) — see docs/architecture/config-drift.md for
 # why that means checking them here.
-check_root() {   # $1 repo path, $2 installed path
+check_root() { # $1 repo path, $2 installed path
   local src=$1 dest=$2 result
   local -a reader=()
   if [[ ! -r $src ]]; then
-    warn "${src#"$df_dir"/} is unreadable or missing — not compared"; drift=1
+    warn "${src#"$df_dir"/} is unreadable or missing — not compared"
     return
   fi
   if [[ ! -r $dest ]]; then
@@ -85,7 +107,7 @@ check_root() {   # $1 repo path, $2 installed path
     if sudo -n test -r "$dest" 2>/dev/null; then
       reader=(sudo -n)
     elif [[ -x ${dest%/*} && ! -e $dest ]]; then
-      warn "$dest is NOT installed — review install-root.sh"; drift=1
+      warn "$dest is NOT installed — review install-root.sh"
       return
     else
       skip "$dest needs access to read — not compared"
@@ -96,8 +118,12 @@ check_root() {   # $1 repo path, $2 installed path
   result=$?
   case $result in
     0) ;;
-    1) warn "$dest differs from ${src#"$df_dir"/} — review both before syncing"; drift=1 ;;
-    *) warn "$dest comparison failed — not compared"; drift=1 ;;
+    1)
+      warn "$dest differs from ${src#"$df_dir"/} — review both before syncing"
+      ;;
+    *)
+      warn "$dest comparison failed — not compared"
+      ;;
   esac
 }
 
@@ -111,19 +137,23 @@ root_copies() {
   # the /etc sweep. Repo metadata that installs nowhere -- without excluding them
   # the comparison demands /etc/unowned.txt and never goes green.
   if files=$(find "$df_dir/etc" -type f \
-      ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null); then
+    ! -name README.md ! -name unowned.txt ! -name modified.txt 2>/dev/null); then
     while IFS= read -r f; do
       [[ -n $f ]] && root_src+=("$f") root_dst+=("/etc${f#"$df_dir"/etc}")
     done <<<"$files"
   else
-    warn "cannot enumerate tracked etc/ configs"; root_list_bad=1
+    warn "cannot enumerate tracked etc/ configs"
+    root_list_bad=1
   fi
   root_src+=("$df_dir/pam/swaylock" "$df_dir/sysctl/99-performance.conf" "$df_dir/zram/zram-generator.conf")
   root_dst+=(/etc/pam.d/swaylock /etc/sysctl.d/99-performance.conf /etc/systemd/zram-generator.conf)
   # nullglob: a missing or unreadable system-sleep/ would expand to nothing and
   # compare nothing, silently. unblock-fuse at least is always tracked.
   local -a hooks=("$df_dir"/system-sleep/*)
-  ((${#hooks[@]})) || { warn "no system-sleep/ hooks found (missing or unreadable) — none checked"; root_list_bad=1; }
+  ((${#hooks[@]})) || {
+    warn "no system-sleep/ hooks found (missing or unreadable) — none checked"
+    root_list_bad=1
+  }
   for f in "${hooks[@]}"; do
     root_src+=("$f") root_dst+=("/usr/lib/systemd/system-sleep/${f##*/}")
   done
@@ -132,10 +162,9 @@ root_copies() {
 check_root_configs() {
   hdr "Root configs match the repo"
   root_copies
-  drift=$root_list_bad
   local i
   for i in "${!root_src[@]}"; do check_root "${root_src[i]}" "${root_dst[i]}"; done
-  ((drift)) || ok "all compared root configs match (access exclusions listed above)"
+  pass -p "all compared root configs match (access exclusions listed above)"
 }
 
 # The check above answers "is this the file I wrote?". It cannot answer "can
@@ -162,9 +191,9 @@ check_parents() {
       if meta=$(stat -c '%U %a' -- "$d" 2>/dev/null); then
         read -r owner mode <<<"$meta"
         if [[ $owner != root ]]; then
-          warn "$d is owned by $owner — its contents can be replaced"; priv=1
+          warn "$d is owned by $owner — its contents can be replaced"
         elif ((8#$mode & 022)); then
-          warn "$d is mode $mode — group/world-writable directory"; priv=1
+          warn "$d is mode $mode — group/world-writable directory"
         fi
       else
         skip "$d metadata unreadable — not checked"
@@ -183,59 +212,61 @@ check_privileged() {
   local dest=$1 need_exec=${2:-} meta owner group mode kind
   if [[ -L $dest ]]; then
     warn "$dest is a symlink — install-root.sh copies; a link can leave root-owned space"
-    priv=1; return
+    return
   fi
   if ! meta=$(stat -c '%U %G %a %F' -- "$dest" 2>/dev/null); then
-    skip "$dest metadata unreadable — not checked"; return
+    skip "$dest metadata unreadable — not checked"
+    return
   fi
   read -r owner group mode kind <<<"$meta"
-  [[ $kind == "regular file" ]] || { warn "$dest is a $kind, not a regular file"; priv=1; }
-  [[ $owner == root && $group == root ]] || { warn "$dest is $owner:$group, not root:root"; priv=1; }
-  ((8#$mode & 022)) && { warn "$dest is mode $mode — writable by group or others"; priv=1; }
-  [[ $need_exec == exec && ! -x $dest ]] && \
-    { warn "$dest is mode $mode — not executable, so it will be skipped"; priv=1; }
+  [[ $kind == "regular file" ]] || warn "$dest is a $kind, not a regular file"
+  [[ $owner == root && $group == root ]] || warn "$dest is $owner:$group, not root:root"
+  ((8#$mode & 022)) && warn "$dest is mode $mode — writable by group or others"
+  [[ $need_exec == exec && ! -x $dest ]] \
+    && warn "$dest is mode $mode — not executable, so it will be skipped"
   check_parents "$dest"
 }
 
 check_privileged_configs() {
   hdr "Root configs are root-owned and unwritable by others"
-  [[ -v root_dst ]] || root_copies   # standalone (e.g. sourced) use
-  priv=$root_list_bad
+  [[ -v root_dst ]] || root_copies # standalone (e.g. sourced) use
   declare -A parent_seen=()
   local dest
   for dest in "${root_dst[@]}"; do
-    case $dest in   # a sleep hook is only useful if it is executable
+    case $dest in # a sleep hook is only useful if it is executable
       /usr/lib/systemd/system-sleep/*) check_privileged "$dest" exec ;;
       *) check_privileged "$dest" ;;
     esac
   done
   check_privileged /usr/share/wayland-sessions/niri-isolated.desktop
   check_privileged /usr/local/bin/niri-session-isolated exec
-  ((priv)) || ok "root-owned, not writable by others, under root-owned directories"
+  # The list's own warning was printed under the section above.
+  ((root_list_bad)) \
+    || pass -p "root-owned, not writable by others, under root-owned directories (unreadable paths listed above excluded)"
 }
 
 check_plugin_staleness() {
   hdr "Plugins behind upstream"
-  stale=0
   plugin_count=0
   for d in "${XDG_CONFIG_HOME:-$HOME/.config}"/tmux/plugins/*/ "${XDG_CONFIG_HOME:-$HOME/.config}"/zsh/plugins/*/ ~/.vim/plugged/*/; do
     [[ -e $d/.git ]] || continue
-    name=${d%/}; name=${name##*/}
+    name=${d%/}
+    name=${name##*/}
     # Use the configured upstream, including non-origin remotes and differently
     # named branches. No fetch here: sysup owns network updates.
     if behind=$(git -C "$d" rev-list --count 'HEAD..@{upstream}' 2>/dev/null); then
-      plugin_count=$((plugin_count+1))
+      plugin_count=$((plugin_count + 1))
       if ((behind > 0)); then
-        warn "$name is $behind commits behind its upstream"; stale=1
+        warn "$name is $behind commits behind its upstream"
       fi
     else
-      skip "$name: upstream unavailable — not compared"; stale=1
+      skip "$name: upstream unavailable — not compared"
     fi
   done
   if ((plugin_count == 0)); then
     skip "no plugin repositories could be compared"
-  elif ((stale == 0)); then
-    ok "$plugin_count plugins current (as of the last fetch — sysup refreshes them)"
+  else
+    pass "$plugin_count plugins current (as of the last fetch — sysup refreshes them)"
   fi
 
   # nvim is deliberately not in the loop above — see docs/architecture/neovim.md
@@ -244,11 +275,11 @@ check_plugin_staleness() {
   # change mtime) — don't read a recent timestamp as "plugins are current".
   lock="$df_dir/nvim/lazy-lock.json"
   if [[ -f $lock ]]; then
-    age=$(( ( now - $(stat -c %Y "$lock") ) / 86400 ))
+    age=$(((now - $(stat -c %Y "$lock")) / 86400))
     n=$(grep -c '{ "branch"\|": {' "$lock" 2>/dev/null)
     if ((age > 60)); then
       warn "nvim: lazy-lock.json untouched for ${age} days (${n} plugins pinned)"
-      echo  "       refresh with: nvim --headless '+Lazy! sync' +qa   (sysup does this)"
+      echo "       refresh with: nvim --headless '+Lazy! sync' +qa   (sysup does this)"
     else
       ok "nvim: ${n} plugins pinned, lockfile ${age} days old"
     fi
@@ -284,14 +315,22 @@ check_systemd_units() {
 main() {
   while (($#)); do
     case $1 in
-      -v|--verbose) verbose=1; shift ;;
+      -v | --verbose)
+        verbose=1
+        shift
+        ;;
       --pacman-since)
         if (($# < 2)) || [[ ! $2 =~ ^[0-9]+:[0-9]+:[0-9]+$ && $2 != unavailable ]]; then
           echo "config-drift: --pacman-since requires a device:inode:bytes boundary" >&2
           exit 2
         fi
-        pacman_since=$2; shift 2 ;;
-      *) echo "config-drift: unknown argument: $1" >&2; exit 2 ;;
+        pacman_since=$2
+        shift 2
+        ;;
+      *)
+        echo "config-drift: unknown argument: $1" >&2
+        exit 2
+        ;;
     esac
   done
 

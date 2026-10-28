@@ -15,22 +15,34 @@
 pdf=$1
 read -r page x y <<<"${2:-}"
 [[ $page =~ ^[0-9]+$ ]] || exit 0
-[[ -f $pdf ]] || { notify-send sioyek "No PDF path"; exit 1; }
+[[ -f $pdf ]] || {
+  notify-send sioyek "No PDF path"
+  exit 1
+}
 
 # A PDF built without -synctex=1 fails here, with the reason on the first line.
 out=$(synctex edit -o "$((page + 1)):$x:$y:$pdf" 2>&1) \
-    || { notify-send sioyek "synctex: ${out%%$'\n'*}"; exit 1; }
+  || {
+    notify-send sioyek "synctex: ${out%%$'\n'*}"
+    exit 1
+  }
 
 # The first result: each block lists Input: before Line:.
 file='' line=''
 while IFS=: read -r key val; do
-    case $key in
-        Input) file=$val ;;
-        Line) line=$val; break ;;
-    esac
+  case $key in
+    Input) file=$val ;;
+    Line)
+      line=$val
+      break
+      ;;
+  esac
 done <<<"$out"
 [[ -n $file && -n $line ]] \
-    || { notify-send sioyek "SyncTeX found no source for this selection"; exit 1; }
+  || {
+    notify-send sioyek "SyncTeX found no source for this selection"
+    exit 1
+  }
 
 # synctex prints /dir/./main.tex; normalise so nvim matches the open buffer
 # instead of opening a duplicate.

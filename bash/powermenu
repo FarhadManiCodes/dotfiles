@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Validate the internal action before opening Fuzzel or running system commands.
-if (( $# > 0 )); then
-    if (( $# != 2 )) || [[ $1 != "--inhibited" ]] || [[ $2 != "poweroff" && $2 != "reboot" ]]; then
-        printf 'Usage: powermenu [--inhibited <poweroff|reboot>]\n' >&2
-        exit 2
-    fi
+if (($# > 0)); then
+  if (($# != 2)) || [[ $1 != "--inhibited" ]] || [[ $2 != "poweroff" && $2 != "reboot" ]]; then
+    printf 'Usage: powermenu [--inhibited <poweroff|reboot>]\n' >&2
+    exit 2
+  fi
 fi
 
 # --- Pre-shutdown teardown ---
@@ -15,37 +15,37 @@ fi
 pre_shutdown() { systemctl --user stop 'rclone@*'; }
 
 # systemd-inhibit holds the locks for this child, releasing them when it exits.
-if (( $# == 2 )); then
-    if pre_shutdown; then
-        systemctl "$2"
-        exit $?
-    else
-        exit $?
-    fi
+if (($# == 2)); then
+  if pre_shutdown; then
+    systemctl "$2"
+    exit $?
+  else
+    exit $?
+  fi
 fi
 
 # --- Styling (Catppuccin Mocha / Danger context) ---
 FUZZEL_ARGS=(
-    --dmenu
-    --no-sort
-    --anchor top-right
-    --width 12
-    --lines 5
-    --background-color 1e1e2eff
-    --text-color cdd6f4ff
-    --border-color f38ba8ff
-    --match-color f38ba8ff
-    --selection-color f38ba8ff
-    --selection-text-color 1e1e2eff
+  --dmenu
+  --no-sort
+  --anchor top-right
+  --width 12
+  --lines 5
+  --background-color 1e1e2eff
+  --text-color cdd6f4ff
+  --border-color f38ba8ff
+  --match-color f38ba8ff
+  --selection-color f38ba8ff
+  --selection-text-color 1e1e2eff
 )
 
 # --- Options ---
 OPTIONS=(
-    "🔒 Lock"
-    "💤 Suspend"
-    "🚪 Logout"
-    "🔄 Reboot"
-    "🛑 Shutdown"
+  "🔒 Lock"
+  "💤 Suspend"
+  "🚪 Logout"
+  "🔄 Reboot"
+  "🛑 Shutdown"
 )
 
 # --- Main Menu ---
@@ -53,32 +53,35 @@ selected=$(printf '%s\n' "${OPTIONS[@]}" | fuzzel "${FUZZEL_ARGS[@]}" --prompt "
 
 # --- Confirmation helper ---
 confirm() {
-    printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1"
+  printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1"
 }
 
 # --- Protected power request ---
 request_power() {
-    local action=$1 diagnostic status script
-    if diagnostic=$(
-        {
-            script=$(realpath -- "${BASH_SOURCE[0]}") || exit $?
-            systemd-inhibit --what=sleep:idle:handle-lid-switch --mode=block "$script" --inhibited "$action"
-        } 2>&1
-    ); then
-        return 0
-    else
-        status=$?
-        printf '%s\n' "$diagnostic" >&2
-        notify-send -u critical "Power request failed" "$action canceled (exit $status): ${diagnostic:-No diagnostic output}"
-        return "$status"
-    fi
+  local action=$1 diagnostic status script
+  if diagnostic=$(
+    {
+      script=$(realpath -- "${BASH_SOURCE[0]}") || exit $?
+      systemd-inhibit --what=sleep:idle:handle-lid-switch --mode=block "$script" --inhibited "$action"
+    } 2>&1
+  ); then
+    return 0
+  else
+    status=$?
+    printf '%s\n' "$diagnostic" >&2
+    notify-send -u critical "Power request failed" "$action canceled (exit $status): ${diagnostic:-No diagnostic output}"
+    return "$status"
+  fi
 }
 
 # --- Logic ---
 case "$selected" in
-    "🔒 Lock")     loginctl lock-session ;;
-    "💤 Suspend")  systemctl suspend ;;
-    "🚪 Logout")   [[ "$(confirm 'Logout? ')"  == "Yes" ]] && { pre_shutdown; niri msg action quit; } ;;
-    "🔄 Reboot")   [[ "$(confirm 'Reboot? ')"   == "Yes" ]] && request_power reboot ;;
-    "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && request_power poweroff ;;
+  "🔒 Lock") loginctl lock-session ;;
+  "💤 Suspend") systemctl suspend ;;
+  "🚪 Logout") [[ "$(confirm 'Logout? ')" == "Yes" ]] && {
+    pre_shutdown
+    niri msg action quit
+  } ;;
+  "🔄 Reboot") [[ "$(confirm 'Reboot? ')" == "Yes" ]] && request_power reboot ;;
+  "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && request_power poweroff ;;
 esac

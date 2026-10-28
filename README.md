@@ -90,6 +90,12 @@ dotfiles/
 ├── install-root.sh         # Copies system-level configs to /etc
 ├── .gitignore
 ├── .claudeignore
+├── .editorconfig           # shfmt's style; any shfmt parser or printer flag ignores it
+├── .shellcheckrc           # ShellCheck settings: editors, manual runs, commit checks
+├── ruff.toml               # ruff settings: editors, manual runs, commit checks
+├── .pre-commit-config.yaml # prek's list of checks, run only through git-hooks/bootstrap
+├── .git-blame-ignore-revs  # Layout-only commits git blame skips where blame.ignoreRevsFile is set
+├── git-hooks/              # Commit checks, run by Git's hooks where installed or by hand
 ├── AGENTS.md               # Agent guardrails (CLAUDE.md imports this)
 ├── CLAUDE.md               # Thin Claude entry point → AGENTS.md
 ├── docs/                   # architecture.md, system-notes.md — detailed reference
@@ -173,6 +179,7 @@ same list with fuller reasoning; keep the two in step.
 | `~/.config/rclone/rclone.conf` | OAuth tokens for the `gdrive` and `Dropbox` remotes |
 | `pg_password` podman secret | Under podman's graphroot, `/var/lib/docker/secrets` — recreate with `podman secret create pg_password -`; `pg.service` will not start without it |
 | `~/.cargo/bin/shpool` | Detachable shell-session daemon used by `keep`, `lg`, and Mod+A — recreate with `cargo install shpool` |
+| `~/.cargo/bin/prek`, `~/.cargo/bin/jscpd` | Tools the commit checks need ([Git hooks](docs/architecture/git-hooks.md)) — recreate with `cargo install prek jscpd`; `sysup` updates them once installed |
 | `~/.cargo/bin/herdr` | Stable Cargo build — recreate with `herdr-cargo --install` (also called by `install.sh`); `sysup` updates it once installed |
 | `~/.local/share/bgutil-pot` | Node token helper for yt-dlp — recreate with the matching plugin release; `sysup` maintains it once installed |
 | `~/.local/share/backgrounds/` | Wallpaper image and the `current` link swaybg and swaylock read — copy the image back and recreate the link (`niri/README.md`) |

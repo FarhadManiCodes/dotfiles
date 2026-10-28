@@ -26,10 +26,10 @@ _sysup_prune_claude_versions() {
 
   local removed=0
   for v in $versions; do
-    (( ${keep[(Ie)$v]} )) && continue
-    rm -rf "$dir/$v" && (( removed++ ))
+    ((${keep[(Ie)$v]})) && continue
+    rm -rf "$dir/$v" && ((removed++))
   done
 
-  (( removed )) && echo "   pruned ${removed} old Claude version(s); kept ${(j:, :)keep}"
+  ((removed)) && echo "   pruned ${removed} old Claude version(s); kept ${(j:, :)keep}"
   return 0
 }

@@ -303,6 +303,12 @@ System-level choices that aren't captured in any config file:
   enabled user unit and starts the daemon on demand. `sysup` updates it and the other
   Cargo-installed tools with `cargo install-update --all`; the `cargo-update` command itself
   is a pacman package and is updated earlier in the same run by `paru -Syu`.
+- **`prek` and `jscpd` are installed with `cargo install prek jscpd`**, for the commit
+  checks ([Git hooks](architecture/git-hooks.md), "Setup in a fresh clone"). The
+  resulting `~/.cargo/bin/prek` and `~/.cargo/bin/jscpd` are untracked and must be
+  recreated on a rebuild: where the hooks are installed, a missing one stops every commit
+  and names itself. `sysup` updates both with `cargo install-update --all`, and an update
+  can make tracked code fail a check (see "After a tool upgrade" there).
 - **Herdr uses `bash/herdr-cargo`**, called with `--install` by `install.sh` and
   `--update` by `sysup`. It builds only the latest stable release's executable,
   pins the resolved commit and lockfile, provisions the release-pinned Zig

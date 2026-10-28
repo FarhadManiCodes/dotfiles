@@ -1,7 +1,10 @@
 # `:checkhealth` after the plugin sync — see docs/architecture/neovim.md for
 # why, and for the errors-vs-warnings reporting rule. Costs ~2.9s headless.
 _sysup_nvim_health() {
-  command -v nvim >/dev/null 2>&1 || { echo "   nvim not installed — skipping"; return 0 }
+  command -v nvim >/dev/null 2>&1 || {
+    echo "   nvim not installed — skipping"
+    return 0
+  }
 
   local state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/sysup"
   mkdir -p "$state_dir" 2>/dev/null || return 0
@@ -21,14 +24,14 @@ _sysup_nvim_health() {
   local -a errors warnings
   local prog='/^=+$/{getline s; sub(/:.*$/,"",s); next}
              $0 ~ "^- [^ ]+ " sev " " {sub("^- [^ ]+ " sev " ",""); print s ": " $0}'
-  errors=("${(@f)$(awk -v sev=ERROR   "$prog" "$report")}")
+  errors=("${(@f)$(awk -v sev=ERROR "$prog" "$report")}")
   warnings=("${(@f)$(awk -v sev=WARNING "$prog" "$report")}")
   errors=(${errors:#})
   warnings=(${warnings:#})
 
   local n_err=${#errors} n_warn=${#warnings}
 
-  if (( n_err )); then
+  if ((n_err)); then
     echo "   ✗ ${n_err} error(s):"
     printf '       %s\n' "${errors[@]}"
   fi
@@ -40,17 +43,17 @@ _sysup_nvim_health() {
   [[ -f $seen ]] && previous=$(<"$seen")
 
   if [[ $current != $previous ]]; then
-    if (( n_warn )); then
+    if ((n_warn)); then
       echo "   ${n_warn} warning(s), changed since the last run:"
       printf '       %s\n' "${(@f)current}"
     else
       echo "   warnings cleared — none left"
     fi
-    print -r -- "$current" > "$seen"
-  elif (( n_warn )); then
+    print -r -- "$current" >"$seen"
+  elif ((n_warn)); then
     echo "   ${n_warn} warning(s), unchanged — see $report"
   fi
 
-  (( n_err || n_warn )) || echo "   healthy — no errors or warnings"
+  ((n_err || n_warn)) || echo "   healthy — no errors or warnings"
   return 0
 }

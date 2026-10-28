@@ -7,10 +7,13 @@
 site=${1:-}
 shift
 case $site in
-    scholar)   open=(open-detached) url='https://scholar.google.com/scholar?q=' ;;
-    wikipedia) open=(open-detached) url='https://en.wikipedia.org/wiki/Special:Search?search=' ;;
-    *) notify-send sioyek-search "Unknown site: $site"; exit 2 ;;
+  scholar) open=(open-detached) url='https://scholar.google.com/scholar?q=' ;;
+  wikipedia) open=(open-detached) url='https://en.wikipedia.org/wiki/Special:Search?search=' ;;
+  *)
+    notify-send sioyek-search "Unknown site: $site"
+    exit 2
+    ;;
 esac
 if ! q=$(jq -rn --arg q "$*" '$q | @uri') || ! "${open[@]}" "$url$q"; then
-    notify-send sioyek-search "Could not open the $site search"
+  notify-send sioyek-search "Could not open the $site search"
 fi

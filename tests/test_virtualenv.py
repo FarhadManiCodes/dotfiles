@@ -9,6 +9,7 @@ _is_valid_name predicate that stops vr() deleting outside $CENTRAL_VENVS.
 
     python3 -B -m unittest discover -s tests -v
 """
+
 import os
 from pathlib import Path
 import shutil
@@ -28,15 +29,22 @@ class VirtualenvTests(unittest.TestCase):
         self.bin = self.root / "bin"
         self.bin.mkdir()
         self.env = dict(
-            os.environ, PATH=f"{self.bin}:/usr/bin:/bin",
-            HOME=str(self.root), CENTRAL_VENVS=str(self.central),
+            os.environ,
+            PATH=f"{self.bin}:/usr/bin:/bin",
+            HOME=str(self.root),
+            CENTRAL_VENVS=str(self.central),
         )
 
     def run_zsh(self, script, cwd=None, stdin=""):
         return subprocess.run(
             ["zsh", "-f", "-c", 'source "$1"; ' + script, "test", str(SOURCE)],
-            cwd=cwd, env=self.env, input=stdin,
-            capture_output=True, text=True, timeout=10,
+            cwd=cwd,
+            env=self.env,
+            input=stdin,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
 
     def stub(self, name, body):
@@ -49,9 +57,12 @@ class VirtualenvTests(unittest.TestCase):
         (self.central / "myapp").mkdir(parents=True)
         (self.central / "myapp2").mkdir()
         self.env["VIRTUAL_ENV"] = str(self.central / "myapp2")
-        result = self.run_zsh('deactivate() { echo DEACTIVATED; }; vr myapp',
-                               stdin="y\n")
-        self.assertNotIn("DEACTIVATED", result.stdout, result.stdout + result.stderr)
+        result = self.run_zsh(
+            "deactivate() { echo DEACTIVATED; }; vr myapp", stdin="y\n"
+        )
+        self.assertNotIn(
+            "DEACTIVATED", result.stdout, result.stdout + result.stderr
+        )
         self.assertFalse((self.central / "myapp").exists())
         self.assertTrue((self.central / "myapp2").exists())
 
@@ -61,9 +72,14 @@ class VirtualenvTests(unittest.TestCase):
         for active, expected in ((other, False), (self.root / ".venv", True)):
             (self.root / ".venv").mkdir()
             self.env["VIRTUAL_ENV"] = str(active)
-            result = self.run_zsh('deactivate() { echo DEACTIVATED; }; vr local',
-                                  cwd=self.root, stdin="y\n")
-            self.assertEqual("DEACTIVATED" in result.stdout, expected, result.stdout)
+            result = self.run_zsh(
+                "deactivate() { echo DEACTIVATED; }; vr local",
+                cwd=self.root,
+                stdin="y\n",
+            )
+            self.assertEqual(
+                "DEACTIVATED" in result.stdout, expected, result.stdout
+            )
             self.assertFalse((self.root / ".venv").exists())
             self.assertTrue(other.exists())
 
@@ -76,7 +92,10 @@ class VirtualenvTests(unittest.TestCase):
             ("source ./.venv/bin/activate", "local"),
             # Hand-written .envrc that computes the path: healthy, so it must not
             # be reported as unparseable.
-            ('source "$(dirname "${BASH_SOURCE[0]:-$0}")/.venv/bin/activate"', "local"),
+            (
+                'source "$(dirname "${BASH_SOURCE[0]:-$0}")/.venv/bin/activate"',
+                "local",
+            ),
             # A central env named ".venv" also matches the local pattern, so the
             # central test has to win.
             (f"source {self.central}/.venv/bin/activate", ".venv"),
@@ -86,28 +105,38 @@ class VirtualenvTests(unittest.TestCase):
             ('source ".venv/bin/activate"', "local"),
             (f'source "{self.central}/myapp/bin/activate"', "myapp"),
             ('echo "Remember to source .venv/bin/activate"', ""),
-            ('source /another-project/.venv/bin/activate', ""),
-            ('source ../other/.venv/bin/activate', ""),
-            ('source .venv/bin/activate.backup', ""),
+            ("source /another-project/.venv/bin/activate", ""),
+            ("source ../other/.venv/bin/activate", ""),
+            ("source .venv/bin/activate.backup", ""),
             (f'echo "source {self.central}/myapp/bin/activate"', ""),
-            (f'source {self.central}/myapp/../other/bin/activate', ""),
+            (f"source {self.central}/myapp/../other/bin/activate", ""),
             # A path that only appears in a comment is not configuration, whether
             # the comment is the whole line or trails real code.
             ("# source .venv/bin/activate\nlayout python", ""),
-            (f"# old: source {self.central}/analysis/bin/activate\nlayout python", ""),
-            ("export FOO=1 # was: source .venv/bin/activate\nlayout python", ""),
+            (
+                f"# old: source {self.central}/analysis/bin/activate\nlayout python",
+                "",
+            ),
+            (
+                "export FOO=1 # was: source .venv/bin/activate\nlayout python",
+                "",
+            ),
             ("layout python", ""),
         ):
             envrc.write_text(body + "\n")
             result = self.run_zsh(f'_get_envrc_env "{envrc}"')
-            self.assertEqual(result.stdout.strip(), expected, f"{body}: {result.stderr}")
+            self.assertEqual(
+                result.stdout.strip(), expected, f"{body}: {result.stderr}"
+            )
 
     def stub_uv_and_direnv(self):
         """A uv that logs its arguments and fakes a venv, and a no-op direnv."""
-        self.stub("uv",
-                  '#!/bin/sh\n'
-                  'printf "%s\\n" "$*" >> "$UV_LOG"\n'
-                  'if [ "$1" = venv ]; then mkdir -p "$2/bin" && : > "$2/bin/activate"; fi\n')
+        self.stub(
+            "uv",
+            "#!/bin/sh\n"
+            'printf "%s\\n" "$*" >> "$UV_LOG"\n'
+            'if [ "$1" = venv ]; then mkdir -p "$2/bin" && : > "$2/bin/activate"; fi\n',
+        )
         self.stub("direnv", "#!/bin/sh\nexit 0\n")
         self.env["UV_LOG"] = str(self.root / "uv.log")
         project = self.root / "project"
@@ -123,15 +152,18 @@ class VirtualenvTests(unittest.TestCase):
         for args, stdin, expected in (
             ("myapp 3.12", "", "myapp --python 3.12"),
             ("3.12", "proj\n", "proj --python 3.12"),
-            ("ds myapp", "", "myapp --python 3.13"),   # order is free now
+            ("ds myapp", "", "myapp --python 3.13"),  # order is free now
         ):
             with self.subTest(args=args):
                 shutil.rmtree(self.central, ignore_errors=True)
                 log.write_text("")
                 result = self.run_zsh(f"vc {args}", cwd=project, stdin=stdin)
                 self.assertNotIn("Unknown template", result.stdout)
-                self.assertIn(f"venv {self.central}/{expected}", log.read_text(),
-                              result.stdout + result.stderr)
+                self.assertIn(
+                    f"venv {self.central}/{expected}",
+                    log.read_text(),
+                    result.stdout + result.stderr,
+                )
 
     def test_vs_pruning_requires_explicit_opt_in_and_project_ownership(self):
         # A central env is shared by several project directories, so syncing it to
@@ -159,9 +191,15 @@ class VirtualenvTests(unittest.TestCase):
                     self.assertNotEqual(result.returncode, 0, result.stdout)
                     self.assertEqual(log.read_text(), "", result.stdout)
                 else:
-                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                    self.assertTrue(log.read_text().startswith(expected), log.read_text())
-                    self.assertIn(f"--python {venv}/bin/python", log.read_text())
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertTrue(
+                        log.read_text().startswith(expected), log.read_text()
+                    )
+                    self.assertIn(
+                        f"--python {venv}/bin/python", log.read_text()
+                    )
 
     def test_vs_does_not_prune_through_a_local_symlink(self):
         project = self.stub_uv_and_direnv()
@@ -188,7 +226,9 @@ class VirtualenvTests(unittest.TestCase):
         result = self.run_zsh(f'cd "{alias}"; vs --prune')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         log = (self.root / "uv.log").read_text()
-        self.assertTrue(log.startswith("pip sync"), result.stdout + result.stderr)
+        self.assertTrue(
+            log.startswith("pip sync"), result.stdout + result.stderr
+        )
         self.assertIn(f"--python {project}/.venv/bin/python", log)
 
     def test_vr_refuses_a_name_that_escapes_central_venvs(self):
@@ -199,7 +239,9 @@ class VirtualenvTests(unittest.TestCase):
         decoy.mkdir()
         (decoy / "keep").write_text("precious")
         result = self.run_zsh("vr ../decoy", stdin="y\n")
-        self.assertTrue((decoy / "keep").exists(), result.stdout + result.stderr)
+        self.assertTrue(
+            (decoy / "keep").exists(), result.stdout + result.stderr
+        )
         self.assertIn("not found", result.stdout)
 
 

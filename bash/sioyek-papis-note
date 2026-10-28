@@ -40,14 +40,20 @@ page=${2:-}
 offset=${3:-}
 sel=${4:-}
 
-[ -n "$pdf" ] || { notify "sioyek passed no file path"; exit 1; }
+[ -n "$pdf" ] || {
+  notify "sioyek passed no file path"
+  exit 1
+}
 
 # The papis document folder IS the PDF's directory. A PDF opened from anywhere
 # else has no info.yaml, and silently writing a note next to it would be worse
 # than saying so.
 dir=${pdf%/*}
 info="$dir/info.yaml"
-[ -f "$info" ] || { notify "not a papis document: ${pdf##*/}"; exit 1; }
+[ -f "$info" ] || {
+  notify "not a papis document: ${pdf##*/}"
+  exit 1
+}
 
 # notes-name from the config file rather than `papis config notes-name`: same
 # answer, no interpreter start-up on a keypress.
@@ -56,9 +62,15 @@ notes="$dir/${notes_name:-notes.md}"
 
 # Reading starts at the top (+1); a capture starts under the block it appends (+$).
 if [ "$open_only" -eq 1 ]; then
-  [ -s "$notes" ] || { notify "no notes yet for ${dir##*/} -- press A-n to start one"; exit 0; }
+  [ -s "$notes" ] || {
+    notify "no notes yet for ${dir##*/} -- press A-n to start one"
+    exit 0
+  }
   footclient --app-id papis-note nvim '+1' "$notes" \
-    || { notify "could not open $notes"; exit 1; }
+    || {
+      notify "could not open $notes"
+      exit 1
+    }
   exit 0
 fi
 
@@ -67,8 +79,14 @@ fi
 # info.yaml is never hand-edited.
 if [ ! -f "$notes" ] || ! grep -q '^notes:' "$info"; then
   papis edit --doc-folder "$dir" --notes --editor true >/dev/null 2>&1 \
-    || { notify "papis could not create the note"; exit 1; }
-  [ -f "$notes" ] || { notify "papis reported success but $notes is missing"; exit 1; }
+    || {
+      notify "papis could not create the note"
+      exit 1
+    }
+  [ -f "$notes" ] || {
+    notify "papis reported success but $notes is missing"
+    exit 1
+  }
 fi
 
 # A non-numeric page must never leave the heading as a bare "p.".
@@ -89,7 +107,10 @@ printf -v today '%(%F)T' -1
   # the PDF, and embedding it again would crowd out other sources.
   [ -n "$sel" ] && printf '\n<!--quote-->\n> %s\n<!--/quote-->\n' "${sel//$'\n'/$'\n'> }"
   printf '\n'
-} >> "$notes" || { notify "could not append to $notes"; exit 1; }
+} >>"$notes" || {
+  notify "could not append to $notes"
+  exit 1
+}
 
 footclient --app-id papis-note nvim '+$' "$notes" \
   || notify "note written, but the editor did not open"

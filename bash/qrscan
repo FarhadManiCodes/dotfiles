@@ -8,35 +8,35 @@
 # a region with no code ate the clipboard and still reported success.
 
 warn() {
-    # From a keybinding only the notification is seen; stderr is the fallback.
-    notify-send -u critical "QR Scan" "$1" 2>/dev/null ||
-        printf 'QR Scan: %s\n' "$1" >&2
+  # From a keybinding only the notification is seen; stderr is the fallback.
+  notify-send -u critical "QR Scan" "$1" 2>/dev/null \
+    || printf 'QR Scan: %s\n' "$1" >&2
 }
 
 for cmd in slurp grim zbarimg wl-copy; do
-    command -v "$cmd" >/dev/null 2>&1 && continue
-    warn "$cmd is not installed."
-    exit 1
+  command -v "$cmd" >/dev/null 2>&1 && continue
+  warn "$cmd is not installed."
+  exit 1
 done
 
 # ESC and a real failure both exit 1; only ESC prints "selection cancelled".
 # slurp writes to stderr only when it fails, so capturing both is safe.
 if ! geom=$(slurp 2>&1); then
-    case $geom in
-        *'selection cancelled'*) exit 0 ;;
-    esac
-    warn "slurp failed: ${geom:-no message}"
-    exit 1
+  case $geom in
+    *'selection cancelled'*) exit 0 ;;
+  esac
+  warn "slurp failed: ${geom:-no message}"
+  exit 1
 fi
 
 # Empty covers both "no code found" (zbarimg exits 4) and a failed grim.
 # $(...) also drops the newline zbarimg --raw appends.
 out=$(grim -g "$geom" - | zbarimg -q --raw -)
 if [ -z "$out" ]; then
-    warn "No QR code found"
-    exit 1
+  warn "No QR code found"
+  exit 1
 fi
 
 printf '%s' "$out" | wl-copy
-printf '%s\n' "$out"      # seen when run from a shell; discarded when niri spawns it
+printf '%s\n' "$out" # seen when run from a shell; discarded when niri spawns it
 notify-send "QR Scanned" "$out"

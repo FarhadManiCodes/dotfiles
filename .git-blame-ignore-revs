@@ -1,0 +1,14 @@
+# Commits git blame skips, through blame.ignoreRevsFile
+# (docs/architecture/git-hooks.md).
+# One full, lowercase commit ID per line, with no comment after it. Git accepts
+# more, but an abbreviated ID makes every blame fail. tests/test_blame_ignore_revs.py
+# enforces this form and checks each ID is an ancestor of HEAD.
+
+# shfmt over every in-scope shell script (Herdr Milestone 0, step 5)
+505b1185828447cd31ea37b3c0e31644267c6d31
+# ruff format at 80 columns (Herdr Milestone 0, step 6); the same commit also
+# set the line widths in ruff.toml
+f44024b3d390fb77ca6698697ccdb29136f61d6a
+# comments that forced a split moved above their statement (Herdr Milestone 0,
+# step 7); the same commit also rewrote one line of docs/herdr-implementation.md
+415936893880cea28e6d84a5ca1294939cb5f617

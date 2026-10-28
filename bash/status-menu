@@ -10,138 +10,152 @@ BOLT=$'⚡'
 CLOCK=$''
 THERM=$''
 CHIP=$''
-OPENAI=$'\uec81'    # nf-cod-openai
-CLAUDE=$'\uec82'    # nf-cod-claude
+OPENAI=$'\uec81' # nf-cod-openai
+CLAUDE=$'\uec82' # nf-cod-claude
 
 WORLD=$(printf '\U000f01e7')
-NET=$(printf '\U000f059f')    # nf-md-web (globe)
-WIFI=$(printf '\U000f05a9')   # nf-md-wifi
-ETH=$(printf '\U000f0200')    # nf-md-ethernet
+NET=$(printf '\U000f059f')  # nf-md-web (globe)
+WIFI=$(printf '\U000f05a9') # nf-md-wifi
+ETH=$(printf '\U000f0200')  # nf-md-ethernet
 choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s Temperatures\n%s Memory\n%s Time\n%s Codex\n%s Claude' \
-    "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" "$OPENAI" "$CLAUDE" \
-    | fuzzel --dmenu --prompt "Status: " --width 30 --lines 8)
+  "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" "$OPENAI" "$CLAUDE" \
+  | fuzzel --dmenu --prompt "Status: " --width 30 --lines 8)
 [[ -z "$choice" ]] && exit 0
 
 case "$choice" in
-    *Battery*)
-        # power-notify's rules, so the two agree: percent from energy, rounded down;
-        # "~N min" under an hour, else whole hours; charging stops at TLP's limit.
-        b=/sys/class/power_supply/BAT0
-        status=$(<"$b/status") e=$(<"$b/energy_now") full=$(<"$b/energy_full")
-        w=$(<"$b/power_now") limit=$(<"$b/charge_control_end_threshold")
-        if [[ -z $e ]] || (( full <= 0 )); then   # the controller can time out
-            notify-send "${BAT_EMPTY} Battery" "Charge not readable"; exit 0
-        fi
-        cap=$(( e * 100 / full ))
-        if (( cap >= 80 )); then icon=$BAT_FULL
-        elif (( cap >= 60 )); then icon=$BAT_THREE
-        elif (( cap >= 40 )); then icon=$BAT_HALF
-        elif (( cap >= 20 )); then icon=$BAT_QUARTER
-        else icon=$BAT_EMPTY
-        fi
-        case $status in
-            Charging) icon=$BOLT; togo=$(( full * ${limit:-100} / 100 - e )); what=" to ${limit:-100}%" ;;
-            Discharging) togo=$e what=" left" ;;
-            *) togo=0 ;;
-        esac
-        body="${cap}% — ${status}"
-        # Under 1 W is a reading not yet settled, as just after resume (0.2 W: "~109 h").
-        if (( w >= 1000000 )); then
-            body+=" at $(( (w + 500000) / 1000000 )) W"
-        fi
-        if (( w >= 1000000 && togo > 0 )); then
-            m=$(( togo * 60 / w ))
-            (( m < 60 )) && t="$m min" || t="$(( (m + 30) / 60 )) h"
-            body+=", ~${t}${what}"
-        fi
-        # What a charger offers: its best fixed USB-C PD profile, volts × amps. Not the
-        # UCSI power_supply's voltage_max × current_max, which mixes profiles (60 W for 27).
-        for port in /sys/class/typec/port*-partner; do
-            [[ -e $port && $(<"${port%-partner}/power_role") == *'[sink]'* ]] || continue
-            best=0
-            for pdo in "$port"/usb_power_delivery/source-capabilities/*:fixed_supply; do
-                [[ -e $pdo ]] || continue
-                v=$(<"$pdo/voltage") a=$(<"$pdo/maximum_current")
-                watts=$(( ${v%mV} * ${a%mA} / 1000000 ))
-                (( watts > best )) && best=$watts
-            done
-            (( best > 0 )) && body+=" · charger $best W" || body+=" · charger without USB PD"
-        done
-        notify-send -u low "${icon} Battery" "$body"
+  *Battery*)
+    # power-notify's rules, so the two agree: percent from energy, rounded down;
+    # "~N min" under an hour, else whole hours; charging stops at TLP's limit.
+    b=/sys/class/power_supply/BAT0
+    status=$(<"$b/status") e=$(<"$b/energy_now") full=$(<"$b/energy_full")
+    w=$(<"$b/power_now") limit=$(<"$b/charge_control_end_threshold")
+    if [[ -z $e ]] || ((full <= 0)); then # the controller can time out
+      notify-send "${BAT_EMPTY} Battery" "Charge not readable"
+      exit 0
+    fi
+    cap=$((e * 100 / full))
+    if ((cap >= 80)); then
+      icon=$BAT_FULL
+    elif ((cap >= 60)); then
+      icon=$BAT_THREE
+    elif ((cap >= 40)); then
+      icon=$BAT_HALF
+    elif ((cap >= 20)); then
+      icon=$BAT_QUARTER
+    else
+      icon=$BAT_EMPTY
+    fi
+    case $status in
+      Charging)
+        icon=$BOLT
+        togo=$((full * ${limit:-100} / 100 - e))
+        what=" to ${limit:-100}%"
         ;;
-    *Internet*)
-        # Connection + negotiated link speed (instant, no traffic). Lines kept short so
-        # they don't wrap in mako's fixed-width box; "(active)" = the default-route iface.
-        default_if=$(ip route show default 2>/dev/null | awk '/^default/{print $5; exit}')
-        body=""
-        for p in /sys/class/net/*; do
-            ifc=$(basename "$p")
-            [[ "$ifc" == lo ]] && continue
-            mark=""; [[ "$ifc" == "$default_if" ]] && mark="  (active)"
-            if [[ -e "$p/phy80211" ]]; then
-                link=$(iw dev "$ifc" link 2>/dev/null)
-                grep -q "Connected to" <<<"$link" || continue
-                ssid=$(grep -m1 'SSID:'       <<<"$link" | sed 's/^[[:space:]]*SSID: //')
-                rxbr=$(grep -m1 'rx bitrate:' <<<"$link" | awk '{printf "%.0f",$3}')
-                body+="${WIFI}  ${ssid} · ${rxbr} Mb/s${mark}\n"
-            elif [[ -e "$p/device" ]]; then
-                [[ "$(cat "$p/carrier" 2>/dev/null)" == "1" ]] || continue
-                spd=$(cat "$p/speed" 2>/dev/null)
-                body+="${ETH}  ${spd} Mb/s${mark}\n"
-            fi
-        done
-        if [[ -z "$body" ]]; then
-            notify-send -u normal "${NET} Internet" "Offline — no active connection"
-        else
-            notify-send -u low "${NET} Internet" "${body%\\n}"
-        fi
-        ;;
-    *Uptime*)
-        load=$(awk '{printf "%s  %s  %s", $1, $2, $3}' /proc/loadavg)
-        notify-send -u low "${CLOCK} Uptime" "$(uptime -p)\nLoad (1/5/15 min): ${load}"
-        ;;
-    *Temperatures*)
-        sensor_warning=""
-        if ! readings=$(hardware-readings); then
-            sensor_warning=$'\nSensor readings unavailable'
-        fi
-        IFS=$'\t' read -r cpu gpu ssd fan1 fan2 <<<"${readings:-$'N/A\tN/A\tN/A\tN/A\tN/A'}"
-        printf -v body 'CPU %s • GPU %s • SSD %s\nFan 1 %s • Fan 2 %s%s' \
-            "$cpu" "$gpu" "$ssd" "$fan1" "$fan2" "$sensor_warning"
-        notify-send -u low "${THERM} Temperatures" "$body"
-        ;;
-    *Memory*)
-        # "none" only when there is no swap at all: unused swap reads "0B used".
-        body=$(free -h | awk '
+      Discharging) togo=$e what=" left" ;;
+      *) togo=0 ;;
+    esac
+    body="${cap}% — ${status}"
+    # Under 1 W is a reading not yet settled, as just after resume (0.2 W: "~109 h").
+    if ((w >= 1000000)); then
+      body+=" at $(((w + 500000) / 1000000)) W"
+    fi
+    if ((w >= 1000000 && togo > 0)); then
+      m=$((togo * 60 / w))
+      ((m < 60)) && t="$m min" || t="$(((m + 30) / 60)) h"
+      body+=", ~${t}${what}"
+    fi
+    # What a charger offers: its best fixed USB-C PD profile, volts × amps. Not the
+    # UCSI power_supply's voltage_max × current_max, which mixes profiles (60 W for 27).
+    for port in /sys/class/typec/port*-partner; do
+      [[ -e $port && $(<"${port%-partner}/power_role") == *'[sink]'* ]] || continue
+      best=0
+      for pdo in "$port"/usb_power_delivery/source-capabilities/*:fixed_supply; do
+        [[ -e $pdo ]] || continue
+        v=$(<"$pdo/voltage") a=$(<"$pdo/maximum_current")
+        watts=$((${v%mV} * ${a%mA} / 1000000))
+        ((watts > best)) && best=$watts
+      done
+      ((best > 0)) && body+=" · charger $best W" || body+=" · charger without USB PD"
+    done
+    notify-send -u low "${icon} Battery" "$body"
+    ;;
+  *Internet*)
+    # Connection + negotiated link speed (instant, no traffic). Lines kept short so
+    # they don't wrap in mako's fixed-width box; "(active)" = the default-route iface.
+    default_if=$(ip route show default 2>/dev/null | awk '/^default/{print $5; exit}')
+    body=""
+    for p in /sys/class/net/*; do
+      ifc=$(basename "$p")
+      [[ "$ifc" == lo ]] && continue
+      mark=""
+      [[ "$ifc" == "$default_if" ]] && mark="  (active)"
+      if [[ -e "$p/phy80211" ]]; then
+        link=$(iw dev "$ifc" link 2>/dev/null)
+        grep -q "Connected to" <<<"$link" || continue
+        ssid=$(grep -m1 'SSID:' <<<"$link" | sed 's/^[[:space:]]*SSID: //')
+        rxbr=$(grep -m1 'rx bitrate:' <<<"$link" | awk '{printf "%.0f",$3}')
+        body+="${WIFI}  ${ssid} · ${rxbr} Mb/s${mark}\n"
+      elif [[ -e "$p/device" ]]; then
+        [[ "$(cat "$p/carrier" 2>/dev/null)" == "1" ]] || continue
+        spd=$(cat "$p/speed" 2>/dev/null)
+        body+="${ETH}  ${spd} Mb/s${mark}\n"
+      fi
+    done
+    if [[ -z "$body" ]]; then
+      notify-send -u normal "${NET} Internet" "Offline — no active connection"
+    else
+      notify-send -u low "${NET} Internet" "${body%\\n}"
+    fi
+    ;;
+  *Uptime*)
+    load=$(awk '{printf "%s  %s  %s", $1, $2, $3}' /proc/loadavg)
+    notify-send -u low "${CLOCK} Uptime" "$(uptime -p)\nLoad (1/5/15 min): ${load}"
+    ;;
+  *Temperatures*)
+    sensor_warning=""
+    if ! readings=$(hardware-readings); then
+      sensor_warning=$'\nSensor readings unavailable'
+    fi
+    IFS=$'\t' read -r cpu gpu ssd fan1 fan2 <<<"${readings:-$'N/A\tN/A\tN/A\tN/A\tN/A'}"
+    printf -v body 'CPU %s • GPU %s • SSD %s\nFan 1 %s • Fan 2 %s%s' \
+      "$cpu" "$gpu" "$ssd" "$fan1" "$fan2" "$sensor_warning"
+    notify-send -u low "${THERM} Temperatures" "$body"
+    ;;
+  *Memory*)
+    # "none" only when there is no swap at all: unused swap reads "0B used".
+    body=$(free -h | awk '
             /^Mem/  { print $3 " used / " $2 " total (" $7 " avail)" }
             /^Swap/ { print ($2 == "0B" ? "Swap: none" : "Swap: " $3 " used / " $2) }')
-        notify-send -u low "${CHIP} Memory" "$body"
-        ;;
-    *Time*)
-        # Local + Iran + Vancouver(=Seattle, Pacific); Germany only when not local.
-        local_tz=$(timedatectl show -p Timezone --value 2>/dev/null)
-        body="Local      $(date '+%a %H:%M %Z')"
-        [[ "$local_tz" != "Europe/Berlin" ]] && body+="\nGermany    $(TZ=Europe/Berlin date '+%a %H:%M')"
-        body+="\nIran       $(TZ=Asia/Tehran date '+%a %H:%M')"
-        body+="\nVancouver  $(TZ=America/Vancouver date '+%a %H:%M')"
-        notify-send -u low "${WORLD} World Clock" "$body"
-        ;;
-    *Codex*)
-        # Asks the Codex app server (the protocol the TUI uses) for the account's live
-        # limits; the sleep keeps stdin open until the reply is in (~0.3 s).
-        body=$({ printf '%s\n' \
-                '{"id":1,"method":"initialize","params":{"clientInfo":{"name":"status-menu","version":"0"}}}' \
-                '{"method":"initialized"}' '{"id":2,"method":"account/rateLimits/read"}'; sleep 2; } \
-            | timeout 8 codex app-server 2>/dev/null \
-            | jq -n -r 'first(inputs | select(.id == 2)) | .result.rateLimits
+    notify-send -u low "${CHIP} Memory" "$body"
+    ;;
+  *Time*)
+    # Local + Iran + Vancouver(=Seattle, Pacific); Germany only when not local.
+    local_tz=$(timedatectl show -p Timezone --value 2>/dev/null)
+    body="Local      $(date '+%a %H:%M %Z')"
+    [[ "$local_tz" != "Europe/Berlin" ]] && body+="\nGermany    $(TZ=Europe/Berlin date '+%a %H:%M')"
+    body+="\nIran       $(TZ=Asia/Tehran date '+%a %H:%M')"
+    body+="\nVancouver  $(TZ=America/Vancouver date '+%a %H:%M')"
+    notify-send -u low "${WORLD} World Clock" "$body"
+    ;;
+  *Codex*)
+    # Asks the Codex app server (the protocol the TUI uses) for the account's live
+    # limits; the sleep keeps stdin open until the reply is in (~0.3 s).
+    body=$({
+      printf '%s\n' \
+        '{"id":1,"method":"initialize","params":{"clientInfo":{"name":"status-menu","version":"0"}}}' \
+        '{"method":"initialized"}' '{"id":2,"method":"account/rateLimits/read"}'
+      sleep 2
+    } \
+      | timeout 8 codex app-server 2>/dev/null \
+      | jq -n -r 'first(inputs | select(.id == 2)) | .result.rateLimits
                 | [.primary, .secondary][] | select(. != null)
                 | "\(if .windowDurationMins >= 10080 then "Week" else "\(.windowDurationMins / 60 | floor) h" end): \(.usedPercent | floor)% used, resets \(.resetsAt | strflocaltime("%a %H:%M"))"' 2>/dev/null)
-        notify-send -u low "${OPENAI} Codex limits" "${body:-Codex did not answer}"
-        ;;
-    *Claude*)
-        # /usage is answered locally by the CLI with live numbers (~3 s); the two
-        # "Current ..." lines are the limits, the rest is a breakdown.
-        body=$(timeout 20 claude -p /usage 2>/dev/null | grep '^Current')
-        notify-send -u low "${CLAUDE} Claude limits" "${body:-Claude did not answer}"
-        ;;
+    notify-send -u low "${OPENAI} Codex limits" "${body:-Codex did not answer}"
+    ;;
+  *Claude*)
+    # /usage is answered locally by the CLI with live numbers (~3 s); the two
+    # "Current ..." lines are the limits, the rest is a breakdown.
+    body=$(timeout 20 claude -p /usage 2>/dev/null | grep '^Current')
+    notify-send -u low "${CLAUDE} Claude limits" "${body:-Claude did not answer}"
+    ;;
 esac

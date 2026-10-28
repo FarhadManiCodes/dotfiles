@@ -1,0 +1,14 @@
+# shfmt's style lives only here: any formatting flag makes shfmt ignore this
+# file. [[shell]] matches every Bash, sh and Zsh script, extensionless ones
+# included; [*.sh] would not.
+root = true
+
+[[shell]]
+indent_style = space
+indent_size = 2
+switch_case_indent = true
+binary_next_line = true
+
+# shfmt knows .zshenv and .zshrc as Zsh by name, but would parse this as Bash.
+[zsh/aliases]
+shell_variant = zsh
