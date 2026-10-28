@@ -654,6 +654,20 @@ class Blocking(HookCase):
         code, out = self.stage_and_commit("sub")
         self.assert_passed(code, out)
 
+    def test_nested_settings_do_not_quiet_the_files_beside_them(self):
+        self.write("sub/.shellcheckrc", "disable=SC2086\n")
+        self.write("sub/ruff.toml", '[lint]\nignore = ["F401"]\n')
+        self.write(
+            "sub/pyproject.toml", '[tool.ruff.lint]\nignore = ["F401"]\n'
+        )
+        self.write("sub/tool", "#!/bin/bash\necho $1\n", executable=True)
+        self.write("sub/mod.py", "import os\n")
+        code, out = self.stage_and_commit("sub")
+        self.assert_blocked(code, out, SHELL)
+        self.assertIn("SC2086", section(out, SHELL))
+        self.assert_blocked(code, out, RUFF)
+        self.assertIn("F401", section(out, RUFF))
+
     def test_trailing_whitespace_blocks(self):
         self.write("notes.txt", "text \n")
         code, out = self.stage_and_commit("notes.txt")
