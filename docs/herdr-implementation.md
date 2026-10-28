@@ -112,12 +112,12 @@ Acceptance criteria:
 - [x] Effective scope, formatting settings and the limits of complexity measurement are documented, and so is how to see the tool versions (`bootstrap full` prints them). Successful linting is not recorded as successful runtime acceptance.
 - [x] `bash bash/run-tests` completes with failures and skips reported accurately. Local hook activation and removal are demonstrated; GitHub checks and global hooks remain unchanged.
 
-Milestone review, 2026-10-27, rechecked at 1209b30 after the branch reviews:
-- `bash git-hooks/bootstrap full 90644d5` passed at 1209b30 with prek 0.5.7, shfmt v3.14.1, ShellCheck 0.11.0, ruff 0.17.3, jscpd 5.4.2, llama-server 0.6.0-dev (build 11429, commit d812350493), Python 3.14.8, Zsh 5.9.2, Bash 5.3.20(1)-release and Git 2.56.0.
-- `bash bash/run-tests` passed at 1209b30 with no skips: 476 unittest tests, skills, mic-notify (14), net-notify (15) and power-notify (51). The fixture proofs are `tests/test_git_hooks.py` (93 tests) and `tests/test_blame_ignore_revs.py`; the review added the two merge tests the `pre-merge-commit` item lacked (ed61ff5).
+Milestone review, 2026-10-27, rechecked at 3d3ccb2 after the branch reviews:
+- `bash git-hooks/bootstrap full 90644d5` passed at 3d3ccb2 with prek 0.5.7, shfmt v3.14.1, ShellCheck 0.11.0, ruff 0.17.3, jscpd 5.4.2, llama-server 0.6.0-dev (build 11429, commit d812350493), Python 3.14.8, Zsh 5.9.2, Bash 5.3.20(1)-release and Git 2.56.0.
+- `bash bash/run-tests` passed at 3d3ccb2 with no skips: 479 unittest tests, skills, mic-notify (14), net-notify (15) and power-notify (51). The fixture proofs are `tests/test_git_hooks.py` (96 tests) and `tests/test_blame_ignore_revs.py`; the review added the two merge tests the `pre-merge-commit` item lacked (ed61ff5).
 - The hooks were installed in this checkout on 2026-10-27; there is no `.github/`, and no global or system `core.hooksPath`. In a throwaway clone, a commit with a syntax error was blocked, and went through once both hooks were deleted.
-- The broad scan lists 488 clone candidates new since 90644d5 (14 exact, 474 renamed); the planned, similarity and semantic scans list none. None is judged here: Milestone 0.5 judges them all.
-- Branch reviews on 2026-10-28 led to the fixes 66a3b53 through 1209b30, each with a test that fails without it where a test applies. Three findings went to Milestone 0.5 (below).
+- The broad scan lists 491 clone candidates new since 90644d5 (14 exact, 477 renamed); the planned, similarity and semantic scans list none. None is judged here: Milestone 0.5 judges them all.
+- Branch reviews on 2026-10-28 led to the fixes 66a3b53 through 3d3ccb2, each with a test that fails without it where a test applies. Three findings went to Milestone 0.5 (below).
 - Open: rerun the blame check on `master` after the merge.
 
 ### Milestone 0.5: Repository baseline
