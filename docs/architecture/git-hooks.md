@@ -115,8 +115,8 @@ without blocking it. Git ignores `.git/hooks` when `core.hooksPath` is set;
 `git config --get core.hooksPath` must print nothing.
 
 **The blame setting** makes `git blame` skip the commits listed in
-`.git-blame-ignore-revs`, which only change layout (one exception is noted under "The
-blame list"), so each line usually shows the commit that last changed what it does.
+`.git-blame-ignore-revs`, which only change layout (two exceptions are noted under
+"The blame list"), so each line usually shows the commit that last changed what it does.
 `:(optional)` lets blame work where that file is missing, such as on a branch older than
 it; without it, every blame there fails.
 `git blame --ignore-revs-file=` (empty) turns the list off for one run;
@@ -331,10 +331,12 @@ check their packages with `pacman -Q bash util-linux iproute2 curl`.
 ## The blame list
 
 `.git-blame-ignore-revs` lists commits that only change layout, such as a reformat,
-apart from one line of the plan that Milestone 0's comment move also rewrote, as its
-comment there says. `git blame` skips them, through the setting under "Setup in a
-fresh clone", and shows for each of their lines the earlier commit that last changed
-it; a line the commit split or joined may still show it.
+with two exceptions, each noted in its comment there: Milestone 0's ruff reformat also
+set the line widths in `ruff.toml`, and its comment move also rewrote one line of the
+plan. `git blame` skips them, through the setting under "Setup in a fresh clone", and
+shows for each of their lines the earlier commit that last changed it; a line the
+commit split or joined may still show it, and blame on those `ruff.toml` and plan lines
+shows an older commit.
 `tests/test_blame_ignore_revs.py` enforces two rules:
 
 - Each ID is a full, lowercase, 40-character commit ID with nothing after it on its
