@@ -397,6 +397,21 @@ class Blocking(HookCase):
         self.assert_blocked(code, out, SHELL)
         self.assertIn("SC2086", out)
 
+    def test_only_the_tracked_prek_configuration_runs(self):
+        # prek prefers a root prek.toml and also runs configurations it
+        # finds in subdirectories.
+        for path in ("prek.toml", "sub/prek.toml"):
+            self.write(
+                path,
+                '[[repos]]\nrepo = "local"\n[[repos.hooks]]\nid = "decoy"\n'
+                'name = "decoy"\nentry = "true"\nlanguage = "system"\n'
+                "pass_filenames = false\nalways_run = true\n",
+            )
+        self.write("bash/tool", "#!/bin/bash\necho $1\n", executable=True)
+        code, out = self.stage_and_commit("prek.toml", "sub", "bash/tool")
+        self.assert_blocked(code, out, SHELL)
+        self.assertNotIn("decoy", out)
+
     def test_exported_shellcheck_opts_cannot_pass_a_finding(self):
         self.write("bash/tool", "#!/bin/bash\necho $1\n", executable=True)
         code, out = self.stage_and_commit(

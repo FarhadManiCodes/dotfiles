@@ -44,11 +44,13 @@ Each installed hook runs these steps:
    `herdr-hook.*` directory behind; `$XDG_RUNTIME_DIR` is a tmpfs, removed at reboot
    and when your last login session ends.
 3. The bootstrap runs the snapshot's own `git-hooks/checks`, which runs prek in the
-   snapshot with the snapshot's `.pre-commit-config.yaml`. Each item under `hooks:` in
-   that file is one check; its `entry:` command is `bash git-hooks/checks <name>`, where
-   `<name>` is the item's `id`. prek's exit status becomes the Git hook's: if any check
-   exits non-zero, report-only ones included, Git records nothing. Which checks run
-   when, and when each exits non-zero, is under "Blocking and report-only".
+   snapshot with the snapshot's `.pre-commit-config.yaml`, named with `-c` so that no
+   `prek.toml` and no configuration file in a subdirectory is used. Each item under
+   `hooks:` in that file is one check; its `entry:` command is
+   `bash git-hooks/checks <name>`, where `<name>` is the item's `id`. prek's exit
+   status becomes the Git hook's: if any check exits non-zero, report-only ones
+   included, Git records nothing. Which checks run when, and when each exits non-zero,
+   is under "Blocking and report-only".
 
 The checks look at the files Git will record: no unstaged edits, no untracked or
 ignored files, and with `git commit <path>` no staged changes outside those paths.

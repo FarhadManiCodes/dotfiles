@@ -334,8 +334,9 @@ run_prek() {
     git --version
     echo "base ${CHECKS_BASE:-none}"
   fi
-  # prek's exit status is the hook's.
-  prek run --stage "$stage" --color never
+  # prek's exit status is the hook's. Without -c, prek would use a prek.toml
+  # instead and also run configuration files it finds in subdirectories.
+  prek run -c .pre-commit-config.yaml --stage "$stage" --color never
 }
 
 case ${1:-} in
