@@ -692,6 +692,14 @@ class Blocking(HookCase):
         self.assertIn("F401", out)
         self.assertFalse(output.exists())
 
+    def test_exported_prek_quiet_cannot_hide_a_report(self):
+        self.write("py/mod.py", "# " + "x" * 79 + "\n")
+        code, out = self.stage_and_commit(
+            "py/mod.py", env=self.env | {"PREK_QUIET": "1"}
+        )
+        self.assert_passed(code, out)
+        self.assertIn("py/mod.py:1: 81 columns", section(out, INDICATORS))
+
     def test_python_test_files_are_linted(self):
         self.write("tests/test_mod.py", "import os\n")
         code, out = self.stage_and_commit("tests/test_mod.py")
