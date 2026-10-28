@@ -96,9 +96,14 @@ def mapping(files):
 def jscpd(files, tmp, *flags, report="jscpd-report", root=None):
     """Scan files, a {path: format} dict, with jscpd and return its JSON report."""
     out = tempfile.mkdtemp(dir=tmp)
+    # Named, so jscpd does not read a .jscpd.json or package.json the commit adds.
+    config = Path(out, "config.json")
+    config.write_text("{}\n", encoding="utf-8")
     proc = subprocess.run(
         [
             "jscpd",
+            "--config",
+            config,
             "--absolute",
             "--no-gitignore",
             "--silent",

@@ -1281,6 +1281,24 @@ class Clones(HookCase):
             f"1 clones new since {self.git('rev-parse', 'HEAD~1')[:12]}", out
         )
 
+    def test_a_tracked_jscpd_configuration_does_not_change_the_report(self):
+        self.write("bash/one", "#!/bin/bash\n" + CLONE_SHELL, executable=True)
+        self.stage_and_commit("bash/one")
+        configs = {
+            ".jscpd.json": '{"ignore": ["**/two"]}\n',
+            "package.json": '{"jscpd": {"ignore": ["**/two"]}}\n',
+        }
+        for n, (name, text) in enumerate(configs.items()):
+            with self.subTest(name):
+                self.git("switch", "-q", "-c", f"config-{n}", "master")
+                self.write(name, text)
+                self.write(
+                    "bash/two", "#!/bin/bash\n" + CLONE_SHELL, executable=True
+                )
+                code, out = self.stage_and_commit(name, "bash/two")
+                self.assert_passed(code, out)
+                self.assert_clone(section(out, CLONES), "bash/one", "bash/two")
+
     def test_merge_creating_a_clone_between_two_branches_reports_it(self):
         self.git("switch", "-q", "-c", "side")
         self.write("bash/two", "#!/bin/bash\n" + CLONE_SHELL, executable=True)
