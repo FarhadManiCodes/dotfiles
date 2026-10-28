@@ -1,3 +1,4 @@
+#!/bin/bash
 # layout_uv — activate/create a uv-managed .venv in the project root
 # Usage in .envrc:  layout uv
 #              or:  layout uv 3.12
