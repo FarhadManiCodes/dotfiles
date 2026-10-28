@@ -82,15 +82,15 @@ prek takes an unknown first word, such as a mistyped command, as the name of a c
 to run. The checks run only through `git-hooks/bootstrap` (see "Manual runs"), whose
 `git-hooks/checks` runs prek inside the snapshot. `prek install` replaces
 `.git/hooks/pre-commit` with prek's own hook and keeps ours as `pre-commit.legacy`; on
-every later `git commit`, prek's hook runs ours first, which still blocks a failing
-commit, and then runs prek in the working tree even when ours failed. While prek runs
-there, it saves unstaged edits to a patch file and writes the staged content back into
-those live files. Until it restores the edits at the end, any program reading those
-configuration files sees the staged version; if prek is killed, the edits are left only
-in its patch file. `git-hooks/checks` refuses to run unless `CHECKS_SCOPE` and
-`CHECKS_TMP` are set, which only the bootstrap does; never set them yourself. That
-refusal comes only after prek has rewritten the files, so it does not make running prek
-safe.
+every later `git commit`, prek's hook runs ours first, which then fails every commit,
+clean or not, because the bootstrap does not know the mode `pre-commit.legacy`, and then
+runs prek in the working tree even so. While prek runs there, it saves unstaged edits to
+a patch file and writes the staged content back into those live files. Until it restores
+the edits at the end, any program reading those configuration files sees the staged
+version; if prek is killed, the edits are left only in its patch file.
+`git-hooks/checks` refuses to run unless `CHECKS_SCOPE` and `CHECKS_TMP` are set, which
+only the bootstrap does; never set them yourself. That refusal comes only after prek has
+rewritten the files, so it does not make running prek safe.
 
 ## Setup in a fresh clone
 
