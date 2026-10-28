@@ -88,8 +88,14 @@ fi
 # Every Git variable goes, not only the repository's location (GIT_DIR,
 # GIT_INDEX_FILE) and `git -c` settings (GIT_CONFIG_PARAMETERS): others such
 # as GIT_LITERAL_PATHSPECS or GIT_ICASE_PATHSPECS change which files the
-# checks select.
-unset "${!GIT_@}"
+# checks select. Only the choice of configuration files stays, so a caller
+# that keeps Git from the user's configuration keeps it so during the clone.
+for v in "${!GIT_@}"; do
+  case $v in
+    GIT_CONFIG_GLOBAL | GIT_CONFIG_SYSTEM | GIT_CONFIG_NOSYSTEM) ;;
+    *) unset "$v" ;;
+  esac
+done
 # The same goes for the tools' own variables, matched by prefix so a new one
 # is covered too: PREK_QUIET or PREK_SKIP would hide or skip checks, and
 # RUFF_OUTPUT_FILE would send ruff's findings to a file. SKIP is prek's too.

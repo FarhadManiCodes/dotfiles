@@ -456,6 +456,21 @@ class Blocking(HookCase):
         code, out = self.stage_and_commit(".gitattributes", "bash/good")
         self.assert_passed(code, out)
 
+    def test_user_autocrlf_does_not_change_the_checked_files(self):
+        config = Path(self.env["GIT_CONFIG_GLOBAL"])
+        config.write_text(config.read_text() + "[core]\n\tautocrlf = true\n")
+        self.write("bash/good", GOOD_BASH, executable=True)
+        code, out = self.stage_and_commit("bash/good")
+        self.assert_passed(code, out)
+
+    def test_user_eol_attribute_does_not_change_the_checked_files(self):
+        attributes = Path(self.env["XDG_CONFIG_HOME"], "git", "attributes")
+        attributes.parent.mkdir(parents=True, exist_ok=True)
+        attributes.write_text("* text eol=crlf\n")
+        self.write("bash/good", GOOD_BASH, executable=True)
+        code, out = self.stage_and_commit("bash/good")
+        self.assert_passed(code, out)
+
     def test_crlf_shebang_is_selected(self):
         self.write("bash/tool", "#!/bin/bash\r\necho hi\r\n", executable=True)
         code, out = self.stage_and_commit("bash/tool")
@@ -1095,20 +1110,16 @@ class Isolation(HookCase):
         )
         self.assertEqual(self.git("log", "-1", "--format=%s"), "tooling")
 
-    def test_user_autocrlf_does_not_change_the_checked_files(self):
-        config = Path(self.env["GIT_CONFIG_GLOBAL"])
-        config.write_text(config.read_text() + "[core]\n\tautocrlf = true\n")
-        self.write("bash/good", GOOD_BASH, executable=True)
-        code, out = self.stage_and_commit("bash/good")
-        self.assert_passed(code, out)
-
-    def test_user_eol_attribute_does_not_change_the_checked_files(self):
-        attributes = Path(self.env["XDG_CONFIG_HOME"], "git", "attributes")
-        attributes.parent.mkdir(parents=True, exist_ok=True)
-        attributes.write_text("* text eol=crlf\n")
-        self.write("bash/good", GOOD_BASH, executable=True)
-        code, out = self.stage_and_commit("bash/good")
-        self.assert_passed(code, out)
+    def test_the_clone_reads_only_the_configuration_the_caller_names(self):
+        # A setting in the user's real configuration that would stop the
+        # clone; the fixture names its own file, so Git must not read it.
+        home = self.tmp / "home"
+        home.mkdir()
+        (home / ".gitconfig").write_text('[protocol "file"]\n\tallow = never\n')
+        self.write("sub/file", "one\n")
+        self.git("add", "sub/file")
+        code, out = self.commit(env=self.env | {"HOME": str(home)})
+        self.assert_isolated(code, out, self.git("write-tree"))
 
     def test_full_run_without_a_committed_bootstrap_says_so(self):
         bootstrap = (self.repo / "git-hooks/bootstrap").read_text()
