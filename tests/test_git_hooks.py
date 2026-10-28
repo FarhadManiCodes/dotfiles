@@ -43,6 +43,7 @@ INDICATORS = "long chains and lines (report only)"
 CLONES = "clones (report only)"
 CANDIDATES = "clone candidates for judgment (report only)"
 MEASURE = "size and complexity against the base (report only)"
+COMMIT_HOOKS = (WHITESPACE, SHELL, RUFF, MASKED, CLONES, INDICATORS)
 
 PROXIES = (
     "http_proxy",
@@ -332,9 +333,10 @@ class HookCase(Case):
         self.assertNotEqual(code, 0, out)
         self.assertEqual(results(out).get(hook), "Failed", out)
 
-    def assert_passed(self, code, out):
+    def assert_passed(self, code, out, hooks=COMMIT_HOOKS):
+        """Every hook ran and passed: each is set to always run."""
         self.assertEqual(code, 0, out)
-        self.assertNotIn("Failed", results(out).values(), out)
+        self.assertEqual(results(out), dict.fromkeys(hooks, "Passed"), out)
         self.assertEqual(self.snapshots(), [])
 
 
@@ -1406,7 +1408,7 @@ class FullRun(HookCase):
         code, out = self.run_command(
             "bash", "git-hooks/bootstrap", "full", base, env=env
         )
-        self.assert_passed(code, out)
+        self.assert_passed(code, out, (*COMMIT_HOOKS, CANDIDATES, MEASURE))
         planned, broad = (
             section(out, CLONES),
             section(out, CANDIDATES),
