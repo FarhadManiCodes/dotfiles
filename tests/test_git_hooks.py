@@ -1094,6 +1094,21 @@ class Isolation(HookCase):
         code, out = self.commit("--allow-empty")
         self.assert_fails(code, out, "the index is split")
 
+    def test_symlinked_checks_or_settings_fail(self):
+        outside = self.tmp / "outside"
+        outside.write_text("#!/bin/bash\nexit 0\n")
+        for name in ("git-hooks/checks", "ruff.toml"):
+            target = self.repo / name
+            saved = target.read_bytes()
+            target.unlink()
+            target.symlink_to(outside)
+            self.git("add", name)
+            code, out = self.commit("--allow-empty")
+            self.assert_fails(code, out, f"{name} is a symlink")
+            target.unlink()
+            target.write_bytes(saved)
+            self.git("add", name)
+
     def test_shallow_clone_fails(self):
         self.git("commit", "-q", "--allow-empty", "--no-verify", "-m", "second")
         shallow = self.tmp / "shallow"

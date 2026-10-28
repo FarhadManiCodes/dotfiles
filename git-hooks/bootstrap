@@ -132,6 +132,11 @@ if grep -qz '^S ' "$snapshot/tags"; then
 fi
 git checkout-index -a -u
 
+# A symlink would run or read a file outside the snapshot.
+for f in git-hooks/checks git-hooks/report.py .pre-commit-config.yaml \
+  .editorconfig .gitattributes .shellcheckrc ruff.toml; do
+  [[ ! -L $f ]] || die "$f is a symlink; the checks need the file itself"
+done
 [[ -f git-hooks/checks ]] || die "git-hooks/checks is not in the snapshot"
 if [[ $mode == full ]]; then scope=all; else scope=changed; fi
 mkdir "$snapshot/tmp"
