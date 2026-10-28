@@ -1084,6 +1084,21 @@ class Isolation(HookCase):
         code, out = self.commit("--allow-empty")
         self.assert_fails(code, out, "the index is split")
 
+    def test_shallow_clone_fails(self):
+        self.git("commit", "-q", "--allow-empty", "--no-verify", "-m", "second")
+        shallow = self.tmp / "shallow"
+        self.git(
+            "clone", "-q", "--depth", "1", self.repo.as_uri(), str(shallow)
+        )
+        for hook in ("pre-commit", "pre-merge-commit"):
+            shutil.copy2(
+                self.repo / ".git/hooks" / hook, shallow / ".git/hooks"
+            )
+        (shallow / "new").write_text("new\n")
+        self.git("add", "new", cwd=shallow)
+        code, out = self.run_command("git", "commit", "-m", "new", cwd=shallow)
+        self.assert_fails(code, out, "the repository is shallow")
+
     def test_skip_worktree_entry_fails(self):
         self.git("update-index", "--skip-worktree", "ruff.toml")
         code, out = self.commit("--allow-empty")

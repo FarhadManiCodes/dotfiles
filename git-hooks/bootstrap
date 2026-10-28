@@ -80,6 +80,10 @@ if [[ $source == index ]]; then
   [[ -z $shared ]] \
     || die "the index is split (update-index --split-index); cannot copy it"
 fi
+# Git clones a shallow repository by copying, not sharing, its objects, so the
+# clone would lack what was just staged.
+[[ $(git rev-parse --is-shallow-repository) == false ]] \
+  || die "the repository is shallow; run git fetch --unshallow first"
 
 # `git -c` settings arrive as GIT_CONFIG_PARAMETERS or numbered KEY/VALUE pairs.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR \

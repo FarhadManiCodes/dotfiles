@@ -134,8 +134,9 @@ checkout.
 
 **Other refusals.** The bootstrap also stops, with a message, when the index is split
 (`git update-index --split-index`), when it has skip-worktree entries (as a sparse
-checkout makes), or when `git-hooks/bootstrap` is not tracked yet ("add it first"). None
-of these is used here.
+checkout makes), when the repository is shallow (`git clone --depth`; run
+`git fetch --unshallow`), or when `git-hooks/bootstrap` is not tracked yet ("add it
+first"). None of these is used here.
 
 ## Scope
 
