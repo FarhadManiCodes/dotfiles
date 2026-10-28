@@ -22,13 +22,10 @@ here=$(dirname -- "${BASH_SOURCE[0]}")
 empty_tree=$(git hash-object -t tree /dev/null)
 base=${CHECKS_BASE:-$empty_tree}
 # A commit that changes the checks or their rules checks every file under them.
-# The tools also read settings files in subdirectories, so those count at any
-# depth.
-rules=(.pre-commit-config.yaml git-hooks/)
-for f in .editorconfig .gitattributes .shellcheckrc shellcheckrc ruff.toml \
-  .ruff.toml pyproject.toml; do
-  rules+=(":(glob)**/$f")
-done
+# shfmt and Git also read .editorconfig and .gitattributes in subdirectories;
+# --rcfile and --config keep ShellCheck and ruff to the root files.
+rules=(.pre-commit-config.yaml git-hooks/ .shellcheckrc ruff.toml
+  ':(glob)**/.editorconfig' ':(glob)**/.gitattributes')
 if ! git diff --cached --quiet "$base" -- "${rules[@]}"; then
   CHECKS_SCOPE=all
 fi

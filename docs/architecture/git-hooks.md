@@ -164,14 +164,16 @@ checked only on the lines the commit adds. So:
 - a merge checks every file it brings in, compared with the branch merged into;
 - the first commit in a repository, with no HEAD, checks every file.
 
-A commit that changes `.pre-commit-config.yaml`, anything under `git-hooks/`, or a
-settings file the tools read at any depth (`.editorconfig`, `.gitattributes`,
-`.shellcheckrc` or `shellcheckrc`, `ruff.toml`, `.ruff.toml` or `pyproject.toml`) checks
-every file instead, and every line for whitespace, so a new rule fails that commit
-rather than a later, unrelated one. The full run (see "Manual runs") checks every file
-too. The clone report works the other way: at every commit it scans every shell file and
-every Python file outside `tests/`, and reports only the clones that are new compared
-with HEAD (see "Blocking and report-only").
+A commit that changes `.pre-commit-config.yaml`, anything under `git-hooks/`,
+`.shellcheckrc`, `ruff.toml`, or an `.editorconfig` or `.gitattributes` in any directory
+(shfmt and Git read those in subdirectories too) checks every file instead, and every
+line for whitespace, so a new rule fails that commit rather than a later, unrelated
+one. ShellCheck and ruff are given the root files, so they ignore settings files in
+subdirectories, and changing one checks only what the commit changes. The full run
+(see "Manual runs") checks every file too. The clone report works the other way: at
+every commit it scans every shell file and every Python file outside `tests/`, and
+reports only the clones that are new compared with HEAD (see "Blocking and
+report-only").
 
 A file brought in by a commit that ran no hook (see "How it runs") is checked again only
 when a later commit changes it, when a commit changes one of the rule files above, or

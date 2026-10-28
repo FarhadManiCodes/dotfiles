@@ -610,7 +610,7 @@ class Blocking(HookCase):
             ".gitattributes",
             "git-hooks/checks",
             "bash/.editorconfig",
-            "sub/pyproject.toml",
+            "sub/.gitattributes",
         ):
             with self.subTest(rules=rules):
                 path = self.repo / rules
@@ -623,6 +623,19 @@ class Blocking(HookCase):
                 self.assert_blocked(code, out, SHELL)
                 self.assertIn("bash/bad", section(out, SHELL))
                 self.git("reset", "-q", "--hard")
+
+    def test_nested_settings_the_tools_ignore_do_not_check_every_file(self):
+        self.write("bash/bad", "#!/bin/bash\necho $1\n", executable=True)
+        self.git("add", "bash/bad")
+        self.git("commit", "-q", "--no-verify", "-m", "unchecked")
+        for name in (
+            "sub/.shellcheckrc",
+            "sub/ruff.toml",
+            "sub/pyproject.toml",
+        ):
+            self.write(name, "# a comment\n")
+        code, out = self.stage_and_commit("sub")
+        self.assert_passed(code, out)
 
     def test_trailing_whitespace_blocks(self):
         self.write("notes.txt", "text \n")
