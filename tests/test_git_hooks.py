@@ -9,6 +9,7 @@ needs (prek, shfmt, ShellCheck, jscpd, ruff, zsh, llama-server and its model)
 must be installed: a missing one fails a test, never skips it.
 """
 
+import contextlib
 import os
 from pathlib import Path
 import re
@@ -1158,6 +1159,7 @@ class Isolation(HookCase):
             stderr=subprocess.DEVNULL,
             start_new_session=True,
         )
+        self.addCleanup(self.stop, proc)
         deadline = time.monotonic() + 60
         while not mark.exists() and time.monotonic() < deadline:
             time.sleep(0.05)
@@ -1171,6 +1173,13 @@ class Isolation(HookCase):
         self.assertEqual(self.snapshots(), [])
         self.assertEqual(self.tree_state(), before)
         self.assertEqual(self.git("log", "-1", "--format=%s"), "tooling")
+
+    @staticmethod
+    def stop(proc):
+        """Ends a commit a failed assertion left running, with its hook and probe."""
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(proc.pid, signal.SIGKILL)
+        proc.wait()
 
 
 class Clones(HookCase):
