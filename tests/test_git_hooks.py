@@ -589,9 +589,16 @@ class Blocking(HookCase):
         self.write("bash/bad", "#!/bin/bash\necho $1\n", executable=True)
         self.git("add", "bash/bad")
         self.git("commit", "-q", "--no-verify", "-m", "unchecked")
-        for rules in (".shellcheckrc", ".gitattributes", "git-hooks/checks"):
+        for rules in (
+            ".shellcheckrc",
+            ".gitattributes",
+            "git-hooks/checks",
+            "bash/.editorconfig",
+            "sub/pyproject.toml",
+        ):
             with self.subTest(rules=rules):
                 path = self.repo / rules
+                path.parent.mkdir(exist_ok=True)
                 path.write_text(
                     (path.read_text() if path.exists() else "")
                     + "# a comment\n"
