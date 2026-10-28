@@ -85,11 +85,11 @@ fi
 [[ $(git rev-parse --is-shallow-repository) == false ]] \
   || die "the repository is shallow; run git fetch --unshallow first"
 
-# `git -c` settings arrive as GIT_CONFIG_PARAMETERS or numbered KEY/VALUE pairs.
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR \
-  GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES \
-  GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT \
-  "${!GIT_CONFIG_KEY_@}" "${!GIT_CONFIG_VALUE_@}"
+# Every Git variable goes, not only the repository's location (GIT_DIR,
+# GIT_INDEX_FILE) and `git -c` settings (GIT_CONFIG_PARAMETERS): others such
+# as GIT_LITERAL_PATHSPECS or GIT_ICASE_PATHSPECS change which files the
+# checks select.
+unset "${!GIT_@}"
 
 [[ -n ${XDG_RUNTIME_DIR:-} && -d $XDG_RUNTIME_DIR ]] \
   || die "XDG_RUNTIME_DIR is unset or missing; no safe place for the snapshot"

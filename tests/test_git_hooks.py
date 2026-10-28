@@ -552,6 +552,16 @@ class Blocking(HookCase):
         code, out = self.stage_and_commit("tmux", "bash/tmux-cpp-tools")
         self.assert_passed(code, out)
 
+    def test_exported_pathspec_settings_do_not_change_the_scope(self):
+        self.write("tmux/helper.sh", "#!/bin/bash\nif then\n")
+        self.git("add", "tmux")
+        literal = self.env | {"GIT_LITERAL_PATHSPECS": "1"}
+        self.assert_passed(*self.commit(env=literal))
+        self.write("Tmux/helper.sh", "#!/bin/bash\nif then\n")
+        self.git("add", "Tmux")
+        code, out = self.commit(env=self.env | {"GIT_ICASE_PATHSPECS": "1"})
+        self.assert_blocked(code, out, SHELL)
+
     def test_renamed_file_is_checked_under_its_new_name_and_a_deleted_one_is_not(
         self,
     ):
