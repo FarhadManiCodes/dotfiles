@@ -90,6 +90,10 @@ fi
 # as GIT_LITERAL_PATHSPECS or GIT_ICASE_PATHSPECS change which files the
 # checks select.
 unset "${!GIT_@}"
+# The same goes for the tools' own variables, matched by prefix so a new one
+# is covered too: PREK_QUIET or PREK_SKIP would hide or skip checks, and
+# RUFF_OUTPUT_FILE would send ruff's findings to a file. SKIP is prek's too.
+unset "${!PREK_@}" "${!RUFF_@}" SKIP SHELLCHECK_OPTS
 
 [[ -n ${XDG_RUNTIME_DIR:-} && -d $XDG_RUNTIME_DIR ]] \
   || die "XDG_RUNTIME_DIR is unset or missing; no safe place for the snapshot"
@@ -139,7 +143,9 @@ for f in git-hooks/checks git-hooks/report.py .pre-commit-config.yaml \
 done
 [[ -f git-hooks/checks ]] || die "git-hooks/checks is not in the snapshot"
 if [[ $mode == full ]]; then scope=all; else scope=changed; fi
-mkdir "$snapshot/tmp"
+# An empty configuration home: prek reads the user's prek.toml from it, whose
+# hide_status setting would hide the report-only checks.
+mkdir "$snapshot/tmp" "$snapshot/config"
 export CHECKS_BASE=$base CHECKS_SCOPE=$scope CHECKS_TMP=$snapshot/tmp \
-  PREK_HOME=$snapshot/prek
+  PREK_HOME=$snapshot/prek XDG_CONFIG_HOME=$snapshot/config
 bash git-hooks/checks "$mode"

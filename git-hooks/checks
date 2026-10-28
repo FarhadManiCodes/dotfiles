@@ -18,14 +18,6 @@ die() {
 [[ -n ${CHECKS_SCOPE:-} && -n ${CHECKS_TMP:-} ]] \
   || die "run through git-hooks/bootstrap, which builds the snapshot"
 
-# Exported in the user's shell, these would pass what the tracked
-# configuration blocks or hide why it failed: ShellCheck adds SHELLCHECK_OPTS
-# to its arguments, prek skips the hooks SKIP or PREK_SKIP name, PREK_QUIET
-# hides the report-only output, and ruff writes its findings to
-# RUFF_OUTPUT_FILE instead of the hook's output.
-unset SHELLCHECK_OPTS SKIP PREK_SKIP PREK_QUIET RUFF_OUTPUT_FILE \
-  RUFF_OUTPUT_FORMAT
-
 here=$(dirname -- "${BASH_SOURCE[0]}")
 empty_tree=$(git hash-object -t tree /dev/null)
 base=${CHECKS_BASE:-$empty_tree}

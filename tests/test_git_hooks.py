@@ -701,6 +701,24 @@ class Blocking(HookCase):
         self.assert_passed(code, out)
         self.assertIn("py/mod.py:1: 81 columns", section(out, INDICATORS))
 
+    def test_personal_prek_settings_cannot_hide_a_report(self):
+        hide = 'hide_status = ["passed"]\n'
+        default = self.tmp / "config" / "prek" / "prek.toml"
+        default.parent.mkdir(parents=True)
+        default.write_text(hide)
+        named = self.tmp / "named.toml"
+        named.write_text(hide)
+        for name, env in (
+            ("default", {}),
+            ("named", {"PREK_INTERNAL__USER_CONFIG_PATH": str(named)}),
+        ):
+            self.write(f"py/{name}.py", "# " + "x" * 79 + "\n")
+            code, out = self.stage_and_commit(
+                f"py/{name}.py", env=self.env | env
+            )
+            self.assert_passed(code, out)
+            self.assertIn(f"py/{name}.py:1: 81 columns", out)
+
     def test_python_test_files_are_linted(self):
         self.write("tests/test_mod.py", "import os\n")
         code, out = self.stage_and_commit("tests/test_mod.py")

@@ -58,8 +58,11 @@ those files, and `git-hooks/checks`, `git-hooks/report.py`, `.pre-commit-config.
 from the snapshot, never from the working tree, which in `~/dotfiles` is the live
 configuration. So each check and settings file is the version the commit records: the
 commit's own version if it changes that file, otherwise HEAD's, never the working
-tree's. The tools themselves are whichever versions are found on the `PATH` of the
-program that runs Git.
+tree's. Nor do personal settings reach the checks: the bootstrap drops every exported
+`GIT_`, `PREK_` and `RUFF_` variable, `SKIP` and `SHELLCHECK_OPTS`, and gives them an
+empty `XDG_CONFIG_HOME`, so a personal `prek.toml` cannot hide a check's output. The
+tools themselves are whichever versions are found on the `PATH` of the program that
+runs Git.
 
 Two pieces of this repository's code run outside the snapshot: the installed hook and
 the working tree's `git-hooks/bootstrap`, which builds the snapshot. So the bootstrap
