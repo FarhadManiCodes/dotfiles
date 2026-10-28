@@ -1158,6 +1158,29 @@ class Isolation(HookCase):
             target.write_bytes(saved)
             self.git("add", name)
 
+    def test_symlinked_nested_settings_fail(self):
+        outside = self.tmp / "outside"
+        outside.write_text("root = true\n")
+        for name in (
+            ".editorconfig",
+            "sub/.editorconfig",
+            "sub/.gitattributes",
+        ):
+            target = self.repo / name
+            saved = target.read_bytes() if target.exists() else None
+            target.parent.mkdir(exist_ok=True)
+            target.unlink(missing_ok=True)
+            target.symlink_to(outside)
+            self.git("add", name)
+            code, out = self.commit("--allow-empty")
+            self.assert_fails(code, out, f"{name} is a symlink")
+            target.unlink()
+            if saved is None:
+                self.git("rm", "-q", "--cached", name)
+            else:
+                target.write_bytes(saved)
+                self.git("add", name)
+
     def test_shallow_clone_fails(self):
         self.git("commit", "-q", "--allow-empty", "--no-verify", "-m", "second")
         shallow = self.tmp / "shallow"

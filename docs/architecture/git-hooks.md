@@ -141,8 +141,10 @@ checkout.
 (`git update-index --split-index`), when it has skip-worktree entries (as a sparse
 checkout makes), when the repository is shallow (`git clone --depth`; run
 `git fetch --unshallow`), when the commit makes `git-hooks/checks`, `report.py` or a
-settings file a symlink, which would run or read a file outside the snapshot, or when
-`git-hooks/bootstrap` is not tracked yet ("add it first"). None of these is used here.
+settings file a symlink, which would run or read a file outside the snapshot (an
+`.editorconfig` or `.gitattributes` in any directory, as shfmt and Git read those too),
+or when `git-hooks/bootstrap` is not tracked yet ("add it first"). None of these is
+used here.
 
 ## Scope
 

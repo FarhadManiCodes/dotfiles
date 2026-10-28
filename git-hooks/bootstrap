@@ -136,9 +136,13 @@ if grep -qz '^S ' "$snapshot/tags"; then
 fi
 git checkout-index -a -u
 
-# A symlink would run or read a file outside the snapshot.
+# A symlink would run or read a file outside the snapshot. shfmt and Git also
+# read .editorconfig and .gitattributes in subdirectories.
+git ls-files -z -- ':(glob)**/.editorconfig' ':(glob)**/.gitattributes' \
+  >"$snapshot/nested"
+mapfile -d '' nested <"$snapshot/nested"
 for f in git-hooks/checks git-hooks/report.py .pre-commit-config.yaml \
-  .editorconfig .gitattributes .shellcheckrc ruff.toml; do
+  .shellcheckrc ruff.toml "${nested[@]}"; do
   [[ ! -L $f ]] || die "$f is a symlink; the checks need the file itself"
 done
 [[ -f git-hooks/checks ]] || die "git-hooks/checks is not in the snapshot"
