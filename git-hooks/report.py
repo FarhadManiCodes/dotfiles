@@ -269,9 +269,11 @@ def indicators(*unparsed):
         notes = [
             (n, f"{len(line)} columns")
             for n, line in enumerate(
+                # Only \n ends a line, as in Git and the editor; splitlines()
+                # and the default newline translation also break at \r or \f.
                 Path(f)
-                .read_text(encoding="utf-8", errors="replace")
-                .splitlines(),
+                .read_text(encoding="utf-8", errors="replace", newline="")
+                .split("\n"),
                 1,
             )
             if len(line) > LINE_LIMIT

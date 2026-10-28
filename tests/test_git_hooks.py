@@ -1428,6 +1428,12 @@ class Reports(Case):
             ],
         )
 
+    def test_only_a_newline_ends_a_counted_line(self):
+        (self.dir / "tool.py").write_bytes(b"a\fb\rc\n" + b"#" * 81 + b"\n")
+        code, out = self.report(["python:tool.py"], "indicators")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.splitlines(), ["tool.py:2: 81 columns"])
+
     def test_python_gets_line_lengths_but_no_chain_count(self):
         # shfmt cannot parse this, so a chain count would list it as not measured.
         (self.dir / "tool.py").write_text("if x:\n    pass\n" + "#" * 81 + "\n")
