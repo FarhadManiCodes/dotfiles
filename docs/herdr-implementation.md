@@ -1,6 +1,6 @@
 # Herdr Migration: Implementation
 
-Status: **Milestone 0 in progress (updated 2026-10-25; quality checks are Milestone 0 and the repository baseline Milestone 0.5)**
+Status: **Milestone 0 done (merged 2026-10-29); Milestone 0.5 next** (quality checks are Milestone 0 and the repository baseline Milestone 0.5)
 Decisions, reasons and the draft config live in `docs/herdr-migration.md`; "Step N" below refers to its steps.
 
 Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/config.toml` and run `env -u HERDR_CONFIG_PATH XDG_CONFIG_HOME="$HOME/.cache/hx" herdr config check`, then delete `~/.cache/hx`; `HERDR_CONFIG_PATH` would override the copy. To try it in a throwaway session, launch `env -u HERDR_CONFIG_PATH XDG_CONFIG_HOME="$HOME/.cache/hx" herdr --session <name>`. Write `$HOME`, not `~`: as an argument to `env`, zsh leaves `~` unexpanded, and Herdr then finds no config and still reports `Config: ok`. Only that launch needs the short path: under the scratchpad its socket path exceeds `sun_path` and fails, while `config check` works from any path (tested at 109 characters, 2026-10-24). Prove the check can fail by also running it on a deliberately conflicting key.
