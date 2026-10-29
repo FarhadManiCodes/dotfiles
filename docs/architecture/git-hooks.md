@@ -337,8 +337,8 @@ with two exceptions, each noted in its comment there: Milestone 0's ruff reforma
 set the line widths in `ruff.toml`, and its comment move also rewrote one line of the
 plan. `git blame` skips them, through the setting under "Setup in a fresh clone", and
 shows for each of their lines the earlier commit that last changed it; a line the
-commit split or joined may still show it, and blame on those `ruff.toml` and plan lines
-shows an older commit.
+commit split or joined, and some short lines next to it such as `fi` or `else`, may
+still show it, and blame on those `ruff.toml` and plan lines shows an older commit.
 `tests/test_blame_ignore_revs.py` enforces two rules:
 
 - Each ID is a full, lowercase, 40-character commit ID with nothing after it on its
