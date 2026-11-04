@@ -248,6 +248,14 @@ an interactive-only tool.
 
 System-level choices that aren't captured in any config file:
 
+- **The `gh` and `linux-perf` agent skills and the global `ctx7` package are installed by
+  hand.** `install.sh` links only the repo's own `skills/*`. Recreate the two skills with
+  `gh skill install cli/cli gh` and `gh skill install intel/intel-performance-skills linux-perf`,
+  each with `--scope user` and `--agent claude-code`, `codex` and `opencode`. Recreate ctx7 with
+  `npm install -g ctx7` and `ctx7 login`; `ctx7 setup --cli --<agent>` then installs `find-docs`
+  and its rule (`sysup` runs it). Until they exist, `sysup` ends "with warnings" on every run;
+  with only one of the two skills missing, the missing one goes unreported
+  (`docs/architecture/zsh.md`).
 - **yt-dlp's bgutil helper is a separate Node checkout**, not part of its uv tool
   environment. Recreate `~/.local/share/bgutil-pot` from the upstream release
   matching the installed `bgutil-ytdlp-pot-provider` Python package, then run

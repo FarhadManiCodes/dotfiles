@@ -18,7 +18,8 @@
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
-    Claude Code → agent skills (`gh`, `linux-perf`) → `ctx7` and its skill → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
+    Claude Code → agent skills (`gh`, `linux-perf`) → `ctx7` and its skill → plugins →
+    nvim `:checkhealth` → fwupd → `config-drift`);
     `sysup --podman-images` also updates installed Quadlet images, including stopped ones;
     `sysup --test-tools` also runs my own uv tools' test suites on the newest dependencies
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
@@ -71,9 +72,8 @@ of them is known to leave a process behind. If one ever does, close it there the
 agent skill update, ctx7 upgrade or ctx7 setup. Setup is skipped after a failed upgrade, so one
 failure is one warning. Each failure is reported where it happens and repeated after the last step,
 and again when the run stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded
-failures or skips ends
-"sysup finished with warnings" and returns non-zero (the podman status when the image update failed,
-otherwise 1).
+failures or skips ends "sysup finished with warnings" and returns non-zero (the podman status
+when the image update failed, otherwise 1).
 
 Limits of the ctx7 skill refresh, read from ctx7 0.9.0's source rather than observed:
 
@@ -85,6 +85,10 @@ Limits of the ctx7 skill refresh, read from ctx7 0.9.0's source rather than obse
   not warn. Read the output above if a skill looks stale.
 - If ctx7 cannot fetch `find-docs` from GitHub, it installs a short bundled copy and exits 0,
   replacing the full skill.
+- The `gh` and `linux-perf` skills and the global `ctx7` package are not recreated by
+  `install.sh`. On a rebuilt machine none of them exists until reinstalled, and every `sysup` ends
+  "with warnings" until then. If only one of the two named skills is missing, `gh skill update`
+  updates the other and exits 0, so the missing one is not reported.
 
 ## Ctrl-C in sysup
 
