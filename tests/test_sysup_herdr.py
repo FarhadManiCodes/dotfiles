@@ -21,9 +21,14 @@ class SysupHerdrTests(unittest.TestCase):
 printf '%s\\n' "$*" >> "$TEST_LOG"
 exit "$TEST_STATUS"
 """)
+        bin_dir = self.base / "bin"
+        bin_dir.mkdir()
+        ctx7 = bin_dir / "ctx7"
+        ctx7.write_text("#!/bin/sh\nexit 0\n")
+        ctx7.chmod(0o755)
         self.env = {
             "HOME": str(self.base),
-            "PATH": "/usr/bin:/bin",
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
             "LC_ALL": "C",
             "NO_COLOR": "1",
             "TEST_LOG": str(self.log),
@@ -76,6 +81,7 @@ systemd-inhibit() { exec sleep 30; }
 paru() { return 0; }
 uv() { return 0; }
 cargo() { return 0; }
+gh() { return 0; }
 claude() { print -r -- claude >> "$TEST_LOG"; }
 """
             + stubs

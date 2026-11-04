@@ -34,6 +34,9 @@ class ToolTestsStepTests(unittest.TestCase):
             'echo "5 passed in 0.1s"\n'
         )
         uv.chmod(0o755)
+        ctx7 = bin_dir / "ctx7"
+        ctx7.write_text("#!/bin/sh\nexit 0\n")
+        ctx7.chmod(0o755)
         self.env = {
             "HOME": str(self.base),
             "PATH": f"{bin_dir}:/usr/bin:/bin",
@@ -215,6 +218,7 @@ done
 systemd-inhibit() { exec sleep 30; }
 paru() { return 0; }
 cargo() { return 0; }
+gh() { return 0; }
 claude() { :; }
 uv() { return 0; }
 _sysup_tool_tests() { _sysup_notes+=("tests failed with the latest dependencies: x; see the output above"); return 1; }

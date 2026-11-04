@@ -1,7 +1,7 @@
 # sysup - full system + tooling update
 #
 # Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools -> Herdr ->
-# Claude Code ->
+# Claude Code -> agent skills -> ctx7 ->
 # editor/shell plugins -> nvim :checkhealth -> fwupd metadata (if stale) ->
 # config-drift. `--podman-images` adds container image updates after nvim health;
 # `--test-tools` adds my own tools' test suites against the newest dependencies after uv.
@@ -9,8 +9,9 @@
 # Ctrl-C skips the running step; a second press, or one in paru once it began installing or in
 # bgutil, stops the run (docs/architecture/zsh.md, "Ctrl-C in sysup").
 #
-# No global npm update: system node/npm are covered by paru. The bgutil step
-# rebuilds only the local yt-dlp token helper, using its release's lockfile.
+# No general global npm update: system node/npm are covered by paru, and the bgutil step
+# rebuilds only the local yt-dlp token helper, using its release's lockfile. The one global
+# npm package, ctx7, updates itself through its own `ctx7 upgrade`, then refreshes its skill.
 #
 # Steps live one-per-file in sysup/, sourced below by $0's own resolved
 # directory -- zsh sets $0 to the currently-sourcing file even nested inside a
@@ -307,6 +308,32 @@ _sysup_steps() {
   _sysup_header "Claude Code"
   claude update
   _sysup_prune_claude_versions
+
+  _sysup_header "Agent skills (gh, linux-perf)"
+  _status=0
+  gh skill update --all gh linux-perf || _status=$?
+  (( _status )) && { _sysup_note "$_status" "gh skill update failed (exit $_status); see the output above"; }
+
+  _sysup_header "ctx7 CLI and skill"
+  _status=0
+  ctx7 upgrade --yes || _status=$?
+  (( _status )) && { _sysup_note "$_status" "ctx7 upgrade failed (exit $_status); see the output above"; }
+  # One run per agent, in this order: Codex and OpenCode share ~/.agents/skills/find-docs and each
+  # writes its own variant of SKILL.md, so the last one wins -- OpenCode's, as before. Setup is
+  # idempotent (skill file overwritten, rule section replaced between its markers) and with
+  # --yes asks nothing while ctx7 is logged in; with no usable token it starts a browser login,
+  # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
+  # a real ctx7 on PATH, not a function). Skipped after a failed or skipped upgrade, so one failure is one warning, not four.
+  if (( _status )); then
+    echo "    skipping the ctx7 skill refresh; the upgrade did not finish"
+  else
+    local _agent
+    for _agent in claude codex opencode; do
+      _status=0
+      timeout --foreground 120s ctx7 setup --cli --yes --"$_agent" || _status=$?
+      (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
+    done
+  fi
 
   _sysup_header "Editor & shell plugins"
   _sysup_plugins

@@ -79,5 +79,8 @@ git/config.local
 # the global excludesFile, which only covers settings.local.json by name.
 **/.claude/
 
+# Project-scope agent skills installed by tools (Codex/OpenCode read .agents/skills)
+.agents/
+
 # ruff, run by editors or by hand; git-hooks/checks runs it with --no-cache
 .ruff_cache/
