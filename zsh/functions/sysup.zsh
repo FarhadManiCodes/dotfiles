@@ -322,12 +322,17 @@ _sysup_steps() {
   # writes its own variant of SKILL.md, so the last one wins -- OpenCode's, as before. Setup is
   # idempotent (skill file overwritten, rule section replaced between its markers) and with
   # --yes asks nothing.
-  local _agent
-  for _agent in claude codex opencode; do
-    _status=0
-    ctx7 setup --cli --yes --"$_agent" || _status=$?
-    (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
-  done
+  # Skipped after a failed or skipped upgrade, so one failure is one warning, not four.
+  if (( _status )); then
+    echo "    skipping the ctx7 skill refresh; the upgrade did not finish"
+  else
+    local _agent
+    for _agent in claude codex opencode; do
+      _status=0
+      ctx7 setup --cli --yes --"$_agent" || _status=$?
+      (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
+    done
+  fi
 
   _sysup_header "Editor & shell plugins"
   _sysup_plugins

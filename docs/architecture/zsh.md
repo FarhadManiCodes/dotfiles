@@ -67,7 +67,7 @@ a process one of them leaves behind cannot keep the concurrency lock held. The s
 `sysup`'s shell (paru, uv, Cargo, Claude, agent skills, ctx7, plugins, nvim health, podman, fwupd) still pass it on; none
 of them is known to leave a process behind. If one ever does, close it there the same way.
 
-`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update, agent skill update, ctx7 upgrade or ctx7 setup.
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update, agent skill update, ctx7 upgrade or ctx7 setup (setup is skipped after a failed upgrade).
 Each failure is reported where it happens and repeated after the last step, and again when the run
 stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded failures or skips ends
 "sysup finished with warnings" and returns non-zero (the podman status when the image update failed,
