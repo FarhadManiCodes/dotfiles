@@ -43,6 +43,7 @@ class PodmanImageUpdateTests(unittest.TestCase):
             SHPOOL_SESSION_NAME="sysup-test",
         )
 
+        (self.bin / "timeout").symlink_to(shutil.which("timeout"))
         for name in (
             "stat",
             "flock",

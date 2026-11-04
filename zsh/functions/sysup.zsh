@@ -321,15 +321,16 @@ _sysup_steps() {
   # One run per agent, in this order: Codex and OpenCode share ~/.agents/skills/find-docs and each
   # writes its own variant of SKILL.md, so the last one wins -- OpenCode's, as before. Setup is
   # idempotent (skill file overwritten, rule section replaced between its markers) and with
-  # --yes asks nothing.
-  # Skipped after a failed or skipped upgrade, so one failure is one warning, not four.
+  # --yes asks nothing while ctx7 is logged in; with no usable token it starts a browser login,
+  # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
+  # a real ctx7 on PATH, not a function). Skipped after a failed or skipped upgrade, so one failure is one warning, not four.
   if (( _status )); then
     echo "    skipping the ctx7 skill refresh; the upgrade did not finish"
   else
     local _agent
     for _agent in claude codex opencode; do
       _status=0
-      ctx7 setup --cli --yes --"$_agent" || _status=$?
+      timeout --foreground 120s ctx7 setup --cli --yes --"$_agent" || _status=$?
       (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
     done
   fi

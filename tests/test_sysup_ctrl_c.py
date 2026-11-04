@@ -96,6 +96,9 @@ class SysupCtrlCTests(unittest.TestCase):
         self.uv = bin_dir / "uv"
         self.uv.write_text('#!/bin/sh\necho "5 passed in 0.1s"\n')
         self.uv.chmod(0o755)
+        ctx7 = bin_dir / "ctx7"
+        ctx7.write_text("#!/bin/sh\nexit 0\n")
+        ctx7.chmod(0o755)
         self.env = {
             "HOME": str(self.base),
             "PATH": f"{bin_dir}:/usr/bin:/bin",
@@ -116,7 +119,6 @@ paru() {{ return 0; }}
 uv() {{ return 0; }}
 cargo() {{ return 0; }}
 gh() {{ return 0; }}
-ctx7() {{ return 0; }}
 claude() {{ print -r -- CLAUDE-RAN >> "$TEST_LOG"; }}
 {stubs}
 """)

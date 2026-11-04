@@ -67,11 +67,24 @@ a process one of them leaves behind cannot keep the concurrency lock held. The s
 `sysup`'s shell (paru, uv, Cargo, Claude, agent skills, ctx7, plugins, nvim health, podman, fwupd) still pass it on; none
 of them is known to leave a process behind. If one ever does, close it there the same way.
 
-`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update, agent skill update, ctx7 upgrade or ctx7 setup (setup is skipped after a failed upgrade).
-Each failure is reported where it happens and repeated after the last step, and again when the run
-stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded failures or skips ends
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update,
+agent skill update, ctx7 upgrade or ctx7 setup. Setup is skipped after a failed upgrade, so one
+failure is one warning. Each failure is reported where it happens and repeated after the last step,
+and again when the run stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded
+failures or skips ends
 "sysup finished with warnings" and returns non-zero (the podman status when the image update failed,
 otherwise 1).
+
+Limits of the ctx7 skill refresh, read from ctx7 0.9.0's source rather than observed:
+
+- `ctx7 setup --cli --yes` asks nothing while ctx7 is logged in. With no usable token it starts a
+  browser login, so each of the three runs is bounded by `timeout --foreground 120s` and a hang
+  becomes a warning naming the agent (exit 124). `timeout` runs `ctx7` as a program, so tests stub
+  it as an executable, not a shell function.
+- A failed skill or rule write is printed as `failed: ...` but ctx7 still exits 0, so `sysup` does
+  not warn. Read the output above if a skill looks stale.
+- If ctx7 cannot fetch `find-docs` from GitHub, it installs a short bundled copy and exits 0,
+  replacing the full skill.
 
 ## Ctrl-C in sysup
 
