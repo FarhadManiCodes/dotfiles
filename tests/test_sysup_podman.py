@@ -43,7 +43,7 @@ class PodmanImageUpdateTests(unittest.TestCase):
             SHPOOL_SESSION_NAME="sysup-test",
         )
 
-        for name in ("stat", "flock", "paru", "uv", "cargo", "claude"):
+        for name in ("stat", "flock", "paru", "uv", "cargo", "claude", "gh"):
             self.script(
                 name,
                 f"""printf '{name} %s\\n' "$*" >> "$SYSUP_TEST_LOG"

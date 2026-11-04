@@ -1,7 +1,7 @@
 # sysup - full system + tooling update
 #
 # Order: mirrorlist -> pacman/AUR (paru) -> uv tools -> bgutil -> yts -> Cargo tools -> Herdr ->
-# Claude Code ->
+# Claude Code -> agent skills ->
 # editor/shell plugins -> nvim :checkhealth -> fwupd metadata (if stale) ->
 # config-drift. `--podman-images` adds container image updates after nvim health;
 # `--test-tools` adds my own tools' test suites against the newest dependencies after uv.
@@ -307,6 +307,11 @@ _sysup_steps() {
   _sysup_header "Claude Code"
   claude update
   _sysup_prune_claude_versions
+
+  _sysup_header "Agent skills (gh, linux-perf)"
+  _status=0
+  gh skill update --all gh linux-perf || _status=$?
+  (( _status )) && { _sysup_note "$_status" "gh skill update failed (exit $_status); see the output above"; }
 
   _sysup_header "Editor & shell plugins"
   _sysup_plugins

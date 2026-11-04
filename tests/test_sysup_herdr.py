@@ -76,6 +76,7 @@ systemd-inhibit() { exec sleep 30; }
 paru() { return 0; }
 uv() { return 0; }
 cargo() { return 0; }
+gh() { return 0; }
 claude() { print -r -- claude >> "$TEST_LOG"; }
 """
             + stubs
