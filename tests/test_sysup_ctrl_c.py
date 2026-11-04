@@ -116,6 +116,7 @@ paru() {{ return 0; }}
 uv() {{ return 0; }}
 cargo() {{ return 0; }}
 gh() {{ return 0; }}
+ctx7() {{ return 0; }}
 claude() {{ print -r -- CLAUDE-RAN >> "$TEST_LOG"; }}
 {stubs}
 """)

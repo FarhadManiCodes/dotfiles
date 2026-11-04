@@ -18,7 +18,7 @@
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
-    Claude Code → agent skills (`gh`, `linux-perf`) → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
+    Claude Code → agent skills (`gh`, `linux-perf`) → `ctx7` and its skill → plugins → nvim `:checkhealth` → fwupd → `config-drift`);
     `sysup --podman-images` also updates installed Quadlet images, including stopped ones;
     `sysup --test-tools` also runs my own uv tools' test suites on the newest dependencies
   - `virtualenv.zsh` — full uv+direnv venv management (`vc`, `va`, `vp`, `vd`, `vl`, `vr`)
@@ -64,10 +64,10 @@ seconds, hence opt-in.
 
 The lock descriptor is closed in the steps that run in a subshell (tool tests, bgutil, yts, Herdr), so
 a process one of them leaves behind cannot keep the concurrency lock held. The steps run directly in
-`sysup`'s shell (paru, uv, Cargo, Claude, agent skills, plugins, nvim health, podman, fwupd) still pass it on; none
+`sysup`'s shell (paru, uv, Cargo, Claude, agent skills, ctx7, plugins, nvim health, podman, fwupd) still pass it on; none
 of them is known to leave a process behind. If one ever does, close it there the same way.
 
-`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update or agent skill update.
+`sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update, agent skill update, ctx7 upgrade or ctx7 setup.
 Each failure is reported where it happens and repeated after the last step, and again when the run
 stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded failures or skips ends
 "sysup finished with warnings" and returns non-zero (the podman status when the image update failed,

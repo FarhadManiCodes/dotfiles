@@ -216,6 +216,7 @@ systemd-inhibit() { exec sleep 30; }
 paru() { return 0; }
 cargo() { return 0; }
 gh() { return 0; }
+ctx7() { return 0; }
 claude() { :; }
 uv() { return 0; }
 _sysup_tool_tests() { _sysup_notes+=("tests failed with the latest dependencies: x; see the output above"); return 1; }
