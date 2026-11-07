@@ -1034,3 +1034,19 @@ background process that had exited gave exit 1, a live one gave 0.
   a small HTTP server for a rare, manual-only, report-only case (user decision).
 
 Recheck if the full run exits 1 with a complete report: the trap is the first suspect.
+
+---
+
+## Herdr OpenCode plugin: possible pane misattribution — ACCEPTED, unverified (2026-11-07)
+
+With OpenCode 2's shared background service, `plugins/herdr-agent-state.js` reads
+`HERDR_PANE_ID` from the service's own environment, while `herdr-tui-session.js` runs in
+the client, so state could be reported for the wrong pane. Found in the Omarchy review of
+`573b518be..9044b7e8e`; not reproduced, because the service was stopped during the review.
+
+- **Why not a TODO:** unverified and nothing has misbehaved (user decision).
+- **To check:** start OpenCode in one pane, read the service's `/proc/<pid>/environ` for
+  `HERDR_*`, then open a second pane. If it misattributes, try `opencode --standalone` in
+  the Herdr launch.
+
+Recheck if Herdr shows the wrong pane as busy or idle while OpenCode runs.
