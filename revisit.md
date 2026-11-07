@@ -1034,3 +1034,48 @@ background process that had exited gave exit 1, a live one gave 0.
   a small HTTP server for a rare, manual-only, report-only case (user decision).
 
 Recheck if the full run exits 1 with a complete report: the trap is the first suspect.
+
+---
+
+## Herdr OpenCode plugin: possible pane misattribution — ACCEPTED, unverified (2026-11-07)
+
+With OpenCode 2's shared background service, `plugins/herdr-agent-state.js` reads
+`HERDR_PANE_ID` from the service's own environment, while `herdr-tui-session.js` runs in
+the client, so state could be reported for the wrong pane. Found in the Omarchy review of
+`573b518be..9044b7e8e`; not reproduced, because the service was stopped during the review.
+
+- **Why not a TODO:** unverified and nothing has misbehaved (user decision).
+- **To check:** start OpenCode in one pane, read the service's `/proc/<pid>/environ` for
+  `HERDR_*`, then open a second pane. If it misattributes, try `opencode --standalone` in
+  the Herdr launch.
+
+Recheck if Herdr shows the wrong pane as busy or idle while OpenCode runs.
+
+---
+
+## Claude token-usage archive: hook instead of a timer — ACCEPTED (2026-11-08)
+
+`~/.claude/burn/burn.py archive` copies per-message token usage out of the transcripts
+before Claude Code deletes them (`cleanupPeriodDays` in the untracked
+`~/.claude/settings.json`, 60 since 2026-11-08). It used to run from
+`claude-burn-archive.timer`, daily.
+
+- **Why the timer went:** usage is irregular and the user wants nothing running on a
+  schedule; the timer was never enabled here, so 11 days went unarchived.
+- **Now:** a `SessionEnd` hook in `~/.claude/settings.json` (live-only, like `burn.py`)
+  runs `systemctl --user start --no-block claude-burn-archive.service` and returns at
+  once (0.017 s measured; SessionEnd hooks get a 1.5 s budget). The service stays in the
+  repo, linked but not enabled, so it keeps `OnFailure=` notification, its sandbox,
+  `Nice=10` and idle I/O, and systemd ignores a second start while a run is in progress.
+  An incremental run takes 0.24 s, an 11-day catch-up 8.5 s.
+- **Known gaps, accepted:** a session that ends while a run is in progress merges into
+  that run and is picked up by the next one (each run re-reads the last day's
+  transcripts). `burn.py`'s `_prune_history` rewrites `history.jsonl` when an entry passes
+  180 days, and a status line appending at that instant loses one quota sample; the fix
+  (a file lock around the prune) belongs in `burn.py`, which this repo does not track.
+- **Rejected first version:** the hook ran `burn.py` itself, detached with `setsid -f`,
+  logging errors to the journal. It lost the failure notification, the sandbox and the
+  protection against two overlapping runs.
+
+Recheck if `activity.json` stops changing after sessions end, or on a new machine (the hook
+and `burn.py` must be added by hand).

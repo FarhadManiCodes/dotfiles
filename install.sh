@@ -290,6 +290,8 @@ link_glob "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.networ
 
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
+# claude-burn-archive.service is linked but not enabled: a Claude Code
+# SessionEnd hook starts it (see the unit's header).
 link_glob "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer "${DOTFILES}/systemd/user/"*.socket "${HOME}/.config/systemd/user"
 for d in "${DOTFILES}/systemd/user/"*.d; do link_glob "$d"/*.conf "${HOME}/.config/systemd/user/${d##*/}"; done
 systemctl --user daemon-reload
@@ -323,9 +325,6 @@ units_to_enable=(
   # than every push. Socket-activated: enabling the socket is enough, the
   # service starts on first use.
   ssh-agent.socket
-  # Daily copy of Claude Code token usage into ~/.claude/burn/state before the
-  # 30-day transcript cleanup deletes it (weekly-allowance forecast data).
-  claude-burn-archive.timer
 )
 failed_user_units=()
 for unit in "${units_to_enable[@]}"; do

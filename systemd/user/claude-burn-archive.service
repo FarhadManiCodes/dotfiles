@@ -6,9 +6,15 @@ OnFailure=notify-failure@%n.service
 Type=oneshot
 # Copies per-message token usage from ~/.claude/projects/**/*.jsonl into
 # ~/.claude/burn/state/activity.json. Claude Code deletes transcripts after
-# cleanupPeriodDays (30), and this history is the data for calibrating the
-# weekly-allowance forecast in ~/.claude/burn. Incremental: only transcripts
-# modified since the last run are re-read.
+# cleanupPeriodDays (in ~/.claude/settings.json), and this history is the data
+# for calibrating the weekly-allowance forecast in ~/.claude/burn. Incremental:
+# only transcripts modified since the last run are re-read.
+#
+# No timer and not enabled: a Claude Code SessionEnd hook in the untracked
+# ~/.claude/settings.json starts it after each session (see revisit.md):
+#   systemctl --user start --no-block claude-burn-archive.service
+# A second start while it runs is a no-op. burn.py is not tracked here either;
+# on a fresh machine without it this fails and OnFailure= notifies.
 ExecStart=/usr/bin/python3 -I %h/.claude/burn/burn.py archive
 Nice=10
 IOSchedulingClass=idle

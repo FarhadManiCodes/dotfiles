@@ -244,3 +244,47 @@ Three isolated regression tests run the real installer in a temporary home with 
 **Adopted recording-toggle concurrency guard:** inspired by Omarchy's recording serialization in `e1b0e5e9`, `bash/toggle-record.sh` now holds a nonblocking runtime lock around start/stop and ignores overlapping toggles. The background recorder closes the lock descriptor; status queries remain quick and read-only. Three isolated tests cover an overlapping toggle while startup still owns the lock, status while locked, a later stop proving the recorder did not retain the lock, sequential stop/restart, and inactive status without file writes. The overlap regression fails against the previous script and passes with the guard. Bash syntax and ShellCheck pass. No live audio was captured. The verified helper symlink activates the guard on the next invocation. The existing PID/name check remains unchanged. Implemented on `fix-audio-record-concurrency`; the user authorized merging after review on 2026-10-10.
 
 Discussion complete. Last reviewed Omarchy commit: `a15636b5`.
+
+### 2026-11-07: `573b518be..9044b7e8e` (178 commits)
+
+The 7 November pull at 17:23 CET fast-forwarded exactly 178 commits including merges, from `573b518be` (the 29 October pull) to `9044b7e8e`. The range is mostly Hyprland and Quickshell work, installer and ISO changes, translations, and hardware enablement for machines this laptop is not (Snapdragon 8 commits, Apple Silicon 5, ASUS Zenbook 2, HP ZBook 2, NVIDIA and GB10 6, Intel 1, Cam Link 1, a Snapdragon camera fix 1). Reviewed in nine topics, one idea at a time. The previous entry above ends at `a15636b5` (2026-10-10). The 572 commits between that and `573b518be` had no entry here, although `TODO.md` cites some of them. They were reviewed again on the same day; see "Gap re-check" below.
+
+**Added to `TODO.md`:**
+
+- **Item 28, sysup restart and reboot notice.** Omarchy's `bin/omarchy-update-restart` ends every update by comparing the running kernel with the installed modules and checking whether the running compositor's binary was replaced. `sysup` reports `.pacnew` files but nothing about running processes. Verified 2026-11-07: kernel (7.2.14) and niri current, but the two `rclone mount` processes ran a replaced `/usr/bin/rclone`. Planned as a report-only step; it must not restart the FUSE mounts.
+- **Item 29, display key powers off the screens.** Prompted by `5a4f13664` (#17262), which binds `XF86Display` to cycle Omarchy's layout. Here the user wants it to replace `Mod+Shift+O` for `power-off-monitors`. `ThinkPad Extra Buttons` advertises `KEY_SWITCHVIDEOMODE`; niri's default config and logind claim nothing. Open: whether Fn+F7 arrives as `XF86Display` or as Super+P, and whether pressing it to wake the screens re-triggers the bind. `niri msg output <name> off` is a different action (it removes the output like an unplug) and is not used.
+- **Item 30, clipboard picker Esc.** Reviewing the clipboard panel messages (`1d880868b`, `389f1ede9`) exposed a local fault: `Ctrl+Grave` pipes `fuzzel` into `cliphist decode | wl-copy`, and `wl-copy` with empty input leaves zero-sized data on the clipboard. The user reports it has already happened. Not reproduced by the reviewer. `media-menu.sh` already returns on Esc.
+- **Item 21, test audit.** Added the standing test rules (when a test earns its place, and the log-file run discipline) as something the audit should propose for `AGENTS.md`. None of `AGENTS.md`, `CLAUDE.md`, `docs/`, `skills/` or `.agents/` has them.
+
+**Skipped, with the reason:**
+
+- **Wallpaper change without a flash** (`8e1f951c8`): the README's `pkill swaybg` then respawn can flash; starting the new `swaybg` first would avoid it. Cosmetic and untested; the user is not bothered.
+- **Night light identity reset** (`085708309`): hyprsunset at 6500K still tinted. `wlsunset -T 6500` may do the same; the source could not be fetched to confirm. The user has not noticed a tint.
+- **Hotkey layout rules** (`09fa23e82`, AGENTS.md "Keybindings"): the user declined a written convention for the niri binds.
+- **Auto-paste after dictation** (`ad4977b6a`): the user records while elsewhere and pastes themself; `dictate` stays copy-only. The existing flock-protected pidfile already covers the quick-second-press race that Hex's stop fix addresses.
+- **Fixed 0.3 s wait in `tests/test_sysup_ctrl_c.py:207`**: can fail on a busy machine, the same class as `d5b32d24d`. The test has not flaked; recorded in item 21 as a known fixed sleep.
+- **Rule that agents restore the live session after an experiment** (`162291a39`): not added to `AGENTS.md`.
+- **Login-recovery note** (`5ef45270e`, UWSM `env.d`): no such note exists here, and what breaks login under Ly and niri was not verified. Not pursued.
+- **Keyring refresh before updates** (`c2818bb36`): `archlinux-keyring` 20260909 is current and Arch's `wkd-sync` timer is active.
+- **Ordinary sudo with a 10-minute timeout** (`56a910b0e`): the earlier decision to keep Paru's `SudoLoop` and `CombinedUpgrade` stands.
+
+**Already safe or not applicable:**
+
+- Resume hooks: `system-sleep/unblock-fuse` already hands the post-resume work to a transient unit and waits for the thaw, which is stricter than Omarchy's gvfs fix (`620fd0c2c`); gvfs is not installed.
+- Locale: only `LC_TIME` is German, so the `top` parsing bug (`c3040266c`) cannot occur.
+- Battery (`f53e0b2b7`, `4761d7b26`): `power-notify` decides "full" from the kernel status and the charge limit and retries unreadable sysfs values.
+- Media widget (`31020accb`): `media-menu.sh` prefers Playing, then Paused, and never a Stopped idle player.
+- Codex (`ada0b5119`): 0.167 here, 443 plain `.jsonl` sessions, nothing reads them. A future usage tool would need to read `.jsonl.zst` too.
+- Shutdown watchdog, efivarfs, camera-at-login, GB10 idle, NVIDIA, Apple, ASUS, HP, Intel and Cam Link commits are hardware this laptop does not have. The ZBook USB-port fix (`fd3475a64`) concerns an Elan reader; this laptop has a Goodix one and its journal shows no USB enumeration errors. Audio (acp63 card, speaker and both microphones), camera (V4L2 and libcamera) and `hwdec=vaapi` with Mesa's `radeonsi` driver checked fine.
+- Monitor panel, bar, tray, tooltips, clipboard and emoji panels, notification-click focus, image picker cache, the PR template and visual-evidence workflow, CI test fixes, translations and the end-user manual have no equivalent here.
+
+**Left open, no TODO:** whether Herdr's OpenCode state plugin attributes sessions to the right pane when OpenCode 2's shared background service is used. `plugins/herdr-agent-state.js` reads `HERDR_PANE_ID` from the service's own environment, while `herdr-tui-session.js` runs in the client. Unverified; the service was stopped during the review. To check: start OpenCode in one pane, read the service's `/proc/<pid>/environ` for `HERDR_*`, then open a second pane. If it misattributes, try `opencode --standalone` in the Herdr launch. The user decided not to add a TODO; recorded in `revisit.md` as accepted and unverified.
+
+**Gap re-check: `a15636b5..573b518be` (572 commits).** This range had been partly reviewed before (`TODO.md` cites `02da3adab`, `eb0c5155c`, `ce39c5e9` and `f85b887c0`) but never logged. It was reviewed again, and four ideas were new:
+
+- Applied directly: a "react to events, don't poll" rule in `AGENTS.md`, from Omarchy's "Background Work" guidance (#15029). The notifiers already work this way. The only timer, `claude-burn-archive.timer`, was later removed; a Claude Code `SessionEnd` hook now starts its service (see `revisit.md`). The rule writes the design down so a new watcher doesn't add a polling loop. Unlike Omarchy, no idle-spawn test enforces it.
+- Skipped by the user: cut `GRUB_TIMEOUT` from 5 s to 1–2 s (the loader takes 6.6 s of a 24.9 s boot).
+- Skipped by the user: a note on removing a fingerprint from the Goodix match-on-chip reader (`fprintd-delete` does it).
+- Skipped by the user: a touchpad `scroll-factor` window rule for foot (niri 26.04 accepts it; foot has `[scrollback] multiplier=5`).
+
+Discussion complete. Last reviewed Omarchy commit: `9044b7e8e`.
