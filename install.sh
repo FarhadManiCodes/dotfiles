@@ -323,10 +323,12 @@ units_to_enable=(
   # than every push. Socket-activated: enabling the socket is enough, the
   # service starts on first use.
   ssh-agent.socket
-  # Daily copy of Claude Code token usage into ~/.claude/burn/state before the
-  # 60-day transcript cleanup deletes it (weekly-allowance forecast data).
-  claude-burn-archive.timer
 )
+# claude-burn-archive.timer is linked above but deliberately not enabled:
+# usage is irregular and the user wants no extra service. Run
+# `burn.py archive` by hand, or enable the timer with
+# `systemctl --user enable --now claude-burn-archive.timer`, before
+# transcripts age past cleanupPeriodDays (60).
 failed_user_units=()
 for unit in "${units_to_enable[@]}"; do
   if ! systemctl --user enable "$unit"; then
