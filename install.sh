@@ -324,11 +324,6 @@ units_to_enable=(
   # service starts on first use.
   ssh-agent.socket
 )
-# claude-burn-archive.timer is linked above but deliberately not enabled:
-# usage is irregular and the user wants no extra service. Run
-# `burn.py archive` by hand, or enable the timer with
-# `systemctl --user enable --now claude-burn-archive.timer`, before
-# transcripts age past cleanupPeriodDays (60).
 failed_user_units=()
 for unit in "${units_to_enable[@]}"; do
   if ! systemctl --user enable "$unit"; then
