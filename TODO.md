@@ -43,6 +43,7 @@ Off-machine backup remains deferred.
 | 26. sysup upgrade lifecycle | Investigation only | Test dependency replacement, partial failures and recovery reporting |
 | 27. ptipython in the venv, with preloads | Open 2026-10-27; after Herdr Milestone 0 | Pick the venv, measure startup, then install |
 | 28. sysup restart and reboot notice | Planned 2026-11-07 | Build a read-only end-of-run notice; two rclone mounts already run a replaced binary |
+| 29. Screen power-off on the display key | Planned 2026-11-07 | Confirm Fn+F7 reaches niri as `XF86Display`, then replace `Mod+Shift+O` |
 
 ## 1. Off-machine backup
 
@@ -513,3 +514,26 @@ path is chosen, with no heavy dependency pulled in.
 **Acceptance criteria:** with isolated `/proc`, `/usr/lib/modules` and package-ownership fixtures, the notice is silent when the kernel and processes are current; names the reboot when the running kernel's module directory is missing; names a replaced niri or foot as a re-login; lists a replaced rclone mount without restarting it; ignores a deleted path outside `/usr/`; and still prints something useful when `/proc` entries are unreadable. It must never call `systemctl restart`, `kill` or `sudo`. Run the focused sysup tests, then one real `sysup` and confirm the two rclone processes are listed.
 
 **Scope:** planning only; this TODO does not change `sysup`, restart the rclone mounts or install packages.
+
+## 29. Power off the screens with the display key instead of Mod+Shift+O
+
+**Requested 2026-11-07. Planning only:** the user finds the laptop's display key easier to remember than `Mod+Shift+O` and wants it to replace that binding. It would run the same action, `power-off-monitors` (DPMS), which any key or mouse movement undoes. Arose while reviewing Omarchy commit [`5a4f13664`](https://github.com/basecamp/omarchy/commit/5a4f13664) (#17262), which binds `XF86Display` to cycle its workspace layout; niri has no such layout action, so only the idea of giving the key a use carries over.
+
+**Current behavior:** `niri/config.kdl:411` binds `Mod+Shift+O { power-off-monitors; }`. `systemd/user/swayidle.service:23` also calls `niri msg action power-off-monitors` after 305 s idle. The display key is unbound.
+
+**Verified 2026-11-07:**
+
+- The `ThinkPad Extra Buttons` input device advertises `KEY_SWITCHVIDEOMODE` (227), which xkb names `XF86Display`. This proves the device can send it, not that Fn+F7 does on this model.
+- niri 26.04's default config binds no display key, and `logind.conf.d/10-lid-and-power.conf` only handles the power key and lid, so neither claims it. No desktop environment runs that would. No `hwdb` remap exists.
+- niri 26.04 provides `power-off-monitors` and `power-on-monitors`. The `niri msg output <name> off` command is a different feature: it removes the output from the desktop like an unplug, and input does not bring it back. This item never uses it, so no last-screen guard is needed.
+
+**Open questions, in order:**
+
+1. Does Fn+F7 arrive in niri as `XF86Display`? Some newer ThinkPads send Super+P instead. If so, `Mod+P` (Firefox private) would already fire on that key. No key-event tool is installed (`wev`, `evtest`, `libinput`); the quickest test is a temporary bind that runs `notify-send`, or installing `wev`.
+2. Does pressing the same key to wake the screens switch them straight off again? If niri still delivers the key that wakes the monitors, the bind would re-trigger. Test with the real key; if it does, wake with the mouse or another key, or bind `power-on-monitors` to a modifier combination.
+3. Keep or drop `Mod+Shift+O`? The user wants it replaced. The only cost is an external keyboard, which has no display key, leaving no keyboard route to power-off. The user decides.
+4. Should the new bind work while the session is locked (`allow-when-locked=true`, as the brightness keys do)? Powering off the screen on the lock screen is the likely use. Add `repeat=false` as the dictation binds do.
+
+**Acceptance criteria:** the display key powers off the screens, and a key or mouse movement brings them back without powering them off again. It works on the lock screen if question 4 says so. `Mod+Shift+O` is removed or kept as decided, with a `hotkey-overlay-title` on the new bind. The swayidle idle timeout still powers off and wakes the screens. The niri README's bind list is updated if it names `Mod+Shift+O` (it does not today).
+
+**Scope:** planning only; this TODO does not change `config.kdl`.
