@@ -554,11 +554,11 @@ path is chosen, with no heavy dependency pulled in.
 
 **Plan:**
 
-1. Reproduce: copy "abc", press `Ctrl+Grave`, press Esc, paste. Record the result, including whether `cliphist decode` prints an error on empty input.
-2. Move the bind's body into a small script, in `bash/` beside `cliphist-store-guard`, that captures the picker's output in a variable, exits quietly when it is empty, and only then decodes and copies. Keep the picker's position, width and line count.
+1. Reproduce: copy "abc", press `Ctrl+Grave`, press Esc, paste. Record the result. Already measured 2026-11-07 with cliphist 0.7.0, without touching the clipboard: `cliphist decode` on empty input prints "input not prefixed with id" and exits 1; on an id no longer in the history it prints "id ... not found", writes 0 bytes and exits 0.
+2. Move the bind's body into a small script, in `bash/` beside `cliphist-store-guard`, that captures the picker's line in a variable and exits quietly when it is empty, decodes into a temporary file, and runs `wl-copy < file` only when decode exited 0 and the file is not empty; otherwise it exits without touching the clipboard. Exit status alone is not enough (a missing id exits 0 with no output), and decoded content must not pass through a shell variable, which drops trailing newlines and cannot hold NUL bytes. Keep the picker's position, width and line count.
 3. When the history is empty, show a short notification ("Clipboard history is empty") instead of an empty picker, following Omarchy's idea. Use the same notification path the other bash helpers use.
 4. Keep `cliphist-store-guard` as it is; it already handles empty and cleared clipboard states (`CLIPBOARD_STATE=nil|clear`).
 
-**Acceptance criteria:** with text on the clipboard, opening the picker and pressing Esc leaves the clipboard unchanged. Choosing an entry copies it exactly, including multi-line entries and entries that start with a dash. An empty history shows the notice and changes nothing. Test with isolated stand-ins for `cliphist`, `fuzzel` and `wl-copy` that record whether `wl-copy` ran, covering Esc, a selection, an empty history and a picker failure. Then one live check of Esc.
+**Acceptance criteria:** with text on the clipboard, opening the picker and pressing Esc leaves the clipboard unchanged. Choosing an entry copies it exactly, including multi-line entries and entries that start with a dash. An empty history shows the notice and changes nothing. An id missing from the history leaves the clipboard unchanged. An image entry is copied byte for byte. Test with isolated stand-ins for `cliphist`, `fuzzel` and `wl-copy` that record whether `wl-copy` ran, covering Esc, a selection, an empty history and a picker failure. Then one live check of Esc.
 
 **Scope:** planning only; this TODO does not change the bind or the script.
