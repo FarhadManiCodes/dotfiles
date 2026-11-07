@@ -44,6 +44,7 @@ Off-machine backup remains deferred.
 | 27. ptipython in the venv, with preloads | Open 2026-10-27; after Herdr Milestone 0 | Pick the venv, measure startup, then install |
 | 28. sysup restart and reboot notice | Planned 2026-11-07 | Build a read-only end-of-run notice; two rclone mounts already run a replaced binary |
 | 29. Screen power-off on the display key | Planned 2026-11-07 | Confirm Fn+F7 reaches niri as `XF86Display`, then replace `Mod+Shift+O` |
+| 30. Clipboard picker overwrites the clipboard on Esc | Found 2026-11-07; user reports it has happened | Reproduce, then copy only when a selection was made |
 
 ## 1. Off-machine backup
 
@@ -537,3 +538,22 @@ path is chosen, with no heavy dependency pulled in.
 **Acceptance criteria:** the display key powers off the screens, and a key or mouse movement brings them back without powering them off again. It works on the lock screen if question 4 says so. `Mod+Shift+O` is removed or kept as decided, with a `hotkey-overlay-title` on the new bind. The swayidle idle timeout still powers off and wakes the screens. The niri README's bind list is updated if it names `Mod+Shift+O` (it does not today).
 
 **Scope:** planning only; this TODO does not change `config.kdl`.
+
+## 30. Stop the clipboard picker from overwriting the clipboard when nothing is chosen
+
+**Requested 2026-11-07. Planning only:** closing the clipboard history picker without choosing an entry should leave the clipboard as it was. The user reports this has already happened: the clipboard was replaced after dismissing the picker. Found while reviewing Omarchy's clipboard panel commits [`1d880868b`](https://github.com/basecamp/omarchy/commit/1d880868b) and [`389f1ede9`](https://github.com/basecamp/omarchy/commit/389f1ede9) (#17562, #17564), which only add "empty" and "no match" messages; the overwrite is a separate problem in the local bind.
+
+**Current behavior:** `niri/config.kdl:252` (`Ctrl+Grave`) runs `cliphist list | fuzzel -d ... | cliphist decode | wl-copy` in a plain pipe. Pressing Esc, or an empty history, sends nothing through `cliphist decode`, but `wl-copy` still runs. The `wl-copy` man page says copying from empty input (`wl-copy < /dev/null`) leaves the clipboard holding zero-sized data, which replaces the previous copy. The pipe has no `pipefail` and no check on the picker's result. Not reproduced by Claude, because testing overwrites the live clipboard; the user's report is the evidence.
+
+**Scope check 2026-11-07:** this is the only fuzzel pipeline with the problem. `bash/media-menu.sh:149` already returns on Esc (`|| return 0`), and the suspend picker at `niri/config.kdl:239` stops because `grep -q` fails on empty input. `bash/qrscan` documents the same care about pipes ending in `wl-copy`.
+
+**Plan:**
+
+1. Reproduce: copy "abc", press `Ctrl+Grave`, press Esc, paste. Record the result, including whether `cliphist decode` prints an error on empty input.
+2. Move the bind's body into a small script, in `bash/` beside `cliphist-store-guard`, that captures the picker's output in a variable, exits quietly when it is empty, and only then decodes and copies. Keep the picker's position, width and line count.
+3. When the history is empty, show a short notification ("Clipboard history is empty") instead of an empty picker, following Omarchy's idea. Use the same notification path the other bash helpers use.
+4. Keep `cliphist-store-guard` as it is; it already handles empty and cleared clipboard states (`CLIPBOARD_STATE=nil|clear`).
+
+**Acceptance criteria:** with text on the clipboard, opening the picker and pressing Esc leaves the clipboard unchanged. Choosing an entry copies it exactly, including multi-line entries and entries that start with a dash. An empty history shows the notice and changes nothing. Test with isolated stand-ins for `cliphist`, `fuzzel` and `wl-copy` that record whether `wl-copy` ran, covering Esc, a selection, an empty history and a picker failure. Then one live check of Esc.
+
+**Scope:** planning only; this TODO does not change the bind or the script.
