@@ -282,7 +282,7 @@ The 7 November pull at 17:23 CET fast-forwarded exactly 178 commits including me
 
 **Gap re-check: `a15636b5..573b518be` (572 commits).** This range had been partly reviewed before (`TODO.md` cites `02da3adab`, `eb0c5155c`, `ce39c5e9` and `f85b887c0`) but never logged. It was reviewed again, and four ideas were new:
 
-- Applied directly: a "react to events, don't poll" rule in `AGENTS.md`, from Omarchy's "Background Work" guidance (#15029). The notifiers already work this way. The only timer, `claude-burn-archive.timer`, was later replaced by a Claude Code `SessionEnd` hook and removed (see `revisit.md`). The rule writes the design down so a new watcher doesn't add a polling loop. Unlike Omarchy, no idle-spawn test enforces it.
+- Applied directly: a "react to events, don't poll" rule in `AGENTS.md`, from Omarchy's "Background Work" guidance (#15029). The notifiers already work this way. The only timer, `claude-burn-archive.timer`, was later removed; a Claude Code `SessionEnd` hook now starts its service (see `revisit.md`). The rule writes the design down so a new watcher doesn't add a polling loop. Unlike Omarchy, no idle-spawn test enforces it.
 - Skipped by the user: cut `GRUB_TIMEOUT` from 5 s to 1–2 s (the loader takes 6.6 s of a 24.9 s boot).
 - Skipped by the user: a note on removing a fingerprint from the Goodix match-on-chip reader (`fprintd-delete` does it).
 - Skipped by the user: a touchpad `scroll-factor` window rule for foot (niri 26.04 accepts it; foot has `[scrollback] multiplier=5`).

@@ -1056,19 +1056,21 @@ Recheck if Herdr shows the wrong pane as busy or idle while OpenCode runs.
 ## Claude token-usage archive: hook instead of a timer — ACCEPTED (2026-11-08)
 
 `~/.claude/burn/burn.py archive` copies per-message token usage out of the transcripts
-before Claude Code deletes them (`cleanupPeriodDays`, now 60 in the untracked
-`~/.claude/settings.json`). It used to run from `claude-burn-archive.timer`, daily.
+before Claude Code deletes them (`cleanupPeriodDays` in the untracked
+`~/.claude/settings.json`, 60 since 2026-11-08). It used to run from
+`claude-burn-archive.timer`, daily.
 
-- **Why the timer went:** usage is irregular and the user wants no extra service; the
-  timer was never enabled here, so 11 days went unarchived. The units also called
-  `burn.py`, which this repo does not track, so they could not work on a fresh install.
+- **Why the timer went:** usage is irregular and the user wants nothing running on a
+  schedule; the timer was never enabled here, so 11 days went unarchived.
 - **Now:** a `SessionEnd` hook in `~/.claude/settings.json` (live-only, like `burn.py`)
-  starts the archive detached with `setsid -f` and returns at once, because SessionEnd
-  hooks get a 1.5 s budget and a busy day's run can exceed it. Measured: the hook returns
-  in under 0.01 s, an incremental run takes 0.24 s, an 11-day catch-up 8.5 s.
-- **Failures:** stdout is discarded and errors go to the journal:
-  `journalctl --user -t claude-burn`. Two sessions ending together can overwrite each
-  other's save; the next run re-reads the last day's transcripts and recovers it.
+  runs `systemctl --user start --no-block claude-burn-archive.service` and returns at
+  once (0.017 s measured; SessionEnd hooks get a 1.5 s budget). The service stays in the
+  repo, linked but not enabled, so it keeps `OnFailure=` notification, its sandbox,
+  `Nice=10` and idle I/O, and systemd ignores a second start while a run is in progress.
+  An incremental run takes 0.24 s, an 11-day catch-up 8.5 s.
+- **Rejected first version:** the hook ran `burn.py` itself, detached with `setsid -f`,
+  logging errors to the journal. It lost the failure notification, the sandbox and the
+  protection against two overlapping runs.
 
 Recheck if `activity.json` stops changing after sessions end, or on a new machine (the hook
 and `burn.py` must be added by hand).
