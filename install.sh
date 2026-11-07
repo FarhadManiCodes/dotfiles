@@ -290,6 +290,8 @@ link_glob "${DOTFILES}/containers/"*.container "${DOTFILES}/containers/"*.networ
 
 # ============ systemd user services ==============================
 echo "⚙️  Installing systemd user services..."
+# claude-burn-archive.service is linked but not enabled: a Claude Code
+# SessionEnd hook starts it (see the unit's header).
 link_glob "${DOTFILES}/systemd/user/"*.service "${DOTFILES}/systemd/user/"*.timer "${DOTFILES}/systemd/user/"*.socket "${HOME}/.config/systemd/user"
 for d in "${DOTFILES}/systemd/user/"*.d; do link_glob "$d"/*.conf "${HOME}/.config/systemd/user/${d##*/}"; done
 systemctl --user daemon-reload

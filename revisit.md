@@ -1068,6 +1068,11 @@ before Claude Code deletes them (`cleanupPeriodDays` in the untracked
   repo, linked but not enabled, so it keeps `OnFailure=` notification, its sandbox,
   `Nice=10` and idle I/O, and systemd ignores a second start while a run is in progress.
   An incremental run takes 0.24 s, an 11-day catch-up 8.5 s.
+- **Known gaps, accepted:** a session that ends while a run is in progress merges into
+  that run and is picked up by the next one (each run re-reads the last day's
+  transcripts). `burn.py`'s `_prune_history` rewrites `history.jsonl` when an entry passes
+  180 days, and a status line appending at that instant loses one quota sample; the fix
+  (a file lock around the prune) belongs in `burn.py`, which this repo does not track.
 - **Rejected first version:** the hook ran `burn.py` itself, detached with `setsid -f`,
   logging errors to the journal. It lost the failure notification, the sandbox and the
   protection against two overlapping runs.
