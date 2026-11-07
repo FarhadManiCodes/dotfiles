@@ -42,6 +42,7 @@ Off-machine backup remains deferred.
 | 25. Consistent battery reporting in batt | Planned | Align estimates and state labels with the status menu |
 | 26. sysup upgrade lifecycle | Investigation only | Test dependency replacement, partial failures and recovery reporting |
 | 27. ptipython in the venv, with preloads | Open 2026-10-27; after Herdr Milestone 0 | Pick the venv, measure startup, then install |
+| 28. sysup restart and reboot notice | Planned 2026-11-07 | Build a read-only end-of-run notice; two rclone mounts already run a replaced binary |
 
 ## 1. Off-machine backup
 
@@ -486,3 +487,29 @@ path is chosen, with no heavy dependency pulled in.
 **Investigate:** map the existing `yts-gui` download flow, direct `yt-dlp` use and the `yta` audio alias before choosing where to integrate. Determine whether the GUI already reports completion or supports actions. Consider Open and Show in folder for local workflows, and a Cut action only if an appropriate installed editor and use case exist. Keep the exact filename as data, not shell code; use the final path after merging or audio conversion. Decide how to handle playlists, partial failures, missing or moved files, notification expiry and action availability in Mako. Preserve useful terminal output and exit status, avoid claiming success for failed downloads, and do not require a permanent daemon. Evaluate the cost and value of Omarchy's thumbnail extraction separately; this system already has an investigation into image previews and resource use.
 
 **Acceptance:** an isolated test of the chosen entry point covers a successful final video and converted audio file, paths with spaces or leading dashes, failed downloads and multiple items. Invoking an action opens the intended existing file or folder; failed or expired actions report or handle the condition sensibly. Notification failure must not make a successful download appear to have failed. Document the chosen behavior and any limitations with the affected tool.
+
+## 28. Tell the user what needs a restart or reboot after sysup
+
+**Requested 2026-11-07. Planning only:** make `sysup` end with a read-only notice naming what an upgrade left running on old code, so a restart or reboot is never silent. Found while reviewing the Omarchy pull `573b518be..9044b7e8e` (178 commits); the idea predates that range and is not one of its commits.
+
+**Current behavior:** `sysup` runs `paru -Syu` and the later steps, reports `.pacnew` files (`_sysup_pacnew`), and says nothing about a running kernel, compositor, daemon or mount that now differs from the installed package. On 2026-11-07 the running kernel (7.2.14) and niri were current, but two user processes were running a replaced binary: the `rclone mount` processes for Dropbox (PID 1640) and gdrive (PID 1642), both showing `/usr/bin/rclone (deleted)`. Nothing had told the user.
+
+**Omarchy reference:** [`bin/omarchy-update-restart`](https://github.com/basecamp/omarchy/blob/9044b7e8e/bin/omarchy-update-restart) ends every update. It compares `uname -r` with the kernel module directories under `/usr/lib/modules` that a package owns, treats a running compositor whose `/proc/<pid>/exe` ends in `(deleted)` as needing a reboot, and offers the reboot with a confirmation.
+
+**Plan:** add a final, report-only step beside the `.pacnew` report, with three outputs:
+
+1. Reboot notice when `/usr/lib/modules/$(uname -r)` is gone or no longer owned by a package. This machine installs both `linux` and `linux-lts`; only the running one matters.
+2. Log-out-and-back-in notice when niri, the foot server, mako, swayidle or another session component runs a deleted `/usr/` binary.
+3. Informational list of the user's other processes with a deleted `/usr/` binary, such as the rclone mounts, with the unit to restart when convenient.
+
+**Decisions to make first:**
+
+- Never restart anything automatically. The rclone mounts are FUSE: a restart can drop open files, and `system-sleep/unblock-fuse` documents how a wedged mount has already blocked suspend. Report only, as `_sysup_pacnew` does.
+- Root-owned processes need `sudo` to inspect (`/proc/<pid>/exe` is unreadable). Decide whether the notice stays user-only plus the kernel, which needs no extra prompt, or whether one `sudo` read is acceptable. The `sysup` header comment already avoids extra prompts; keep that.
+- Filter to paths under `/usr/` and ignore `memfd:` and sandboxed browser processes, or the list will carry false positives.
+- Ctrl-C handling, the `_sysup_skipped` bookkeeping and the existing `try`/`always` structure must keep working; the step runs even after an earlier failure only if that matches how `_sysup_pacnew` is reached today.
+- Related to item 26, which asks whether earlier steps can replace what later steps need. This item is only about the end-of-run report; keep them separate.
+
+**Acceptance criteria:** with isolated `/proc`, `/usr/lib/modules` and package-ownership fixtures, the notice is silent when the kernel and processes are current; names the reboot when the running kernel's module directory is missing; names a replaced niri or foot as a re-login; lists a replaced rclone mount without restarting it; ignores a deleted path outside `/usr/`; and still prints something useful when `/proc` entries are unreadable. It must never call `systemctl restart`, `kill` or `sudo`. Run the focused sysup tests, then one real `sysup` and confirm the two rclone processes are listed.
+
+**Scope:** planning only; this TODO does not change `sysup`, restart the rclone mounts or install packages.
