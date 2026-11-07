@@ -324,7 +324,7 @@ units_to_enable=(
   # service starts on first use.
   ssh-agent.socket
   # Daily copy of Claude Code token usage into ~/.claude/burn/state before the
-  # 30-day transcript cleanup deletes it (weekly-allowance forecast data).
+  # 60-day transcript cleanup deletes it (weekly-allowance forecast data).
   claude-burn-archive.timer
 )
 failed_user_units=()

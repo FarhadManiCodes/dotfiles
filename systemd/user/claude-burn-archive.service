@@ -6,7 +6,7 @@ OnFailure=notify-failure@%n.service
 Type=oneshot
 # Copies per-message token usage from ~/.claude/projects/**/*.jsonl into
 # ~/.claude/burn/state/activity.json. Claude Code deletes transcripts after
-# cleanupPeriodDays (30), and this history is the data for calibrating the
+# cleanupPeriodDays (60), and this history is the data for calibrating the
 # weekly-allowance forecast in ~/.claude/burn. Incremental: only transcripts
 # modified since the last run are re-read.
 ExecStart=/usr/bin/python3 -I %h/.claude/burn/burn.py archive
