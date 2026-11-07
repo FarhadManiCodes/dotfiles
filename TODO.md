@@ -35,7 +35,7 @@ Off-machine backup remains deferred.
 | 18. External text and download limits | Code findings; implementation pending | Four guards for notifications, OCR responses, Docs terminal text, and mirror downloads |
 | 19. Phone clipboard link | Open 2026-10-16; user will build their own | Design a light PC-to-phone (and back) text path |
 | 20. External browser links | Planning; implementation pending | Establish Firefox delivery and focus behavior across windows |
-| 21. Test usefulness and reliability | Future audit | Inventory coverage and measure sequential suite durations |
+| 21. Test usefulness and reliability | Future audit | Inventory coverage, measure sequential suite durations, fix known gaps and propose standing test rules |
 | 22. Bounded Vifm image previews | Investigation only | Measure decoder costs, then choose a preview policy |
 | 23. Timed notification snoozing | Investigation only | Explore Mako modes and transient timers; preserve critical alerts |
 | 24. Claude release cleanup | Investigation only | Establish active-session risks and choose a retention policy |
