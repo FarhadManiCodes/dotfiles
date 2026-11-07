@@ -503,8 +503,8 @@ path is chosen, with no heavy dependency pulled in.
 **Plan:** add a final, report-only step beside the `.pacnew` report, with three outputs:
 
 1. Reboot notice when `/usr/lib/modules/$(uname -r)` is gone or no longer owned by a package. This machine installs both `linux` and `linux-lts`; only the running one matters.
-2. Log-out-and-back-in notice when niri, the foot server, mako, swayidle or another session component runs a deleted binary from one of the checked paths below.
-3. Informational list of the user's other processes with a deleted binary from one of the checked paths, such as the rclone mounts or the shpool daemon, with the unit to restart when convenient.
+2. Log-out-and-back-in notice when niri or the niri-spawned foot server runs a deleted binary from one of the checked paths below. Only processes niri itself started need a re-login.
+3. Informational list of the user's other processes with a deleted binary from one of the checked paths, such as the rclone mounts, the shpool daemon, swayidle or mako, naming the user unit to restart when the process belongs to one (`systemctl --user restart swayidle` costs nothing, a re-login closes every window).
 
 **Decisions to make first:**
 
@@ -514,7 +514,7 @@ path is chosen, with no heavy dependency pulled in.
 - Ctrl-C handling, the `_sysup_skipped` bookkeeping and the existing `try`/`always` structure must keep working; the step runs even after an earlier failure only if that matches how `_sysup_pacnew` is reached today.
 - Related to item 26, which asks whether earlier steps can replace what later steps need. This item is only about the end-of-run report; keep them separate.
 
-**Acceptance criteria:** with isolated `/proc`, `/usr/lib/modules` and package-ownership fixtures, the notice is silent when the kernel and processes are current; names the reboot when the running kernel's module directory is missing; names a replaced niri or foot as a re-login; lists a replaced rclone mount without restarting it; lists a replaced `~/.cargo/bin/shpool` with `shpool.service` as the unit to restart; ignores a deleted path outside the checked paths, such as a temp file; and still prints something useful when `/proc` entries are unreadable. It must never call `systemctl restart` or `kill`, and calls `sudo` only if the decision above allows one read. Run the focused sysup tests, then one real `sysup` and confirm the two rclone processes are listed.
+**Acceptance criteria:** with isolated `/proc`, `/usr/lib/modules` and package-ownership fixtures, the notice is silent when the kernel and processes are current; names the reboot when the running kernel's module directory is missing; names a replaced niri or foot as a re-login; lists a replaced swayidle with `swayidle.service` rather than as a re-login; lists a replaced rclone mount without restarting it; lists a replaced `~/.cargo/bin/shpool` with `shpool.service` as the unit to restart; ignores a deleted path outside the checked paths, such as a temp file; and still prints something useful when `/proc` entries are unreadable. It must never call `systemctl restart` or `kill`, and calls `sudo` only if the decision above allows one read. Run the focused sysup tests, then one real `sysup` and confirm the two rclone processes are listed.
 
 **Scope:** planning only; this TODO does not change `sysup`, restart the rclone mounts or install packages.
 
