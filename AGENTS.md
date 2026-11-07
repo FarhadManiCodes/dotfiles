@@ -50,6 +50,10 @@ For Omarchy pull comparisons, read `docs/omarchy-review-local.md` if it exists. 
   through `systemctl --user`. Read `containers/README.md` before changing it.
 - Do not order user services against the system `network-online.target`; preserve retries,
   explicit enable lists and failure notification behavior.
+- Long-running code (notifiers, watchers, user services) reacts to events — inotify,
+  netlink, uevents, D-Bus signals, systemd path or socket units — instead of polling. A
+  timer or loop is a last resort for state with no change signal; say why in a comment
+  next to it. `notifiers/README.md` shows the existing event sources.
 - Rust, qpdf, the locally built mutool and `shellcheck-bin` have deliberate roles —
   read the package notes before suggesting a removal. Keep Tor Browser unconfigured. AOCL was
   removed 2026-10-01; if it returns, follow `docs/architecture/aocl.md` and do not expose its
