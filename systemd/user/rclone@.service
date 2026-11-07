@@ -68,8 +68,9 @@ ExecStartPre=/usr/bin/mkdir -p %h/Cloud/%i
 #                              old or excess files (local disk only)
 #   --dir-cache-time           how long a folder listing is trusted before it
 #                              is re-read on access (an expiry, not a poll)
-#   --poll-interval            how often rclone asks the cloud for changes;
-#                              the cloud has no way to call this laptop
+#   --poll-interval            how often rclone checks the cloud for changes
+#                              (Drive is polled; Dropbox uses a long poll that
+#                              answers early). rclone's mechanism, not ours
 ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --vfs-cache-mode full \
     --vfs-cache-max-size 5G \
