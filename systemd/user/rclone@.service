@@ -62,6 +62,10 @@ CPUWeight=25
 ExecStartPre=/usr/bin/mkdir -p %h/Cloud/%i
 
 # The Mount Command
+# The poll and cache intervals below (--vfs-cache-poll-interval, --dir-cache-time,
+# and --poll-interval left at its default) are rclone's own polls, pinned at its
+# defaults: the cloud remotes cannot push changes to this machine, so there is
+# no event to react to.
 ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --vfs-cache-mode full \
     --vfs-cache-max-size 5G \
