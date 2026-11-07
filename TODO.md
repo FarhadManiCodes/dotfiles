@@ -503,18 +503,18 @@ path is chosen, with no heavy dependency pulled in.
 **Plan:** add a final, report-only step beside the `.pacnew` report, with three outputs:
 
 1. Reboot notice when `/usr/lib/modules/$(uname -r)` is gone or no longer owned by a package. This machine installs both `linux` and `linux-lts`; only the running one matters.
-2. Log-out-and-back-in notice when niri, the foot server, mako, swayidle or another session component runs a deleted `/usr/` binary.
-3. Informational list of the user's other processes with a deleted `/usr/` binary, such as the rclone mounts, with the unit to restart when convenient.
+2. Log-out-and-back-in notice when niri, the foot server, mako, swayidle or another session component runs a deleted binary from one of the checked paths below.
+3. Informational list of the user's other processes with a deleted binary from one of the checked paths, such as the rclone mounts or the shpool daemon, with the unit to restart when convenient.
 
 **Decisions to make first:**
 
 - Never restart anything automatically. The rclone mounts are FUSE: a restart can drop open files, and `system-sleep/unblock-fuse` documents how a wedged mount has already blocked suspend. Report only, as `_sysup_pacnew` does.
 - Root-owned processes need `sudo` to inspect (`/proc/<pid>/exe` is unreadable). Decide whether the notice stays user-only plus the kernel, which needs no extra prompt, or whether one `sudo` read is acceptable. The `sysup` header comment already avoids extra prompts; keep that.
-- Filter to paths under `/usr/` and ignore `memfd:` and sandboxed browser processes, or the list will carry false positives.
+- Check only the paths an update replaces: `/usr/` for `paru`, plus the folders `sysup`'s own steps write to — `~/.cargo/bin` (`cargo install-update`, Herdr; `shpool.service` runs `%h/.cargo/bin/shpool`), `~/.local/bin` and `~/.local/share/uv/tools` (`uv tool upgrade`), and `~/.local/share/claude/versions` (`claude update`). Ignore every other deleted path, `memfd:` and sandboxed browser processes, or the list will carry false positives.
 - Ctrl-C handling, the `_sysup_skipped` bookkeeping and the existing `try`/`always` structure must keep working; the step runs even after an earlier failure only if that matches how `_sysup_pacnew` is reached today.
 - Related to item 26, which asks whether earlier steps can replace what later steps need. This item is only about the end-of-run report; keep them separate.
 
-**Acceptance criteria:** with isolated `/proc`, `/usr/lib/modules` and package-ownership fixtures, the notice is silent when the kernel and processes are current; names the reboot when the running kernel's module directory is missing; names a replaced niri or foot as a re-login; lists a replaced rclone mount without restarting it; ignores a deleted path outside `/usr/`; and still prints something useful when `/proc` entries are unreadable. It must never call `systemctl restart`, `kill` or `sudo`. Run the focused sysup tests, then one real `sysup` and confirm the two rclone processes are listed.
+**Acceptance criteria:** with isolated `/proc`, `/usr/lib/modules` and package-ownership fixtures, the notice is silent when the kernel and processes are current; names the reboot when the running kernel's module directory is missing; names a replaced niri or foot as a re-login; lists a replaced rclone mount without restarting it; lists a replaced `~/.cargo/bin/shpool` with `shpool.service` as the unit to restart; ignores a deleted path outside the checked paths, such as a temp file; and still prints something useful when `/proc` entries are unreadable. It must never call `systemctl restart`, `kill` or `sudo`. Run the focused sysup tests, then one real `sysup` and confirm the two rclone processes are listed.
 
 **Scope:** planning only; this TODO does not change `sysup`, restart the rclone mounts or install packages.
 
