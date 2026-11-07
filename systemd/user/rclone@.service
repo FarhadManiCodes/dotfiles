@@ -68,7 +68,7 @@ ExecStartPre=/usr/bin/mkdir -p %h/Cloud/%i
 #                              old or excess files (local disk only)
 #   --dir-cache-time           how long a folder listing is trusted before it
 #                              is re-read on access (an expiry, not a poll)
-#   --poll-interval (default)  how often rclone asks the cloud for changes;
+#   --poll-interval            how often rclone asks the cloud for changes;
 #                              the cloud has no way to call this laptop
 ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --vfs-cache-mode full \
@@ -77,6 +77,7 @@ ExecStart=/usr/bin/rclone mount %i: %h/Cloud/%i \
     --vfs-cache-poll-interval 1m \
     --vfs-write-back 5s \
     --dir-cache-time 5m \
+    --poll-interval 1m \
     --buffer-size 32M \
     --cache-dir=%h/.cache/rclone/%i \
     --timeout 1h \
