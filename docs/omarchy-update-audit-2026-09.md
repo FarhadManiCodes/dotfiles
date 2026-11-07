@@ -262,7 +262,7 @@ The 7 November pull at 17:23 CET fast-forwarded exactly 178 commits including me
 - **Night light identity reset** (`085708309`): hyprsunset at 6500K still tinted. `wlsunset -T 6500` may do the same; the source could not be fetched to confirm. The user has not noticed a tint.
 - **Hotkey layout rules** (`09fa23e82`, AGENTS.md "Keybindings"): the user declined a written convention for the niri binds.
 - **Auto-paste after dictation** (`ad4977b6a`): the user records while elsewhere and pastes themself; `dictate` stays copy-only. The existing flock-protected pidfile already covers the quick-second-press race that Hex's stop fix addresses.
-- **Fixed 0.3 s wait in `tests/test_sysup_ctrl_c.py:207`**: can fail on a busy machine, the same class as `d5b32d24d`. The test has not flaked; not recorded in item 21.
+- **Fixed 0.3 s wait in `tests/test_sysup_ctrl_c.py:207`**: can fail on a busy machine, the same class as `d5b32d24d`. The test has not flaked; recorded in item 21 as a known fixed sleep.
 - **Rule that agents restore the live session after an experiment** (`162291a39`): not added to `AGENTS.md`.
 - **Login-recovery note** (`5ef45270e`, UWSM `env.d`): no such note exists here, and what breaks login under Ly and niri was not verified. Not pursued.
 - **Keyring refresh before updates** (`c2818bb36`): `archlinux-keyring` 20260909 is current and Arch's `wkd-sync` timer is active.
