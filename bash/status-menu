@@ -84,7 +84,7 @@ case "$choice" in
     # they don't wrap in mako's fixed-width box; "(active)" = the default-route iface.
     default_if=$(ip route show default 2>/dev/null | awk '/^default/{print $5; exit}')
     body=""
-    for p in /sys/class/net/*; do
+    for p in "${NET_SYSFS:-/sys/class/net}"/*; do
       ifc=$(basename "$p")
       [[ "$ifc" == lo ]] && continue
       mark=""
@@ -101,7 +101,7 @@ case "$choice" in
         # from 78%, good from 66%, fair from 50%, weak from 30%.
         # Details go on their own line: with the signal they no longer fit beside the SSID.
         sig=$({
-          iw dev "$ifc" station dump 2>/dev/null | awk '/signal avg:/ {print $3; exit}'
+          iw dev "$ifc" station dump 2>/dev/null | awk '/^[[:space:]]*signal avg:/ {print $3; exit}'
           awk '/signal:/ {print $2; exit}' <<<"$link"
         } | awk 'NR == 1 {
           d = $1 + 0
