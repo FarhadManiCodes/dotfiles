@@ -338,7 +338,7 @@ _sysup_steps() {
   # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
   # a real ctx7 on PATH, not a function). Skipped after a failed version check or install, so one failure is one warning, not four.
   if (( _status )); then
-    echo "    skipping the ctx7 skill refresh; the update did not finish"
+    echo "    skipping the ctx7 skill refresh; the version check or install did not finish"
   else
     local _agent
     for _agent in claude opencode codex; do

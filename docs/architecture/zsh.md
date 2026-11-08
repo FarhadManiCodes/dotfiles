@@ -75,8 +75,8 @@ repeated after the last step, and again when the run stops early (a bgutil or Ca
 Ctrl-C); a run with recorded failures or skips ends "sysup finished with warnings" and returns
 non-zero (the podman status when the image update failed, otherwise 1).
 
-Limits of the ctx7 update and skill refresh, read from ctx7's source (0.9.0, rechecked on 0.10.0)
-rather than observed:
+Limits of the ctx7 update and skill refresh. What ctx7 itself does was read from its source (0.9.0,
+rechecked on 0.10.0) rather than observed:
 
 - `sysup` compares `ctx7 --version` with `npm view ctx7 version` and runs `npm install -g` only when
   they differ. `ctx7 upgrade` cannot do it: it recognises an npm install only from the `npm_*`

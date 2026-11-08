@@ -105,9 +105,18 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         result = self.run_sysup(NPM_VERSION="1.1.0")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("    ctx7 1.0.0 -> 1.1.0", result.stdout.splitlines())
-        calls = self.calls()
-        self.assertEqual(calls[3], "npm install -g ctx7@1.1.0")
-        self.assertEqual(calls[4], "ctx7 setup --cli --yes --claude")
+        self.assertEqual(
+            self.calls(),
+            [
+                "gh skill update --all gh linux-perf",
+                "ctx7 --version",
+                "npm view ctx7 version",
+                "npm install -g ctx7@1.1.0",
+                "ctx7 setup --cli --yes --claude",
+                "ctx7 setup --cli --yes --opencode",
+                "ctx7 setup --cli --yes --codex",
+            ],
+        )
 
     def test_failed_skill_update_warns_and_the_run_continues(self):
         result = self.run_sysup(
@@ -124,6 +133,11 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(
             lines[-2:], [f"!! {note}", "==> sysup finished with warnings"]
+        )
+        self.assertIn(
+            "    skipping the ctx7 skill refresh; "
+            "the version check or install did not finish",
+            lines,
         )
         self.assertFalse(
             [c for c in self.calls() if "setup" in c], self.calls()
