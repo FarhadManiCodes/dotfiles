@@ -16,23 +16,33 @@ class SysupAgentToolsTests(unittest.TestCase):
         self.base = Path(self.tmp.name)
         self.log = self.base / "calls"
         # ctx7 must be a real executable: sysup runs setup through timeout, which cannot call a
-        # shell function. CTX7_FAIL_ON names the arguments that make it fail, with CTX7_STATUS.
+        # shell function. Each stub prints its *_VERSION for a version query; FAIL_ON names the
+        # arguments that make it fail, with STATUS.
         bin_dir = self.base / "bin"
         bin_dir.mkdir()
-        ctx7 = bin_dir / "ctx7"
-        ctx7.write_text(
-            """#!/bin/sh
-echo "ctx7 $*" >> "$TEST_LOG"
-case "$*" in *"$CTX7_FAIL_ON"*) exit "$CTX7_STATUS" ;; esac
+        for name, prefix, version_args in (
+            ("ctx7", "CTX7", "--version"),
+            ("npm", "NPM", "view ctx7 version"),
+        ):
+            stub = bin_dir / name
+            stub.write_text(
+                f"""#!/bin/sh
+echo "{name} $*" >> "$TEST_LOG"
+case "$*" in *"${prefix}_FAIL_ON"*) exit "${prefix}_STATUS" ;; esac
+[ "$*" = "{version_args}" ] && echo "${prefix}_VERSION"
 exit 0
 """
-        )
-        ctx7.chmod(0o755)
+            )
+            stub.chmod(0o755)
         self.env = {
             "HOME": str(self.base),
             "PATH": f"{bin_dir}:/usr/bin:/bin",
             "CTX7_FAIL_ON": "no-such-argument",
             "CTX7_STATUS": "0",
+            "CTX7_VERSION": "1.0.0",
+            "NPM_FAIL_ON": "no-such-argument",
+            "NPM_STATUS": "0",
+            "NPM_VERSION": "1.0.0",
             "LC_ALL": "C",
             "NO_COLOR": "1",
             "TEST_LOG": str(self.log),
@@ -72,19 +82,32 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
     def calls(self):
         return self.log.read_text().splitlines()
 
-    def test_clean_run_updates_the_named_skills_and_ctx7(self):
+    def test_clean_run_updates_the_named_skills_and_refreshes_ctx7(self):
         result = self.run_sysup()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "    ctx7 1.0.0 is up to date", result.stdout.splitlines()
+        )
+        # Codex runs last: its variant of the shared ~/.agents/skills/find-docs must win.
         self.assertEqual(
             self.calls(),
             [
                 "gh skill update --all gh linux-perf",
-                "ctx7 upgrade --yes",
+                "ctx7 --version",
+                "npm view ctx7 version",
                 "ctx7 setup --cli --yes --claude",
-                "ctx7 setup --cli --yes --codex",
                 "ctx7 setup --cli --yes --opencode",
+                "ctx7 setup --cli --yes --codex",
             ],
         )
+
+    def test_newer_ctx7_on_npm_is_installed_before_the_refresh(self):
+        result = self.run_sysup(NPM_VERSION="1.1.0")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("    ctx7 1.0.0 -> 1.1.0", result.stdout.splitlines())
+        calls = self.calls()
+        self.assertEqual(calls[3], "npm install -g ctx7@1.1.0")
+        self.assertEqual(calls[4], "ctx7 setup --cli --yes --claude")
 
     def test_failed_skill_update_warns_and_the_run_continues(self):
         result = self.run_sysup(
@@ -94,36 +117,52 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         note = "!! gh skill update failed (exit 4); see the output above"
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(lines[-2:], [note, "==> sysup finished with warnings"])
-        self.assertIn("ctx7 upgrade --yes", self.calls())
+        self.assertIn("ctx7 --version", self.calls())
 
-    def test_failed_upgrade_is_one_warning_and_skips_the_skill_refresh(self):
-        result = self.run_sysup(CTX7_FAIL_ON="upgrade", CTX7_STATUS="5")
+    def assert_one_ctx7_warning_and_no_refresh(self, result, note):
         lines = result.stdout.rstrip().splitlines()
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(
-            lines[-2:],
-            [
-                "!! ctx7 upgrade failed (exit 5); see the output above",
-                "==> sysup finished with warnings",
-            ],
+            lines[-2:], [f"!! {note}", "==> sysup finished with warnings"]
         )
-        self.assertEqual(
-            self.calls(),
-            ["gh skill update --all gh linux-perf", "ctx7 upgrade --yes"],
+        self.assertFalse(
+            [c for c in self.calls() if "setup" in c], self.calls()
+        )
+
+    def test_failed_npm_query_is_one_warning_and_skips_the_refresh(self):
+        result = self.run_sysup(NPM_FAIL_ON="view", NPM_STATUS="5")
+        self.assert_one_ctx7_warning_and_no_refresh(
+            result, "ctx7 version check failed (exit 5); see the output above"
+        )
+        self.assertNotIn("install", " ".join(self.calls()))
+
+    def test_empty_version_answer_counts_as_a_failed_check(self):
+        result = self.run_sysup(NPM_VERSION="")
+        self.assert_one_ctx7_warning_and_no_refresh(
+            result, "ctx7 version check failed (exit 1); see the output above"
+        )
+        self.assertNotIn("install", " ".join(self.calls()))
+
+    def test_failed_install_is_one_warning_and_skips_the_refresh(self):
+        result = self.run_sysup(
+            NPM_VERSION="1.1.0", NPM_FAIL_ON="install", NPM_STATUS="7"
+        )
+        self.assert_one_ctx7_warning_and_no_refresh(
+            result, "ctx7 install failed (exit 7); see the output above"
         )
 
     def test_failed_setup_names_the_agent_and_the_others_still_run(self):
-        result = self.run_sysup(CTX7_FAIL_ON="--codex", CTX7_STATUS="6")
+        result = self.run_sysup(CTX7_FAIL_ON="--opencode", CTX7_STATUS="6")
         lines = result.stdout.rstrip().splitlines()
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(
             lines[-2:],
             [
-                "!! ctx7 setup for codex failed (exit 6); see the output above",
+                "!! ctx7 setup for opencode failed (exit 6); see the output above",
                 "==> sysup finished with warnings",
             ],
         )
-        self.assertEqual(self.calls()[-1], "ctx7 setup --cli --yes --opencode")
+        self.assertEqual(self.calls()[-1], "ctx7 setup --cli --yes --codex")
 
     def test_a_login_that_hangs_is_cut_off_and_warned_about_per_agent(self):
         # A fake timeout that expires at once; it records the limit sysup asked for.
@@ -137,7 +176,7 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         result = self.run_sysup(PATH=f"{fake}:{self.env['PATH']}")
         lines = result.stdout.rstrip().splitlines()
         self.assertEqual(result.returncode, 1, result.stderr)
-        for agent in ("claude", "codex", "opencode"):
+        for agent in ("claude", "opencode", "codex"):
             self.assertIn(
                 f"!! ctx7 setup for {agent} failed (exit 124); see the output above",
                 lines,

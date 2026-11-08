@@ -23,9 +23,11 @@ exit "$TEST_STATUS"
 """)
         bin_dir = self.base / "bin"
         bin_dir.mkdir()
-        ctx7 = bin_dir / "ctx7"
-        ctx7.write_text("#!/bin/sh\nexit 0\n")
-        ctx7.chmod(0o755)
+        # ctx7 and npm report one version, so the ctx7 step finds nothing to install.
+        for name in ("ctx7", "npm"):
+            stub = bin_dir / name
+            stub.write_text("#!/bin/sh\necho 1.0.0\n")
+            stub.chmod(0o755)
         self.env = {
             "HOME": str(self.base),
             "PATH": f"{bin_dir}:/usr/bin:/bin",

@@ -11,7 +11,7 @@
 #
 # No general global npm update: system node/npm are covered by paru, and the bgutil step
 # rebuilds only the local yt-dlp token helper, using its release's lockfile. The one global
-# npm package, ctx7, updates itself through its own `ctx7 upgrade`, then refreshes its skill.
+# npm package, ctx7, is reinstalled when npm has a newer version, then refreshes its skill.
 #
 # Steps live one-per-file in sysup/, sourced below by $0's own resolved
 # directory -- zsh sets $0 to the currently-sourcing file even nested inside a
@@ -315,20 +315,33 @@ _sysup_steps() {
   (( _status )) && { _sysup_note "$_status" "gh skill update failed (exit $_status); see the output above"; }
 
   _sysup_header "ctx7 CLI and skill"
+  # Not `ctx7 upgrade`: it recognises an npm install only from the npm_* variables npm sets when it
+  # launches a program, so run directly it just prints the npm command and exits 0 (ctx7 0.10.0).
+  local _ctx7_have _ctx7_latest
   _status=0
-  ctx7 upgrade --yes || _status=$?
-  (( _status )) && { _sysup_note "$_status" "ctx7 upgrade failed (exit $_status); see the output above"; }
+  _ctx7_have=$(ctx7 --version) && _ctx7_latest=$(npm view ctx7 version) &&
+    [[ -n $_ctx7_have && -n $_ctx7_latest ]] || _status=$?
+  if (( _status )); then
+    _sysup_note "$_status" "ctx7 version check failed (exit $_status); see the output above"
+  elif [[ $_ctx7_have == "$_ctx7_latest" ]]; then
+    echo "    ctx7 $_ctx7_have is up to date"
+  else
+    echo "    ctx7 $_ctx7_have -> $_ctx7_latest"
+    npm install -g "ctx7@$_ctx7_latest" || _status=$?
+    (( _status )) && { _sysup_note "$_status" "ctx7 install failed (exit $_status); see the output above"; }
+  fi
   # One run per agent, in this order: Codex and OpenCode share ~/.agents/skills/find-docs and each
-  # writes its own variant of SKILL.md, so the last one wins -- OpenCode's, as before. Setup is
+  # writes its own variant of SKILL.md, so the last one wins -- Codex's, whose extra paragraph on
+  # running ctx7 outside Codex's sandbox does not apply to OpenCode. Setup is
   # idempotent (skill file overwritten, rule section replaced between its markers) and with
   # --yes asks nothing while ctx7 is logged in; with no usable token it starts a browser login,
   # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
-  # a real ctx7 on PATH, not a function). Skipped after a failed or skipped upgrade, so one failure is one warning, not four.
+  # a real ctx7 on PATH, not a function). Skipped after a failed version check or install, so one failure is one warning, not four.
   if (( _status )); then
-    echo "    skipping the ctx7 skill refresh; the upgrade did not finish"
+    echo "    skipping the ctx7 skill refresh; the update did not finish"
   else
     local _agent
-    for _agent in claude codex opencode; do
+    for _agent in claude opencode codex; do
       _status=0
       timeout --foreground 120s ctx7 setup --cli --yes --"$_agent" || _status=$?
       (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }

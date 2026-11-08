@@ -69,13 +69,24 @@ a process one of them leaves behind cannot keep the concurrency lock held. The s
 of them is known to leave a process behind. If one ever does, close it there the same way.
 
 `sysup` continues past a failed `uv tool list`, `uv tool upgrade --all`, yts install, Herdr update,
-agent skill update, ctx7 upgrade or ctx7 setup. Setup is skipped after a failed upgrade, so one
-failure is one warning. Each failure is reported where it happens and repeated after the last step,
-and again when the run stops early (a bgutil or Cargo failure, or Ctrl-C); a run with recorded
-failures or skips ends "sysup finished with warnings" and returns non-zero (the podman status
-when the image update failed, otherwise 1).
+agent skill update, ctx7 version check or install, or ctx7 setup. Setup is skipped after a failed
+check or install, so one failure is one warning. Each failure is reported where it happens and
+repeated after the last step, and again when the run stops early (a bgutil or Cargo failure, or
+Ctrl-C); a run with recorded failures or skips ends "sysup finished with warnings" and returns
+non-zero (the podman status when the image update failed, otherwise 1).
 
-Limits of the ctx7 skill refresh, read from ctx7 0.9.0's source rather than observed:
+Limits of the ctx7 update and skill refresh, read from ctx7's source (0.9.0, rechecked on 0.10.0)
+rather than observed:
+
+- `sysup` compares `ctx7 --version` with `npm view ctx7 version` and runs `npm install -g` only when
+  they differ. `ctx7 upgrade` cannot do it: it recognises an npm install only from the `npm_*`
+  variables npm sets when it launches a program, so run directly it prints the npm command and
+  exits 0 without installing.
+- The skill is refreshed on every run, not only after an install: `ctx7 setup` fetches `find-docs`
+  from ctx7's GitHub repository, so it changes independently of the package version.
+- Codex and OpenCode share `~/.agents/skills/find-docs`, and each `setup` rewrites it. Codex runs
+  last, so its variant wins; it adds one paragraph on running ctx7 outside Codex's sandbox, which
+  OpenCode has no use for. Each agent's rule file is its own, so both rules stay correct.
 
 - `ctx7 setup --cli --yes` asks nothing while ctx7 is logged in. With no usable token it starts a
   browser login, so each of the three runs is bounded by `timeout --foreground 120s` and a hang

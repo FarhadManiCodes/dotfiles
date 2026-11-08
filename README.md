@@ -182,7 +182,7 @@ same list with fuller reasoning; keep the two in step.
 | `~/.cargo/bin/prek`, `~/.cargo/bin/jscpd` | Tools the commit checks need ([Git hooks](docs/architecture/git-hooks.md)) — recreate with `cargo install prek jscpd`; `sysup` updates them once installed |
 | `~/.cargo/bin/herdr` | Stable Cargo build — recreate with `herdr-cargo --install` (also called by `install.sh`); `sysup` updates it once installed |
 | `gh` and `linux-perf` agent skills | User-scope skills from `cli/cli` and `intel/intel-performance-skills` — recreate with `gh skill install <repo> <skill> --scope user` per agent (`--agent claude-code`, `codex`, `opencode`); `sysup` updates them once installed, and warns on every run until then |
-| global `ctx7` npm package, its `find-docs` skill and rule | Recreate with `npm install -g ctx7`, `ctx7 login`, then `ctx7 setup --cli --claude`, `--codex` and `--opencode` in that order (`sysup` runs the same); `sysup` updates them once installed |
+| global `ctx7` npm package, its `find-docs` skill and rule | Recreate with `npm install -g ctx7`, `ctx7 login`, then `ctx7 setup --cli --claude`, `--opencode` and `--codex` in that order (`sysup` runs the same); `sysup` updates them once installed |
 | `~/.local/share/bgutil-pot` | Node token helper for yt-dlp — recreate with the matching plugin release; `sysup` maintains it once installed |
 | `~/.local/share/backgrounds/` | Wallpaper image and the `current` link swaybg and swaylock read — copy the image back and recreate the link (`niri/README.md`) |
 | `~/.config/zsh/plugins/` | Plugin repos — cloned by `update-plugins.sh` |
