@@ -136,6 +136,13 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         )
         self.assertNotIn("install", " ".join(self.calls()))
 
+    def test_missing_ctx7_is_one_warning_and_skips_the_refresh(self):
+        result = self.run_sysup(CTX7_FAIL_ON="--version", CTX7_STATUS="127")
+        self.assert_one_ctx7_warning_and_no_refresh(
+            result, "ctx7 version check failed (exit 127); see the output above"
+        )
+        self.assertNotIn("npm view ctx7 version", self.calls())
+
     def test_empty_version_answer_counts_as_a_failed_check(self):
         result = self.run_sysup(NPM_VERSION="")
         self.assert_one_ctx7_warning_and_no_refresh(

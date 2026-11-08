@@ -11,7 +11,7 @@
 #
 # No general global npm update: system node/npm are covered by paru, and the bgutil step
 # rebuilds only the local yt-dlp token helper, using its release's lockfile. The one global
-# npm package, ctx7, is reinstalled when npm has a newer version, then refreshes its skill.
+# npm package, ctx7, is reinstalled when npm's version differs, then refreshes its skill.
 #
 # Steps live one-per-file in sysup/, sourced below by $0's own resolved
 # directory -- zsh sets $0 to the currently-sourcing file even nested inside a

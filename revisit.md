@@ -1079,3 +1079,16 @@ before Claude Code deletes them (`cleanupPeriodDays` in the untracked
 
 Recheck if `activity.json` stops changing after sessions end, or on a new machine (the hook
 and `burn.py` must be added by hand).
+
+---
+
+## `sysup`: Ctrl-C during the ctx7 install — ACCEPTED (2026-11-08)
+
+One Ctrl-C skips the running `sysup` step. If it lands during `npm install -g ctx7@<version>`,
+npm can stop mid-swap under `~/.local/lib/node_modules/ctx7`, and every later `sysup` warns
+"ctx7 version check failed" until ctx7 is reinstalled by hand (`npm install -g ctx7`).
+
+- **Why no guard:** the install runs only when npm's version differs from the installed one,
+  so the window is a few seconds per ctx7 release. The paru-style guard (ignore one Ctrl-C
+  while it runs) would add a third guarded step for that.
+- **Recheck:** if an interrupted install ever actually breaks ctx7.
