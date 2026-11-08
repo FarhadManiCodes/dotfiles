@@ -53,11 +53,14 @@ class PodmanImageUpdateTests(unittest.TestCase):
             "claude",
             "gh",
             "ctx7",
+            "npm",
         ):
+            # ctx7 and npm also print one version, so the ctx7 step finds nothing to install.
+            last = "echo 1.0.0" if name in ("ctx7", "npm") else "exit 0"
             self.script(
                 name,
                 f"""printf '{name} %s\\n' "$*" >> "$SYSUP_TEST_LOG"
-exit 0
+{last}
 """,
             )
         self.script(
