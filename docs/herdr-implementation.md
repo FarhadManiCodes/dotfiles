@@ -9,7 +9,7 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 
 ## Milestones
 
-- **Branches:** one branch per milestone, named `herdr/<n>-<name>`, cut from `master` after these two docs are merged. Each is reviewed and lands as a `--no-ff` merge, never a squash or fast-forward, before the next one that depends on it starts. Milestone 0's blame-ignore entries need the branch to land without a squash or rebase, which would change the formatting commits' IDs. Tick the boxes on the milestone's branch. Milestone 1 keeps the `herdr/` name instead of `AGENTS.md`'s `add-<name>-config` on purpose (user decision, 2026-10-23). Milestone 0.5 is an audit of the whole in-scope repository, so it follows `AGENTS.md`'s audit rules instead, with a `-baseline` suffix on the audit branch name so it cannot collide with a regular monthly audit.
+- **Branches:** one branch per milestone, named `herdr/<n>-<name>`, cut from `master` after these two docs are merged. Each is reviewed and lands as a `--no-ff` merge, never a squash or fast-forward, before the next one that depends on it starts. Milestone 0's blame-ignore entries need the branch to land without a squash or rebase, which would change the formatting commits' IDs. Tick the boxes on the milestone's branch. Milestone 1 keeps the `herdr/` name instead of `AGENTS.md`'s `add-<name>-config` on purpose (user decision, 2026-10-23). Milestone 0.5 is an audit of the whole in-scope repository, so it follows `AGENTS.md`'s audit rules for how it works: one evidence-backed commit per finding, every finding routed, a `--no-ff` merge. Its branch keeps a `herdr/` name, `herdr/m0.5-repository-baseline`, so it reads as a milestone and not as a regular monthly audit (user decision, 2026-11-09).
 - **Order:** 0 → 0.5 → 1 → 2 → 3–7 in any order consistent with their declared implementation prerequisites → 8. A prerequisite milestone must be reviewed and merged before its dependent work starts. Milestone 0 prepares implementation checks and Milestone 0.5 measures the repository with them; the daily-use cutover remains Milestone 2.
 - **Shared conventions:** Milestones 3, 5 and 6 must use compatible conventions for project association and editor lookup, including after pane IDs change. The first milestone needing them establishes and documents them; later milestones reuse them and declare any prerequisites before starting dependent work. Milestones 3 and 7 must also agree on how temporary fzf panes are excluded from restart recovery. This coordination does not expand the agentic-layer scope.
 - **Integration checks:** Each later milestone reruns affected acceptance checks from earlier milestones. Whichever of Milestones 3 and 7 lands later verifies that a restart with an open temporary fzf pane excludes that pane while eligible persistent panes recover correctly.
@@ -19,7 +19,7 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 | # | Branch | Goal | Status |
 |---|---|---|---|
 | 0 | `herdr/0-quality-checks` | Local prek checks and implementation discipline ready | Done (merged 2026-10-29) |
-| 0.5 | `audit-2026-11-baseline` | Repository measured and related files mapped | In progress |
+| 0.5 | `herdr/m0.5-repository-baseline` | Repository measured and related files mapped | In progress |
 | 1 | `herdr/1-base-config` | Tracked Herdr config live, launcher unchanged | Not started |
 | 2 | `herdr/2-switch-launcher` | `Mod+Return` opens Herdr; daily use moves over | Not started |
 | 3 | `herdr/3-restart-recovery` | Editors, agents and tools come back after a restart | Not started |
@@ -121,7 +121,7 @@ Milestone review, 2026-10-27, rechecked at 3d3ccb2 after the branch reviews:
 - After the merge, on `master` at bccf42d (2026-10-29), the blame check covered every line a formatting commit only re-indented that HEAD still holds unchanged: each file was aligned before and after the commit with whitespace ignored, and a line counts if its own counterpart differs only in indentation. With the ignore list, 794 of 824 shfmt lines (505b118) and 92 of 93 ruff lines (f44024b) show another commit. The other 31 are short lines such as `fi`, `else`, `}` and, in Python, `],`, beside lines the formatter split or moved, which Git cannot match to an older line. Pairing lines only within each changed block instead finds 5 such shfmt lines and no ruff line. The comment move (4159368) re-indented no line.
 
 ### Milestone 0.5: Repository baseline
-Decisions: user decision, 2026-10-24. It covers the whole in-scope repository, not only the migration, so it is run as an audit under `AGENTS.md`: an `audit-<yyyy-mm>-baseline` branch dated when it starts (for example `audit-2026-11-baseline`), so it cannot collide with a regular monthly audit, one evidence-backed commit per finding and a `--no-ff` merge. The scope is Milestone 0's, so tmux files stay out.
+Decisions: user decision, 2026-10-24. It covers the whole in-scope repository, not only the migration, so it is run as an audit under `AGENTS.md`: one evidence-backed commit per finding and a `--no-ff` merge. Its branch is `herdr/m0.5-repository-baseline`, not `AGENTS.md`'s `audit-<yyyy-mm>` (user decision, 2026-11-09). The scope is Milestone 0's, so tmux files stay out.
 
 Report: `docs/herdr-baseline-2026-11.md`, the whole-repository run of 2026-11-09 with its rerun command.
 
