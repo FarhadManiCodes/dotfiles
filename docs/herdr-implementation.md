@@ -18,7 +18,7 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 
 | # | Branch | Goal | Status |
 |---|---|---|---|
-| 0 | `herdr/0-quality-checks` | Local prek checks and implementation discipline ready | In progress |
+| 0 | `herdr/0-quality-checks` | Local prek checks and implementation discipline ready | Done (merged 2026-10-29) |
 | 0.5 | `audit-<yyyy-mm>-baseline` | Repository measured and related files mapped | Not started |
 | 1 | `herdr/1-base-config` | Tracked Herdr config live, launcher unchanged | Not started |
 | 2 | `herdr/2-switch-launcher` | `Mod+Return` opens Herdr; daily use moves over | Not started |
