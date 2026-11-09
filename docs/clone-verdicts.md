@@ -9,7 +9,10 @@ numbers or jscpd fingerprints, which any edit changes. Judge only clones without
 an entry; take an uncertain match to the user. A clone the user decides to fix
 later goes to `TODO.md`, not here.
 
-Entry format, one per clone, newest last:
+Entry format, one per clone, newest last. The one exception is tests (user decision,
+2026-11-09; `docs/herdr-implementation.md`, Milestone 0.5): short repeated steps inside
+test methods share a single group entry. A helper copied between test files, a test
+clone of 13 lines or more, and every clone touching production code get their own.
 
 ```
 ## <file> <-> <file>
