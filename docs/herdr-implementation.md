@@ -19,7 +19,7 @@ Testing a config without touching the live one: copy it to `~/.cache/hx/herdr/co
 | # | Branch | Goal | Status |
 |---|---|---|---|
 | 0 | `herdr/0-quality-checks` | Local prek checks and implementation discipline ready | Done (merged 2026-10-29) |
-| 0.5 | `audit-<yyyy-mm>-baseline` | Repository measured and related files mapped | Not started |
+| 0.5 | `audit-2026-11-baseline` | Repository measured and related files mapped | In progress |
 | 1 | `herdr/1-base-config` | Tracked Herdr config live, launcher unchanged | Not started |
 | 2 | `herdr/2-switch-launcher` | `Mod+Return` opens Herdr; daily use moves over | Not started |
 | 3 | `herdr/3-restart-recovery` | Editors, agents and tools come back after a restart | Not started |
@@ -123,6 +123,8 @@ Milestone review, 2026-10-27, rechecked at 3d3ccb2 after the branch reviews:
 ### Milestone 0.5: Repository baseline
 Decisions: user decision, 2026-10-24. It covers the whole in-scope repository, not only the migration, so it is run as an audit under `AGENTS.md`: an `audit-<yyyy-mm>-baseline` branch dated when it starts (for example `audit-2026-11-baseline`), so it cannot collide with a regular monthly audit, one evidence-backed commit per finding and a `--no-ff` merge. The scope is Milestone 0's, so tmux files stay out.
 
+Report: `docs/herdr-baseline-2026-11.md`, the whole-repository run of 2026-11-09 with its rerun command.
+
 Work:
 - Run Milestone 0's checks and reports over the whole scope: clones, file size and complexity, pipelines and chains, line length, ShellCheck. Record the tool versions (paste the full run's version lines into the report) and configuration so the report can be repeated.
 - Map which files are related and why: shared values, scripts that call each other, one feature spread over several configs. The map's form and location stay open until the groups are known.
@@ -143,7 +145,7 @@ Work:
 - Judge every existing clone, from the planned and the broad settings: fix it, or record it in `docs/clone-verdicts.md` as accepted or a false positive with its reason; it goes to `TODO.md` only when the user decides to defer the fix. That file is where clone findings are routed, rejected ones included. Then decide, from what the audit found, whether clone reporting stays report-only or becomes blocking, and record the decision and its reason here.
 
 Acceptance criteria:
-- [ ] The report exists, can be rerun with the recorded versions and configuration, and covers extensionless scripts (a scan that misses them fails).
+- [x] The report exists, can be rerun with the recorded versions and configuration, and covers extensionless scripts (a scan that misses them fails).
 - [ ] Every clone and indicator in the report, and every finding carried over from Milestone 0, is judged and routed. Every clone that remains appears in `docs/clone-verdicts.md` or `TODO.md` with its reason.
 - [ ] The decision on whether clone reporting stays report-only or becomes blocking is recorded with its reason; a blocking design, if chosen, gets its own reviewed change.
 - [ ] The masked-returns run over the whole scope reports nothing: every finding is fixed, or suppressed on its line with its reason. `check-extra-masked-returns` is enabled in `.shellcheckrc`, the report-only `masked-returns` check is removed, and a test shows that a script with a masked return fails the blocking shell check.
