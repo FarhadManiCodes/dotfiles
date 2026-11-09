@@ -9,7 +9,7 @@
   - `clipboard.zsh` — Wayland file copy
   - `cpp.zsh` — C++ build helpers (cmake/ninja/ccache)
   - `fzf.zsh` — FZF config + `fnb` (Jupyter finder) + `fdata` (data file finder)
-  - `git-enhancements.zsh` — `gci`, `gst`, `gstds`
+  - `git-enhancements.zsh` — `gci`, `gst`
   - `last_working_dir.zsh` — restore last directory
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — book search with fzf; `rgbook` searches refinery's sibling Markdown
@@ -37,7 +37,6 @@
 | `fnb` | Find + open Jupyter notebook |
 | `fdata` | Find data/model files |
 | `gci` | Interactive commit |
-| `gstds` | Git status with data science awareness |
 | `batt` | Battery status, power draw, CPU/GPU/NVMe temperatures and both fan speeds |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |

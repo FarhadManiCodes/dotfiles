@@ -86,7 +86,6 @@ gci() {
 # ============================================================================
 
 # Print the branch line + ahead/behind vs upstream (assumes inside a git repo).
-# Shared by gst and gstds.
 _git_branch_header() {
   local cyan='\033[36m' yellow='\033[33m' reset='\033[0m'
   local branch=$(git branch --show-current 2>/dev/null)
@@ -157,116 +156,6 @@ gst() {
   fi
 }
 
-# Function to colorize files based on git status
-_colorize_git_files() {
-  local files="$1"
-  local green='\033[32m'
-  local red='\033[31m'
-  local yellow='\033[33m'
-  local magenta='\033[35m'
-  local reset='\033[0m'
-
-  echo "$files" | while IFS= read -r line; do
-    if [[ -n "$line" ]]; then
-      local git_status="${line:0:2}"
-      case "$git_status" in
-        "A " | "M " | "R " | "C ") printf "  ${green}%s${reset}\n" "$line" ;; # Staged
-        " M" | " D" | " R" | " C") printf "  ${red}%s${reset}\n" "$line" ;;   # Modified
-        "MM" | "AM" | "RM") printf "  ${yellow}%s${reset}\n" "$line" ;;       # Mixed
-        "??") printf "  ${red}%s${reset}\n" "$line" ;;                        # Untracked
-        "!!") printf "  ${magenta}%s${reset}\n" "$line" ;;                    # Ignored
-        *) printf "  %s\n" "$line" ;;                                         # Default
-      esac
-    fi
-  done
-}
-
-# Data Science specialized git status (categorized by file type)
-gstds() {
-  echo "📊 Git Status - Data Science View"
-  echo "=================================="
-  echo ""
-
-  # Check if in git repo
-  if ! git rev-parse --git-dir >/dev/null 2>&1; then
-    echo "❌ Not a git repository"
-    return 1
-  fi
-
-  # Colors (matching git's default scheme)
-  local green='\033[32m'
-  local yellow='\033[33m'
-  local cyan='\033[36m'
-  local blue='\033[34m'
-  local magenta='\033[35m'
-  local reset='\033[0m'
-
-  _git_branch_header
-
-  echo ""
-
-  # Get all changed files
-  local all_files=$(git status --porcelain 2>/dev/null)
-
-  if [[ -z "$all_files" ]]; then
-    echo -e "${green}✨ Working directory clean${reset}"
-    echo ""
-  else
-    # Categorize files by type
-    local code_files=$(echo "$all_files" | grep -E '\.(py|scala|sql|sh|yaml|yml|toml|r|R)$')
-    local data_files=$(echo "$all_files" | grep -E '\.(csv|parquet|json|jsonl|pkl|pickle|h5|hdf5|xlsx|xls|tsv|avro|orc)$')
-    local notebook_files=$(echo "$all_files" | grep -E '\.ipynb$')
-    local config_files=$(echo "$all_files" | grep -E '(config|requirements|environment|Dockerfile|\.env|\.ini|\.conf|dvc\.yaml|dvc\.lock|params\.yaml|metrics\.yaml)')
-    local model_files=$(echo "$all_files" | grep -E '\.(pt|pth|joblib|onnx|pb|tflite)$')
-    local doc_files=$(echo "$all_files" | grep -E '\.(md|rst|txt|pdf)$')
-    local other_files=$(echo "$all_files" | grep -vE '\.(py|scala|sql|sh|yaml|yml|toml|r|R|csv|parquet|json|jsonl|pkl|pickle|h5|hdf5|xlsx|xls|tsv|avro|orc|ipynb|pt|pth|joblib|onnx|pb|tflite|md|rst|txt|pdf)$|(config|requirements|environment|Dockerfile|\.env|\.ini|\.conf|dvc\.|params\.|metrics\.)')
-
-    if [[ -n "$code_files" ]]; then
-      echo -e "${blue}💻 Code files:${reset}"
-      _colorize_git_files "$code_files"
-    fi
-    if [[ -n "$model_files" ]]; then
-      echo -e "${magenta}🤖 Model files:${reset}"
-      _colorize_git_files "$model_files"
-    fi
-    if [[ -n "$data_files" ]]; then
-      echo -e "${cyan}📊 Data files:${reset}"
-      _colorize_git_files "$data_files"
-    fi
-    if [[ -n "$notebook_files" ]]; then
-      echo -e "${yellow}📓 Notebooks:${reset}"
-      _colorize_git_files "$notebook_files"
-    fi
-    if [[ -n "$config_files" ]]; then
-      echo -e "${blue}⚙️  Config files:${reset}"
-      _colorize_git_files "$config_files"
-    fi
-    if [[ -n "$doc_files" ]]; then
-      echo -e "${green}📄 Documentation:${reset}"
-      _colorize_git_files "$doc_files"
-    fi
-    if [[ -n "$other_files" ]]; then
-      echo -e "${reset}📁 Other files:${reset}"
-      _colorize_git_files "$other_files"
-    fi
-    echo ""
-  fi
-
-  # DVC status if available
-  if command -v dvc >/dev/null 2>&1 && [[ -f "dvc.yaml" ]]; then
-    echo -e "${cyan}📦 DVC Status:${reset}"
-    dvc status 2>/dev/null || echo "  No DVC changes"
-    echo ""
-  fi
-
-  # Environment info
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo -e "${green}🐍 Environment: $(basename "$VIRTUAL_ENV")${reset}"
-  elif [[ -n "$CONDA_DEFAULT_ENV" ]]; then
-    echo -e "${green}🐍 Environment: $CONDA_DEFAULT_ENV${reset}"
-  fi
-}
-
 # Custom gitignore generator (replicating the 'gi' command)
 function gi() {
   curl -sLw "\n" --max-time 10 https://www.toptal.com/developers/gitignore/api/$@
@@ -274,9 +163,6 @@ function gi() {
 # ============================================================================
 # ALIASES - Git Workflow Shortcuts
 # ============================================================================
-
-# Enhanced git status aliases
-alias gsds='gstds' # Data science git status (detailed, categorized)
 
 # Git add aliases (from oh-my-zsh git plugin)
 alias ga='git add'
