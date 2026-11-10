@@ -100,6 +100,7 @@ _UI_STYLE = {
     "validation-toolbar": "{red} bg:{bg1}",
     "system-toolbar": "{green} bg:{bg1}",
     "signature-toolbar": "{yellow} bg:{bg}",
+    "signature-toolbar current-name": "{bg} bg:{blue} bold",
     "auto-suggestion": "{gray}",
     "docstring": "{gray} italic",
     "menu": "{fg} bg:{bg1}",
