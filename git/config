@@ -111,7 +111,6 @@
 
 [delta]
     navigate = true
-    dark = true
     side-by-side = true
     line-numbers = true
     # This helps delta look good inside Lazygit
