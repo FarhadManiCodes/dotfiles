@@ -518,7 +518,6 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
         mappings = {
             "nvim": "live/nvim",
             "vim/vimrc": "live/vim",
-            "pcmanfm-qt/settings.conf": "live/pcmanfm-qt/default/settings.conf",
             "containers/pg.container": "live/containers/systemd/pg.container",
             "applications/example.desktop": "home/.local/share/applications/example.desktop",
             "ptpython/config.py": "home/.config/ptpython/config.py",
@@ -560,6 +559,7 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
         (self.root / "live").mkdir()
         names = [
             "spotify-player/app.toml",
+            "pcmanfm-qt/settings.conf",
             "etc/vconsole.conf",
             "pam/swaylock",
             "README.md",

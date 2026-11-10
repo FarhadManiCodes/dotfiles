@@ -41,8 +41,8 @@ check_symlink_integrity() {
 
   # Explicit installation mappings, kept in sync with install.sh. An arbitrary
   # tracked file is not necessarily installed. In particular, never treat docs,
-  # generated state, root copies, local htop/nvtop configs or Spotify's local
-  # app.toml as expected links.
+  # generated state, root copies, local htop/nvtop/pcmanfm-qt settings or
+  # Spotify's local app.toml as expected links.
   config_home=${XDG_CONFIG_HOME:-$HOME/.config}
   # -c core.fsmonitor=false: a read-only audit must not start a background daemon as
   # a side effect. Redundant while fsmonitor is off globally (git/config), and kept
@@ -81,7 +81,7 @@ check_symlink_integrity() {
         ptpython/config.py | ipython/profile_default/ipython_config.py | ipython/profile_default/startup/*.py | systemd/user/*)
           livef=$HOME/.config/$rel
           ;;
-        pcmanfm-qt/settings.conf | pcmanfm-qt/bookmarks.xml)
+        pcmanfm-qt/bookmarks.xml)
           livef=$config_home/pcmanfm-qt/default/${rel##*/}
           ;;
         containers/*.container | containers/*.network)

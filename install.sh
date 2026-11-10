@@ -194,7 +194,13 @@ fi
 # ============ pcmanfm-qt ==============================
 echo "Setting up pcmanfm-qt..."
 mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
-ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+# pcmanfm-qt rewrites settings.conf when its options change, so it gets a
+# private copy seeded once. An existing file or link is left alone.
+pcmanfm_settings="${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+if [[ ! -e "$pcmanfm_settings" && ! -L "$pcmanfm_settings" ]]; then
+  cp "${DOTFILES}/pcmanfm-qt/settings.conf" "$pcmanfm_settings"
+  echo "Created pcmanfm-qt/settings.conf from template"
+fi
 ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
 echo "pcmanfm-qt configured"
 
