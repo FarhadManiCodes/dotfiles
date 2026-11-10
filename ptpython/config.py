@@ -27,7 +27,7 @@ def _detect_foot_theme():
 
 
 # Each theme is a palette; _UI_STYLE names its colors. Every One Dark color
-# maps to one PaperColor color; the two dark grays share one light gray.
+# maps to one PaperColor color.
 # One Dark: https://github.com/joshdick/onedark.vim
 # PaperColor: https://github.com/NLKNguyen/papercolor-theme
 _THEMES = {
@@ -40,7 +40,6 @@ _THEMES = {
             "bg2": "#3e4452",  # Selection
             "fg": "#abb2bf",
             "gray": "#5c6370",
-            "gray2": "#636d83",  # Line numbers
             "blue": "#61afef",
             "green": "#98c379",
             "purple": "#c678dd",
@@ -58,7 +57,6 @@ _THEMES = {
             "bg2": "#bcbcbc",
             "fg": "#444444",
             "gray": "#878787",
-            "gray2": "#878787",
             "blue": "#0087af",
             "green": "#008700",
             "purple": "#8700af",
@@ -80,7 +78,7 @@ _UI_STYLE = {
     "status-toolbar.title": "{yellow} bold",
     "status-toolbar.input-mode": "{orange} bold",
     "bottom-toolbar": "bg:{bg1}",
-    "line-number": "{gray2}",
+    "line-number": "{gray}",
     "line-number.current": "{fg} bg:{bg1} bold",
     "cursor-line": "bg:{bg1}",
     "selected": "bg:{bg2}",
