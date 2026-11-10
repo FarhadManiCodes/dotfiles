@@ -3,13 +3,13 @@
 # ============================================================================
 
 # Default fzf options (applied to all fzf invocations)
-# Colors: One Half Dark theme
+# Colors: One Dark theme
 export FZF_DEFAULT_OPTS="
   --height 40%
   --layout=reverse
   --border
-  --color=fg:#dcdfe4,bg:#282c34,hl:#e06c75
-  --color=fg+:#dcdfe4,bg+:#2c323c,hl+:#e06c75
+  --color=fg:#abb2bf,bg:#282c34,hl:#e06c75
+  --color=fg+:#abb2bf,bg+:#2c323c,hl+:#e06c75
   --color=info:#61afef,prompt:#98c379,pointer:#c678dd
   --color=marker:#e5c07b,spinner:#56b6c2,header:#56b6c2
   --bind 'ctrl-p:toggle-preview'
