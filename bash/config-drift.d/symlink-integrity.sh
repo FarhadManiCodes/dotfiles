@@ -113,7 +113,7 @@ check_symlink_integrity() {
           fi
           livef=$HOME/.mozilla/firefox/$profile/chrome/userChrome.css
           ;;
-        zsh/aliases | zsh/helpers.zsh | zsh/generate-completions.sh | zsh/update-plugins.sh | \
+        zsh/aliases | zsh/helpers.zsh | zsh/update-plugins.sh | \
           zsh/functions/*.zsh | tmux/tmux.conf | tmux/layouts/*.sh | tmux/themes/*.conf | niri/config.kdl | \
           environment.d/defaults.conf | environment.d/wayland.conf | paru/paru.conf | swaylock/config | \
           glow/glow.yml | mpv/mpv.conf | yt-dlp/config | cmus/rc | direnv/direnvrc | uv/uv.toml | gh/config.yml | \

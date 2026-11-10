@@ -73,9 +73,6 @@ setopt CORRECT INTERACTIVE_COMMENTS NO_BEEP
 # COMPLETION SYSTEM
 # ============================================================================
 
-# Custom completions directory
-fpath=(~/.config/zsh/completions $fpath)
-# -------------
 autoload -Uz compinit
 
 # Smart compinit - full check once per day, compiled dump and -C otherwise.

@@ -62,8 +62,6 @@ exit 0
         for command in (
             "git",
             "make",
-            "gh",
-            "uv",
             "podman",
             "update-desktop-database",
         ):
