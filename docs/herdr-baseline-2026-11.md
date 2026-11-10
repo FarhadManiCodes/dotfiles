@@ -33,6 +33,7 @@ Python 3.14.9
 zsh 5.9.2 (x86_64-pc-linux-gnu)
 bash 5.3.20(1)-release
 git version 2.56.0
+base 964eed6eb68d6c51ccc5eebe384ecca165c9a8e0
 ```
 
 Not printed by the run: `util-linux 2.42.4-1` (`unshare`), `iproute2 7.3.0-1` (`ip`),
