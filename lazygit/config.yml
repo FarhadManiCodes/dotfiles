@@ -8,8 +8,11 @@ gui:
   # Use Nerd Fonts v3 (Standard on Arch/modern terminals)
   nerdFontsVersion: "3"
   showIcons: true
-  # Visual Tweaks
-  theme:
+  # Visual Tweaks: One Dark, on a dark terminal only. lazygit asks the terminal
+  # whether it is dark (colorScheme: auto) and only then merges darkTheme over
+  # its defaults. A light terminal keeps lazygit's own colors: ANSI names, which
+  # foot's light palette defines, and a selected line derived from the background.
+  darkTheme:
     activeBorderColor:
       - '#61afef' # OneDark Blue
       - bold
