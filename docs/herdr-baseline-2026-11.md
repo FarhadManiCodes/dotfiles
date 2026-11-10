@@ -11,6 +11,12 @@ audit judges; the verdicts are not here but where the plan routes them:
 bash git-hooks/bootstrap full "$(GIT_AUTHOR_NAME=baseline GIT_AUTHOR_EMAIL=baseline@localhost GIT_AUTHOR_DATE=2000-01-01T00:00:00Z GIT_COMMITTER_NAME=baseline GIT_COMMITTER_EMAIL=baseline@localhost GIT_COMMITTER_DATE=2000-01-01T00:00:00Z git commit-tree --no-gpg-sign "$(git hash-object -t tree /dev/null)" -m 'empty tree: the base for a whole-repository full run')"
 ```
 
+The command measures the commit checked out, so on a later commit it gives that commit's
+counts. To reproduce the counts below, run it from a worktree at `522eac1`
+(`git worktree add --detach ../dotfiles-baseline 522eac1`, then
+`git worktree remove ../dotfiles-baseline`), not by switching this checkout, whose files
+are live configuration; identical counts also need the versions listed below.
+
 The full run lists only what is new since its base commit, so the base here is a commit
 holding no files: nothing is hidden. The inner command creates it, always with the ID
 `964eed6eb68d6c51ccc5eebe384ecca165c9a8e0`. No branch holds it, so Git may prune it;
