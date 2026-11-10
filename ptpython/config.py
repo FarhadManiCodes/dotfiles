@@ -36,8 +36,8 @@ _THEMES = {
         "message": "🌙 Switched to OneDark theme",
         "colors": {
             "bg": "#282c34",
-            "bg1": "#2c313c",  # Toolbars, menus, current line
-            "bg2": "#3e4451",  # Selection
+            "bg1": "#2c323c",  # Toolbars, menus, current line
+            "bg2": "#3e4452",  # Selection
             "fg": "#abb2bf",
             "gray": "#5c6370",
             "gray2": "#636d83",  # Line numbers

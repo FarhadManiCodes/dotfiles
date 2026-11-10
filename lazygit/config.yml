@@ -14,7 +14,7 @@ gui:
       - '#61afef' # OneDark Blue
       - bold
     inactiveBorderColor:
-      - '#3e4451'
+      - '#3e4452'
     optionsTextColor:
       - '#e06c75'
     selectedLineBgColor:
