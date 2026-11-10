@@ -8,14 +8,10 @@
 # Step 3 removes packages and is not gated by --all, so pacman is left to prompt.
 
 sysclean() {
-  if [[ -z ${SHPOOL_SESSION_NAME:-} ]]; then
-    if ! (($+functions[keep])); then
-      print -u2 'sysclean: shpool/keep is required; install shpool and reload ~/.zshrc'
-      return 1
-    fi
-    keep sysclean "$@"
-    return $?
-  fi
+  [[ -n ${SHPOOL_SESSION_NAME:-} ]] || {
+    _keep_self sysclean "$@"
+    return
+  }
 
   local all=false
   if [[ "$1" == "-a" || "$1" == "--all" ]]; then
