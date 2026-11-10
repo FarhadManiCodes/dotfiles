@@ -40,22 +40,18 @@ safe_source() {
 # FZF RESULT HELPER
 # ============================================================================
 
-# _fzf_split <fzf-result> <key-var> <sel-var>
-# fzf --expect prints the pressed key on the first line and the selection
-# after. Split the raw result into the key (first line) and the selected item
-# (last line), assigning them to the caller-named variables. With no newline
-# (no --expect key, or empty result) the key is empty and the whole string is
-# the selection. Used by the fd/rg + fzf finders to replace hand-rolled
-# head/tail forks and ${r%%}/${r##} idioms.
-_fzf_split() {
-  local _r=$1
-  if [[ $_r == *$'\n'* ]]; then
-    typeset -g "$2=${_r%%$'\n'*}"
-    typeset -g "$3=${_r##*$'\n'}"
-  else
-    typeset -g "$2="
-    typeset -g "$3=$_r"
-  fi
+# _fzf_pick <key-var> <sel-var> --expect=<keys> [fzf options...]
+# Run fzf and put the pressed key (first line, empty for Enter) and the selected
+# item (last line) in the caller-named variables; it needs --expect, which makes
+# fzf print that key line. Fails when nothing was selected, from fzf's own exit
+# status (1: no match, 130: Esc): with no match fzf prints an --expect key alone,
+# which would otherwise be read as the selection.
+# Callers may pipe into it: zsh runs a pipeline's last command in the current
+# shell, so the variables still reach the caller.
+_fzf_pick() {
+  local _r
+  _r=$(fzf "${@:3}") || return 1
+  typeset -g "$1=${_r%%$'\n'*}" "$2=${_r##*$'\n'}"
 }
 
 # ============================================================================

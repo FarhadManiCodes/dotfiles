@@ -31,7 +31,8 @@ _rg_live() {
   shift
   local initial_query="${*:-}"
 
-  local result=$(fzf --ansi --disabled --query="$initial_query" \
+  local key selection
+  _fzf_pick key selection --ansi --disabled --query="$initial_query" \
     --bind "change:reload:rg --color=always --line-number $rg_args {q} || true" \
     --bind "start:reload:rg --color=always --line-number $rg_args {q} || true" \
     --delimiter=: \
@@ -39,13 +40,7 @@ _rg_live() {
     --preview-window='hidden,right:60%:+{2}-10' \
     --bind 'ctrl-p:toggle-preview' \
     --expect='ctrl-d' \
-    --header='Enter: nvim | Ctrl-d: cd to folder')
-
-  [[ -z "$result" ]] && return 0
-
-  local key selection
-  _fzf_split "$result" key selection
-  [[ -z "$selection" ]] && return 0
+    --header='Enter: nvim | Ctrl-d: cd to folder' || return 0
 
   # rg --color=always colours the path and line fields; strip SGR before
   # splitting, or nvim gets a path that does not exist and a non-numeric line.
@@ -90,18 +85,13 @@ rgpy() { _rg_live "--type py" "$@"; }
 # Keys: Enter → open | Ctrl-d → cd | Ctrl-o → open folder
 # ----------------------------------------------------------------------------
 ff() {
-  local result=$(fd --one-file-system --type f "$@" 2>/dev/null \
-    | fzf --preview 'bat --color=always --line-range=:100 {}' \
+  local key file
+  fd --one-file-system --type f "$@" 2>/dev/null \
+    | _fzf_pick key file --preview 'bat --color=always --line-range=:100 {}' \
       --preview-window='hidden,right:60%' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-d,ctrl-o' \
-      --header='Enter: open | Ctrl-d: cd | Ctrl-o: open folder')
-
-  [[ -z "$result" ]] && return 0
-
-  local key file
-  _fzf_split "$result" key file
-  [[ -z "$file" ]] && return 0
+      --header='Enter: open | Ctrl-d: cd | Ctrl-o: open folder' || return 0
 
   case "$key" in
     ctrl-d)
@@ -135,18 +125,13 @@ ff() {
 # Keys: Enter → cd, Ctrl-o → open in file manager
 # ----------------------------------------------------------------------------
 fdir() {
-  local result=$(fd --one-file-system --type d "$@" 2>/dev/null \
-    | fzf --preview 'eza -la --color=always {}' \
+  local key dir
+  fd --one-file-system --type d "$@" 2>/dev/null \
+    | _fzf_pick key dir --preview 'eza -la --color=always {}' \
       --preview-window='hidden,right:60%' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-o' \
-      --header='Enter: cd | Ctrl-o: open folder')
-
-  [[ -z "$result" ]] && return 0
-
-  local key dir
-  _fzf_split "$result" key dir
-  [[ -z "$dir" ]] && return 0
+      --header='Enter: cd | Ctrl-o: open folder' || return 0
 
   case "$key" in
     ctrl-o)
@@ -176,19 +161,14 @@ rgt() {
 fgit() {
   local search_path="${1:-$HOME}"
 
-  local result=$(fd --one-file-system --type d --hidden '^\.git$' "$search_path" 2>/dev/null \
+  local key repo
+  fd --one-file-system --type d --hidden '^\.git$' "$search_path" 2>/dev/null \
     | sed 's|/\.git$||' \
-    | fzf --preview 'git -C {} log --oneline -10 2>/dev/null; echo ""; git -C {} status -s 2>/dev/null' \
+    | _fzf_pick key repo --preview 'git -C {} log --oneline -10 2>/dev/null; echo ""; git -C {} status -s 2>/dev/null' \
       --preview-window='right:50%:hidden' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-f,ctrl-d' \
-      --header='Enter: lazygit | Ctrl-f: fetch | Ctrl-d: cd')
-
-  [[ -z "$result" ]] && return 0
-
-  local key repo
-  _fzf_split "$result" key repo
-  [[ -z "$repo" ]] && return 0
+      --header='Enter: lazygit | Ctrl-f: fetch | Ctrl-d: cd' || return 0
 
   case "$key" in
     ctrl-f)

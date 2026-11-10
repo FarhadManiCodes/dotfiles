@@ -96,7 +96,8 @@ rgbook() {
     }'"
   local reload_cmd="$rg_cmd | $format_cmd || true"
 
-  local result=$(fzf --ansi --disabled --query "$query" \
+  local key selection
+  _fzf_pick key selection --ansi --disabled --query "$query" \
     --bind "change:reload:$reload_cmd" \
     --bind "start:reload:$reload_cmd" \
     --delimiter=$'\t' \
@@ -105,13 +106,7 @@ rgbook() {
     --preview-window='hidden,right:50%' \
     --bind 'ctrl-p:toggle-preview' \
     --expect='ctrl-d,ctrl-o' \
-    --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
-
-  [[ -z "$result" ]] && return 0
-
-  local key selection
-  _fzf_split "$result" key selection
-  [[ -z "$selection" ]] && return 0
+    --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm' || return 0
 
   # Format: path<TAB>filename:Page N:text
   local relpath="${selection%%$'\t'*}"
@@ -147,20 +142,14 @@ fbook() {
   local pattern="${*:-.}"
 
   local -x SP="$search_path"
-  local result=$(fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null \
+  local key selection
+  fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null \
     | sed "s|^$search_path/||" \
-    | fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
+    | _fzf_pick key selection --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
       --preview-window='hidden,right:40%' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-d,ctrl-o' \
-      --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
-
-  [[ -z "$result" ]] && return 0
-
-  local key selection
-  _fzf_split "$result" key selection
-  # Exit if no selection (user pressed escape)
-  [[ -z "$selection" ]] && return 0
+      --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm' || return 0
 
   local file="$search_path/$selection"
   [[ ! -f "$file" ]] && return 0

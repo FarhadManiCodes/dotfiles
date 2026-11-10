@@ -60,22 +60,17 @@ fnb() {
     echo "📊 Size: $(du -h --apparent-size {} 2>/dev/null | cut -f1)"
     echo "📅 Modified: $(date -r {} "+%F %R" 2>/dev/null)"
     echo "📝 Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"'
-  local result=$("${fd_cmd[@]}" 2>/dev/null | fzf --preview "$preview" \
+  local key file
+  "${fd_cmd[@]}" 2>/dev/null | _fzf_pick key file --preview "$preview" \
     --preview-window='right:30%' \
     --expect 'ctrl-d' \
     --bind 'ctrl-o:execute(timeout 2 open-detached "$(dirname {})")' \
-    --header 'Enter: edit notebook, Ctrl+D: cd to folder, Ctrl+O: open folder')
+    --header 'Enter: edit notebook, Ctrl+D: cd to folder, Ctrl+O: open folder' || return 0
 
-  local key file
-  _fzf_split "$result" key file
-
-  if [[ -n "$file" ]]; then
-    local dir=$(dirname "$file")
-    if [[ "$key" == "ctrl-d" ]]; then
-      cd "$dir" && pwd
-    else
-      ${EDITOR:-vim} "$file"
-    fi
+  if [[ "$key" == "ctrl-d" ]]; then
+    cd "$(dirname "$file")" && pwd
+  else
+    ${EDITOR:-vim} "$file"
   fi
 }
 
@@ -97,38 +92,33 @@ fdata() {
     echo
     bat --color=always --style=plain --line-range=:12 {} 2>/dev/null \
       || head -8 {} 2>/dev/null'
-  local result
-  result=$("${fd_cmd[@]}" 2>/dev/null | fzf --preview="$preview" \
+  local key file
+  "${fd_cmd[@]}" 2>/dev/null | _fzf_pick key file --preview="$preview" \
     --preview-window='right:40%' \
     --expect 'ctrl-d,ctrl-v' \
     --bind 'ctrl-o:execute(open-detached "$(dirname {})")' \
-    --header '📊 Data & Model Files | Enter: edit | Ctrl+D: cd | Ctrl+V: copy path | Ctrl+O: open folder')
+    --header '📊 Data & Model Files | Enter: edit | Ctrl+D: cd | Ctrl+V: copy path | Ctrl+O: open folder' || return 0
 
-  local key file
-  _fzf_split "$result" key file
-
-  if [[ -n "$file" ]]; then
-    case "$key" in
-      ctrl-d)
-        cd "$(dirname "$file")"
-        echo "📁 Changed to: $(pwd) — $(basename "$file")"
-        ;;
-      ctrl-v)
-        local full_path=$(realpath "$file" 2>/dev/null || echo "$file")
-        if command -v wl-copy >/dev/null 2>&1; then
-          echo -n "$full_path" | wl-copy && echo "📋 Copied: $full_path"
-        else
-          echo "📋 Path: $full_path"
-        fi
-        ;;
-      *)
-        local size=$(stat -c%s "$file" 2>/dev/null || echo "0")
-        if [[ "$size" -gt 50000000 ]]; then
-          cd "$(dirname "$file")" && echo "🚨 Large file (>50MB) — navigated to folder instead"
-        else
-          "${EDITOR:-vim}" "$file"
-        fi
-        ;;
-    esac
-  fi
+  case "$key" in
+    ctrl-d)
+      cd "$(dirname "$file")"
+      echo "📁 Changed to: $(pwd) — $(basename "$file")"
+      ;;
+    ctrl-v)
+      local full_path=$(realpath "$file" 2>/dev/null || echo "$file")
+      if command -v wl-copy >/dev/null 2>&1; then
+        echo -n "$full_path" | wl-copy && echo "📋 Copied: $full_path"
+      else
+        echo "📋 Path: $full_path"
+      fi
+      ;;
+    *)
+      local size=$(stat -c%s "$file" 2>/dev/null || echo "0")
+      if [[ "$size" -gt 50000000 ]]; then
+        cd "$(dirname "$file")" && echo "🚨 Large file (>50MB) — navigated to folder instead"
+      else
+        "${EDITOR:-vim}" "$file"
+      fi
+      ;;
+  esac
 }
