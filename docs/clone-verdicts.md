@@ -39,4 +39,13 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
 
 ## Verdicts
 
-No verdicts yet.
+## bash/vifm-pick <-> zsh/functions/pdf.zsh
+- Verdict: accepted
+- Code: `open_book()` and `_open_book()`, with the sioyek comment above them
+- Reason: two callers by design: the zsh pickers change the shell's directory
+  and vifm needs a script; the function has no other caller, so a command on
+  `PATH` for it was declined. The "MIRRORS" comment at the top of each file
+  names the other. A test comparing more of the two copies was dropped as out of
+  proportion (2026-11-11).
+- Date: 2026-11-11
+- Lines when judged: bash/vifm-pick:45-53 <-> zsh/functions/pdf.zsh:21-29
