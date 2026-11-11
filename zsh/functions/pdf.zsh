@@ -16,28 +16,20 @@ PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 # sourced: zsh sets $0 to the sourcing file, through install.sh's symlink too.
 _rgbook_awk="${0:A:h:h:h}/bash/vifm-pick.d/rgbook.awk"
 
-# Open by type: sioyek for PDF and EPUB, dispatched here rather than via xdg-open
-# because xdg-open cannot carry a page number (--page, the point of rgbook).
+# Open in sioyek directly rather than via xdg-open, because xdg-open cannot
+# carry a page number (--page, the point of rgbook).
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
 
 _open_book() {
-  local file="$1" page="${2:-}"
-  case "${file:l}" in
-    *.pdf | *.epub)
-      if [[ -n "$page" ]]; then
-        local yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
-        if [[ -n "$yloc" ]]; then
-          sioyek --page "$page" --yloc "$yloc" "$file" 2>/dev/null &
-        else
-          sioyek --page "$page" "$file" 2>/dev/null &
-        fi
-      else
-        sioyek "$file" 2>/dev/null &
-      fi
-      ;;
-    *) open-detached "$file" ;;
-  esac
+  local file="$1" page="${2:-}" yloc
+  local -a args
+  if [[ -n "$page" ]]; then
+    args=(--page "$page")
+    yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
+    [[ -n "$yloc" ]] && args+=(--yloc "$yloc")
+  fi
+  sioyek "${args[@]}" "$file" 2>/dev/null &
 }
 
 # ----------------------------------------------------------------------------
