@@ -18,6 +18,7 @@ _rgbook_awk="${0:A:h:h:h}/bash/vifm-pick.d/rgbook.awk"
 
 # Open in sioyek directly rather than via xdg-open, because xdg-open cannot
 # carry a page number (--page, the point of rgbook).
+# setsid detaches the viewer, so closing the terminal does not close the book.
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
 
@@ -29,7 +30,7 @@ _open_book() {
     yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
     [[ -n "$yloc" ]] && args+=(--yloc "$yloc")
   fi
-  sioyek "${args[@]}" "$file" 2>/dev/null &
+  setsid -f sioyek "${args[@]}" "$file" >/dev/null 2>&1
 }
 
 # ----------------------------------------------------------------------------
