@@ -101,6 +101,11 @@ case "$cmd" in
     relpath="${result%%$'\t'*}"
     page=$(grep -oP 'Page \K[0-9]+' <<<"$result" | head -1)
     abs="$sp/${relpath%.md}.pdf"
+    # vifm redraws over term()'s output, so stderr would never be seen.
+    if [[ ! -f "$abs" ]]; then
+      notify-send rgbook "File not found: $abs"
+      exit 1
+    fi
     if [[ -e "$xdir/cd" ]]; then
       reply cd "$(dirname "$abs")"
     else
