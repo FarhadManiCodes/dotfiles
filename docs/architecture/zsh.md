@@ -36,7 +36,7 @@
 | `vs [--prune]` | Install requirements into this project's `.venv` or a central environment; `--prune` removes unlisted packages only from this project's non-symlinked `.venv`. Other environments are rejected. |
 | `fnb` | Find + open Jupyter notebook |
 | `fdata` | Find data/model files |
-| `gci` | Interactive commit |
+| `gci` | Commit with a prefix picker |
 | `batt` | Battery status, power draw, CPU/GPU/NVMe temperatures and both fan speeds |
 | `ff` | Fuzzy file finder |
 | `rgf` | Live ripgrep with preview |

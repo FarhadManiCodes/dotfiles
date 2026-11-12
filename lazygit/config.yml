@@ -130,15 +130,15 @@ customCommands:
   # existed here -- source failed, && short-circuited, and pressing C did nothing
   # at all. The config's own WARNING comment predicted exactly this and was left
   # in place instead of being checked. Fixed 2026-09-06; gci is defined at
-  # zsh/functions/git-enhancements.zsh:8.
+  # zsh/functions/git-enhancements.zsh.
   #
   # `zsh -c` sources .zshenv even non-interactively, which is where DOTFILES is
   # exported, so the variable resolves without lazygit passing anything in.
   - key: 'C'
     context: 'files'
-    description: 'Interactive commit with DS/MLOps types'
+    description: 'Commit staged changes: pick a prefix, write the message in the editor'
     command: 'zsh -c "source $DOTFILES/zsh/functions/git-enhancements.zsh && gci"'
-    loadingText: 'Opening interactive commit...'
+    loadingText: 'Committing...'
     output: terminal
 keybinding:
   universal:
