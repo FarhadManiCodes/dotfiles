@@ -55,6 +55,7 @@ check_symlink_integrity() {
         zsh/.zshrc | zsh/.zshenv) livef=$HOME/${rel##*/} ;;
         duckdb/.duckdbrc) livef=$HOME/.duckdbrc ;;
         npm/.npmrc) livef=$HOME/.npmrc ;;
+        cargo/config.toml) livef=${CARGO_HOME:-$HOME/.cargo}/config.toml ;;
         ssh/config) livef=$HOME/.ssh/config ;;
         nvim) livef=$config_home/nvim ;;
         vim/vimrc)

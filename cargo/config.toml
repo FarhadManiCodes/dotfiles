@@ -1,0 +1,4 @@
+# Personal builds for this laptop; binaries may need the same CPU capabilities.
+# Applies to Cargo projects, installs and updates targeting Linux x86-64.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native"]
