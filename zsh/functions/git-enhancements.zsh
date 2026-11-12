@@ -1,5 +1,4 @@
-# Enhanced Git Shell Integration for Data Science
-# ~/dotfiles/zsh/functions/git-enhancements.zsh
+# Git shell functions and aliases: gci, gst, gi.
 
 # ============================================================================
 # COMMIT
@@ -62,42 +61,11 @@ gi() {
   curl -fsSL --max-time 10 "https://www.toptal.com/developers/gitignore/api/${(j:,:)@}"
 }
 # ============================================================================
-# ALIASES - Git Workflow Shortcuts
+# ALIASES
 # ============================================================================
 
-# Git add aliases (from oh-my-zsh git plugin)
 alias ga='git add'
-alias gaa='git add --all'
-alias gapa='git add --patch'
-alias gav='git add --verbose'
-
-# Git commit aliases (from oh-my-zsh git plugin)
 alias gc='git commit --verbose'
 alias gca='git commit --verbose --all'
-alias gcam='git commit --all --message'
-alias gcmsg='git commit --message'
-alias gcf='git config --list'
-
-# Git log aliases (from oh-my-zsh git plugin)
-alias glo='git log --oneline --decorate'
-alias glog='git log --oneline --decorate --graph'
-alias gloga='git log --oneline --decorate --graph --all'
 alias glol='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset"'
-alias glola='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset" --all'
-alias glols='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset" --stat'
-
-# Enhanced git log aliases (your custom ones)
-alias gl='git lg'   # Pretty git log (your custom format)
-alias gld='git lgd' # Detailed git log with files (your custom format)
-
-# Git utility aliases
-alias gdvc='git dvc-status' # Combined git + DVC status
-alias ginfo='git info'      # Quick repo info
-
-# Git navigation aliases
-alias gco='git checkout'
-alias gcb='git checkout -b'
-
-# Experiment management aliases
-alias gexp='git exp-start' # Start new experiment branch
-alias gexpl='git exp-list' # List experiment branches
+alias ginfo='git info' # repository, branch, remote and last commit
