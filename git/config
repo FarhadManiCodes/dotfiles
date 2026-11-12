@@ -58,6 +58,12 @@
 [branch]
     # Most recently committed first, rather than alphabetical.
     sort = -committerdate
+[status]
+    # End `git status` with "Your stash currently has N entries" when one exists.
+    showStash = true
+[color "status"]
+    # Untracked files default to red like unstaged changes; make them distinct.
+    untracked = yellow
 [rerere]
     # "Reuse Recorded Resolution"
     # If you fix a conflict once, Git remembers it for future rebase steps.

@@ -3,6 +3,11 @@
 - **Config**: `git/config` — delta pager, histogram diff, nvimdiff mergetool, aliases
 - **Global ignore**: `git/ignore`
 - **User identity**: `~/.config/git/config.local` (not tracked)
+- **`status.showStash = true` and `color.status.untracked = yellow`** (2026-11-12) —
+  `git status` ends with the stash count when one exists, and untracked files are yellow
+  instead of the same red as unstaged changes. Both apply to plain `git status` as well as
+  zsh's `gst`, which is `git status` with the hints and the branch lines starship shows
+  removed.
 - **`push.recurseSubmodules = check`** (2026-09-09) — aborts a push whose submodule
   pointer names a commit absent from the submodule's own remote. Git doesn't check this
   by default, and the failure is silent: the superproject pushes fine and the pointer
