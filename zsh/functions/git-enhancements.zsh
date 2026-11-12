@@ -85,75 +85,20 @@ gci() {
 # ENHANCED GIT STATUS FUNCTIONS
 # ============================================================================
 
-# Print the branch line + ahead/behind vs upstream (assumes inside a git repo).
-_git_branch_header() {
-  local cyan='\033[36m' yellow='\033[33m' reset='\033[0m'
-  local branch=$(git branch --show-current 2>/dev/null)
-  local upstream=$(git rev-parse --abbrev-ref @{u} 2>/dev/null)
-
-  if [[ -n "$upstream" ]]; then
-    local behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
-    local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
-    printf "🌳 Branch: ${cyan}%s${reset} → ${cyan}%s${reset}\n" "$branch" "$upstream"
-    [[ "$ahead" -gt 0 ]] && printf "   📈 ${yellow}%s commits ahead${reset}\n" "$ahead"
-    [[ "$behind" -gt 0 ]] && printf "   📉 ${yellow}%s commits behind${reset}\n" "$behind"
-  else
-    printf "🌳 Branch: ${cyan}%s${reset} (no upstream)\n" "$branch"
-  fi
-}
-
-# Simple, fast git status for frequent command line use
+# git status without the hint lines or the branch lines that repeat starship
+# ("On branch", "up to date", "refer to different commits"); "the upstream is
+# gone" stays. Colors and columns are forced on, with the terminal width passed
+# in, because git cannot see the terminal through the pipe. --no-ahead-behind
+# leaves a single "Your branch" line. The match skips leading color codes, so a
+# colored header still matches. pipefail returns git's failure, not awk's.
 gst() {
-  # Check if in git repo
-  if ! git rev-parse --git-dir >/dev/null 2>&1; then
-    echo "❌ Not a git repository"
-    return 1
-  fi
-
-  # Colors (matching git's default scheme)
-  local green='\033[32m'
-  local red='\033[31m'
-  local yellow='\033[33m'
-  local reset='\033[0m'
-
-  echo "📊 Git Status"
-  _git_branch_header
-
-  echo ""
-
-  # Show files with git-style colors
-  local modified=$(git diff --name-only 2>/dev/null)
-  local staged=$(git diff --cached --name-only 2>/dev/null)
-  local untracked=$(git ls-files --others --exclude-standard 2>/dev/null)
-
-  if [[ -n "$staged" ]]; then
-    printf "${green}✅ Staged files:${reset}\n"
-    echo "$staged" | while read -r file; do
-      printf "  ${green}%s${reset}\n" "$file"
-    done
-    echo ""
-  fi
-
-  if [[ -n "$modified" ]]; then
-    printf "${red}📝 Modified files:${reset}\n"
-    echo "$modified" | while read -r file; do
-      printf "  ${red}%s${reset}\n" "$file"
-    done
-    echo ""
-  fi
-
-  if [[ -n "$untracked" ]]; then
-    printf "${yellow}❓ Untracked files:${reset}\n"
-    echo "$untracked" | head -5 | while read -r file; do
-      printf "  ${yellow}%s${reset}\n" "$file"
-    done
-    [[ $(echo "$untracked" | wc -l) -gt 5 ]] && printf "  ${yellow}... and $(($(echo "$untracked" | wc -l) - 5)) more${reset}\n"
-    echo ""
-  fi
-
-  if [[ -z "$staged" ]] && [[ -z "$modified" ]] && [[ -z "$untracked" ]]; then
-    printf "${green}✨ Working directory clean${reset}\n"
-  fi
+  setopt local_options pipefail
+  COLUMNS=$COLUMNS git -c advice.statusHints=false -c color.status=always \
+    -c column.status=always status --no-ahead-behind "$@" \
+    | awk '
+      /^(\033\[[0-9;]*m)*(On branch |Your branch is up to date |Your branch and .* refer to different commits)/ { next }
+      !seen && /^$/ { next }
+      { seen = 1; print }'
 }
 
 # Custom gitignore generator (replicating the 'gi' command)
