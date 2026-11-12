@@ -1,3 +1,14 @@
+# sysup and sysclean rerun themselves through keep outside a shpool session, so
+# a closed terminal only detaches them. Defined outside the shpool guard below,
+# so without shpool it fails with a message.
+_keep_self() {
+  if ! (($+functions[keep])); then
+    print -u2 "$1: shpool/keep is required; install shpool and reload ~/.zshrc"
+    return 1
+  fi
+  keep "$@"
+}
+
 # Run a command in a detachable shpool session. Each call gets a fresh session
 # named "<first-word>-HHMMSS-<unique-id>". The readable prefix is sanitized
 # because shpool session names cannot contain spaces, slashes or shell syntax;
@@ -19,16 +30,6 @@
 # The EXIT trap removes the script even if the command itself calls `exit`.
 # Usage: keep sysup / keep sudo pacman -Syu / keep 'echo a; echo b'
 #
-# sysup and sysclean rerun themselves through this outside a shpool session, so
-# a closed terminal only detaches them. Outside the guard below: no shpool fails.
-_keep_self() {
-  if ! (($+functions[keep])); then
-    print -u2 "$1: shpool/keep is required; install shpool and reload ~/.zshrc"
-    return 1
-  fi
-  keep "$@"
-}
-
 # Everything below is a no-op without shpool -- guard the whole file once
 # rather than repeat the command -v check in every function.
 if command -v shpool >/dev/null 2>&1; then
