@@ -32,7 +32,8 @@ check_symlink_integrity() {
   else
     skip "no installed config directories to scan"
   fi
-  for link in ~/.zshrc ~/.zshenv ~/.duckdbrc ~/.npmrc; do
+  for link in ~/.zshrc ~/.zshenv ~/.duckdbrc ~/.npmrc \
+    "${CARGO_HOME:-$HOME/.cargo}/config.toml"; do
     if [[ -L $link && ! -e $link ]]; then
       warn "dangling symlink: ${link/#$HOME/\~}"
       dangling_seen["$link"]=1
