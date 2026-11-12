@@ -57,9 +57,9 @@ gst() {
       { seen = 1; print }'
 }
 
-# Custom gitignore generator (replicating the 'gi' command)
-function gi() {
-  curl -sLw "\n" --max-time 10 https://www.toptal.com/developers/gitignore/api/$@
+# .gitignore templates from gitignore.io: gi python node >> .gitignore
+gi() {
+  curl -fsSL --max-time 10 "https://www.toptal.com/developers/gitignore/api/${(j:,:)@}"
 }
 # ============================================================================
 # ALIASES - Git Workflow Shortcuts
