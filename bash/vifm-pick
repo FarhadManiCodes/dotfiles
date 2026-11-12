@@ -12,9 +12,10 @@
 #   fbook, rgbook  <-> zsh/functions/pdf.zsh
 #   fdata, fnb     <-> zsh/functions/fzf.zsh
 # Identical in both: the rg command, the rg preview and the fdata extension
-# list; the awk formatter is one file both read, vifm-pick.d/rgbook.awk. Only the fzf key handling and what happens to the
-# selection differ, and deliberately so: the zsh versions `cd`, which only works
-# in the interactive shell, while vifm needs the exchange files below.
+# list; the awk formatter is one file both read, vifm-pick.d/rgbook.awk. Only
+# the fzf key handling and what happens to the selection differ, and
+# deliberately so: the zsh versions `cd`, which only works in the interactive
+# shell, while vifm needs the exchange files below.
 #
 # fzf substitutes {} and {1} as a SINGLE-QUOTED string, so they must sit outside
 # any quotes of ours. "$SP/"{} concatenates correctly; "$SP/{}" does not and
