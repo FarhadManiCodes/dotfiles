@@ -27,8 +27,6 @@
 
     excludesfile = ~/.config/git/ignore
 
-    excludesfile = ~/.config/git/ignore
-
 [init]
     defaultBranch = main
 
@@ -134,12 +132,9 @@
 [alias]
     lg = log --graph --pretty=format:'%C(yellow)%h%Creset %C(cyan)[%ad]%Creset %C(green)%s%Creset %C(bold blue)<%an>%Creset%C(red)%d%Creset' --date=short --abbrev-commit
     st = status
-    co = checkout
     br = branch
 
-    # Quick fix for "I messed up" - undo last commit but keep changes
-    undo = reset HEAD~1
-      # Detailed log with files changed
+    # Detailed log with files changed
     lgd = log --graph --pretty=format:'%C(yellow)%h%Creset %C(cyan)[%ad]%Creset %C(green)%s%Creset %C(bold blue)<%an>%Creset%C(red)%d%Creset' --date=short --abbrev-commit --stat
 
     # Combined git + DVC status (requires dvc installed)
@@ -160,13 +155,6 @@
     # Experiment branch management
     exp-start = "!f() { if [ -z \"$1\" ]; then echo 'Usage: git exp-start <experiment-name>'; return 1; fi; git checkout -b \"experiment/$1\"; }; f"
     exp-list = "!git branch --list 'experiment/*'"
-
-    # Feature branch management
-    feature-create = "!f() { if [ -z \"$1\" ]; then echo 'Usage: git feature-create <feature-name>'; return 1; fi; git checkout -b \"feature/$1\"; }; f"
-    feature-list = "!git branch --list 'feature/*'"
-
-    # C++ Specific Diff (Ignores whitespace, only shows C/C++ files)
-    diff-cpp = "!f() { git diff -w --ignore-all-space --ignore-blank-lines \"$@\" -- \"*.cpp\" \"*.c\" \"*.h\" \"*.hpp\"; }; f"
 
 
 [fetch]

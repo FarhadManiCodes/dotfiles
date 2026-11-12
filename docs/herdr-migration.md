@@ -139,7 +139,7 @@ Implementation milestones and acceptance criteria: `docs/herdr-implementation.md
 - **Retire `Prefix + S` (Session Menu):** Replace its workflow with Herdr persistence/native workspace keys and the editor/agent/tool restart recovery in Step 2R. Layout/history alone is insufficient; Milestone 3 supplies the rest.
 - **Retire the Quick Menu (`Prefix + e`):** Every entry has a direct Herdr key except "Move Window" (move to any index): Herdr only moves a tab one step left or right, which is accepted. `Prefix+e` is now scrollback edit.
 - **Retire `Prefix + V` (Virtualenv Menu):** Unused; `direnv` + `zsh/functions/virtualenv.zsh` (`va`, `vc`, `vp`, `vl`, `vs`, `vr`) already work directly in `zsh`.
-- **Retire `Prefix + G` (13-item Git + Data Science Menu):** Redundant with `lazygit/config.yml` custom commands (`v` DVC, `N` notebooks, `X` experiment branch, `C` `gci` interactive commit) and `zsh/functions/git-enhancements.zsh`.
+- **Retire `Prefix + G` (13-item Git + Data Science Menu):** Redundant with `lazygit` (its `C` key runs `gci`) and `zsh/functions/git-enhancements.zsh`; the DVC, notebook and experiment entries call tools and git aliases nothing else uses. Remove those git aliases from `git/config` with the menu: `lgd`, `exp-start`, `exp-list`, `dvc-status`, `dvc-push-all`, `dvc-pull-all`, `clean-notebooks` (`info` stays for the `ginfo` shell alias).
 - **Keep `Prefix + Shift+g` as Herdr's default `new_worktree`**.
 - **Add `lazygit` Floating Popup (`80% x 80%`) on `Prefix + Alt+g`**.
 
