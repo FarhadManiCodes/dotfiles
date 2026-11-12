@@ -67,5 +67,12 @@ gi() {
 alias ga='git add'
 alias gc='git commit --verbose'
 alias gca='git commit --verbose --all'
-alias glol='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset"'
 alias ginfo='git info' # repository, branch, remote and last commit
+
+# The current branch drawn with git-graph; `glol master` adds master alongside.
+# Only HEAD by default: git-graph orders commits by time, so all branches
+# interleave whenever two moved together. It has no pager of its own.
+glol() {
+  git-graph --color always --model simple --style round --wrap none \
+    --format '%h%d %s (%as) <%an>' HEAD "$@" | less -RFS
+}
