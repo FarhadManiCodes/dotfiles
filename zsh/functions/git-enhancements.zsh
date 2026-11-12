@@ -82,16 +82,12 @@ gci() {
 }
 
 # ============================================================================
-# ENHANCED GIT STATUS FUNCTIONS
+# GIT STATUS
 # ============================================================================
 
-# git status without the hint lines or the branch lines: the branch, its
-# upstream and whether it is level with it. Starship shows the branch and the
-# ahead/behind counts, not the upstream; "the upstream is gone" stays. On a
-# terminal, colors and columns are forced on with its width passed in, because
-# git cannot see it through the pipe. --no-ahead-behind leaves a single "Your
-# branch" line. git prints these lines uncolored unless color.status.header is
-# set. pipefail returns git's failure, not awk's.
+# git status without the hints or the branch and upstream lines; starship shows
+# the branch. Colors and columns are forced only on a terminal, which git cannot
+# see through the pipe.
 gst() {
   setopt local_options pipefail
   local -a tty=()
