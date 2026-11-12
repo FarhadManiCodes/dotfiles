@@ -11,6 +11,7 @@ state before acting. Read the file for the app you're touching before changing i
 - [Vim](architecture/vim.md) — lightweight editing, theme toggle
 - [IPython](architecture/ipython.md) — profile location, tracked files
 - [Zsh](architecture/zsh.md) — entry points, functions, the bgutil/yts `sysup` steps
+- [Cargo](architecture/cargo.md) — persistent CPU targeting for local builds and tool updates
 - [Herdr](architecture/herdr.md) — stable Cargo installation, temporary Zig and fat-LTO updates
 - [sysclean](architecture/sysclean.md) — NVMe health check, glob-qualifier removals
 - [Mirrorlist check](architecture/mirrorlist.md) — the `sysup` step that runs first

@@ -125,6 +125,7 @@ dotfiles/
 ├── firefox/                # Firefox userChrome.css
 ├── tridactyl/              # Firefox vim bindings config
 ├── uv/                     # uv configuration
+├── cargo/                  # CPU targeting for local Rust builds, installs and updates
 ├── pam/                    # PAM config for Swaylock (root-owned)
 ├── system-sleep/           # systemd sleep hooks (root-owned)
 ├── systemd/user/           # User systemd services
