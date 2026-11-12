@@ -11,10 +11,8 @@
   first=index($0, ":"); if (!first) next;
   second=index(substr($0, first+1), ":"); if (!second) next;
   path=substr($0, 1, first-1);
-  line=substr($0, first+1, second-1);
   raw=substr($0, first+second+1);
   gsub(/\033\[[0-9;]*m/, "", path);
-  gsub(/\033\[[0-9;]*m/, "", line);
   if (substr(path, 1, length(sp)) != sp) next;
   path=substr(path, length(sp)+1);
   plain=raw; gsub(/\033\[[0-9;]*m/, "", plain);
