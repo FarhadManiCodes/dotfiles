@@ -85,18 +85,21 @@ gci() {
 # ENHANCED GIT STATUS FUNCTIONS
 # ============================================================================
 
-# git status without the hint lines or the branch lines that repeat starship
-# ("On branch", "up to date", "refer to different commits"); "the upstream is
-# gone" stays. Colors and columns are forced on, with the terminal width passed
-# in, because git cannot see the terminal through the pipe. --no-ahead-behind
-# leaves a single "Your branch" line. The match skips leading color codes, so a
-# colored header still matches. pipefail returns git's failure, not awk's.
+# git status without the hint lines or the branch lines: the branch, its
+# upstream and whether it is level with it. Starship shows the branch and the
+# ahead/behind counts, not the upstream; "the upstream is gone" stays. On a
+# terminal, colors and columns are forced on with its width passed in, because
+# git cannot see it through the pipe. --no-ahead-behind leaves a single "Your
+# branch" line. git prints these lines uncolored unless color.status.header is
+# set. pipefail returns git's failure, not awk's.
 gst() {
   setopt local_options pipefail
-  COLUMNS=$COLUMNS git -c advice.statusHints=false -c color.status=always \
-    -c column.status=always status --no-ahead-behind "$@" \
+  local -a tty=()
+  [[ -t 1 ]] && tty=(-c color.status=always -c column.status=always)
+  COLUMNS=$COLUMNS git -c advice.statusHints=false "${tty[@]}" \
+    status --no-ahead-behind "$@" \
     | awk '
-      /^(\033\[[0-9;]*m)*(On branch |Your branch is up to date |Your branch and .* refer to different commits)/ { next }
+      /^(On branch |Your branch is up to date |Your branch and .* refer to different commits)/ { next }
       !seen && /^$/ { next }
       { seen = 1; print }'
 }
