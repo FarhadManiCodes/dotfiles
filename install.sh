@@ -240,6 +240,12 @@ echo "DuckDB configured"
 ln -sf "${DOTFILES}/npm/.npmrc" "${HOME}/.npmrc"
 echo "npm configured"
 
+# =========== cargo ===============
+echo "Setting up Cargo..."
+mkdir -p "${CARGO_HOME:-${HOME}/.cargo}"
+ln -sf "${DOTFILES}/cargo/config.toml" "${CARGO_HOME:-${HOME}/.cargo}/config.toml"
+echo "Cargo configured"
+
 # No font step: the fonts in use (FiraCode Nerd Font, JetBrains Mono) come from
 # packages. This used to copy 15MB of unreferenced Inconsolata/MesloLGS without
 # running fc-cache, so fontconfig never saw them anyway.
