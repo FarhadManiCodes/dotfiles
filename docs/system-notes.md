@@ -317,6 +317,8 @@ System-level choices that aren't captured in any config file:
   recreated on a rebuild: where the hooks are installed, a missing one stops every commit
   and names itself. `sysup` updates both with `cargo install-update --all`, and an update
   can make tracked code fail a check (see "After a tool upgrade" there).
+  `install.sh` sets `cargo install-update-config --enforce-lock prek`, so those
+  updates build prek against its own `Cargo.lock`.
 - **Herdr uses `bash/herdr-cargo`**, called with `--install` by `install.sh` and
   `--update` by `sysup`. It builds only the latest stable release's executable,
   pins the resolved commit and lockfile, provisions the release-pinned Zig

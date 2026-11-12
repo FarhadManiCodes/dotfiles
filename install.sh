@@ -244,6 +244,12 @@ echo "npm configured"
 echo "Setting up Cargo..."
 mkdir -p "${CARGO_HOME:-${HOME}/.cargo}"
 ln -sf "${DOTFILES}/cargo/config.toml" "${CARGO_HOME:-${HOME}/.cargo}/config.toml"
+# sysup's `cargo install-update --all` rebuilds prek against its own Cargo.lock
+# rather than newer dependencies. cargo-update keeps this in
+# .install_config.toml, which Cargo's config.toml cannot hold.
+if command -v cargo-install-update-config >/dev/null 2>&1; then
+  cargo install-update-config --enforce-lock prek >/dev/null
+fi
 echo "Cargo configured"
 
 # No font step: the fonts in use (FiraCode Nerd Font, JetBrains Mono) come from
