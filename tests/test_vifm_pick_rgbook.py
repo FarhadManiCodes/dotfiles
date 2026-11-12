@@ -159,7 +159,6 @@ fi
             command = """source "$HELPERS"
 source "$SCRIPT"
 "$TEST_PICKER" "$TEST_QUERY" || exit
-wait
 pwd > "$PWD_LOG"
 """
             env["PWD_LOG"] = str(self.root / "pwd.log")
