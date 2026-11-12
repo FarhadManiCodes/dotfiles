@@ -34,6 +34,7 @@ class MaintenanceShpoolTests(unittest.TestCase):
 source "$1/sysup.zsh"
 source "$1/sysclean.zsh"
 source "$1/shpool.zsh"
+unfunction keep 2>/dev/null  # tests that want keep define a stub
 systemd-inhibit() { return 0; }
 _sysup_mirrorlist_check() { :; }
 _sysup_pacnew() { :; }
