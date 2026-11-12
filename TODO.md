@@ -572,3 +572,18 @@ path is chosen, with no heavy dependency pulled in.
 **Acceptance criteria:** with text on the clipboard, opening the picker and pressing Esc leaves the clipboard unchanged. Choosing an entry copies it exactly, including multi-line entries and entries that start with a dash. An empty history shows the notice and changes nothing. An id missing from the history leaves the clipboard unchanged. An image entry is copied byte for byte. Test with isolated stand-ins for `cliphist`, `fuzzel` and `wl-copy` that record whether `wl-copy` ran, covering Esc, a selection, an empty history and a picker failure. Then one live check of Esc.
 
 **Scope:** planning only; this TODO does not change the bind or the script.
+
+## 31. Let lazygit's diff pane follow foot's light theme
+
+**Found:** high review of `herdr/m0.5-repository-baseline`, 2026-11-12.
+
+**Current behavior:** `lazygit/config.yml` runs its diff renderer as `delta --dark --paging=never`. Since `023c726` lazygit keeps its own colors only on a dark terminal, and `5370eaa` let plain git's delta detect a light terminal. So with foot in its light theme, lazygit draws a light interface and a dark diff pane. Not checked live: it needs the desktop.
+
+**Open question:** whether delta can detect the background at all when lazygit runs it. delta asks the terminal (an OSC 11 query); inside lazygit its output is not the terminal, so detection may fail and fall back to dark. If it does, dropping `--dark` is not enough and the theme has to be passed in, for example from the same source foot's theme switch uses.
+
+**Plan:**
+
+1. In foot's light theme, open lazygit on a repository with a change and look at the diff pane. Then remove `--dark` from the renderer command and look again.
+2. If delta now picks light, done. If not, find how the theme switch exposes light or dark (the foot and lazygit theme scripts) and pass `--light` or `--dark` accordingly.
+
+**Acceptance criteria:** in both foot themes, lazygit's diff pane matches the rest of lazygit, and `git diff` outside lazygit is unchanged.
