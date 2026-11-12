@@ -58,6 +58,10 @@ gst() {
 
 # .gitignore templates from gitignore.io: gi python node >> .gitignore
 gi() {
+  if (($# == 0)); then
+    print -u2 'usage: gi <template>...  (gi list shows them)'
+    return 2
+  fi
   curl -fsSL --max-time 10 "https://www.toptal.com/developers/gitignore/api/${(j:,:)@}"
 }
 # ============================================================================
