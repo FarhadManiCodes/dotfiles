@@ -54,9 +54,9 @@ command! reload :write | restart full
 command! trash trash-put %f
 
 " Zsh search functions (ctrl-d not vifm-aware — shell use only)
-command! rgf    :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgf'
-command! rgpy   :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgpy'
-command! rgcpp  :!zsh -c 'source ~/.config/zsh/functions/search.zsh && rgcpp'
+command! rgf    :!zsh -c 'source ~/.config/zsh/helpers.zsh && source ~/.config/zsh/functions/search.zsh && rgf'
+command! rgpy   :!zsh -c 'source ~/.config/zsh/helpers.zsh && source ~/.config/zsh/functions/search.zsh && rgpy'
+command! rgcpp  :!zsh -c 'source ~/.config/zsh/helpers.zsh && source ~/.config/zsh/functions/search.zsh && rgcpp'
 " Plain git status, unlike zsh's gst: vifm has no starship prompt to show the branch.
 command! gst    :!git -C %d status; read -k1 "?Press any key to continue"
 
