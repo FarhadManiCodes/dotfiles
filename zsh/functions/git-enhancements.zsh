@@ -31,6 +31,7 @@ gci() {
   prefix=$(_gci_prefixes \
     | fzf --exact --prompt='prefix: ' --height=40% --bind 'enter:accept-or-print-query,alt-enter:print-query') \
     || return
+  [[ -n $prefix ]] || return 1 # Alt-Enter with nothing typed
   prefix=$(print -r -- "$prefix" | sed 's/[: ]*$/: /')
   # nvim opens commit messages at line 1, column 1 (autocmds.lua skips the
   # cursor restore); startinsert! begins typing after the prefix instead.
