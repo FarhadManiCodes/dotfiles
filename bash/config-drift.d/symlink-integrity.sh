@@ -68,10 +68,10 @@ check_symlink_integrity() {
           # ${0:A:h}, straight through its own symlink to the real checkout.
           continue
           ;;
-        bash/config-drift.d/*.sh | bash/capture-ocr.d/*)
-          # Not symlinked at all: config-drift and capture-ocr find their .d/
-          # through their own realpath, and install.sh links only the scripts
-          # in bash/.
+        bash/config-drift.d/*.sh | bash/capture-ocr.d/* | bash/vifm-pick.d/*)
+          # Not symlinked at all: config-drift, capture-ocr and vifm-pick find
+          # their .d/ through their own realpath, and install.sh links only the
+          # scripts in bash/.
           continue
           ;;
         bash/.*)
