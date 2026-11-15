@@ -222,6 +222,35 @@ fi
         self.assertEqual(again.returncode, 0, again.stderr)
         self.assertEqual(self.calls().count("clone"), 1)
 
+    def older_backup(self):
+        older = self.root / "helper with spaces.update.older1" / "previous"
+        older.mkdir(parents=True)
+        (older / "README").write_text("older helper\n")
+        return older
+
+    def test_upgrade_keeps_only_the_newest_backup(self):
+        older = self.older_backup()
+        result = self.run_update()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(older.parent.exists())
+        self.assertEqual(len(self.backups()), 1)
+        self.assertEqual(
+            (self.backups()[0] / "README").read_text(), "original helper\n"
+        )
+
+    def test_failed_update_keeps_older_backups(self):
+        older = self.older_backup()
+        for failure in ("fetch", "validation", "swap"):
+            with self.subTest(failure=failure):
+                self.env["BGUTIL_FAIL"] = failure
+                result = self.run_update()
+                self.assertNotEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                self.assertEqual(
+                    (older / "README").read_text(), "older helper\n"
+                )
+
     def test_failed_updates_preserve_old_helper(self):
         for failure in (
             "metadata",

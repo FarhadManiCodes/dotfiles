@@ -182,8 +182,9 @@ compiler in a staging directory, then gates the swap on **generating a real toke
 just `generate_once.js --version`. Matching versions need no fetch or build; missing
 installs are skipped; local edits are preserved. Any failure stops `sysup` nonzero. The
 previous helper is kept at `bgutil-pot.update.*/previous` (auto-restored on a failed
-rename, otherwise retained for manual recovery). Closes the 2026-09-17 failure where uv
-updated the plugin to 2.0.0 but left the helper at 1.3.1.
+rename, otherwise retained for manual recovery); a successful update deletes older
+`bgutil-pot.update.*` directories, so only that one backup remains. Closes the
+2026-09-17 failure where uv updated the plugin to 2.0.0 but left the helper at 1.3.1.
 
 `--ignore-scripts` and the token gate arrived together and depend on each other: `npm ci`
 otherwise runs the dependency tree's install scripts (arbitrary code execution at build

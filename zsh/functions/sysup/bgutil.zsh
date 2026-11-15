@@ -8,7 +8,7 @@ _sysup_bgutil() (
   trap - EXIT INT TERM
   [[ -z ${_lockfd:-} ]] || exec {_lockfd}>&- # a leftover child must not keep sysup's lock held
   local helper_dir=${1:-"$HOME/.local/share/bgutil-pot"}
-  local tool_dir plugin_version current_version changes stage built_version
+  local tool_dir plugin_version current_version changes stage built_version old
 
   if [[ ! -e $helper_dir && ! -L $helper_dir ]]; then
     echo "    bgutil is not installed — skipping"
@@ -118,4 +118,10 @@ _sysup_bgutil() (
     return 1
   }
   echo "    Installed bgutil $plugin_version; previous helper: $stage/previous"
+  # Keep one backup, the helper just replaced: earlier update dirs hold older ones.
+  for old in "$helper_dir".update.*(N/); do
+    [[ $old == "$stage" ]] || rm -rf -- "$old" \
+      || echo "    !! bgutil: could not delete old backup $old"
+  done
+  return 0 # installed; a leftover old backup is not a failure
 )
