@@ -32,6 +32,7 @@ retained Claude configuration and the separate user-wide skill setup.
 | Data | Polars · DuckDB (CLI + Python) · psql · sqlite3 |
 | PDF / Reading | Sioyek · Papis |
 | Video | mpv |
+| Images | phototonic |
 | Music | spotify-player · cmus |
 | AUR Helper | paru |
 
