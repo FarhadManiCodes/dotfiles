@@ -45,6 +45,7 @@ Off-machine backup remains deferred.
 | 28. sysup restart and reboot notice | Planned 2026-11-07 | Build a read-only end-of-run notice; two rclone mounts already run a replaced binary |
 | 29. Screen power-off on the display key | Planned 2026-11-07 | Confirm Fn+F7 reaches niri as `XF86Display`, then replace `Mod+Shift+O` |
 | 30. Clipboard picker overwrites the clipboard on Esc | Found 2026-11-07; user reports it has happened | Reproduce, then copy only when a selection was made |
+| 31. lazygit diff pane in foot's light theme | Found 2026-11-12; not checked live | Drop `--dark` and look; pass the theme in if delta cannot detect it |
 | 32. sysup new-dependency report | Requested 2026-11-15 | Plan a read-only list of packages an update newly pulled in |
 
 ## 1. Off-machine backup
