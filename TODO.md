@@ -28,7 +28,7 @@ Off-machine backup remains deferred.
 | 10. Evaluate pv, entr and strace | Open 2026-10-02 | Audit usefulness, overlap and dependency cost |
 | 11. Install qalc and VisiData for the study books | qalc installed 2026-10-04 | Install VisiData with `uv tool`, then try both |
 | 12. Python venv for the study-book experiments | Open 2026-10-03 | Pick which venv, then install |
-| 14. Image viewer and Qt icon theme | Open 2026-10-05; user will work on it | Pick a viewer, then set the Qt icon theme |
+| 14. Image viewer and Qt icon theme | Viewer chosen 2026-11-14 (phototonic); icon theme open | Set the Qt icon theme |
 | 15. Fingerprint recovery after resume | Installed; hardware verification pending | Several normal cycles, including an active scan; check fingerprint and password unlock |
 | 16. Offline PDF signatures | Explore; no implementation yet | Compare established tools with a small Sioyek integration |
 | 17. Stale results and overlapping writes | Code findings; live reproduction pending | Guard header/source switching, bibliography updates, and Docs sync-back |
@@ -262,24 +262,18 @@ first and do not create a new environment as a side effect. Nothing is installed
 **Raised 2026-10-05**, while moving off GTK4. The two are linked: any Qt viewer shows its
 menu and toolbar icons from the system icon theme, and Qt applications here have none yet.
 
-**Image viewer.** `gthumb` (GTK3) opens ten image types in `mimeapps.list` and stays until
-a replacement is chosen. GTK3 stays installed regardless (Firefox, `xdg-desktop-portal-gtk`;
-see the GTK3 entry in `revisit.md`), so replacing it is for consistency, not to free GTK.
-
-- `imv`: tried and does not do what the user wants. `exec` bindings and auto-reload would
-  allow saved rotation with `jpegtran` or `magick`, but crop has no way to learn the
-  image's position in the window.
-- `gwenview`: crop and rotate, official, but a long list of KDE Frameworks dependencies.
-- `qimgv-git` (AUR): the one Qt viewer documented with crop, rotate and resize and saving.
-  Upstream is slow (last release 2021, commits through January 2026) and it builds from git.
-- `qView` (AUR only): Qt 6, minimal, maintained (7.1, commits through April 2026). Rotate,
-  mirror, flip, rename, trash, slideshow and sorting; **no crop**. Needs `qt6-imageformats`
-  (72 KB) for WebP and TIFF and `kimageformats` (0.66 MB, depends only on `qt6-base`) for
-  AVIF, HEIC and JXL. A local crop patch was floated: a rubber-band selection in
-  `qvgraphicsview.cpp` using `mapToScene`, built from a local PKGBUILD or `~/Installs/qview`
-  like sioyek. The build needs `qt6-tools` (6.9 MB download).
-- `swayimg` (`extra`, no toolkit): rotate and flip of the view only, no crop or save
-  documented.
+**Image viewer — decided 2026-11-14.** `gthumb` 4.0 moved to GTK4 and libadwaita, so
+`phototonic` (Qt6 and exiv2 only; Thomas Lübking's maintained fork, release 3.3.0 on
+2026-10-30) now opens BMP, GIF, JPEG, PNG, SVG and ICO from `mimeapps.list`, and crops
+(Shift), rotates (Ctrl), flips, scales and saves. WebP and AVIF go to Firefox (foob could
+take them later: WPE WebKit links libwebp and libavif); TIFF, HEIC and HEIF were dropped
+rather than install `qt6-imageformats` (jasper, libmng, and it keeps freeglut) or
+`kimageformats`. Every image viewer in the official repos was compared: `oculante` (39 MiB,
+every format, lossless JPEG crop) and `cosmic-viewer` (48 MiB) were the other finalists;
+`lximage-qt` will not crop (upstream calls that an editor's job); `geeqie` and `loupe` need
+GTK4; `gwenview`, `koko`, `kuickshow` and `maui-pix` need KDE Frameworks; `eog`, `eom`,
+`gpicview`, `xviewer`, `pqiv`, `imv` and `swayimg` do not crop; `viewnior` and `vimiv` are
+unmaintained; feh, nsxiv and sxiv are X11-only.
 
 **Qt icon theme.** `QT_QPA_PLATFORMTHEME` is unset in `environment.d/wayland.conf`, so Qt
 falls back to `hicolor` and every icon looked up by name is missing. Tested 2026-10-05 with a
@@ -287,14 +281,12 @@ small Qt 6 program under Wayland: `QT_QPA_PLATFORMTHEME=gtk3` gives Adwaita (the
 GTK setting) with all five icons found; `xdgdesktopportal` gives `hicolor` again. Papirus is
 installed and has those icons; getting it means
 `gsettings set org.gnome.desktop.interface icon-theme Papirus` as well, which also changes
-Firefox's and gthumb's icons. `pcmanfm-qt` already sets `FallbackIconThemeName=Papirus` itself.
+Firefox's icons. `pcmanfm-qt` already sets `FallbackIconThemeName=Papirus` itself.
 
-**Decide:** the viewer (or keep `gthumb`), whether to add the crop patch to `qView`, and
-Adwaita or Papirus for the machine. Setting the platform theme is a change to
+**Decide:** Adwaita or Papirus for the machine. Setting the platform theme is a change to
 `environment.d/wayland.conf` and needs its own branch.
 
-**Done when:** one viewer opens the ten image types with crop and rotate working, and a Qt
-application shows icons from the chosen theme.
+**Done when:** a Qt application, `phototonic` included, shows icons from the chosen theme.
 
 
 ## 15. Verify fingerprint recovery after resume

@@ -222,14 +222,13 @@ GTK3 remains, and it cannot go while these are installed:
   `xdg-desktop-portal-wlr` provides only screenshot and screencast, so nothing else answers
   those. The Qt-world alternative, `xdg-desktop-portal-kde`, drags in KDE
   Frameworks.
-- **`gthumb`** (GTK3 image viewer) is a choice rather than a requirement. Replacing it with
-  `qimgv-git` (AUR, slow upstream) or `gwenview` (official, KDE dependencies) would drop it
-  and `gst-plugin-gtk`, but not GTK3 itself.
-
 `yts-gui` was the last GTK4 user; it is being rewritten in C++ with Qt (TODO item 13).
+`gthumb` 4.0 (2026-11-12) moved to GTK4 and libadwaita and brought them back with
+`gst-plugins-good`, 20 packages in all; it was replaced by `phototonic` (Qt6) for viewing
+and editing (TODO item 14).
 
-**Recheck:** if Firefox and the portal backend ever stop needing GTK3, or if `gthumb` is
-replaced and a Qt portal backend becomes light enough.
+**Recheck:** if Firefox and the portal backend ever stop needing GTK3, or if a Qt portal
+backend becomes light enough.
 
 ## Swappiness 10 with zram-only swap — ACCEPTED (2026-09-06)
 
