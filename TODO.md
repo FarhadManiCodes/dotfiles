@@ -268,15 +268,16 @@ menu and toolbar icons from the system icon theme, and Qt applications here have
 (Shift), rotates (Ctrl), flips, scales and saves. WebP and AVIF go to Firefox; TIFF, HEIC
 and HEIF were dropped rather than install `qt6-imageformats` (jasper, libmng, and it keeps
 freeglut) or `kimageformats`, and `[Removed Associations]` stops GIO offering phototonic for
-them. `xdg-open` ignores that section and still tries phototonic, which fails; accepted, and
-installing `qt6-imageformats` fixes TIFF if it is ever needed. SVG and ICO are mapped by
-hand (its desktop file omits them); SVG needs `qt6-svg`, which only `flameshot` and
-`qalculate-qt` keep installed. Every image viewer in the official repos was compared:
-`oculante` (39 MiB, every format, lossless JPEG crop) and `cosmic-viewer` (48 MiB) were the
-other finalists; `lximage-qt` will not crop (upstream calls that an editor's job); `geeqie`
-and `loupe` need GTK4; `gwenview`, `koko`, `kuickshow` and `maui-pix` need KDE Frameworks;
-`eog`, `eom`, `gpicview`, `xviewer`, `pqiv`, `imv` and `swayimg` do not crop; `viewnior` and
-`vimiv` are unmaintained; feh, nsxiv and sxiv are X11-only.
+TIFF and HEIC, which its desktop file claims. `xdg-open` ignores that section and still
+tries phototonic, which fails; accepted, and installing `qt6-imageformats` (TIFF) or
+`kimageformats` (HEIC) fixes them if ever needed. SVG and ICO are mapped by hand (its
+desktop file omits them); SVG needs `qt6-svg`, which only `flameshot` and `qalculate-qt`
+keep installed. Every image viewer in the official repos was compared: `oculante` (39 MiB,
+every format, lossless JPEG crop) and `cosmic-viewer` (48 MiB) were the other finalists;
+`lximage-qt` will not crop (upstream calls that an editor's job); `geeqie` and `loupe` need
+GTK4; `gwenview`, `koko`, `kuickshow` and `maui-pix` need KDE Frameworks; `eog`, `eom`,
+`gpicview`, `xviewer`, `pqiv`, `imv` and `swayimg` do not crop; `viewnior` and `vimiv` are
+unmaintained; feh, nsxiv and sxiv are X11-only.
 
 **Qt icon theme.** `QT_QPA_PLATFORMTHEME` is unset in `environment.d/wayland.conf`, so Qt
 falls back to `hicolor` and every icon looked up by name is missing. Tested 2026-10-05 with a
