@@ -82,3 +82,10 @@ x-scheme-handler/snews=firefox.desktop;
 x-scheme-handler/unknown=firefox.desktop;
 x-scheme-handler/webcal=firefox.desktop;
 x-scheme-handler/webcals=firefox.desktop;
+
+[Removed Associations]
+# phototonic.desktop claims these, but Qt cannot read them without qt6-imageformats or
+# kimageformats, which are not installed (TODO item 14).
+image/heic=phototonic.desktop;
+image/heif=phototonic.desktop;
+image/tiff=phototonic.desktop;

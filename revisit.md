@@ -222,7 +222,8 @@ GTK3 remains, and it cannot go while these are installed:
   `xdg-desktop-portal-wlr` provides only screenshot and screencast, so nothing else answers
   those. The Qt-world alternative, `xdg-desktop-portal-kde`, drags in KDE
   Frameworks.
-`yts-gui` was the last GTK4 user; it is being rewritten in C++ with Qt (TODO item 13).
+
+GTK4 left with `yts-gui`, rewritten in C++ with Qt (TODO item 13, closed 2026-10-09), until
 `gthumb` 4.0 (2026-11-12) moved to GTK4 and libadwaita and brought them back with
 `gst-plugins-good`, 20 packages in all; it was replaced by `phototonic` (Qt6) for viewing
 and editing (TODO item 14).

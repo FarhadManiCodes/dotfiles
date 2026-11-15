@@ -265,15 +265,18 @@ menu and toolbar icons from the system icon theme, and Qt applications here have
 **Image viewer — decided 2026-11-14.** `gthumb` 4.0 moved to GTK4 and libadwaita, so
 `phototonic` (Qt6 and exiv2 only; Thomas Lübking's maintained fork, release 3.3.0 on
 2026-10-30) now opens BMP, GIF, JPEG, PNG, SVG and ICO from `mimeapps.list`, and crops
-(Shift), rotates (Ctrl), flips, scales and saves. WebP and AVIF go to Firefox (foob could
-take them later: WPE WebKit links libwebp and libavif); TIFF, HEIC and HEIF were dropped
-rather than install `qt6-imageformats` (jasper, libmng, and it keeps freeglut) or
-`kimageformats`. Every image viewer in the official repos was compared: `oculante` (39 MiB,
-every format, lossless JPEG crop) and `cosmic-viewer` (48 MiB) were the other finalists;
-`lximage-qt` will not crop (upstream calls that an editor's job); `geeqie` and `loupe` need
-GTK4; `gwenview`, `koko`, `kuickshow` and `maui-pix` need KDE Frameworks; `eog`, `eom`,
-`gpicview`, `xviewer`, `pqiv`, `imv` and `swayimg` do not crop; `viewnior` and `vimiv` are
-unmaintained; feh, nsxiv and sxiv are X11-only.
+(Shift), rotates (Ctrl), flips, scales and saves. WebP and AVIF go to Firefox; TIFF, HEIC
+and HEIF were dropped rather than install `qt6-imageformats` (jasper, libmng, and it keeps
+freeglut) or `kimageformats`, and `[Removed Associations]` stops GIO offering phototonic for
+them. `xdg-open` ignores that section and still tries phototonic, which fails; accepted, and
+installing `qt6-imageformats` fixes TIFF if it is ever needed. SVG and ICO are mapped by
+hand (its desktop file omits them); SVG needs `qt6-svg`, which only `flameshot` and
+`qalculate-qt` keep installed. Every image viewer in the official repos was compared:
+`oculante` (39 MiB, every format, lossless JPEG crop) and `cosmic-viewer` (48 MiB) were the
+other finalists; `lximage-qt` will not crop (upstream calls that an editor's job); `geeqie`
+and `loupe` need GTK4; `gwenview`, `koko`, `kuickshow` and `maui-pix` need KDE Frameworks;
+`eog`, `eom`, `gpicview`, `xviewer`, `pqiv`, `imv` and `swayimg` do not crop; `viewnior` and
+`vimiv` are unmaintained; feh, nsxiv and sxiv are X11-only.
 
 **Qt icon theme.** `QT_QPA_PLATFORMTHEME` is unset in `environment.d/wayland.conf`, so Qt
 falls back to `hicolor` and every icon looked up by name is missing. Tested 2026-10-05 with a
