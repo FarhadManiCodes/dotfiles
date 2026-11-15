@@ -495,7 +495,7 @@ path is chosen, with no heavy dependency pulled in.
 
 **Requested 2026-11-07. Planning only:** make `sysup` end with a read-only notice naming what an upgrade left running on old code, so a restart or reboot is never silent. Found while reviewing the Omarchy pull `573b518be..9044b7e8e` (178 commits); the idea predates that range and is not one of its commits.
 
-**Current behavior:** `sysup` runs `paru -Syu` and the later steps, reports `.pacnew` files (`_sysup_pacnew`), and says nothing about a running kernel, compositor, daemon or mount that now differs from the installed package. On 2026-11-07 the running kernel (7.2.14) and niri were current, but two user processes were running a replaced binary: the `rclone mount` processes for Dropbox (PID 1640) and gdrive (PID 1642), both showing `/usr/bin/rclone (deleted)`. Nothing had told the user. On 2026-11-15 a kernel update (7.3.4-arch1-1 to -2) removed the running kernel's `/usr/lib/modules` directory before `overlay` had been loaded, and rootless podman then failed with the misleading "'overlay' is not supported over btrfs" (`pg.service` could not start) until a reboot. A module the running kernel has not loaded yet cannot be loaded after such an update, so this notice is also what explains errors like that one.
+**Current behavior:** `sysup` runs `paru -Syu` and the later steps, reports `.pacnew` files (`_sysup_pacnew`), and says nothing about a running kernel, compositor, daemon or mount that now differs from the installed package. On 2026-11-07 the running kernel (7.2.14) and niri were current, but two user processes were running a replaced binary: the `rclone mount` processes for Dropbox (PID 1640) and gdrive (PID 1642), both showing `/usr/bin/rclone (deleted)`. Nothing had told the user. On 2026-11-15 a kernel update (7.3.4-arch1-1 to -2) removed the running kernel's `/usr/lib/modules` directory before `overlay` had been loaded, and rootless podman then failed with the misleading "'overlay' is not supported over btrfs", so `pg.service` could not start; a reboot into the new kernel is expected to fix it (not yet confirmed). A module the running kernel has not loaded yet cannot be loaded after such an update, so this notice is also what explains errors like that one.
 
 **Omarchy reference:** [`bin/omarchy-update-restart`](https://github.com/basecamp/omarchy/blob/9044b7e8e/bin/omarchy-update-restart) ends every update. It compares `uname -r` with the kernel module directories under `/usr/lib/modules` that a package owns, treats a running compositor whose `/proc/<pid>/exe` ends in `(deleted)` as needing a reboot, and offers the reboot with a confirmation.
 
@@ -572,16 +572,20 @@ path is chosen, with no heavy dependency pulled in.
 
 **Requested 2026-11-15. Planning only:** make `sysup` say which packages an update installed
 as new dependencies, so a package that silently grows is noticed. Found during a cleanup:
-`gthumb` 4.0 (2026-11-12) moved to GTK4 and libadwaita and brought 20 packages with it
-(`gtk4`, `libadwaita`, `gst-plugins-good` and its codecs), undoing the Qt-only move; nobody
-noticed for days. paru does list the packages before its prompt, but new dependencies sit
-among dozens of upgrades and are easy to miss.
+`gthumb` 4.0 (2026-11-12) moved to GTK4 and libadwaita and its upgrade installed 18 new
+packages (`gtk4`, `libadwaita`, `gst-plugins-good` and its codecs), undoing the Qt-only move;
+nobody noticed for days. paru does list the packages before its prompt, but new dependencies
+sit among dozens of upgrades and are easy to miss.
 
-**Idea:** after `paru -Syu`, read that run's lines in `/var/log/pacman.log` and report the
-`installed` (not `upgraded`) packages with the package that required each, beside the
-`.pacnew` report. Report only; never remove anything.
+**Idea:** extend `bash/config-drift --pacman-since`, which already reads `pacman.log` from
+the byte boundary `sysup` records before `paru -Syu` (`_pacman_boundary` in
+`zsh/functions/sysup.zsh`), to also report the run's `installed` (not `upgraded`) packages.
+The log does not say why a package was installed, so name the package that required each
+with a lookup after the run (`pacman -Qi` "Required By" or `pactree -r`). Count only
+packages still installed when the run ends, so AUR build dependencies that paru installs
+and removes again are left out. Report only; never remove anything.
 
-**Decide first:** how to mark the run's start in the log robustly; whether to also name
-packages that became orphans; how to keep the list short after a large update.
+**Decide first:** whether to also name packages that became orphans; how to keep the list
+short after a large update.
 
 **Scope:** planning only; this TODO does not change `sysup`.
