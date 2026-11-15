@@ -45,6 +45,7 @@ Off-machine backup remains deferred.
 | 28. sysup restart and reboot notice | Planned 2026-11-07 | Build a read-only end-of-run notice; two rclone mounts already run a replaced binary |
 | 29. Screen power-off on the display key | Planned 2026-11-07 | Confirm Fn+F7 reaches niri as `XF86Display`, then replace `Mod+Shift+O` |
 | 30. Clipboard picker overwrites the clipboard on Esc | Found 2026-11-07; user reports it has happened | Reproduce, then copy only when a selection was made |
+| 32. sysup new-dependency report | Requested 2026-11-15 | Plan a read-only list of packages an update newly pulled in |
 
 ## 1. Off-machine backup
 
@@ -494,7 +495,7 @@ path is chosen, with no heavy dependency pulled in.
 
 **Requested 2026-11-07. Planning only:** make `sysup` end with a read-only notice naming what an upgrade left running on old code, so a restart or reboot is never silent. Found while reviewing the Omarchy pull `573b518be..9044b7e8e` (178 commits); the idea predates that range and is not one of its commits.
 
-**Current behavior:** `sysup` runs `paru -Syu` and the later steps, reports `.pacnew` files (`_sysup_pacnew`), and says nothing about a running kernel, compositor, daemon or mount that now differs from the installed package. On 2026-11-07 the running kernel (7.2.14) and niri were current, but two user processes were running a replaced binary: the `rclone mount` processes for Dropbox (PID 1640) and gdrive (PID 1642), both showing `/usr/bin/rclone (deleted)`. Nothing had told the user.
+**Current behavior:** `sysup` runs `paru -Syu` and the later steps, reports `.pacnew` files (`_sysup_pacnew`), and says nothing about a running kernel, compositor, daemon or mount that now differs from the installed package. On 2026-11-07 the running kernel (7.2.14) and niri were current, but two user processes were running a replaced binary: the `rclone mount` processes for Dropbox (PID 1640) and gdrive (PID 1642), both showing `/usr/bin/rclone (deleted)`. Nothing had told the user. On 2026-11-15 a kernel update (7.3.4-arch1-1 to -2) removed the running kernel's `/usr/lib/modules` directory before `overlay` had been loaded, and rootless podman then failed with the misleading "'overlay' is not supported over btrfs" (`pg.service` could not start) until a reboot. A module the running kernel has not loaded yet cannot be loaded after such an update, so this notice is also what explains errors like that one.
 
 **Omarchy reference:** [`bin/omarchy-update-restart`](https://github.com/basecamp/omarchy/blob/9044b7e8e/bin/omarchy-update-restart) ends every update. It compares `uname -r` with the kernel module directories under `/usr/lib/modules` that a package owns, treats a running compositor whose `/proc/<pid>/exe` ends in `(deleted)` as needing a reboot, and offers the reboot with a confirmation.
 
@@ -566,3 +567,21 @@ path is chosen, with no heavy dependency pulled in.
 **Acceptance criteria:** with text on the clipboard, opening the picker and pressing Esc leaves the clipboard unchanged. Choosing an entry copies it exactly, including multi-line entries and entries that start with a dash. An empty history shows the notice and changes nothing. An id missing from the history leaves the clipboard unchanged. An image entry is copied byte for byte. Test with isolated stand-ins for `cliphist`, `fuzzel` and `wl-copy` that record whether `wl-copy` ran, covering Esc, a selection, an empty history and a picker failure. Then one live check of Esc.
 
 **Scope:** planning only; this TODO does not change the bind or the script.
+
+## 32. List the packages a sysup run newly pulled in
+
+**Requested 2026-11-15. Planning only:** make `sysup` say which packages an update installed
+as new dependencies, so a package that silently grows is noticed. Found during a cleanup:
+`gthumb` 4.0 (2026-11-12) moved to GTK4 and libadwaita and brought 20 packages with it
+(`gtk4`, `libadwaita`, `gst-plugins-good` and its codecs), undoing the Qt-only move; nobody
+noticed for days. paru does list the packages before its prompt, but new dependencies sit
+among dozens of upgrades and are easy to miss.
+
+**Idea:** after `paru -Syu`, read that run's lines in `/var/log/pacman.log` and report the
+`installed` (not `upgraded`) packages with the package that required each, beside the
+`.pacnew` report. Report only; never remove anything.
+
+**Decide first:** how to mark the run's start in the log robustly; whether to also name
+packages that became orphans; how to keep the list short after a large update.
+
+**Scope:** planning only; this TODO does not change `sysup`.
