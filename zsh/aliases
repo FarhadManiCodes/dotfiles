@@ -61,9 +61,6 @@ fi
 # ============================================================================
 if command -v zoxide >/dev/null 2>&1; then
   alias cd="z"
-  # Interactive directory picker; zz jumps back to the previous directory
-  alias cdi="zi"
-  alias zz="z -"
 fi
 
 # ============================================================================
@@ -112,9 +109,6 @@ alias vi="vim"
 # ============================================================================
 # UTILITY COMMANDS
 # ============================================================================
-# Print the last command
-alias plc='fc -ln -1'
-alias zsh-update='~/.config/zsh/update-plugins.sh'
 # sysup is a function (zsh/functions/sysup.zsh) — full system + tooling update
 # sysclean is a function (zsh/functions/sysclean.zsh) — smart system & cache cleanup
 
