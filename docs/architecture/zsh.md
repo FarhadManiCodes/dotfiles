@@ -5,7 +5,6 @@
 - **Aliases**: `zsh/aliases`
 - **Helpers**: `zsh/helpers.zsh` — `safe_source` and utilities
 - **Functions** (`zsh/functions/`):
-  - `audio.zsh` — `playaudio`, fzf-driven mpv queue for `~/Audio`
   - `clipboard.zsh` — Wayland file copy
   - `cpp.zsh` — C++ build helpers (cmake/ninja/ccache)
   - `fzf.zsh` — FZF config + `fnb` (Jupyter finder) + `fdata` (data file finder)
