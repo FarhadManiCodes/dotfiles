@@ -2,8 +2,9 @@
 # PDF/Book Search Functions (ripgrep + fzf)
 #
 # fbook and rgbook are MIRRORED in bash/vifm-pick (vifm needs a script, and
-# these cd, which only works in the interactive shell). The rg command, awk
-# formatter and rg preview are identical in both — change one, change the other.
+# these cd, which only works in the interactive shell). The rg command and rg
+# preview are identical in both — change one, change the other. The awk
+# formatter is one file both read, bash/vifm-pick.d/rgbook.awk.
 # ============================================================================
 
 # The papis library. Searched to depth 2 (<entry>/<file>) only: refinery keeps
@@ -11,28 +12,25 @@
 # would list each book twice and give the part's page numbers, not the book's.
 PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 
-# Open by type: sioyek for PDF and EPUB, dispatched here rather than via xdg-open
-# because xdg-open cannot carry a page number (--page, the point of rgbook).
+# rgbook's formatter, shared with bash/vifm-pick. Resolved when this file is
+# sourced: zsh sets $0 to the sourcing file, through install.sh's symlink too.
+_rgbook_awk="${0:A:h:h:h}/bash/vifm-pick.d/rgbook.awk"
+
+# Open in sioyek directly rather than via xdg-open, because xdg-open cannot
+# carry a page number (--page, the point of rgbook).
+# setsid detaches the viewer, so closing the terminal does not close the book.
 # Sioyek centers --yloc in the window. Without it, --page puts the page's top
 # boundary at the center, leaving the previous page visible.
 
 _open_book() {
-  local file="$1" page="${2:-}"
-  case "${file:l}" in
-    *.pdf | *.epub)
-      if [[ -n "$page" ]]; then
-        local yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
-        if [[ -n "$yloc" ]]; then
-          sioyek --page "$page" --yloc "$yloc" "$file" 2>/dev/null &
-        else
-          sioyek --page "$page" "$file" 2>/dev/null &
-        fi
-      else
-        sioyek "$file" 2>/dev/null &
-      fi
-      ;;
-    *) open-detached "$file" ;;
-  esac
+  local file="$1" page="${2:-}" yloc
+  local -a args
+  if [[ -n "$page" ]]; then
+    args=(--page "$page")
+    yloc=$(pdf-meta yloc "$file" "$page" 2>/dev/null)
+    [[ -n "$yloc" ]] && args+=(--yloc "$yloc")
+  fi
+  setsid -f sioyek "${args[@]}" "$file" >/dev/null 2>&1
 }
 
 # ----------------------------------------------------------------------------
@@ -51,52 +49,13 @@ rgbook() {
 
   # Include markers in the same rg stream so each hit inherits its PDF page.
   local rg_cmd="[ -n {q} ] && rg --smart-case --color=always --no-heading --line-number --max-depth 2 -g '*.md' -g '!notes.md' -g '!*.refinery/**' -e '^<page_number>[0-9]+</page_number>$' -e {q} \"\$SP\" 2>/dev/null"
-  local format_cmd="awk -v sp=\"\$SP/\" '
-    {
-      first=index(\$0, \":\"); if (!first) next;
-      second=index(substr(\$0, first+1), \":\"); if (!second) next;
-      path=substr(\$0, 1, first-1);
-      line=substr(\$0, first+1, second-1);
-      raw=substr(\$0, first+second+1);
-      gsub(/\\033\\[[0-9;]*m/, \"\", path);
-      gsub(/\\033\\[[0-9;]*m/, \"\", line);
-      if (substr(path, 1, length(sp)) != sp) next;
-      path=substr(path, length(sp)+1);
-      plain=raw; gsub(/\\033\\[[0-9;]*m/, \"\", plain);
-      if (plain ~ /^<page_number>[0-9]+<\\/page_number>$/) {
-        page[path]=plain; sub(/^<page_number>/, \"\", page[path]);
-        sub(/<\\/page_number>$/, \"\", page[path]); next;
-      }
-      if (!(path in page)) next;
-      key=path SUBSEP page[path]; if (seen[key]++) next;
-      name=path; sub(/^.*\\//, \"\", name); sub(/\\.md$/, \".pdf\", name);
-      snippet=raw;
-      if (length(plain) > 220) {
-        start_color=match(raw, /\\033\\[1m\\033\\[31m/);
-        before=substr(raw, 1, start_color-1);
-        gsub(/\\033\\[[0-9;]*m/, \"\", before);
-        pos=length(before)+1;
-        start=pos-50; if (start<1) start=1;
-        stop=pos+150; if (stop>length(plain)) stop=length(plain);
-        snippet=substr(plain, start, stop-start+1);
-        if (start_color) {
-          colored=substr(raw, start_color+RLENGTH);
-          reset=index(colored, sprintf(\"%c[0m\", 27));
-          if (reset) {
-            hit=substr(colored, 1, reset-1);
-            gsub(/\\033\\[[0-9;]*m/, \"\", hit);
-            offset=pos-start+1;
-            snippet=substr(snippet, 1, offset-1) sprintf(\"%c[1m%c[31m\", 27, 27) hit sprintf(\"%c[0m\", 27) substr(snippet, offset+length(hit));
-          }
-        }
-        if (start>1) snippet=\"…\" snippet;
-        if (stop<length(plain)) snippet=snippet \"…\";
-      }
-      printf \"%s\\t%s:\\033[32mPage %s\\033[0m:%s\\n\", path, name, page[path], snippet;
-    }'"
+  # Exported, like SP, for fzf's reload shell.
+  local -x RGBOOK_AWK="$_rgbook_awk"
+  local format_cmd="awk -v sp=\"\$SP/\" -f \"\$RGBOOK_AWK\""
   local reload_cmd="$rg_cmd | $format_cmd || true"
 
-  local result=$(fzf --ansi --disabled --query "$query" \
+  local key selection
+  _fzf_pick key selection --ansi --disabled --query "$query" \
     --bind "change:reload:$reload_cmd" \
     --bind "start:reload:$reload_cmd" \
     --delimiter=$'\t' \
@@ -105,13 +64,7 @@ rgbook() {
     --preview-window='hidden,right:50%' \
     --bind 'ctrl-p:toggle-preview' \
     --expect='ctrl-d,ctrl-o' \
-    --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
-
-  [[ -z "$result" ]] && return 0
-
-  local key selection
-  _fzf_split "$result" key selection
-  [[ -z "$selection" ]] && return 0
+    --header='Enter: open at page | Ctrl-d: cd to folder | Ctrl-o: open in vifm' || return 0
 
   # Format: path<TAB>filename:Page N:text
   local relpath="${selection%%$'\t'*}"
@@ -147,20 +100,14 @@ fbook() {
   local pattern="${*:-.}"
 
   local -x SP="$search_path"
-  local result=$(fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null \
+  local key selection
+  fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null \
     | sed "s|^$search_path/||" \
-    | fzf --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
+    | _fzf_pick key selection --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
       --preview-window='hidden,right:40%' \
       --bind 'ctrl-p:toggle-preview' \
       --expect='ctrl-d,ctrl-o' \
-      --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm')
-
-  [[ -z "$result" ]] && return 0
-
-  local key selection
-  _fzf_split "$result" key selection
-  # Exit if no selection (user pressed escape)
-  [[ -z "$selection" ]] && return 0
+      --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm' || return 0
 
   local file="$search_path/$selection"
   [[ ! -f "$file" ]] && return 0

@@ -26,17 +26,103 @@ def _detect_foot_theme():
     return "papercolor" if text.strip() == "light" else "onedark"
 
 
-def set_onedark_terminal():
-    """Set terminal background and foreground to OneDark colors."""
-    sys.stdout.write("\033]11;#282c34\007")  # Background
-    sys.stdout.write("\033]10;#abb2bf\007")  # Foreground
-    sys.stdout.flush()
+# Each theme is a palette; _UI_STYLE names its colors. Every One Dark color
+# maps to one PaperColor color.
+# One Dark: https://github.com/joshdick/onedark.vim
+# PaperColor: https://github.com/NLKNguyen/papercolor-theme
+_THEMES = {
+    "onedark": {
+        "code": "monokai",
+        "message": "🌙 Switched to OneDark theme",
+        "colors": {
+            "bg": "#282c34",
+            "bg1": "#2c323c",  # Toolbars, menus, current line
+            "bg2": "#3e4452",  # Selection
+            "fg": "#abb2bf",
+            "gray": "#5c6370",
+            "blue": "#61afef",
+            "green": "#98c379",
+            "purple": "#c678dd",
+            "orange": "#d19a66",
+            "red": "#e06c75",
+            "yellow": "#e5c07b",
+        },
+    },
+    "papercolor": {
+        "code": "default",
+        "message": "🌞 Switched to PaperColor Light theme",
+        "colors": {
+            "bg": "#eeeeee",
+            "bg1": "#d0d0d0",
+            "bg2": "#bcbcbc",
+            "fg": "#444444",
+            "gray": "#878787",
+            "blue": "#0087af",
+            "green": "#008700",
+            "purple": "#8700af",
+            "orange": "#d75f00",
+            "red": "#af0000",
+            "yellow": "#5f8700",
+        },
+    },
+}
+
+# A key that restates a color it already inherits, from "" or from the key
+# before its last dot, leaves that color out.
+_UI_STYLE = {
+    "": "{fg} bg:{bg}",
+    "prompt": "{blue} bold",
+    "out": "{fg}",
+    "status-toolbar": "{fg} bg:{bg1}",
+    "status-toolbar.key": "{blue} bg:{bg1} bold",
+    "status-toolbar.title": "{yellow} bold",
+    "status-toolbar.input-mode": "{orange} bold",
+    "bottom-toolbar": "bg:{bg1}",
+    "line-number": "{gray}",
+    "line-number.current": "{fg} bg:{bg1} bold",
+    "cursor-line": "bg:{bg1}",
+    "selected": "bg:{bg2}",
+    "search": "{bg} bg:{yellow}",
+    "search.current": "bg:{orange} bold",
+    "matching-bracket": "{bg} bg:{purple}",
+    "matching-bracket.other": "{purple} bg:{bg}",
+    "matching-bracket.cursor": "{bg} bg:{red}",
+    "completion-menu": "{fg} bg:{bg1}",
+    "completion-menu.completion": "",
+    "completion-menu.completion.current": "{bg} bg:{blue}",
+    "completion-menu.meta.completion": "{gray} bg:{bg1}",
+    "completion-menu.meta.completion.current": "{bg} bg:{blue}",
+    "completion-menu.multi-column-meta": "{gray} bg:{bg1}",
+    "scrollbar": "bg:{gray}",
+    "scrollbar.background": "bg:{bg1}",
+    "scrollbar.button": "bg:{blue}",
+    "scrollbar.arrow": "{fg} bg:{gray}",
+    "validation-toolbar": "{red} bg:{bg1}",
+    "system-toolbar": "{green} bg:{bg1}",
+    "signature-toolbar": "{yellow} bg:{bg}",
+    "signature-toolbar current-name": "{bg} bg:{blue} bold",
+    "auto-suggestion": "{gray}",
+    "docstring": "{gray} italic",
+    "menu": "{fg} bg:{bg1}",
+    "menu.border": "{gray}",
+    "dialog": "bg:{bg1}",
+    "tab": "{fg} bg:{bg1}",  # Tab characters in the input
+    "separator": "{gray}",
+    "frame.border": "{gray}",
+}
 
 
-def set_papercolor_terminal():
-    """Set terminal background and foreground to PaperColor Light colors."""
-    sys.stdout.write("\033]11;#eeeeee\007")  # Background
-    sys.stdout.write("\033]10;#444444\007")  # Foreground
+def _ui_style(theme):
+    """Fill _UI_STYLE with the theme's colors."""
+    colors = _THEMES[theme]["colors"]
+    return {key: value.format(**colors) for key, value in _UI_STYLE.items()}
+
+
+def _set_terminal_colors(theme):
+    """Set terminal background and foreground to the theme's colors."""
+    colors = _THEMES[theme]["colors"]
+    sys.stdout.write(f"\033]11;{colors['bg']}\007")  # Background
+    sys.stdout.write(f"\033]10;{colors['fg']}\007")  # Foreground
     sys.stdout.flush()
 
 
@@ -47,34 +133,28 @@ def reset_terminal_colors():
     sys.stdout.flush()
 
 
+def _apply_theme(repl, theme):
+    """Use the theme's UI and code schemes and terminal colors."""
+    repl.use_ui_colorscheme(theme)
+    repl.use_code_colorscheme(_THEMES[theme]["code"])
+    _set_terminal_colors(theme)
+
+
 def toggle_theme(repl, theme):
     """Switch from `theme` to the other one; return the new theme."""
-    if theme == "onedark":
-        repl.use_ui_colorscheme("papercolor")
-        repl.use_code_colorscheme("default")  # Light scheme for syntax
-        set_papercolor_terminal()
-        print("🌞 Switched to PaperColor Light theme")
-        return "papercolor"
-    repl.use_ui_colorscheme("onedark")
-    repl.use_code_colorscheme("monokai")  # Dark scheme for syntax
-    set_onedark_terminal()
-    print("🌙 Switched to OneDark theme")
-    return "onedark"
+    theme = "papercolor" if theme == "onedark" else "onedark"
+    _apply_theme(repl, theme)
+    print(_THEMES[theme]["message"])
+    return theme
 
 
-def configure(repl):  # noqa: PLR0915 - one statement per ptpython setting
+def configure(repl):
     """
     Configuration method. This is called during the start-up of ptpython.
 
     :param repl: `PythonRepl` instance.
     """
     theme = _detect_foot_theme()
-
-    # Set terminal colors to match detected theme
-    if theme == "onedark":
-        set_onedark_terminal()
-    else:
-        set_papercolor_terminal()
 
     # Register reset function to be called on exit
     atexit.register(reset_terminal_colors)
@@ -176,21 +256,10 @@ def configure(repl):  # noqa: PLR0915 - one statement per ptpython setting
     # Preserve last used Vi input mode between main loop iterations
     repl.vi_keep_last_used_mode = False
 
-    # Install both custom colorschemes
-    repl.install_ui_colorscheme(
-        "onedark", Style.from_dict(_onedark_ui_colorscheme)
-    )
-    repl.install_ui_colorscheme(
-        "papercolor", Style.from_dict(_papercolor_ui_colorscheme)
-    )
-
-    # Set default theme
-    if theme == "onedark":
-        repl.use_ui_colorscheme("onedark")
-        repl.use_code_colorscheme("monokai")
-    else:
-        repl.use_ui_colorscheme("papercolor")
-        repl.use_code_colorscheme("default")
+    # Install both themes and use the one foot is in
+    for name in _THEMES:
+        repl.install_ui_colorscheme(name, Style.from_dict(_ui_style(name)))
+    _apply_theme(repl, theme)
 
     # Add theme toggle keybinding: Ctrl+T, Ctrl+T
     @repl.add_key_binding("c-t", "c-t")
@@ -198,151 +267,3 @@ def configure(repl):  # noqa: PLR0915 - one statement per ptpython setting
         """Toggle between OneDark and PaperColor themes"""
         nonlocal theme
         theme = toggle_theme(repl, theme)
-
-
-# OneDark UI colorscheme
-# Based on the official OneDark theme: https://github.com/joshdick/onedark.vim
-_onedark_ui_colorscheme = {
-    # Base colors
-    "": "#abb2bf bg:#282c34",  # Default foreground and background
-    # Prompt and input
-    "prompt": "#61afef bg:#282c34 bold",  # Blue prompt
-    "continuation": "#61afef bg:#282c34",  # Continuation prompt
-    "default": "#abb2bf bg:#282c34",  # Default text
-    # Output and errors
-    "out": "#abb2bf bg:#282c34",  # Normal output
-    "error": "#e06c75 bg:#282c34",  # Error messages (red)
-    # Status and toolbars
-    "status-toolbar": "#abb2bf bg:#2c313c",  # Status bar
-    "status-toolbar.key": "#61afef bg:#2c313c bold",  # Key hints in status
-    "status-toolbar.title": "#e5c07b bg:#2c313c bold",  # Title in status
-    "bottom-toolbar": "#abb2bf bg:#2c313c",  # Bottom toolbar
-    "bottom-toolbar.key": "#61afef bg:#2c313c bold",  # Keys in bottom toolbar
-    "bottom-toolbar.title": "#e5c07b bg:#2c313c bold",  # Title in bottom toolbar
-    # Line numbers and cursor
-    "line-number": "#636d83 bg:#282c34",  # Line numbers
-    "line-number.current": "#abb2bf bg:#2c313c bold",  # Current line number
-    "cursor-line": "bg:#2c313c",  # Current line highlight
-    # Selection and search
-    "selected": "#abb2bf bg:#3e4451",  # Selected text
-    "search": "#282c34 bg:#e5c07b",  # Search highlight
-    "search.current": "#282c34 bg:#d19a66 bold",  # Current search match
-    "incremental-search": "#282c34 bg:#98c379",  # Incremental search
-    # Brackets and matching
-    "matching-bracket": "#282c34 bg:#c678dd",  # Matching brackets
-    "matching-bracket.other": "#c678dd bg:#282c34",  # Other matching bracket
-    "matching-bracket.cursor": "#282c34 bg:#e06c75",  # Bracket at cursor
-    # Completion menu
-    "completion-menu": "#abb2bf bg:#2c313c",  # Completion popup background
-    "completion-menu.completion": "#abb2bf bg:#2c313c",  # Individual completions
-    "completion-menu.completion.current": "#282c34 bg:#61afef",  # Selected completion
-    "completion-menu.meta.completion": "#5c6370 bg:#2c313c",  # Completion metadata
-    "completion-menu.meta.completion.current": "#282c34 bg:#61afef",  # Selected meta
-    "completion-menu.multi-column-meta": "#5c6370 bg:#2c313c",  # Multi-column meta
-    "completion-menu.progressbar": "bg:#61afef",  # Progress bar in completion
-    "completion-menu.progressbar.used": "bg:#98c379",  # Used portion of progress bar
-    # Scrollbars
-    "scrollbar": "bg:#5c6370",  # Scrollbar track
-    "scrollbar.background": "bg:#2c313c",  # Scrollbar background
-    "scrollbar.button": "bg:#61afef",  # Scrollbar buttons
-    "scrollbar.arrow": "#abb2bf bg:#5c6370",  # Scrollbar arrows
-    # Validation and syntax errors
-    "validation-toolbar": "#e06c75 bg:#2c313c",  # Validation error toolbar
-    "validation-toolbar.title": "#e06c75 bg:#2c313c bold",  # Validation title
-    # System/shell integration
-    "system-toolbar": "#98c379 bg:#2c313c",  # System command toolbar
-    # Auto-suggestion
-    "auto-suggestion": "#5c6370 bg:#282c34",  # Auto-suggestions (dim)
-    # Vi mode indicators
-    "vi-mode": "#d19a66 bg:#2c313c bold",  # Vi mode indicator
-    # Python-specific elements
-    "docstring": "#5c6370 bg:#282c34 italic",  # Docstrings
-    "signature": "#e5c07b bg:#282c34",  # Function signatures
-    # Menu and dialog
-    "menu": "#abb2bf bg:#2c313c",  # General menu
-    "menu.border": "#5c6370",  # Menu borders
-    "dialog": "#abb2bf bg:#2c313c",  # Dialog background
-    "dialog.border": "#5c6370",  # Dialog borders
-    "dialog.title": "#61afef bg:#2c313c bold",  # Dialog titles
-    # Tabs (if used)
-    "tab": "#abb2bf bg:#2c313c",  # Tab background
-    "tab.active": "#282c34 bg:#61afef bold",  # Active tab
-    # Misc elements
-    "separator": "#5c6370",  # Separators and borders
-    "frame.border": "#5c6370",  # Frame borders
-    "frame.title": "#e5c07b bg:#282c34 bold",  # Frame titles
-}
-
-
-# PaperColor Light UI colorscheme
-# Based on the official PaperColor theme: https://github.com/NLKNguyen/papercolor-theme
-_papercolor_ui_colorscheme = {
-    # Base colors
-    "": "#444444 bg:#eeeeee",  # Default foreground and background
-    # Prompt and input
-    "prompt": "#0087af bg:#eeeeee bold",  # Blue prompt
-    "continuation": "#0087af bg:#eeeeee",  # Continuation prompt
-    "default": "#444444 bg:#eeeeee",  # Default text
-    # Output and errors
-    "out": "#444444 bg:#eeeeee",  # Normal output
-    "error": "#af0000 bg:#eeeeee",  # Error messages (red)
-    # Status and toolbars
-    "status-toolbar": "#444444 bg:#d0d0d0",  # Status bar
-    "status-toolbar.key": "#0087af bg:#d0d0d0 bold",  # Key hints in status
-    "status-toolbar.title": "#5f8700 bg:#d0d0d0 bold",  # Title in status
-    "bottom-toolbar": "#444444 bg:#d0d0d0",  # Bottom toolbar
-    "bottom-toolbar.key": "#0087af bg:#d0d0d0 bold",  # Keys in bottom toolbar
-    "bottom-toolbar.title": "#5f8700 bg:#d0d0d0 bold",  # Title in bottom toolbar
-    # Line numbers and cursor
-    "line-number": "#878787 bg:#eeeeee",  # Line numbers
-    "line-number.current": "#444444 bg:#d0d0d0 bold",  # Current line number
-    "cursor-line": "bg:#d0d0d0",  # Current line highlight
-    # Selection and search
-    "selected": "#444444 bg:#bcbcbc",  # Selected text
-    "search": "#eeeeee bg:#5f8700",  # Search highlight
-    "search.current": "#eeeeee bg:#d75f00 bold",  # Current search match
-    "incremental-search": "#eeeeee bg:#008700",  # Incremental search
-    # Brackets and matching
-    "matching-bracket": "#eeeeee bg:#8700af",  # Matching brackets
-    "matching-bracket.other": "#8700af bg:#eeeeee",  # Other matching bracket
-    "matching-bracket.cursor": "#eeeeee bg:#af0000",  # Bracket at cursor
-    # Completion menu
-    "completion-menu": "#444444 bg:#d0d0d0",  # Completion popup background
-    "completion-menu.completion": "#444444 bg:#d0d0d0",  # Individual completions
-    "completion-menu.completion.current": "#eeeeee bg:#0087af",  # Selected completion
-    "completion-menu.meta.completion": "#878787 bg:#d0d0d0",  # Completion metadata
-    "completion-menu.meta.completion.current": "#eeeeee bg:#0087af",  # Selected meta
-    "completion-menu.multi-column-meta": "#878787 bg:#d0d0d0",  # Multi-column meta
-    "completion-menu.progressbar": "bg:#0087af",  # Progress bar in completion
-    "completion-menu.progressbar.used": "bg:#008700",  # Used portion of progress bar
-    # Scrollbars
-    "scrollbar": "bg:#878787",  # Scrollbar track
-    "scrollbar.background": "bg:#d0d0d0",  # Scrollbar background
-    "scrollbar.button": "bg:#0087af",  # Scrollbar buttons
-    "scrollbar.arrow": "#444444 bg:#878787",  # Scrollbar arrows
-    # Validation and syntax errors
-    "validation-toolbar": "#af0000 bg:#d0d0d0",  # Validation error toolbar
-    "validation-toolbar.title": "#af0000 bg:#d0d0d0 bold",  # Validation title
-    # System/shell integration
-    "system-toolbar": "#008700 bg:#d0d0d0",  # System command toolbar
-    # Auto-suggestion
-    "auto-suggestion": "#878787 bg:#eeeeee",  # Auto-suggestions (dim)
-    # Vi mode indicators
-    "vi-mode": "#d75f00 bg:#d0d0d0 bold",  # Vi mode indicator
-    # Python-specific elements
-    "docstring": "#878787 bg:#eeeeee italic",  # Docstrings
-    "signature": "#5f8700 bg:#eeeeee",  # Function signatures
-    # Menu and dialog
-    "menu": "#444444 bg:#d0d0d0",  # General menu
-    "menu.border": "#878787",  # Menu borders
-    "dialog": "#444444 bg:#d0d0d0",  # Dialog background
-    "dialog.border": "#878787",  # Dialog borders
-    "dialog.title": "#0087af bg:#d0d0d0 bold",  # Dialog titles
-    # Tabs (if used)
-    "tab": "#444444 bg:#d0d0d0",  # Tab background
-    "tab.active": "#eeeeee bg:#0087af bold",  # Active tab
-    # Misc elements
-    "separator": "#878787",  # Separators and borders
-    "frame.border": "#878787",  # Frame borders
-    "frame.title": "#5f8700 bg:#eeeeee bold",  # Frame titles
-}

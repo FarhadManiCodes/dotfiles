@@ -9,7 +9,10 @@ numbers or jscpd fingerprints, which any edit changes. Judge only clones without
 an entry; take an uncertain match to the user. A clone the user decides to fix
 later goes to `TODO.md`, not here.
 
-Entry format, one per clone, newest last:
+Entry format, one per clone, newest last. The one exception is tests (user decision,
+2026-11-09; `docs/herdr-implementation.md`, Milestone 0.5): short repeated steps inside
+test methods share a single group entry. A helper copied between test files, a test
+clone of 13 lines or more, and every clone touching production code get their own.
 
 ```
 ## <file> <-> <file>
@@ -36,4 +39,14 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
 
 ## Verdicts
 
-No verdicts yet.
+## bash/vifm-pick <-> zsh/functions/pdf.zsh
+- Verdict: accepted
+- Code: `open_book()` and `_open_book()`, with the sioyek comment above them
+- Reason: two callers by design: the zsh pickers change the shell's directory
+  and vifm needs a script; the function has no other caller, so a command on
+  `PATH` for it was declined. The "MIRRORS" comment at the top of each file
+  names the other. A test comparing more of the two copies was dropped as out of
+  proportion (2026-11-11).
+- Date: 2026-11-11
+- Lines when judged: bash/vifm-pick:51-57 <-> zsh/functions/pdf.zsh:28-34 (re-judged
+  2026-11-16 after 651bff5 and 1528573 rewrote both)

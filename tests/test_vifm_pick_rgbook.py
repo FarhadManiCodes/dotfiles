@@ -47,13 +47,15 @@ Path(os.environ["FZF_LOG"]).write_text(json.dumps({
     "preview_output": preview_result.stdout if preview_result else None,
     "preview_stderr": preview_result.stderr if preview_result else None,
 }))
-if selected:
-    key = os.environ.get("TEST_KEY", "")
-    if key == "ctrl-d" and os.environ.get("TEST_CALLER") == "vifm":
-        Path(os.environ["XDG_RUNTIME_DIR"], "vifm-pick", "cd").touch()
-    if key and os.environ.get("TEST_CALLER") == "zsh":
-        print(key)
-    print(selected)
+key = os.environ.get("TEST_KEY", "")
+if os.environ.get("TEST_CALLER") == "zsh":
+    print(key)  # Like fzf --expect: the key line comes first, empty for Enter.
+if not selected:
+    # Like fzf: no match prints only the --expect key line, and exits 1.
+    sys.exit(1)
+if key == "ctrl-d" and os.environ.get("TEST_CALLER") == "vifm":
+    Path(os.environ["XDG_RUNTIME_DIR"], "vifm-pick", "cd").touch()
+print(selected)
 
 """
 
@@ -142,6 +144,7 @@ fi
             "VIFM_LOG": str(self.vifm_log),
             "PDF_META_FAIL": "0",
             "SCRIPT": str(ROOT / "zsh/functions/pdf.zsh"),
+            "HELPERS": str(ROOT / "zsh/helpers.zsh"),
         }
 
     def run_caller(self, caller, query, pick="", key="", picker="rgbook"):
@@ -153,16 +156,9 @@ fi
             TEST_KEY=key,
         )
         if caller == "zsh":
-            command = """source "$SCRIPT"
-_fzf_split() {
-  if [[ "$1" == *$'\\n'* ]]; then
-    key="${1%%$'\\n'*}"; selection="${1#*$'\\n'}"
-  else
-    key=""; selection="$1"
-  fi
-}
-"$TEST_PICKER" "$TEST_QUERY"
-wait
+            command = """source "$HELPERS"
+source "$SCRIPT"
+"$TEST_PICKER" "$TEST_QUERY" || exit
 pwd > "$PWD_LOG"
 """
             env["PWD_LOG"] = str(self.root / "pwd.log")
@@ -286,6 +282,12 @@ pwd > "$PWD_LOG"
                     self.assertEqual(rows, [], query)
 
     def test_navigation_keys(self):
+        # No match: fzf prints the key alone, which is not a selection.
+        self.run_caller("zsh", "no-such-text", "", "ctrl-d")
+        self.assertEqual(
+            (self.root / "pwd.log").read_text().strip(), str(self.root)
+        )
+        self.assertFalse(self.open_log.exists())
         self.run_caller("zsh", "optimal", "alpha.pdf:Page 1", "ctrl-d")
         self.assertEqual(
             (self.root / "pwd.log").read_text().strip(), str(self.alpha.parent)

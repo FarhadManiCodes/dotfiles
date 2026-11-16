@@ -1,316 +1,84 @@
-# Enhanced Git Shell Integration for Data Science
-# ~/dotfiles/zsh/functions/git-enhancements.zsh
+# Git shell functions and aliases: gci, gst, gi.
 
 # ============================================================================
-# INTERACTIVE COMMIT WITH DATA SCIENCE TYPES
+# COMMIT
 # ============================================================================
 
+# This repo's commit prefixes used more than once, most used first
+# ("chore(nvim): "), then the base types for a new repo or a new kind of change.
+_gci_prefixes() {
+  {
+    git log -200 --format=%s 2>/dev/null \
+      | grep -oE '^[a-z]+(\([^)]*\))?!?: ' \
+      | sort | uniq -c | sort -rn \
+      | awk '$1 > 1 { sub(/^ *[0-9]+ /, ""); print }'
+    print -l 'feat: ' 'fix: ' 'docs: ' 'refactor: ' 'chore: ' 'style: ' 'test: ' 'perf: '
+  } | awk '!seen[$0]++'
+}
+
+# Pick a prefix, then write the message in the editor with the diff below it.
+# Enter takes the highlighted entry, or the typed text when nothing matches;
+# Alt-Enter always takes the typed text. Either way it ends in ": ".
+# Quitting the editor without typing cancels: the prefix is a template, which
+# git requires edited.
 gci() {
-  # Define commit types with descriptions (optimized for data engineering/MLOps)
-  local types=(
-    # Most common for data engineering
-    "data:Data ingestion, cleaning, transformation, validation"
-    "pipeline:ETL/ELT pipelines, workflows, orchestration"
-    "model:Model training, architecture, hyperparameters, inference"
-    "experiment:ML experiments, A/B tests, model comparisons"
-
-    # Infrastructure & deployment
-    "deploy:Deployment, infrastructure, K8s, Docker, CI/CD"
-    "config:Configuration, environment variables, settings"
-    "monitor:Monitoring, logging, alerts, observability"
-
-    # Development essentials
-    "feat:New feature or functionality"
-    "fix:Bug fix or error resolution"
-    "perf:Performance optimization, speed improvements"
-    "test:Testing, validation, quality checks"
-
-    # Analysis & visualization
-    "analysis:Data analysis, EDA, insights, investigations"
-    "viz:Visualizations, dashboards, plots, reports"
-
-    # Code quality
-    "refactor:Code restructuring, cleanup, organization"
-    "docs:Documentation, README, comments, guides"
-    "style:Code formatting, linting, style fixes"
-    "chore:Dependencies, build tools, maintenance tasks"
-  )
-
-  # Use fzf to select commit type
-  local selected_type=$(printf '%s\n' "${types[@]}" | fzf --prompt="Select commit type: " --height=50% | cut -d: -f1)
-
-  if [[ -z "$selected_type" ]]; then
-    echo "❌ Commit cancelled"
+  git rev-parse --git-dir >/dev/null || return
+  if git diff --cached --quiet; then
+    print -u2 "gci: nothing staged"
     return 1
   fi
-
-  # Prompt for optional scope
-  echo -n "📝 Optional scope (component/dataset/module): "
-  read -r scope
-
-  # Prompt for description
-  echo -n "📝 Commit message: "
-  read -r message
-
-  if [[ -z "$message" ]]; then
-    echo "❌ Commit message required"
-    return 1
-  fi
-
-  # Format the commit message
-  local commit_msg
-  if [[ -n "$scope" ]]; then
-    commit_msg="${selected_type}(${scope}): ${message}"
-  else
-    commit_msg="${selected_type}: ${message}"
-  fi
-
-  # Show the formatted message and confirm
-  echo ""
-  echo "🔍 Commit message:"
-  echo "   $commit_msg"
-  echo ""
-  echo -n "✅ Commit with this message? [Y/n]: "
-  read -r confirm
-
-  if [[ $confirm =~ ^[Nn]$ ]]; then
-    echo "❌ Commit cancelled"
-    return 1
-  fi
-
-  git commit -m "$commit_msg"
+  local prefix
+  prefix=$(_gci_prefixes \
+    | fzf --exact --prompt='prefix: ' --height=40% --bind 'enter:accept-or-print-query,alt-enter:print-query') \
+    || return
+  [[ -n $prefix ]] || return 1 # Alt-Enter with nothing typed
+  prefix=$(print -r -- "$prefix" | sed 's/[: ]*$/: /')
+  # nvim opens commit messages at line 1, column 1 (autocmds.lua skips the
+  # cursor restore); startinsert! begins typing after the prefix instead.
+  GIT_EDITOR="nvim -c 'startinsert!'" git commit --verbose --template =(print -r -- "$prefix")
 }
 
 # ============================================================================
-# ENHANCED GIT STATUS FUNCTIONS
+# GIT STATUS
 # ============================================================================
 
-# Print the branch line + ahead/behind vs upstream (assumes inside a git repo).
-# Shared by gst and gstds.
-_git_branch_header() {
-  local cyan='\033[36m' yellow='\033[33m' reset='\033[0m'
-  local branch=$(git branch --show-current 2>/dev/null)
-  local upstream=$(git rev-parse --abbrev-ref @{u} 2>/dev/null)
-
-  if [[ -n "$upstream" ]]; then
-    local behind=$(git rev-list --count HEAD..@{u} 2>/dev/null || echo "0")
-    local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
-    printf "🌳 Branch: ${cyan}%s${reset} → ${cyan}%s${reset}\n" "$branch" "$upstream"
-    [[ "$ahead" -gt 0 ]] && printf "   📈 ${yellow}%s commits ahead${reset}\n" "$ahead"
-    [[ "$behind" -gt 0 ]] && printf "   📉 ${yellow}%s commits behind${reset}\n" "$behind"
-  else
-    printf "🌳 Branch: ${cyan}%s${reset} (no upstream)\n" "$branch"
-  fi
-}
-
-# Simple, fast git status for frequent command line use
+# git status without the hints or the branch and upstream lines; starship shows
+# the branch. A detached HEAD and a gone upstream still show. Colors and columns
+# are forced only on a terminal, which git cannot see through the pipe.
 gst() {
-  # Check if in git repo
-  if ! git rev-parse --git-dir >/dev/null 2>&1; then
-    echo "❌ Not a git repository"
-    return 1
-  fi
-
-  # Colors (matching git's default scheme)
-  local green='\033[32m'
-  local red='\033[31m'
-  local yellow='\033[33m'
-  local reset='\033[0m'
-
-  echo "📊 Git Status"
-  _git_branch_header
-
-  echo ""
-
-  # Show files with git-style colors
-  local modified=$(git diff --name-only 2>/dev/null)
-  local staged=$(git diff --cached --name-only 2>/dev/null)
-  local untracked=$(git ls-files --others --exclude-standard 2>/dev/null)
-
-  if [[ -n "$staged" ]]; then
-    printf "${green}✅ Staged files:${reset}\n"
-    echo "$staged" | while read -r file; do
-      printf "  ${green}%s${reset}\n" "$file"
-    done
-    echo ""
-  fi
-
-  if [[ -n "$modified" ]]; then
-    printf "${red}📝 Modified files:${reset}\n"
-    echo "$modified" | while read -r file; do
-      printf "  ${red}%s${reset}\n" "$file"
-    done
-    echo ""
-  fi
-
-  if [[ -n "$untracked" ]]; then
-    printf "${yellow}❓ Untracked files:${reset}\n"
-    echo "$untracked" | head -5 | while read -r file; do
-      printf "  ${yellow}%s${reset}\n" "$file"
-    done
-    [[ $(echo "$untracked" | wc -l) -gt 5 ]] && printf "  ${yellow}... and $(($(echo "$untracked" | wc -l) - 5)) more${reset}\n"
-    echo ""
-  fi
-
-  if [[ -z "$staged" ]] && [[ -z "$modified" ]] && [[ -z "$untracked" ]]; then
-    printf "${green}✨ Working directory clean${reset}\n"
-  fi
+  setopt local_options pipefail
+  local -a tty=()
+  [[ -t 1 ]] && tty=(-c color.status=always -c column.status=always)
+  COLUMNS=$COLUMNS git -c advice.statusHints=false "${tty[@]}" \
+    status --no-ahead-behind "$@" \
+    | awk '
+      /^(On branch |Your branch is up to date |Your branch and .* refer to different commits)/ { next }
+      !seen && /^$/ { next }
+      { seen = 1; print }'
 }
 
-# Function to colorize files based on git status
-_colorize_git_files() {
-  local files="$1"
-  local green='\033[32m'
-  local red='\033[31m'
-  local yellow='\033[33m'
-  local magenta='\033[35m'
-  local reset='\033[0m'
-
-  echo "$files" | while IFS= read -r line; do
-    if [[ -n "$line" ]]; then
-      local git_status="${line:0:2}"
-      case "$git_status" in
-        "A " | "M " | "R " | "C ") printf "  ${green}%s${reset}\n" "$line" ;; # Staged
-        " M" | " D" | " R" | " C") printf "  ${red}%s${reset}\n" "$line" ;;   # Modified
-        "MM" | "AM" | "RM") printf "  ${yellow}%s${reset}\n" "$line" ;;       # Mixed
-        "??") printf "  ${red}%s${reset}\n" "$line" ;;                        # Untracked
-        "!!") printf "  ${magenta}%s${reset}\n" "$line" ;;                    # Ignored
-        *) printf "  %s\n" "$line" ;;                                         # Default
-      esac
-    fi
-  done
-}
-
-# Data Science specialized git status (categorized by file type)
-gstds() {
-  echo "📊 Git Status - Data Science View"
-  echo "=================================="
-  echo ""
-
-  # Check if in git repo
-  if ! git rev-parse --git-dir >/dev/null 2>&1; then
-    echo "❌ Not a git repository"
-    return 1
+# .gitignore templates from gitignore.io: gi python node >> .gitignore
+gi() {
+  if (($# == 0)); then
+    print -u2 'usage: gi <template>...  (gi list shows them)'
+    return 2
   fi
-
-  # Colors (matching git's default scheme)
-  local green='\033[32m'
-  local yellow='\033[33m'
-  local cyan='\033[36m'
-  local blue='\033[34m'
-  local magenta='\033[35m'
-  local reset='\033[0m'
-
-  _git_branch_header
-
-  echo ""
-
-  # Get all changed files
-  local all_files=$(git status --porcelain 2>/dev/null)
-
-  if [[ -z "$all_files" ]]; then
-    echo -e "${green}✨ Working directory clean${reset}"
-    echo ""
-  else
-    # Categorize files by type
-    local code_files=$(echo "$all_files" | grep -E '\.(py|scala|sql|sh|yaml|yml|toml|r|R)$')
-    local data_files=$(echo "$all_files" | grep -E '\.(csv|parquet|json|jsonl|pkl|pickle|h5|hdf5|xlsx|xls|tsv|avro|orc)$')
-    local notebook_files=$(echo "$all_files" | grep -E '\.ipynb$')
-    local config_files=$(echo "$all_files" | grep -E '(config|requirements|environment|Dockerfile|\.env|\.ini|\.conf|dvc\.yaml|dvc\.lock|params\.yaml|metrics\.yaml)')
-    local model_files=$(echo "$all_files" | grep -E '\.(pt|pth|joblib|onnx|pb|tflite)$')
-    local doc_files=$(echo "$all_files" | grep -E '\.(md|rst|txt|pdf)$')
-    local other_files=$(echo "$all_files" | grep -vE '\.(py|scala|sql|sh|yaml|yml|toml|r|R|csv|parquet|json|jsonl|pkl|pickle|h5|hdf5|xlsx|xls|tsv|avro|orc|ipynb|pt|pth|joblib|onnx|pb|tflite|md|rst|txt|pdf)$|(config|requirements|environment|Dockerfile|\.env|\.ini|\.conf|dvc\.|params\.|metrics\.)')
-
-    if [[ -n "$code_files" ]]; then
-      echo -e "${blue}💻 Code files:${reset}"
-      _colorize_git_files "$code_files"
-    fi
-    if [[ -n "$model_files" ]]; then
-      echo -e "${magenta}🤖 Model files:${reset}"
-      _colorize_git_files "$model_files"
-    fi
-    if [[ -n "$data_files" ]]; then
-      echo -e "${cyan}📊 Data files:${reset}"
-      _colorize_git_files "$data_files"
-    fi
-    if [[ -n "$notebook_files" ]]; then
-      echo -e "${yellow}📓 Notebooks:${reset}"
-      _colorize_git_files "$notebook_files"
-    fi
-    if [[ -n "$config_files" ]]; then
-      echo -e "${blue}⚙️  Config files:${reset}"
-      _colorize_git_files "$config_files"
-    fi
-    if [[ -n "$doc_files" ]]; then
-      echo -e "${green}📄 Documentation:${reset}"
-      _colorize_git_files "$doc_files"
-    fi
-    if [[ -n "$other_files" ]]; then
-      echo -e "${reset}📁 Other files:${reset}"
-      _colorize_git_files "$other_files"
-    fi
-    echo ""
-  fi
-
-  # DVC status if available
-  if command -v dvc >/dev/null 2>&1 && [[ -f "dvc.yaml" ]]; then
-    echo -e "${cyan}📦 DVC Status:${reset}"
-    dvc status 2>/dev/null || echo "  No DVC changes"
-    echo ""
-  fi
-
-  # Environment info
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo -e "${green}🐍 Environment: $(basename "$VIRTUAL_ENV")${reset}"
-  elif [[ -n "$CONDA_DEFAULT_ENV" ]]; then
-    echo -e "${green}🐍 Environment: $CONDA_DEFAULT_ENV${reset}"
-  fi
-}
-
-# Custom gitignore generator (replicating the 'gi' command)
-function gi() {
-  curl -sLw "\n" --max-time 10 https://www.toptal.com/developers/gitignore/api/$@
+  curl -fsSL --max-time 10 "https://www.toptal.com/developers/gitignore/api/${(j:,:)@}"
 }
 # ============================================================================
-# ALIASES - Git Workflow Shortcuts
+# ALIASES
 # ============================================================================
 
-# Enhanced git status aliases
-alias gsds='gstds' # Data science git status (detailed, categorized)
-
-# Git add aliases (from oh-my-zsh git plugin)
 alias ga='git add'
-alias gaa='git add --all'
-alias gapa='git add --patch'
-alias gav='git add --verbose'
-
-# Git commit aliases (from oh-my-zsh git plugin)
 alias gc='git commit --verbose'
 alias gca='git commit --verbose --all'
-alias gcam='git commit --all --message'
-alias gcmsg='git commit --message'
-alias gcf='git config --list'
+alias ginfo='git info' # repository, branch, remote and last commit
 
-# Git log aliases (from oh-my-zsh git plugin)
-alias glo='git log --oneline --decorate'
-alias glog='git log --oneline --decorate --graph'
-alias gloga='git log --oneline --decorate --graph --all'
-alias glol='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset"'
-alias glola='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset" --all'
-alias glols='git log --graph --pretty="%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ar) %C(bold blue)<%an>%Creset" --stat'
-
-# Enhanced git log aliases (your custom ones)
-alias gl='git lg'   # Pretty git log (your custom format)
-alias gld='git lgd' # Detailed git log with files (your custom format)
-
-# Git utility aliases
-alias gdvc='git dvc-status' # Combined git + DVC status
-alias ginfo='git info'      # Quick repo info
-
-# Git navigation aliases
-alias gco='git checkout'
-alias gcb='git checkout -b'
-
-# Experiment management aliases
-alias gexp='git exp-start' # Start new experiment branch
-alias gexpl='git exp-list' # List experiment branches
+# The current branch drawn with git-graph; `glol master` adds master alongside.
+# Only HEAD by default: git-graph orders commits by time, so all branches
+# interleave whenever two moved together. It has no pager of its own.
+glol() {
+  setopt local_options pipefail
+  git-graph --color always --model simple --style round --wrap none \
+    --format '%h%d %s (%as) <%an>' HEAD "$@" | less -RFS
+}

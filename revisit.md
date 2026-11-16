@@ -1092,3 +1092,16 @@ npm can stop mid-swap under `~/.local/lib/node_modules/ctx7`, and every later `s
   so the window is a few seconds per ctx7 release. The paru-style guard (ignore one Ctrl-C
   while it runs) would add a third guarded step for that.
 - **Recheck:** if an interrupted install ever actually breaks ctx7.
+
+---
+
+## Bare `wl-copy` in interactive helpers — ACCEPTED (2026-11-09)
+
+`fdata` and `copyfile` (zsh), `bash/qrscan` and `bash/capture-ocr` copy with a bare
+`wl-copy`, so the clipboard can go empty when the copying terminal or pane closes.
+
+- **Why no fix:** `wl-paste --watch cliphist-store-guard` (`niri/config.kdl`) saves copies
+  to the clipboard history when they are made, so the cost is one extra step in the
+  history picker. Untested for `copyfile`: it copies a file reference
+  (`text/uri-list`), not text, and whether the history keeps that type is unknown.
+- **Recheck:** if a copy is ever missing from the history as well.

@@ -50,16 +50,9 @@ ln -sf "${DOTFILES}/zsh/.zshrc" "${HOME}/.zshrc"
 mkdir -p "${XDG_CONFIG_HOME}/zsh/functions"
 ln -sf "${DOTFILES}/zsh/aliases" "${XDG_CONFIG_HOME}/zsh/aliases"
 ln -sf "${DOTFILES}/zsh/helpers.zsh" "${XDG_CONFIG_HOME}/zsh/helpers.zsh"
-ln -sf "${DOTFILES}/zsh/generate-completions.sh" "${XDG_CONFIG_HOME}/zsh/generate-completions.sh"
 ln -sf "${DOTFILES}/zsh/update-plugins.sh" "${XDG_CONFIG_HOME}/zsh/update-plugins.sh"
 
 link_glob "${DOTFILES}/zsh/functions/"*.zsh "${XDG_CONFIG_HOME}/zsh/functions"
-
-# Completions — generate if tools are available
-mkdir -p "${XDG_CONFIG_HOME}/zsh/completions"
-command -v gh >/dev/null 2>&1 && gh completion -s zsh >"${XDG_CONFIG_HOME}/zsh/completions/_gh" 2>/dev/null || true
-command -v uv >/dev/null 2>&1 && uv generate-shell-completion zsh >"${XDG_CONFIG_HOME}/zsh/completions/_uv" 2>/dev/null || true
-command -v podman >/dev/null 2>&1 && podman completion zsh >"${XDG_CONFIG_HOME}/zsh/completions/_podman" 2>/dev/null || true
 
 echo "Zsh configured"
 
@@ -194,7 +187,13 @@ fi
 # ============ pcmanfm-qt ==============================
 echo "Setting up pcmanfm-qt..."
 mkdir -p "${XDG_CONFIG_HOME}/pcmanfm-qt/default"
-ln -sf "${DOTFILES}/pcmanfm-qt/settings.conf" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+# pcmanfm-qt rewrites settings.conf when its options change, so it gets a
+# private copy seeded once. An existing file or link is left alone.
+pcmanfm_settings="${XDG_CONFIG_HOME}/pcmanfm-qt/default/settings.conf"
+if [[ ! -e "$pcmanfm_settings" && ! -L "$pcmanfm_settings" ]]; then
+  cp "${DOTFILES}/pcmanfm-qt/settings.conf" "$pcmanfm_settings"
+  echo "Created pcmanfm-qt/settings.conf from template"
+fi
 ln -sf "${DOTFILES}/pcmanfm-qt/bookmarks.xml" "${XDG_CONFIG_HOME}/pcmanfm-qt/default/bookmarks.xml"
 echo "pcmanfm-qt configured"
 
@@ -245,6 +244,12 @@ echo "npm configured"
 echo "Setting up Cargo..."
 mkdir -p "${CARGO_HOME:-${HOME}/.cargo}"
 ln -sf "${DOTFILES}/cargo/config.toml" "${CARGO_HOME:-${HOME}/.cargo}/config.toml"
+# sysup's `cargo install-update --all` rebuilds prek against its own Cargo.lock
+# rather than newer dependencies. cargo-update keeps this in
+# .install_config.toml, which Cargo's config.toml cannot hold.
+if command -v cargo-install-update-config >/dev/null 2>&1; then
+  cargo install-update-config --enforce-lock prek >/dev/null
+fi
 echo "Cargo configured"
 
 # No font step: the fonts in use (FiraCode Nerd Font, JetBrains Mono) come from
@@ -256,8 +261,8 @@ mkdir -p "${HOME}/Audio/Recordings"
 
 # ============ helper scripts ==============================
 echo "🛠️  Installing helper scripts..."
-# Scripts only: config-drift.d/ and capture-ocr.d/ are found by their scripts
-# through their own realpath.
+# Scripts only: config-drift.d/, capture-ocr.d/ and vifm-pick.d/ are found by
+# their scripts through their own realpath.
 for f in "${DOTFILES}/bash/"*; do [ -f "$f" ] && link_glob "$f" "${HOME}/.local/bin"; done
 # The custom sioyek build lives off PATH (sioyek/README.md). It finds its shaders
 # and prefs.config through QCoreApplication::applicationDirPath(), which since

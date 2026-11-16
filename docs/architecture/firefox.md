@@ -1,7 +1,7 @@
 # Firefox (userChrome)
 
 - **Config**: `firefox/userChrome.css` → `~/.mozilla/firefox/<profile>/chrome/userChrome.css`
-- **Theme**: Catppuccin Frappé — compact tab strip, flat tabs, Catppuccin-colored navbar
+- **Theme**: Catppuccin Mocha — compact tab strip, flat tabs, Catppuccin-colored navbar
 - **Prerequisite**: `toolkit.legacyUserProfileCustomizations.stylesheets` must be `true`
   in `about:config`
 - **Install**: `install.sh` reads `~/.mozilla/firefox/profiles.ini` to find the

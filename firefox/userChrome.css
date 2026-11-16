@@ -1,10 +1,10 @@
-/* ── Catppuccin Frappé — color tokens ── */
+/* ── Catppuccin Mocha — color tokens ── */
 :root {
   --ctp-blue:     #89b4fa;
-  --ctp-surface1: #51576d;
-  --ctp-surface2: #626880;
+  --ctp-surface1: #45475a;
+  --ctp-surface2: #585b70;
   --ctp-text:     #cdd6f4;
-  --ctp-base:     #303446;
+  --ctp-base:     #1e1e2e;
   --tab-min-height: 18px;
 }
 

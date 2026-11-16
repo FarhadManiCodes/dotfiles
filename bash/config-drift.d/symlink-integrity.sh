@@ -42,8 +42,8 @@ check_symlink_integrity() {
 
   # Explicit installation mappings, kept in sync with install.sh. An arbitrary
   # tracked file is not necessarily installed. In particular, never treat docs,
-  # generated state, root copies, local htop/nvtop configs or Spotify's local
-  # app.toml as expected links.
+  # generated state, root copies, local htop/nvtop/pcmanfm-qt settings or
+  # Spotify's local app.toml as expected links.
   config_home=${XDG_CONFIG_HOME:-$HOME/.config}
   # -c core.fsmonitor=false: a read-only audit must not start a background daemon as
   # a side effect. Redundant while fsmonitor is off globally (git/config), and kept
@@ -68,10 +68,10 @@ check_symlink_integrity() {
           # ${0:A:h}, straight through its own symlink to the real checkout.
           continue
           ;;
-        bash/config-drift.d/*.sh | bash/capture-ocr.d/*)
-          # Not symlinked at all: config-drift and capture-ocr find their .d/
-          # through their own realpath, and install.sh links only the scripts
-          # in bash/.
+        bash/config-drift.d/*.sh | bash/capture-ocr.d/* | bash/vifm-pick.d/*)
+          # Not symlinked at all: config-drift, capture-ocr and vifm-pick find
+          # their .d/ through their own realpath, and install.sh links only the
+          # scripts in bash/.
           continue
           ;;
         bash/.*)
@@ -83,7 +83,7 @@ check_symlink_integrity() {
         ptpython/config.py | ipython/profile_default/ipython_config.py | ipython/profile_default/startup/*.py | systemd/user/*)
           livef=$HOME/.config/$rel
           ;;
-        pcmanfm-qt/settings.conf | pcmanfm-qt/bookmarks.xml)
+        pcmanfm-qt/bookmarks.xml)
           livef=$config_home/pcmanfm-qt/default/${rel##*/}
           ;;
         containers/*.container | containers/*.network)
@@ -115,7 +115,7 @@ check_symlink_integrity() {
           fi
           livef=$HOME/.mozilla/firefox/$profile/chrome/userChrome.css
           ;;
-        zsh/aliases | zsh/helpers.zsh | zsh/generate-completions.sh | zsh/update-plugins.sh | \
+        zsh/aliases | zsh/helpers.zsh | zsh/update-plugins.sh | \
           zsh/functions/*.zsh | tmux/tmux.conf | tmux/layouts/*.sh | tmux/themes/*.conf | niri/config.kdl | \
           environment.d/defaults.conf | environment.d/wayland.conf | paru/paru.conf | swaylock/config | \
           glow/glow.yml | mpv/mpv.conf | yt-dlp/config | cmus/rc | direnv/direnvrc | uv/uv.toml | gh/config.yml | \

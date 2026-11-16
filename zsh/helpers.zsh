@@ -40,22 +40,18 @@ safe_source() {
 # FZF RESULT HELPER
 # ============================================================================
 
-# _fzf_split <fzf-result> <key-var> <sel-var>
-# fzf --expect prints the pressed key on the first line and the selection
-# after. Split the raw result into the key (first line) and the selected item
-# (last line), assigning them to the caller-named variables. With no newline
-# (no --expect key, or empty result) the key is empty and the whole string is
-# the selection. Used by the fd/rg + fzf finders to replace hand-rolled
-# head/tail forks and ${r%%}/${r##} idioms.
-_fzf_split() {
-  local _r=$1
-  if [[ $_r == *$'\n'* ]]; then
-    typeset -g "$2=${_r%%$'\n'*}"
-    typeset -g "$3=${_r##*$'\n'}"
-  else
-    typeset -g "$2="
-    typeset -g "$3=$_r"
-  fi
+# _fzf_pick <key-var> <sel-var> --expect=<keys> [fzf options...]
+# Run fzf and put the pressed key (first line, empty for Enter) and the selected
+# item (last line) in the caller-named variables; it needs --expect, which makes
+# fzf print that key line. Fails when nothing was selected, from fzf's own exit
+# status (1: no match, 130: Esc): with no match fzf prints an --expect key alone,
+# which would otherwise be read as the selection.
+# Callers may pipe into it: zsh runs a pipeline's last command in the current
+# shell, so the variables still reach the caller.
+_fzf_pick() {
+  local _r
+  _r=$(fzf "${@:3}") || return 1
+  typeset -g "$1=${_r%%$'\n'*}" "$2=${_r##*$'\n'}"
 }
 
 # ============================================================================
@@ -123,110 +119,6 @@ batt() {
     echo -e "Time:     ${time_str}"
   fi
 }
-# Show comprehensive loading status
-loading_status() {
-  echo ""
-  echo "📊 ZSH Configuration Status"
-  echo "============================"
-
-  # Core Tools
-  echo ""
-  echo "🔧 Core Tools:"
-  command -v starship >/dev/null 2>&1 && echo "  ✅ starship" || echo "  ❌ starship"
-  command -v zoxide >/dev/null 2>&1 && echo "  ✅ zoxide" || echo "  ❌ zoxide"
-  command -v direnv >/dev/null 2>&1 && echo "  ✅ direnv" || echo "  ❌ direnv"
-  command -v eza >/dev/null 2>&1 && echo "  ✅ eza" || echo "  ❌ eza"
-  command -v fzf >/dev/null 2>&1 && echo "  ✅ fzf" || echo "  ❌ fzf"
-  command -v bat >/dev/null 2>&1 && echo "  ✅ bat" || echo "  ❌ bat"
-  command -v fd >/dev/null 2>&1 && echo "  ✅ fd" || echo "  ❌ fd"
-  command -v rg >/dev/null 2>&1 && echo "  ✅ ripgrep" || echo "  ❌ ripgrep"
-
-  # C++ Toolchain
-  echo ""
-  echo "⚙️  C++ Toolchain:"
-  command -v cmake >/dev/null 2>&1 && echo "  ✅ cmake" || echo "  ❌ cmake"
-  command -v ninja >/dev/null 2>&1 && echo "  ✅ ninja" || echo "  ❌ ninja"
-  command -v ccache >/dev/null 2>&1 && echo "  ✅ ccache" || echo "  ❌ ccache"
-  command -v clangd >/dev/null 2>&1 && echo "  ✅ clangd" || echo "  ❌ clangd"
-  command -v clang-format >/dev/null 2>&1 && echo "  ✅ clang-format" || echo "  ❌ clang-format"
-  command -v gdb >/dev/null 2>&1 && echo "  ✅ gdb" || echo "  ❌ gdb"
-  command -v valgrind >/dev/null 2>&1 && echo "  ✅ valgrind" || echo "  ❌ valgrind"
-  command -v hyperfine >/dev/null 2>&1 && echo "  ✅ hyperfine" || echo "  ❌ hyperfine"
-
-  # Development Tools
-  echo ""
-  echo "🛠️  Development:"
-  command -v uv >/dev/null 2>&1 && echo "  ✅ uv (Python)" || echo "  ❌ uv"
-  command -v poetry >/dev/null 2>&1 && echo "  ✅ poetry" || echo "  ❌ poetry"
-  command -v podman >/dev/null 2>&1 && echo "  ✅ podman" || echo "  ❌ podman"
-  command -v kubectl >/dev/null 2>&1 && echo "  ✅ kubectl" || echo "  ❌ kubectl"
-  command -v gh >/dev/null 2>&1 && echo "  ✅ gh (GitHub CLI)" || echo "  ❌ gh"
-  command -v lazygit >/dev/null 2>&1 && echo "  ✅ lazygit" || echo "  ❌ lazygit"
-  command -v node >/dev/null 2>&1 && echo "  ✅ node ($(node --version 2>/dev/null))" || echo "  ❌ node"
-
-  # Plugins
-  echo ""
-  echo "🔌 Plugins:"
-  [[ -n "${ZSH_AUTOSUGGEST_STRATEGY}" ]] && echo "  ✅ zsh-autosuggestions" || echo "  ❌ zsh-autosuggestions"
-  [[ -n "${FAST_HIGHLIGHT_VERSION}" || -n "${FAST_HIGHLIGHT}" ]] && echo "  ✅ fast-syntax-highlighting" || echo "  ❌ fast-syntax-highlighting"
-  [[ $(whence -w history-substring-search-up) == *"function"* ]] && echo "  ✅ zsh-history-substring-search" || echo "  ❌ zsh-history-substring-search"
-
-  # Loaded Files
-  echo ""
-  echo "📁 Loaded Configuration:"
-  [[ -f ~/.config/zsh/aliases ]] && echo "  ✅ aliases" || echo "  ❌ aliases"
-  [[ -f ~/.config/zsh/helpers.zsh ]] && echo "  ✅ helpers" || echo "  ❌ helpers"
-
-  # Function modules
-  local func_count=$(ls ~/.config/zsh/functions/*.zsh 2>/dev/null | wc -l)
-  if [[ $func_count -gt 0 ]]; then
-    echo "  ✅ function modules: $func_count loaded"
-    for func_file in ~/.config/zsh/functions/*.zsh(N); do
-      echo "     • $(basename "$func_file")"
-    done
-  else
-    echo "  📦 function modules: 0 (none created yet)"
-  fi
-
-  # Environment
-  echo ""
-  echo "🌍 Current Environment:"
-  echo "  📂 PWD: $(basename "$PWD")"
-
-  # Python environment (if any)
-  if [[ -n "$VIRTUAL_ENV" ]]; then
-    echo "  🐍 Active venv: $(basename "$VIRTUAL_ENV")"
-  fi
-
-  # Direnv
-  if [[ -n "$DIRENV_DIR" ]]; then
-    echo "  📁 Direnv active: $(basename "$DIRENV_DIR")"
-  fi
-
-  # Git repository
-  if git rev-parse --git-dir >/dev/null 2>&1; then
-    local repo=$(basename "$(git rev-parse --show-toplevel)" 2>/dev/null)
-    local branch=$(git branch --show-current 2>/dev/null)
-    echo "  🔀 Git repo: $repo ($branch)"
-  fi
-
-  # Stats
-  echo ""
-  echo "📊 Statistics:"
-  echo "  Aliases: $(print -l ${(ok)aliases} | wc -l)"
-  echo "  Functions: $(print -l ${(ok)functions} | wc -l)"
-  local completion_count=$(ls ~/.config/zsh/completions/ 2>/dev/null | wc -l)
-  echo "  Completions: $completion_count"
-
-  # Shell info
-  echo ""
-  echo "🐚 Shell Info:"
-  echo "  ZSH version: $ZSH_VERSION"
-  echo "  Terminal: $TERM"
-  echo "  Locale: $LANG"
-
-  echo ""
-}
 
 # Quick reload — exec a fresh shell rather than re-sourcing .zshrc.
 # Re-sourcing would source the syntax-highlighting / autosuggestions plugins a
@@ -236,12 +128,6 @@ reload() {
   echo "🔄 Reloading ZSH configuration..."
   exec zsh
 }
-
-# ============================================================================
-# ALIASES FOR HELPERS
-# ============================================================================
-
-alias status='loading_status'
 
 # ============================================================================
 # END

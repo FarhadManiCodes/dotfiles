@@ -16,7 +16,7 @@ that branch, not the last one.
 - `~/.config/gh/hosts.yml` — auth tokens
 - the `pg_password` podman secret — `/var/lib/docker/secrets` (podman's graphroot, not
   `~/.local/share/containers`, which doesn't exist here)
-- `~/.config/zsh/plugins/` / `completions/` — cloned/generated, not authored
+- `~/.config/zsh/plugins/` — cloned, not authored
 - `gtk-3.0/bookmarks` — local state
 - `~/.config/rclone/rclone.conf` — OAuth tokens
 
