@@ -18,7 +18,7 @@ set -uo pipefail
 importer="${1:-}"
 if (($# >= 2)); then identifier=$2; else identifier=$(cat); fi
 
-[[ -z "$importer" || -z "$identifier" ]] && {
+[[ -n "$importer" && -n "$identifier" ]] || {
   notify-send -u critical "Papis" "Usage: papis-add-paper <importer> [identifier]"
   exit 1
 }
@@ -71,7 +71,7 @@ existing=$(ID=$identifier IMP=$importer awk -F'\t' '
     function bare(s) { s = tolower(s); if (ENVIRON["IMP"] == "arxiv") sub(/v[0-9]+$/, "", s); return s }
     BEGIN { id = bare(ENVIRON["ID"]); col = (ENVIRON["IMP"] == "doi") ? 2 : 3 }
     $col != "" && bare($col) == id { print $1; exit }' <<<"$library")
-[[ -n "$existing" ]] && {
+[[ -z "$existing" ]] || {
   notify-send -u low "Papis" "Already in papis as $existing\n$identifier"
   exit 0
 }
