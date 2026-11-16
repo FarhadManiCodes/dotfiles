@@ -78,6 +78,7 @@ alias ginfo='git info' # repository, branch, remote and last commit
 # Only HEAD by default: git-graph orders commits by time, so all branches
 # interleave whenever two moved together. It has no pager of its own.
 glol() {
+  setopt local_options pipefail
   git-graph --color always --model simple --style round --wrap none \
     --format '%h%d %s (%as) <%an>' HEAD "$@" | less -RFS
 }
