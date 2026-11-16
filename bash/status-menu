@@ -34,17 +34,11 @@ case "$choice" in
       exit 0
     fi
     cap=$((e * 100 / full))
-    if ((cap >= 80)); then
-      icon=$BAT_FULL
-    elif ((cap >= 60)); then
-      icon=$BAT_THREE
-    elif ((cap >= 40)); then
-      icon=$BAT_HALF
-    elif ((cap >= 20)); then
-      icon=$BAT_QUARTER
-    else
-      icon=$BAT_EMPTY
-    fi
+    # Five icons, one per 20%; 80% and up, over 100% too, is full.
+    icons=("$BAT_EMPTY" "$BAT_QUARTER" "$BAT_HALF" "$BAT_THREE" "$BAT_FULL")
+    i=$((cap / 20))
+    ((i > 4)) && i=4
+    icon=${icons[i]}
     case $status in
       Charging)
         icon=$BOLT
