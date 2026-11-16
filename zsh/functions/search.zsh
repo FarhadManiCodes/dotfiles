@@ -70,9 +70,11 @@ rgf() { _rg_live "" "$@"; }
 rgcpp() { _rg_live "--type cpp --type c" "$@"; }
 
 # ----------------------------------------------------------------------------
-# rgtex - live search LaTeX files only
+# rgtex - live search LaTeX and Typst files only
 # ----------------------------------------------------------------------------
-rgtex() { _rg_live "-g '*.tex' -g '*.sty' -g '*.cls' -g '*.bib'" "$@"; }
+rgtex() {
+  _rg_live "-g '*.tex' -g '*.sty' -g '*.cls' -g '*.bib' -g '*.typ'" "$@"
+}
 
 # ----------------------------------------------------------------------------
 # rgpy - live search Python files only

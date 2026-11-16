@@ -13,7 +13,7 @@
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — book search with fzf; `rgbook` searches refinery's sibling Markdown
     review copies with physical PDF page markers
-  - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
+  - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`, `rgtex` (LaTeX and Typst)
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
