@@ -181,6 +181,7 @@ same list with fuller reasoning; keep the two in step.
 | `pg_password` podman secret | Under podman's graphroot, `/var/lib/docker/secrets` — recreate with `podman secret create pg_password -`; `pg.service` will not start without it |
 | `~/.cargo/bin/shpool` | Detachable shell-session daemon used by `keep`, `lg`, and Mod+A — recreate with `cargo install shpool` |
 | `~/.cargo/bin/prek`, `~/.cargo/bin/jscpd` | Tools the commit checks need ([Git hooks](docs/architecture/git-hooks.md)) — recreate with `cargo install prek jscpd`; `sysup` updates them once installed |
+| `~/.cargo/bin/git-graph` | Draws `glol` — recreate with `cargo install git-graph`; `sysup` updates it once installed |
 | `~/.cargo/bin/herdr` | Stable Cargo build — recreate with `herdr-cargo --install` (also called by `install.sh`); `sysup` updates it once installed |
 | `gh` and `linux-perf` agent skills | User-scope skills from `cli/cli` and `intel/intel-performance-skills` — recreate with `gh skill install <repo> <skill> --scope user` per agent (`--agent claude-code`, `codex`, `opencode`); `sysup` updates them once installed, and warns on every run until then |
 | global `ctx7` npm package, its `find-docs` skill and rule | Recreate with `npm install -g ctx7`, `ctx7 login`, then `ctx7 setup --cli --claude`, `--opencode` and `--codex` in that order (`sysup` runs the same); `sysup` updates them once installed |

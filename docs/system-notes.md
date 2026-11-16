@@ -311,6 +311,9 @@ System-level choices that aren't captured in any config file:
   enabled user unit and starts the daemon on demand. `sysup` updates it and the other
   Cargo-installed tools with `cargo install-update --all`; the `cargo-update` command itself
   is a pacman package and is updated earlier in the same run by `paru -Syu`.
+- **`git-graph` is installed with `cargo install git-graph`** and draws `glol`. The
+  resulting `~/.cargo/bin/git-graph` is untracked and must be recreated on a rebuild;
+  `sysup` updates it with `cargo install-update --all`.
 - **`prek` and `jscpd` are installed with `cargo install prek jscpd`**, for the commit
   checks ([Git hooks](architecture/git-hooks.md), "Setup in a fresh clone"). The
   resulting `~/.cargo/bin/prek` and `~/.cargo/bin/jscpd` are untracked and must be
