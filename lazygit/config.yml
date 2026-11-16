@@ -80,7 +80,7 @@ customCommands:
   - key: 'C'
     context: 'files'
     description: 'Commit staged changes: pick a prefix, write the message in the editor'
-    command: 'zsh -c "source $DOTFILES/zsh/functions/git-enhancements.zsh && gci"'
+    command: "zsh -c 'source \"$DOTFILES/zsh/functions/git-enhancements.zsh\" && gci'"
     loadingText: 'Committing...'
     output: terminal
 keybinding:
