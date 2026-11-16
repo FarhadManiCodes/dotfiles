@@ -18,10 +18,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "zsh/functions/sysup.zsh"
 
-STEPS = (
-    "_sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr _sysup_prune_claude_versions "
-    "_sysup_plugins _sysup_nvim_health _sysup_fwupd_refresh_if_stale _sysup_pacnew"
-)
+# Every default sysup step as a no-op (test_sysup_stub_steps.py keeps it complete).
+STUB_STEPS = ROOT / "tests" / "sysup-stub-steps.zsh"
 
 
 class Terminal:
@@ -116,7 +114,7 @@ class SysupCtrlCTests(unittest.TestCase):
         """Start sysup with `stubs` after the defaults on a terminal; returns (terminal, output offset)."""
         script = self.base / "driver.zsh"
         script.write_text(f"""source {SOURCE}
-for fn in {STEPS}; do functions[$fn]=':'; done
+source "{STUB_STEPS}" || exit 1
 paru() {{ return 0; }}
 uv() {{ return 0; }}
 cargo() {{ return 0; }}

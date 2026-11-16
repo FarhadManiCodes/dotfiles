@@ -7,6 +7,8 @@ import time
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
+# Every default sysup step as a no-op (test_sysup_stub_steps.py keeps it complete).
+STUB_STEPS = Path(__file__).resolve().parent / "sysup-stub-steps.zsh"
 
 
 class ToolTestsStepTests(unittest.TestCase):
@@ -211,12 +213,9 @@ class ToolTestsStepTests(unittest.TestCase):
         self.assertIn("audio_text: no checkout", result.stdout)
         self.assertEqual(len(self.log.read_text().splitlines()), 2)
 
-    SYSUP = """
-for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
-          _sysup_prune_claude_versions _sysup_plugins _sysup_nvim_health \\
-          _sysup_fwupd_refresh_if_stale _sysup_pacnew; do
-  functions[$fn]=':'
-done
+    SYSUP = (
+        f'source "{STUB_STEPS}" || exit 1\n'
+        """
 systemd-inhibit() { exec sleep 30; }
 paru() { return 0; }
 cargo() { return 0; }
@@ -225,6 +224,7 @@ claude() { :; }
 uv() { return 0; }
 _sysup_tool_tests() { _sysup_notes+=("tests failed with the latest dependencies: x; see the output above"); return 1; }
 """
+    )
 
     def test_option_is_needed_and_failure_ends_the_run_with_warnings(self):
         result = self.run_zsh(self.SYSUP + "sysup")

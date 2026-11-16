@@ -7,6 +7,8 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "zsh/functions/sysup.zsh"
+# Every default sysup step as a no-op (test_sysup_stub_steps.py keeps it complete).
+STUB_STEPS = Path(__file__).resolve().parent / "sysup-stub-steps.zsh"
 
 
 class SysupAgentToolsTests(unittest.TestCase):
@@ -54,11 +56,7 @@ exit 0
         code = (
             """
 source "$1"
-for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
-          _sysup_prune_claude_versions _sysup_plugins _sysup_nvim_health \\
-          _sysup_fwupd_refresh_if_stale _sysup_pacnew; do
-  functions[$fn]=':'
-done
+source "$2" || exit 1
 systemd-inhibit() { exec sleep 30; }
 paru() { return 0; }
 uv() { return 0; }
@@ -70,7 +68,7 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
             + "\nsysup\n"
         )
         return subprocess.run(
-            ["zsh", "-f", "-c", code, "test", str(SOURCE)],
+            ["zsh", "-f", "-c", code, "test", str(SOURCE), str(STUB_STEPS)],
             cwd=self.base,
             env=dict(self.env, **env),
             capture_output=True,
