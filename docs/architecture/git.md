@@ -7,7 +7,8 @@
   `git status` ends with the stash count when one exists, and untracked files are yellow
   instead of the same red as unstaged changes. Both apply to plain `git status` as well as
   zsh's `gst`, which is `git status` without the hints or the branch lines (starship
-  shows the branch and the ahead/behind counts, not the upstream).
+  shows the branch and the ahead/behind counts, not the upstream); a detached HEAD and a
+  gone upstream still show.
 - **`push.recurseSubmodules = check`** (2026-09-09) — aborts a push whose submodule
   pointer names a commit absent from the submodule's own remote. Git doesn't check this
   by default, and the failure is silent: the superproject pushes fine and the pointer

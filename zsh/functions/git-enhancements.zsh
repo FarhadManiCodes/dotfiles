@@ -43,8 +43,8 @@ gci() {
 # ============================================================================
 
 # git status without the hints or the branch and upstream lines; starship shows
-# the branch. Colors and columns are forced only on a terminal, which git cannot
-# see through the pipe.
+# the branch. A detached HEAD and a gone upstream still show. Colors and columns
+# are forced only on a terminal, which git cannot see through the pipe.
 gst() {
   setopt local_options pipefail
   local -a tty=()
