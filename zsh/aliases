@@ -16,15 +16,12 @@ if command -v eza >/dev/null 2>&1; then
   # ============================================================================
   alias ll='eza -l --icons --git --group-directories-first'
   alias la='eza -la --icons --git --group-directories-first'
-  alias lh='eza -la --icons --header --group-directories-first'
 
   # ============================================================================
   # EZA - Filtered Views (Developer-focused)
   # ============================================================================
   alias lsd='eza -D --icons'
   alias lsf='eza -f --icons'
-  alias lgit='eza -l --icons --git --git-ignore'
-  alias lr='eza -lR --icons'
 
   # ============================================================================
   # EZA - Sorted Views
