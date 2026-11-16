@@ -110,7 +110,7 @@ fbook() {
       --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm' || return 0
 
   local file="$search_path/$selection"
-  [[ ! -f "$file" ]] && return 0
+  [[ -f "$file" ]] || return 0
 
   case "$key" in
     ctrl-d)

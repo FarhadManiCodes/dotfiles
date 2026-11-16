@@ -15,7 +15,7 @@ fhist() {
     --preview-window='hidden,down:3:wrap' \
     --bind 'ctrl-p:toggle-preview')
 
-  [[ -z "$selected" ]] && return 0
+  [[ -n "$selected" ]] || return 0
   local cmd=$(echo "$selected" | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//')
 
   # Put in command line buffer for editing before execution
@@ -151,7 +151,7 @@ fdir() {
 rgt() {
   local types="cpp\nc\npy\ntex\nmd\njson\nyaml\ntoml\nsh\nrust\ngo"
   local type=$(echo -e "$types" | fzf --prompt="File type: " --height=40%)
-  [[ -z "$type" ]] && return 0
+  [[ -n "$type" ]] || return 0
   _rg_live "--type $type" "$@"
 }
 
