@@ -9,7 +9,7 @@
   - `clipboard.zsh` — Wayland file copy
   - `cpp.zsh` — C++ build helpers (cmake/ninja/ccache)
   - `fzf.zsh` — FZF config + `fnb` (Jupyter finder) + `fdata` (data file finder)
-  - `git-enhancements.zsh` — `gci`, `gst`
+  - `git-enhancements.zsh` — `gci`, `gst`, `gi`, `glol`
   - `last_working_dir.zsh` — restore last directory
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — book search with fzf; `rgbook` searches refinery's sibling Markdown

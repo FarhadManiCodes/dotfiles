@@ -261,8 +261,8 @@ mkdir -p "${HOME}/Audio/Recordings"
 
 # ============ helper scripts ==============================
 echo "🛠️  Installing helper scripts..."
-# Scripts only: config-drift.d/ and capture-ocr.d/ are found by their scripts
-# through their own realpath.
+# Scripts only: config-drift.d/, capture-ocr.d/ and vifm-pick.d/ are found by
+# their scripts through their own realpath.
 for f in "${DOTFILES}/bash/"*; do [ -f "$f" ] && link_glob "$f" "${HOME}/.local/bin"; done
 # The custom sioyek build lives off PATH (sioyek/README.md). It finds its shaders
 # and prefs.config through QCoreApplication::applicationDirPath(), which since
