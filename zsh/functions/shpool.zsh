@@ -1,6 +1,7 @@
 # sysup and sysclean rerun themselves through keep outside a shpool session, so
-# a closed terminal only detaches them. Defined outside the shpool guard below,
-# so without shpool it fails with a message.
+# a closed terminal only detaches them. shpool exports SHPOOL_SESSION_NAME in
+# its sessions, which the callers test so the rerun does not nest. Defined
+# outside the shpool guard below, so without shpool it fails with a message.
 _keep_self() {
   if ! (($+functions[keep])); then
     print -u2 "$1: shpool/keep is required; install shpool and reload ~/.zshrc"
