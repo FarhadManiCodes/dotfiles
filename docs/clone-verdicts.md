@@ -48,4 +48,5 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
   names the other. A test comparing more of the two copies was dropped as out of
   proportion (2026-11-11).
 - Date: 2026-11-11
-- Lines when judged: bash/vifm-pick:45-53 <-> zsh/functions/pdf.zsh:21-29
+- Lines when judged: bash/vifm-pick:51-57 <-> zsh/functions/pdf.zsh:28-34 (re-judged
+  2026-11-16 after 651bff5 and 1528573 rewrote both)
