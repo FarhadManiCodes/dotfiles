@@ -1,5 +1,6 @@
 """Exercise watched streams without touching the real clipboard or history."""
 
+import contextlib
 import hashlib
 import json
 import os
@@ -61,6 +62,29 @@ class CliphistStoreGuardTests(unittest.TestCase):
             timeout=8,
             check=False,
         )
+
+    @contextlib.contextmanager
+    def guard(self):
+        """The guard on a pipe the test holds open, in its own process group,
+        stopped and its pipes closed when the block ends, even on a failure."""
+        proc = subprocess.Popen(
+            ["/bin/bash", str(SCRIPT)],
+            env=self.env,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            yield proc
+        finally:
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)  # timeout and head too
+                proc.wait()
+            proc.stdout.close()
+            proc.stderr.close()
+            with contextlib.suppress(BrokenPipeError):  # unread input left
+                proc.stdin.close()
 
     def calls(self):
         return (
@@ -156,14 +180,7 @@ class CliphistStoreGuardTests(unittest.TestCase):
                 self.assert_clean()
 
     def test_oversized_stream_does_not_wait_for_owner_to_close(self):
-        proc = subprocess.Popen(
-            ["/bin/bash", str(SCRIPT)],
-            env=self.env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        try:
+        with self.guard() as proc:
             proc.stdin.write(b"x" * 5000001)
             proc.stdin.flush()
             proc.wait(timeout=2)  # Owner remains open after the detection byte.
@@ -171,22 +188,9 @@ class CliphistStoreGuardTests(unittest.TestCase):
             self.assertIn(b"copy exceeds 5000000 bytes", proc.stderr.read())
             self.assertEqual(self.calls(), [])
             self.assert_clean()
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-                proc.wait()
-            for stream in (proc.stdin, proc.stdout, proc.stderr):
-                stream.close()
 
     def test_limit_sized_open_stream_still_requires_eof(self):
-        proc = subprocess.Popen(
-            ["/bin/bash", str(SCRIPT)],
-            env=self.env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        try:
+        with self.guard() as proc:
             proc.stdin.write(b"x" * 5000000)
             proc.stdin.flush()
             proc.wait(timeout=7)
@@ -194,12 +198,6 @@ class CliphistStoreGuardTests(unittest.TestCase):
             self.assertIn(b"capture failed (exit 124)", proc.stderr.read())
             self.assertEqual(self.calls(), [])
             self.assert_clean()
-        finally:
-            if proc.poll() is None:
-                proc.kill()
-                proc.wait()
-            for stream in (proc.stdin, proc.stdout, proc.stderr):
-                stream.close()
 
     def test_clear_event_reaches_cliphist_with_empty_input(self):
         result = self.run_guard(b"ignored bytes", CLIPBOARD_STATE="clear")
@@ -237,14 +235,7 @@ class CliphistStoreGuardTests(unittest.TestCase):
             with self.subTest(partial=partial):
                 self.log.unlink(missing_ok=True)
                 started = time.monotonic()
-                proc = subprocess.Popen(
-                    ["/bin/bash", str(SCRIPT)],
-                    env=self.env,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                try:
+                with self.guard() as proc:
                     proc.stdin.write(partial)
                     proc.stdin.flush()
                     proc.wait(timeout=7)  # Keep the owner's stream open.
@@ -258,12 +249,6 @@ class CliphistStoreGuardTests(unittest.TestCase):
                     self.assertEqual(proc.stdout.read(), b"")
                     self.assertEqual(self.calls(), [])
                     self.assert_clean()
-                finally:
-                    if proc.poll() is None:
-                        proc.kill()
-                        proc.wait()
-                    for stream in (proc.stdin, proc.stdout, proc.stderr):
-                        stream.close()
                 self.assertEqual(
                     self.run_guard(b"next complete copy").returncode, 0
                 )
@@ -325,15 +310,7 @@ class CliphistStoreGuardTests(unittest.TestCase):
         self.assert_clean()
 
     def test_termination_cleans_up_staged_file(self):
-        proc = subprocess.Popen(
-            ["/bin/bash", str(SCRIPT)],
-            env=self.env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True,
-        )
-        try:
+        with self.guard() as proc:
             deadline = time.monotonic() + 2
             while (
                 not list(self.runtime.iterdir()) and time.monotonic() < deadline
@@ -345,12 +322,6 @@ class CliphistStoreGuardTests(unittest.TestCase):
             self.assertEqual(proc.returncode, 143)
             self.assertEqual(self.calls(), [])
             self.assert_clean()
-        finally:
-            if proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.wait()
-            for stream in (proc.stdin, proc.stdout, proc.stderr):
-                stream.close()
 
 
 if __name__ == "__main__":
