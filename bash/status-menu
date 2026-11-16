@@ -20,7 +20,7 @@ ETH=$(printf '\U000f0200')  # nf-md-ethernet
 choice=$(printf '%s Battery\n%s Internet\n%s Uptime\n%s Temperatures\n%s Memory\n%s Time\n%s Codex\n%s Claude' \
   "$BAT_FULL" "$NET" "$CLOCK" "$THERM" "$CHIP" "$WORLD" "$OPENAI" "$CLAUDE" \
   | fuzzel --dmenu --prompt "Status: " --width 30 --lines 8)
-[[ -z "$choice" ]] && exit 0
+[[ -n "$choice" ]] || exit 0
 
 case "$choice" in
   *Battery*)

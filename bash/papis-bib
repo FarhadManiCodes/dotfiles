@@ -94,7 +94,7 @@ fi
 # --- source files (multi-file \input / #include projects) -------------------
 src_args=()
 for f in "$dir"/*.tex "$dir"/*.typ; do [[ -e "$f" ]] && src_args+=(-f "$f"); done
-[[ ${#src_args[@]} -eq 0 ]] && exit 0
+[[ ${#src_args[@]} -gt 0 ]] || exit 0
 
 # citation keys of a papis-serialised .bib, one per line, sorted+unique.
 keys_of() { grep -oP '^@\w+\{\s*\K[^,]+' "$1" 2>/dev/null | sort -u; }

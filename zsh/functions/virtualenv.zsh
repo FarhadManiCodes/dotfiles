@@ -353,7 +353,7 @@ va() {
   # way round, a picked "local" fell through to the .envrc handling instead.
   [[ -z "$selected" ]] && {
     selected=$(_select_env)
-    [[ -z "$selected" ]] && return 0
+    [[ -n "$selected" ]] || return 0
   }
 
   # Handle local activation ("local" or ".", typed or picked)
