@@ -84,7 +84,8 @@ case "$cmd" in
     export SP="$sp"
     rg_cmd="[ -n {q} ] && rg --smart-case --color=always --no-heading --line-number --max-depth 2 -g '*.md' -g '!notes.md' -g '!*.refinery/**' -e '^<page_number>[0-9]+</page_number>$' -e {q} \"\$SP\" 2>/dev/null"
     # Exported, like SP, for fzf's reload shell; shared with rgbook in zsh.
-    RGBOOK_AWK="$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/vifm-pick.d/rgbook.awk"
+    self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
+    RGBOOK_AWK="${self%/*}/vifm-pick.d/rgbook.awk"
     export RGBOOK_AWK
     format_cmd="awk -v sp=\"\$SP/\" -f \"\$RGBOOK_AWK\""
     reload_cmd="$rg_cmd | $format_cmd || true"
