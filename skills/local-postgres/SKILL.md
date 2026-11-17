@@ -3,9 +3,8 @@ name: local-postgres
 description: >
   Connect to and work with the PostgreSQL database running on this machine. Use when you need
   to run a query, inspect schemas or tables, use psql or a database URL, set DATABASE_URL or a
-  dadbod connection, load or export data, or when the pg container or pg.service is failing or
-  refusing connections. Covers where the credential lives, why a password is required despite
-  the image trusting localhost, and how to start and stop it correctly.
+  dadbod connection, load or export data, find where the credential lives, or when the pg
+  container or pg.service is failing or refusing connections.
 ---
 
 # The local PostgreSQL
