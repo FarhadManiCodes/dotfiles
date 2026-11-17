@@ -122,11 +122,13 @@ prompt_meta() {
       exit 1
       ;;
   esac
+  # shellcheck disable=SC2312  # an unreadable answer file reads as an empty key, which cancels
   OUT_KEY=$(sanitize_ref "$(sed -n 1p "$out" 2>/dev/null)")
   OUT_TAGS=$(sed -n 2p "$out" 2>/dev/null | tr -s ' ' | sed 's/^ *//; s/ *$//')
   rm -f "$out"
 }
 
+# shellcheck disable=SC2312  # offline or no answer: empty fields, so the key falls back to the identifier
 IFS=$SEP read -r META_TITLE META_FAMILY META_YEAR < <(fetch_meta "$importer" "$identifier" 2>/dev/null)
 
 base=$(sanitize_ref "$META_FAMILY")
@@ -159,6 +161,7 @@ notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 # --batch is required: --set turns the value into a second metadata source, and
 # without it papis prompts to merge importer-vs-command-line (no TTY -> "Aborted!").
 if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set ref "$ref" 2>&1); then
+  # shellcheck disable=SC2312  # message text only: a failed tail just drops the reason line
   notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
   exit 1
 fi
