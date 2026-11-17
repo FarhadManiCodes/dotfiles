@@ -5,7 +5,11 @@
 set -o pipefail
 notify() { notify-send -u critical "Audio output" "$1"; }
 
-menu=$(pactl -f json list sinks | jq -r --arg d "$(pactl get-default-sink)" '
+default=$(pactl get-default-sink) || {
+  notify "Could not read the current output"
+  exit 1
+}
+menu=$(pactl -f json list sinks | jq -r --arg d "$default" '
     .[] | .active_port as $p
     | select(([.ports[] | select(.name == $p) | .availability] | first) != "not available")
     | "\(.name)\t\(if .name == $d then "* " else "  " end)\(.description)"') \
