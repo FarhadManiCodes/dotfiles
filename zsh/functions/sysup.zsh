@@ -303,9 +303,9 @@ _sysup_steps() {
   claude update
   _sysup_prune_claude_versions
 
-  _sysup_header "Agent skills (gh, linux-perf)"
+  _sysup_header "Agent skill (gh)"
   _status=0
-  gh skill update --all gh linux-perf || _status=$?
+  gh skill update --all gh || _status=$?
   (( _status )) && { _sysup_note "$_status" "gh skill update failed (exit $_status); see the output above"; }
 
   _sysup_header "ctx7 CLI and skill"

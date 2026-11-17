@@ -17,7 +17,7 @@
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
-    Claude Code → agent skills (`gh`, `linux-perf`) → `ctx7` and its skill → plugins →
+    Claude Code → agent skill (`gh`) → `ctx7` and its skill → plugins →
     nvim `:checkhealth` → fwupd → `config-drift`);
     `sysup --podman-images` also updates installed Quadlet images, including stopped ones;
     `sysup --test-tools` also runs my own uv tools' test suites on the newest dependencies
@@ -94,10 +94,8 @@ rechecked on 0.10.0) rather than observed:
   not warn. Read the output above if a skill looks stale.
 - If ctx7 cannot fetch `find-docs` from GitHub, it installs a short bundled copy and exits 0,
   replacing the full skill.
-- The `gh` and `linux-perf` skills and the global `ctx7` package are not recreated by
-  `install.sh`. On a rebuilt machine none of them exists until reinstalled, and every `sysup` ends
-  "with warnings" until then. If only one of the two named skills is missing, `gh skill update`
-  updates the other and exits 0, so the missing one is not reported.
+- The `gh` skill and the global `ctx7` package are not recreated by `install.sh`. On a rebuilt
+  machine neither exists until reinstalled, and every `sysup` ends "with warnings" until then.
 
 ## Ctrl-C in sysup
 

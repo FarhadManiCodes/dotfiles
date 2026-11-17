@@ -90,7 +90,7 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         self.assertEqual(
             self.calls(),
             [
-                "gh skill update --all gh linux-perf",
+                "gh skill update --all gh",
                 "ctx7 --version",
                 "npm view ctx7 version",
                 "ctx7 setup --cli --yes --claude",
@@ -106,7 +106,7 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         self.assertEqual(
             self.calls(),
             [
-                "gh skill update --all gh linux-perf",
+                "gh skill update --all gh",
                 "ctx7 --version",
                 "npm view ctx7 version",
                 "npm install -g ctx7@1.1.0",
