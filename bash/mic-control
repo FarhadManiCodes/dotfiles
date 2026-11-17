@@ -10,8 +10,8 @@ default=$(pactl get-default-source) || {
 }
 # Each line: "<action>:<id> TAB <label>"; fuzzel shows the label, returns the id.
 menu=$({
-  pactl -f json list sources
-  pactl -f json list source-outputs
+  pactl -f json list sources \
+    && pactl -f json list source-outputs
 } \
   | jq -rs --arg d "$default" '
     (.[0][] | select(.monitor_source == "")
