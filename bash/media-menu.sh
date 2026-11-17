@@ -174,11 +174,16 @@ toggle_recording() (
     exit 0
   fi
 
+  # An empty --target would make pw-record capture the microphone.
+  if ! sink=$(pactl get-default-sink) || [[ -z $sink ]]; then
+    notify-send -u critical "Audio Recording" "No default output device"
+    exit 1
+  fi
   mkdir -p "$HOME/Audio/Recordings"
   file=$HOME/Audio/Recordings/rec_$(date +%Y%m%d_%H%M%S).flac
   # Capture the sink itself: <sink>.monitor made pw-record use the microphone.
   # The background recorder must not retain the toggle's lock.
-  pw-record -P stream.capture.sink=true --target "$(pactl get-default-sink)" "$file" 9>&- &
+  pw-record -P stream.capture.sink=true --target "$sink" "$file" 9>&- &
   echo $! >"$pidfile"
   sleep 0.3 # a pw-record that can't connect exits at once
   if recording; then

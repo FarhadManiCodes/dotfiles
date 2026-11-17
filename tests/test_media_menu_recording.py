@@ -182,6 +182,21 @@ fi
         )
         self.assert_status(active=True)
 
+    def test_no_default_sink_starts_no_recorder(self):
+        # An empty --target makes pw-record capture the microphone, so both
+        # a failed pactl and a server with no default sink must refuse.
+        for case, body in (("failed", "exit 1\n"), ("empty", "printf '\\n'\n")):
+            with self.subTest(case):
+                (self.base / "notices").unlink(missing_ok=True)
+                self.stub("pactl", body)
+                self.assertEqual(self.run_toggle().returncode, 1)
+                self.assertFalse((self.base / "recorders").exists())
+                self.assertFalse((self.runtime / "toggle-record.pid").exists())
+                self.assertEqual(
+                    (self.base / "notices").read_text(),
+                    "-u critical Audio Recording No default output device\n",
+                )
+
     def test_cancelled_inactive_menu_is_read_only(self):
         self.assert_status(active=False)
         self.assertEqual(list(self.runtime.iterdir()), [])
