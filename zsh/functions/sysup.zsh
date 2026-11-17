@@ -324,9 +324,11 @@ _sysup_steps() {
     npm install -g "ctx7@$_ctx7_latest" || _status=$?
     (( _status )) && { _sysup_note "$_status" "ctx7 install failed (exit $_status); see the output above"; }
   fi
-  # One run per agent, in this order: Codex and OpenCode share ~/.agents/skills/find-docs and each
-  # writes its own variant of SKILL.md, so the last one wins -- Codex's, whose extra paragraph on
-  # running ctx7 outside Codex's sandbox does not apply to OpenCode. Setup is
+  # One run per agent. Each writes its rule into the agent's always-loaded instructions
+  # (~/.claude/rules/context7.md, ~/.config/opencode/AGENTS.md, ~/.codex/AGENTS.md, Codex's with
+  # the run-outside-the-sandbox note) and also a find-docs skill that repeats the rule, so the
+  # skill copies are removed afterwards: they only spent each agent's skill-listing budget, and
+  # ctx7 has no rule-only mode. Setup is
   # idempotent (skill file overwritten, rule section replaced between its markers) and with
   # --yes asks nothing while ctx7 is logged in; with no usable token it starts a browser login,
   # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
@@ -339,11 +341,8 @@ _sysup_steps() {
       _status=0
       timeout --foreground 120s ctx7 setup --cli --yes --"$_agent" || _status=$?
       (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
-      # Claude keeps only the rule: ~/.claude/rules/context7.md is always loaded and says what
-      # the find-docs skill says, so the skill only spent Claude Code's skill-listing budget.
-      # ctx7 has no rule-only mode and rewrites both, hence removing it after every setup.
-      [[ $_agent == claude ]] && rm -rf -- "$HOME/.claude/skills/find-docs"
     done
+    rm -rf -- "$HOME/.claude/skills/find-docs" "$HOME/.agents/skills/find-docs"
   fi
 
   _sysup_header "Editor & shell plugins"

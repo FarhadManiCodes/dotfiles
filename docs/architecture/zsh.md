@@ -80,20 +80,21 @@ rechecked on 0.10.0) rather than observed:
   they differ. `ctx7 upgrade` cannot do it: it recognises an npm install only from the `npm_*`
   variables npm sets when it launches a program, so run directly it prints the npm command and
   exits 0 without installing.
-- The skill is refreshed on every run, not only after an install: `ctx7 setup` fetches `find-docs`
-  from ctx7's GitHub repository, so it changes independently of the package version.
-- Codex and OpenCode share `~/.agents/skills/find-docs`, and each `setup` rewrites it. Codex runs
-  last, so its variant wins; it adds one paragraph on running ctx7 outside Codex's sandbox, which
-  OpenCode has no use for. Each agent's rule file is its own, so both rules stay correct.
+- Setup runs on every `sysup`, not only after an install, so the rules follow ctx7's current
+  wording. Each agent's rule is its own (`~/.claude/rules/context7.md`,
+  `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`; Codex's adds running ctx7 outside its
+  sandbox) and is always loaded.
+- Setup also writes a `find-docs` skill (`~/.claude/skills`, and `~/.agents/skills` shared by
+  Codex and OpenCode) that repeats the rule. `sysup` deletes both copies after the runs: they only
+  spent each agent's skill-listing budget, and ctx7 has no rule-only mode. After a failed version
+  check or install no setup runs, and nothing is deleted.
 
 - `ctx7 setup --cli --yes` asks nothing while ctx7 is logged in. With no usable token it starts a
   browser login, so each of the three runs is bounded by `timeout --foreground 120s` and a hang
   becomes a warning naming the agent (exit 124). `timeout` runs `ctx7` as a program, so tests stub
   it as an executable, not a shell function.
-- A failed skill or rule write is printed as `failed: ...` but ctx7 still exits 0, so `sysup` does
-  not warn. Read the output above if a skill looks stale.
-- If ctx7 cannot fetch `find-docs` from GitHub, it installs a short bundled copy and exits 0,
-  replacing the full skill.
+- A failed rule write is printed as `failed: ...` but ctx7 still exits 0, so `sysup` does
+  not warn. Read the output above if a rule looks stale.
 - The `gh` skill and the global `ctx7` package are not recreated by `install.sh`. On a rebuilt
   machine neither exists until reinstalled, and every `sysup` ends "with warnings" until then.
 

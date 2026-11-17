@@ -86,7 +86,6 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         self.assertIn(
             "    ctx7 1.0.0 is up to date", result.stdout.splitlines()
         )
-        # Codex runs last: its variant of the shared ~/.agents/skills/find-docs must win.
         self.assertEqual(
             self.calls(),
             [
@@ -99,7 +98,7 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
             ],
         )
 
-    def test_claude_keeps_the_rule_but_not_the_find_docs_skill(self):
+    def test_agents_keep_the_rules_but_not_the_find_docs_skills(self):
         claude_skill = self.base / ".claude/skills/find-docs"
         shared_skill = self.base / ".agents/skills/find-docs"
         for skill in (claude_skill, shared_skill):
@@ -111,8 +110,14 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         result = self.run_sysup()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse(claude_skill.exists())
-        self.assertTrue((shared_skill / "SKILL.md").exists())
+        self.assertFalse(shared_skill.exists())
         self.assertTrue(rule.exists())
+
+    def test_find_docs_is_kept_when_the_refresh_is_skipped(self):
+        skill = self.base / ".agents/skills/find-docs"
+        skill.mkdir(parents=True)
+        self.run_sysup(CTX7_FAIL_ON="--version", CTX7_STATUS="5")
+        self.assertTrue(skill.exists())
 
     def test_newer_ctx7_on_npm_is_installed_before_the_refresh(self):
         result = self.run_sysup(NPM_VERSION="1.1.0")
