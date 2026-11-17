@@ -5,7 +5,8 @@
 # links it into ~/.local/bin.
 
 set -uo pipefail
-df_dir=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd)
+self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
+df_dir=${self%/*/*}
 skills_dir="$df_dir/skills"
 fail=0
 checked=0
@@ -33,7 +34,9 @@ for dir in "$skills_dir"/*/; do
   fi
 
   # --- frontmatter must be the first thing in the file ---------------------
-  if [[ $(head -1 "$md") != "---" ]]; then
+  first=
+  IFS= read -r first <"$md"
+  if [[ $first != "---" ]]; then
     red "file does not open with a --- frontmatter fence"
     continue
   fi
@@ -97,22 +100,22 @@ for dir in "$skills_dir"/*/; do
   # that has been moved away is silently useless.
   refs=$(grep -oE 'references/[A-Za-z0-9._-]+\.md' "$md" | sort -u)
   if [[ -n $refs ]]; then
-    failed=$fail
+    failed=$fail n=0
     while read -r r; do
       [[ -z $r ]] && continue
-      checked=$((checked + 1))
+      checked=$((checked + 1)) n=$((n + 1))
       [[ -f "$dir/$r" ]] || red "routes to $r, which does not exist"
     done <<<"$refs"
-    ((fail > failed)) || green "$(grep -c . <<<"$refs") reference file(s) exist"
+    ((fail > failed)) || green "$n reference file(s) exist"
   fi
 
   # --- every bash/ tool it names must exist and be runnable ----------------
   tools=$(grep -oE 'bash/[a-z0-9-]+' "$md" | sed 's|bash/||' | sort -u)
   if [[ -n $tools ]]; then
-    failed=$fail
+    failed=$fail n=0
     while read -r t; do
       [[ -z $t ]] && continue
-      checked=$((checked + 1))
+      checked=$((checked + 1)) n=$((n + 1))
       if [[ ! -f "$df_dir/bash/$t" ]]; then
         red "names bash/$t, which does not exist"
       elif [[ ! -x "$df_dir/bash/$t" ]]; then
@@ -120,7 +123,7 @@ for dir in "$skills_dir"/*/; do
         red "bash/$t is not executable"
       fi
     done <<<"$tools"
-    ((fail > failed)) || green "$(grep -c . <<<"$tools") bash/ tool(s) present and executable"
+    ((fail > failed)) || green "$n bash/ tool(s) present and executable"
   fi
 done
 
