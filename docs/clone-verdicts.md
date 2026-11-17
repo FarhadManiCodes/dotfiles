@@ -10,12 +10,16 @@ an entry; take an uncertain match to the user. A clone the user decides to fix
 later goes to `TODO.md`, not here.
 
 Entry format, one per clone, newest last. One exception is tests (user decision,
-2026-11-09; `docs/herdr-implementation.md`, Milestone 0.5): short repeated steps inside
-test methods share a single group entry. A helper copied between test files, a test
-clone of 13 lines or more, and every clone touching production code get their own,
-except that production clones judged in one batch may share a group entry by verdict
-when it lists each file pair with a quote of the clone's first line (user decision,
-2026-11-16). Match a report against a group by that quote, not by the file pair alone.
+2026-11-09; `docs/herdr-implementation.md`, Milestone 0.5): short repeated steps in
+tests share a single group entry. A helper copied between test files, a test clone of
+13 lines or more, and every clone touching production code get their own. A helper
+counts as copied when the clone starts at a helper definition in both files, renamed
+or not; a window that starts elsewhere and runs into one, from call arguments or env
+lines, is a short step (user decision, 2026-11-17). Production clones and copied test
+helpers judged in one batch may share a group entry by verdict when it lists each file
+pair with a quote of the clone's first line, both sides' when they differ (user
+decisions, 2026-11-16 and 2026-11-17). Match a report against a group by that quote,
+not by the file pair alone.
 
 ```
 ## <file> <-> <file>
@@ -96,3 +100,20 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
   - bash/vifm-pick <-> itself: `if [[ -e "$xdir/cd" ]]; then`, `--header='Enter: goto`
   - zsh/functions/pdf.zsh, search.zsh, fzf.zsh <-> each other and themselves:
     `case "$key" in`, `--bind 'ctrl-p:toggle-preview' \`, `| _fzf_pick key file`
+
+## Copied test helpers (group)
+- Verdict: accepted
+- Reason: each file's own small fixture tools (fake and stub writers, log readers,
+  run wrappers); copies differ in their fake's log format and arguments, and the
+  repo keeps no shared test module.
+- Date: 2026-11-17
+- Pairs, all in tests/:
+  - test_capture_ocr.py <-> test_papis_fuzzel.py, test_sioyek_papis.py:
+    `def fake(self, name, body):`
+  - test_cliphist_store_guard.py <-> test_niri_session_isolated.py: `def calls(self):`
+  - test_install_user_units.py <-> test_media_menu_recording.py:
+    `def stub(self, name, body):`
+  - test_sysup_agent_tools.py <-> test_sysup_herdr.py:
+    `def run_sysup(self, stubs="", **env):`,
+    `def run_sysup(self, stubs, args="", after=""):`
+  - test_sysup_ctrl_c.py <-> test_sysup_podman.py: `def ran(self):`, `def calls(self):`
