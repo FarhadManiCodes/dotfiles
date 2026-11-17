@@ -47,7 +47,8 @@ pass() {
 # through this script's own real path (install.sh symlinks bash/* into
 # ~/.local/bin, so neither $PWD nor the invocation path locates the checkout —
 # same reasoning and pattern as bash/run-tests and bash/check-skills).
-checks_dir=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/config-drift.d" && pwd)
+self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
+checks_dir=${self%/*}/config-drift.d
 # shellcheck source=bash/config-drift.d/symlink-integrity.sh
 source "$checks_dir/symlink-integrity.sh"
 # shellcheck source=bash/config-drift.d/etc-baselines.sh
@@ -58,7 +59,7 @@ source "$checks_dir/pacman-transaction.sh"
 source "$checks_dir/spotify.sh"
 # shellcheck source=bash/config-drift.d/sioyek.sh
 source "$checks_dir/sioyek.sh"
-unset checks_dir
+unset self checks_dir
 
 check_pacnew() {
   hdr "Pending .pacnew"
