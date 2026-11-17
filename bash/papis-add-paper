@@ -122,14 +122,20 @@ prompt_meta() {
       exit 1
       ;;
   esac
-  # shellcheck disable=SC2312  # an unreadable answer file reads as an empty key, which cancels
-  OUT_KEY=$(sanitize_ref "$(sed -n 1p "$out" 2>/dev/null)")
-  OUT_TAGS=$(sed -n 2p "$out" 2>/dev/null | tr -s ' ' | sed 's/^ *//; s/ *$//')
+  # A closed or cancelled window leaves the file empty: an empty key, which cancels.
+  local key="" tag_words=()
+  {
+    read -r key
+    read -ra tag_words
+  } <"$out"
+  OUT_KEY=$(sanitize_ref "$key")
+  OUT_TAGS=${tag_words[*]}
   rm -f "$out"
 }
 
-# shellcheck disable=SC2312  # offline or no answer: empty fields, so the key falls back to the identifier
-IFS=$SEP read -r META_TITLE META_FAMILY META_YEAR < <(fetch_meta "$importer" "$identifier" 2>/dev/null)
+# Offline or no answer is fine: the suggested key falls back to the identifier.
+meta=$(fetch_meta "$importer" "$identifier" 2>/dev/null) || meta=
+IFS=$SEP read -r META_TITLE META_FAMILY META_YEAR <<<"$meta"
 
 base=$(sanitize_ref "$META_FAMILY")
 [[ -n "$META_YEAR" ]] && base="${base:+${base}_}$META_YEAR"
@@ -161,8 +167,8 @@ notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 # --batch is required: --set turns the value into a second metadata source, and
 # without it papis prompts to merge importer-vs-command-line (no TTY -> "Aborted!").
 if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set ref "$ref" 2>&1); then
-  # shellcheck disable=SC2312  # message text only: a failed tail just drops the reason line
-  notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
+  # ${output##*$'\n'}: the last line of papis's output, usually the reason.
+  notify-send -u critical "Papis" "Failed to add\n$identifier\n${output##*$'\n'}"
   exit 1
 fi
 # --batch refuses a duplicate found on another unique key (isbn, url, ...) but
