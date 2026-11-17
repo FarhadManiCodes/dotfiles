@@ -55,8 +55,8 @@ fi
 for tool in curl git jq awk sort sha256sum mktemp uname timeout; do
   command -v "$tool" >/dev/null || die "$tool is required"
 done
-# shellcheck disable=SC2312  # a failed uname prints nothing, which fails the check
-[[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || die 'this build recipe requires x86_64 Linux'
+platform=$(uname -sm) || die 'uname could not report the platform'
+[[ $platform == 'Linux x86_64' ]] || die 'this build recipe requires x86_64 Linux'
 repo=https://github.com/herdrdev/herdr
 recipe='target=x86_64-unknown-linux-gnu;cpu=znver4;opt=3;lto=fat;cgu=1;strip=symbols;panic=unwind;zig=ReleaseFast;simd=true'
 work=
@@ -167,8 +167,7 @@ minimum_zig=$(awk '/^[[:space:]]*\.minimum_zig_version[[:space:]]*=/ {
 }' "$work/build.zig.zon")
 [[ $zig_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $minimum_zig =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
   || die 'cannot determine one stable CI-pinned Zig version and the engine minimum; review the release build files'
-# shellcheck disable=SC2312  # a failed sort prints nothing, which fails the check
-[[ $(printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -V | tail -n1) == "$zig_version" ]] \
+printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -VC \
   || die 'CI-pinned Zig is older than the engine minimum'
 fetch https://ziglang.org/download/index.json "$work/zig-index.json"
 zig_url=$(jq -er --arg version "$zig_version" '.[$version]["x86_64-linux"].tarball' "$work/zig-index.json") \
@@ -184,15 +183,15 @@ if [[ $mode == check ]]; then
   printf 'Would build, verify and install %s into %s.\n' "$tag" "$cargo_root"
   exit 0
 fi
-# shellcheck disable=SC2312  # a failed rustc prints its error and nothing to match
-[[ $(rustc --print target-cpus) == *'currently znver4)'* ]] \
+target_cpus=$(rustc --print target-cpus) || die 'rustc could not list its target CPUs'
+[[ $target_cpus == *'currently znver4)'* ]] \
   || die 'this recipe is tuned for a Zen 4 host; review target-cpu=znver4 for this machine'
 fetch "$zig_url" "$work/zig.tar.xz" 300
 printf '%s  %s\n' "$zig_sha" "$work/zig.tar.xz" | sha256sum --check --strict \
   || die 'Zig archive checksum mismatch'
 tar -xJf "$work/zig.tar.xz" -C "$work" || die 'could not extract the Zig archive'
-# shellcheck disable=SC2312  # a binary that fails to run prints nothing, which fails the check
-[[ $("$work/$zig_name/zig" version) == "$zig_version" ]] || die 'extracted Zig reports an unexpected version'
+zig_reported=$("$work/$zig_name/zig" version) || die 'extracted Zig did not run'
+[[ $zig_reported == "$zig_version" ]] || die 'extracted Zig reports an unexpected version'
 
 mkdir -p "$work/tmp"
 export TMPDIR="$work/tmp"
@@ -211,8 +210,8 @@ cargo_info=$(cargo --version) || die 'cannot read the Cargo version for the reco
 # Verify the built executable before replacing anything in the installation root.
 cargo "${install_args[@]}" --root "$work/stage" herdr {lockfd}>&- \
   || die 'staged Cargo build failed; the installed executable was not replaced'
-# shellcheck disable=SC2312  # a binary that fails to run prints nothing, which fails the check
-[[ $("$work/stage/bin/herdr" --version) == "herdr $version" ]] || die 'staged Herdr failed its version check'
+staged_reported=$("$work/stage/bin/herdr" --version) || die 'staged Herdr did not run'
+[[ $staged_reported == "herdr $version" ]] || die 'staged Herdr failed its version check'
 read_install
 [[ $installed_hash == "$initial_hash" && $installed_commit == "$initial_commit" ]] \
   || die 'Herdr changed while the build was running; retry after reviewing the installation'
@@ -220,8 +219,8 @@ read_install
 # also applies the recipe when the same commit was previously built differently.
 cargo "${install_args[@]}" --root "$cargo_root" --force herdr {lockfd}>&- \
   || die "Cargo could not install the verified candidate into $cargo_root"
-# shellcheck disable=SC2312  # a binary that fails to run prints nothing, which fails the check
-[[ $("$binary" --version) == "herdr $version" ]] || die 'installed Herdr failed its version check'
+installed_reported=$("$binary" --version) || die 'installed Herdr did not run'
+[[ $installed_reported == "herdr $version" ]] || die 'installed Herdr failed its version check'
 read_install
 [[ $installed_commit == "$commit" && $installed_version == "$version" ]] || die 'installed Cargo metadata does not match the selected release'
 bytes=$(stat -c %s "$binary") || die "cannot read the size of $binary"
