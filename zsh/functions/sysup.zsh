@@ -339,6 +339,10 @@ _sysup_steps() {
       _status=0
       timeout --foreground 120s ctx7 setup --cli --yes --"$_agent" || _status=$?
       (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
+      # Claude keeps only the rule: ~/.claude/rules/context7.md is always loaded and says what
+      # the find-docs skill says, so the skill only spent Claude Code's skill-listing budget.
+      # ctx7 has no rule-only mode and rewrites both, hence removing it after every setup.
+      [[ $_agent == claude ]] && rm -rf -- "$HOME/.claude/skills/find-docs"
     done
   fi
 

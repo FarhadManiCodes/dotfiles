@@ -99,6 +99,21 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
             ],
         )
 
+    def test_claude_keeps_the_rule_but_not_the_find_docs_skill(self):
+        claude_skill = self.base / ".claude/skills/find-docs"
+        shared_skill = self.base / ".agents/skills/find-docs"
+        for skill in (claude_skill, shared_skill):
+            skill.mkdir(parents=True)
+            (skill / "SKILL.md").write_text("stub\n")
+        rule = self.base / ".claude/rules/context7.md"
+        rule.parent.mkdir(parents=True)
+        rule.write_text("rule\n")
+        result = self.run_sysup()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(claude_skill.exists())
+        self.assertTrue((shared_skill / "SKILL.md").exists())
+        self.assertTrue(rule.exists())
+
     def test_newer_ctx7_on_npm_is_installed_before_the_refresh(self):
         result = self.run_sysup(NPM_VERSION="1.1.0")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
