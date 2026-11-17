@@ -4,12 +4,16 @@
 set -o pipefail
 notify() { notify-send -a "" -u critical "Mic Control" "$1"; }
 
+default=$(pactl get-default-source) || {
+  notify "Could not read the current input"
+  exit 1
+}
 # Each line: "<action>:<id> TAB <label>"; fuzzel shows the label, returns the id.
 menu=$({
   pactl -f json list sources
   pactl -f json list source-outputs
 } \
-  | jq -rs --arg d "$(pactl get-default-source)" '
+  | jq -rs --arg d "$default" '
     (.[0][] | select(.monitor_source == "")
         | "src:\(.name)\t[src] \(if .name == $d then "* " else "  " end)\(.description)"),
     (.[1][] | select(.properties["object.id"] and .properties["application.name"])
