@@ -122,7 +122,7 @@ prompt_meta() {
       exit 1
       ;;
   esac
-  # A closed or cancelled window leaves the file empty: an empty key, which cancels.
+  # A closed or cancelled window leaves the file empty: an empty key cancels.
   local key="" tag_words=()
   {
     read -r key
@@ -168,7 +168,8 @@ notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 # without it papis prompts to merge importer-vs-command-line (no TTY -> "Aborted!").
 if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set ref "$ref" 2>&1); then
   # ${output##*$'\n'}: the last line of papis's output, usually the reason.
-  notify-send -u critical "Papis" "Failed to add\n$identifier\n${output##*$'\n'}"
+  notify-send -u critical "Papis" \
+    "Failed to add\n$identifier\n${output##*$'\n'}"
   exit 1
 fi
 # --batch refuses a duplicate found on another unique key (isbn, url, ...) but
