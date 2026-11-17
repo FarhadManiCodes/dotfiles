@@ -15,11 +15,11 @@ tests share a single group entry. A helper copied between test files, a test clo
 13 lines or more, and every clone touching production code get their own. A helper
 counts as copied when the clone starts at a helper definition in both files, renamed
 or not; a window that starts elsewhere and runs into one, from call arguments or env
-lines, is a short step (user decision, 2026-11-17). Production clones and copied test
-helpers judged in one batch may share a group entry by verdict when it lists each file
-pair with a quote of the clone's first line, both sides' when they differ (user
-decisions, 2026-11-16 and 2026-11-17). Match a report against a group by that quote,
-not by the file pair alone.
+lines, is a short step (user decision, 2026-11-17). Production clones, copied test
+helpers and test clones of 13 lines or more judged in one batch may share a group entry
+by verdict when it lists each file pair with a quote of the clone's first line, both
+sides' when they differ (user decisions, 2026-11-16 and 2026-11-17). Match a report
+against a group by that quote, not by the file pair alone.
 
 ```
 ## <file> <-> <file>
@@ -117,3 +117,51 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
     `def run_sysup(self, stubs="", **env):`,
     `def run_sysup(self, stubs, args="", after=""):`
   - test_sysup_ctrl_c.py <-> test_sysup_podman.py: `def ran(self):`, `def calls(self):`
+
+## Short repeated steps in tests (group)
+- Verdict: accepted
+- Scope: a clone under 13 lines between tests or within one, that does not
+  start at a helper definition in both files (see "Copied test helpers").
+- Reason: each test spells out its own setup, call and checks so it reads
+  alone; what matches is that shape with different data: imports and module
+  constants, the setUp skeleton (temporary directory, fake bin, env dict),
+  subprocess.run arguments, fake-script bodies, table rows, and one test's
+  last checks running into the next test's first lines.
+- Not covered: the same lines with the same data in two tests, which is one
+  test written twice; judge that one on its own.
+- Date: 2026-11-17
+
+## Test clones of 13 lines or more, accepted (group)
+- Verdict: accepted
+- Reason: each test keeps its own setup and checks with different data (tool,
+  exit code, file, page); the git-hooks pair is a clone on purpose, the fixture
+  for the clone check; the git helper is a copied test helper.
+- Date: 2026-11-17
+- Pairs, all in tests/:
+  - test_cliphist_store_guard.py <-> itself: `self.assertEqual(len(self.calls()), 1)`,
+    `self.assertEqual(self.calls(), [])`
+  - test_git_hooks.py <-> itself: `CLONE_PYTHON = '''"""Fixture module."""`,
+    `SIMILAR_PYTHON = '''"""Fixture module."""`
+  - test_git_hooks.py <-> itself: `self.assertIn("SC1017", out)`,
+    `self.assert_passed(code, out)`
+  - test_install_user_units.py <-> test_sysup_herdr.py: `["/bin/bash", str(SOURCE)],`,
+    `["zsh", "-f", "-c", code, "test", str(source), str(self.helper)],`
+  - test_papis_add_paper.py <-> test_papis_fuzzel.py:
+    ``papis creates the entry the way `papis add --set ref` would.``,
+    `fake fuzzel records the menu and picks the line matching $PICK.`
+  - test_sioyek_papis.py <-> itself: `self.assertEqual(` (the `refs = [` tests)
+  - test_sysup_bgutil.py <-> test_sysup_yts.py: `str(directory),`, `str(self.repo),`
+  - test_vifm_pick_rgbook.py <-> itself:
+    `self.assertTrue(any("beta.pdf:Page 3:" in x for x in rows))`,
+    `self.run_caller(caller, "Optimal", "beta.pdf:Page 3")`
+
+## Test clones of 13 lines or more, false positives (group)
+- Verdict: false positive
+- Reason: table and data rows matching themselves shifted, or two unrelated
+  subTest lists.
+- Date: 2026-11-17
+- Pairs, all in tests/:
+  - test_config_drift.py <-> itself:
+    `(base.replace('client_id = "SECRET_TEMPLATE"\n', ""), None),`, `),`
+  - test_niri_session_isolated.py <-> test_sysup_bgutil.py: `)`, `self.assertEqual(`
+  - test_sioyek_papis.py <-> itself: `"citation_key": "[1]",`, `"citation_key": "[3]",`
