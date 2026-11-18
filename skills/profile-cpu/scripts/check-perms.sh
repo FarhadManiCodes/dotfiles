@@ -40,7 +40,7 @@ row() {
     printf '  works  %s\n' "$label"
     return
   fi
-  reason=$(grep -v '^Error:$' err.txt | grep -m1 -iE 'failure|error|denied|not supported' | cut -c1-70)
+  reason=$(grep -v '^Error:$' err.txt | grep -m1 -iE 'failure|error|denied|not supported')
   if [[ -z $reason ]]; then
     reason="exit $status"
     ((status == 124)) && reason="timed out after 60 s"
@@ -63,9 +63,10 @@ row "perf c2c record" perf c2c record -o p.data -- ./chain
 # Does dwarf unwinding see the middle frame that frame pointers can miss?
 if ! perf record -q -o d.data --call-graph dwarf --user-callchains -- ./chain >/dev/null 2>&1; then
   echo "  dwarf stack check not run: its perf record failed"
-elif ! perf report -i d.data --stdio --no-children >report.txt 2>/dev/null; then
+# Folded output puts each call chain on one line, callee first: leaf;mid;main.
+elif ! perf report -i d.data --stdio --no-children -g folded >report.txt 2>/dev/null; then
   echo "  dwarf stack check not run: its perf report failed"
-elif grep -q '^ *mid$' report.txt; then
+elif grep -qF 'leaf;mid;main' report.txt; then
   echo "  dwarf stacks show leaf -> mid -> main"
 else
   echo "  dwarf stacks do NOT show mid"
