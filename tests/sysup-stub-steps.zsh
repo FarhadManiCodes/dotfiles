@@ -1,7 +1,9 @@
-# Sourced by the sysup tests after zsh/functions/sysup.zsh: every step that
-# sysup runs by default becomes a no-op, so a test runs only the steps it
-# defines again afterwards. A new default step in _sysup_steps belongs here,
-# or every sysup test would run it for real. The opt-in steps
+# Sourced by the sysup tests after zsh/functions/sysup.zsh: every _sysup_*
+# step that sysup runs by default becomes a no-op, so a test runs only the
+# steps it defines again afterwards. A new default step in _sysup_steps
+# belongs here, or every sysup test would run it for real. The external
+# commands _sysup_steps calls itself (claude, gh, cargo, npm, ctx7) are not
+# stubbed here; each test that reaches them stubs its own. The opt-in steps
 # (_sysup_tool_tests, _sysup_podman_images) are left to the tests that ask.
 () {
   local fn
