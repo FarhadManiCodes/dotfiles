@@ -2,11 +2,11 @@
 name: papers-and-pdfs
 description: >
   Work with PDFs on this machine, academic papers or not. Use when adding a paper to papis,
-  asking questions across the library with pask or papis-ask, running or re-running refinery
-  on a PDF, converting a PDF or scanned book to markdown or text, extracting text, reading or
-  rendering PDF pages (the Read tool's PDF mode needs poppler, which is missing: use mutool),
-  typesetting a parsed document, or when chunks.json, citations.json, resolution_report.txt or
-  a .refinery directory is involved.
+  indexing or asking questions across the library with pask or papis-ask, running or
+  re-running refinery on a PDF, converting a PDF or scanned book to markdown or text,
+  extracting text, reading or rendering PDF pages (the Read tool's PDF mode needs poppler,
+  which is missing: use mutool), typesetting a parsed document, or when chunks.json,
+  citations.json, resolution_report.txt or a .refinery directory is involved.
 ---
 
 # Papers and PDFs
