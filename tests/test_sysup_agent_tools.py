@@ -19,12 +19,18 @@ class SysupAgentToolsTests(unittest.TestCase):
         self.log = self.base / "calls"
         # ctx7 must be a real executable: sysup runs setup through timeout, which cannot call a
         # shell function. Each stub prints its *_VERSION for a version query; FAIL_ON names the
-        # arguments that make it fail, with STATUS.
+        # arguments that make it fail, with STATUS. ctx7 setup writes find-docs like the real one,
+        # so a test can tell whether sysup deletes it after setup or before.
         bin_dir = self.base / "bin"
         bin_dir.mkdir()
-        for name, prefix, version_args in (
-            ("ctx7", "CTX7", "--version"),
-            ("npm", "NPM", "view ctx7 version"),
+        ctx7_setup = """case "$*" in
+  "setup "*--claude) mkdir -p "$HOME/.claude/skills/find-docs" ;;
+  "setup "*) mkdir -p "$HOME/.agents/skills/find-docs" ;;
+esac
+"""
+        for name, prefix, version_args, extra in (
+            ("ctx7", "CTX7", "--version", ctx7_setup),
+            ("npm", "NPM", "view ctx7 version", ""),
         ):
             stub = bin_dir / name
             stub.write_text(
@@ -32,7 +38,7 @@ class SysupAgentToolsTests(unittest.TestCase):
 echo "{name} $*" >> "$TEST_LOG"
 case "$*" in *"${prefix}_FAIL_ON"*) exit "${prefix}_STATUS" ;; esac
 [ "$*" = "{version_args}" ] && echo "${prefix}_VERSION"
-exit 0
+{extra}exit 0
 """
             )
             stub.chmod(0o755)
@@ -101,9 +107,6 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
     def test_agents_keep_the_rules_but_not_the_find_docs_skills(self):
         claude_skill = self.base / ".claude/skills/find-docs"
         shared_skill = self.base / ".agents/skills/find-docs"
-        for skill in (claude_skill, shared_skill):
-            skill.mkdir(parents=True)
-            (skill / "SKILL.md").write_text("stub\n")
         rule = self.base / ".claude/rules/context7.md"
         rule.parent.mkdir(parents=True)
         rule.write_text("rule\n")
@@ -114,10 +117,18 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         self.assertTrue(rule.exists())
 
     def test_find_docs_is_kept_when_the_refresh_is_skipped(self):
-        skill = self.base / ".agents/skills/find-docs"
-        skill.mkdir(parents=True)
-        self.run_sysup(CTX7_FAIL_ON="--version", CTX7_STATUS="5")
-        self.assertTrue(skill.exists())
+        skills = (
+            self.base / ".claude/skills/find-docs",
+            self.base / ".agents/skills/find-docs",
+        )
+        for skill in skills:
+            skill.mkdir(parents=True)
+        result = self.run_sysup(CTX7_FAIL_ON="--version", CTX7_STATUS="5")
+        self.assert_one_ctx7_warning_and_no_refresh(
+            result, "ctx7 version check failed (exit 5); see the output above"
+        )
+        for skill in skills:
+            self.assertTrue(skill.exists())
 
     def test_newer_ctx7_on_npm_is_installed_before_the_refresh(self):
         result = self.run_sysup(NPM_VERSION="1.1.0")
@@ -153,7 +164,7 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
             lines[-2:], [f"!! {note}", "==> sysup finished with warnings"]
         )
         self.assertIn(
-            "    skipping the ctx7 skill refresh; "
+            "    skipping the ctx7 rule refresh; "
             "the version check or install did not finish",
             lines,
         )

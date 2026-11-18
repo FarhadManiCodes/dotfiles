@@ -308,7 +308,7 @@ _sysup_steps() {
   gh skill update --all gh || _status=$?
   (( _status )) && { _sysup_note "$_status" "gh skill update failed (exit $_status); see the output above"; }
 
-  _sysup_header "ctx7 CLI and skill"
+  _sysup_header "ctx7 CLI and rule"
   # Not `ctx7 upgrade`: it recognises an npm install only from the npm_* variables npm sets when it
   # launches a program, so run directly it just prints the npm command and exits 0 (ctx7 0.10.0).
   local _ctx7_have _ctx7_latest
@@ -334,7 +334,7 @@ _sysup_steps() {
   # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
   # a real ctx7 on PATH, not a function). Skipped after a failed version check or install, so one failure is one warning, not four.
   if (( _status )); then
-    echo "    skipping the ctx7 skill refresh; the version check or install did not finish"
+    echo "    skipping the ctx7 rule refresh; the version check or install did not finish"
   else
     local _agent
     for _agent in claude opencode codex; do
