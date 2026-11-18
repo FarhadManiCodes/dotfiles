@@ -329,8 +329,9 @@ _sysup_steps() {
   # (~/.claude/rules/context7.md, ~/.config/opencode/AGENTS.md, ~/.codex/AGENTS.md, Codex's with
   # the run-outside-the-sandbox note) and also a find-docs skill that repeats the rule, so the
   # skill copies are removed afterwards: they only spent each agent's skill-listing budget, and
-  # ctx7 has no rule-only mode. Setup is
-  # idempotent (skill file overwritten, rule section replaced between its markers) and with
+  # ctx7 has no rule-only mode. Claude's rule is a file of its own, without markers; Codex and
+  # OpenCode get a section between <!-- context7 --> markers in AGENTS.md. Setup is
+  # idempotent (skill and Claude's rule overwritten, the AGENTS.md section replaced) and with
   # --yes asks nothing while ctx7 is logged in; with no usable token it starts a browser login,
   # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
   # a real ctx7 on PATH, not a function). Skipped after a failed version check or install, so one failure is one warning, not four.
