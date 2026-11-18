@@ -7,6 +7,8 @@ import tempfile
 import unittest
 
 FUNCTIONS = Path(__file__).resolve().parents[1] / "zsh/functions"
+# Every default sysup step as a no-op (test_sysup_stub_steps.py keeps it complete).
+STUB_STEPS = Path(__file__).resolve().parent / "sysup-stub-steps.zsh"
 
 
 class MaintenanceShpoolTests(unittest.TestCase):
@@ -30,17 +32,18 @@ class MaintenanceShpoolTests(unittest.TestCase):
     def run_zsh(self, code, *args):
         # Even if the dispatch guard regresses, stop at the first maintenance
         # step using stubs; never let a failing test start a real update/cleanup.
-        preamble = """
-source "$1/sysup.zsh"
+        preamble = (
+            'source "$1/sysup.zsh"\n'
+            f'source "{STUB_STEPS}" || exit 1\n'
+            """
 source "$1/sysclean.zsh"
 source "$1/shpool.zsh"
 unfunction keep 2>/dev/null  # tests that want keep define a stub
 systemd-inhibit() { return 0; }
-_sysup_mirrorlist_check() { :; }
-_sysup_pacnew() { :; }
 paru() { print -r -- update-body; return 23; }
 _sysup_prune_claude_versions() { print -r -- cleanup-body; exit 23; }
 """
+        )
         return subprocess.run(
             [
                 "/usr/bin/zsh",

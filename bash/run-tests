@@ -5,7 +5,8 @@
 
 set -uo pipefail
 
-root=$(cd -- "$(dirname -- "$(realpath -- "${BASH_SOURCE[0]}")")/.." && pwd)
+self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
+root=${self%/*/*}
 results=()
 status=0
 output=$(mktemp)

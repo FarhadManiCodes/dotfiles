@@ -15,7 +15,7 @@ fhist() {
     --preview-window='hidden,down:3:wrap' \
     --bind 'ctrl-p:toggle-preview')
 
-  [[ -z "$selected" ]] && return 0
+  [[ -n "$selected" ]] || return 0
   local cmd=$(echo "$selected" | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//')
 
   # Put in command line buffer for editing before execution
@@ -70,9 +70,11 @@ rgf() { _rg_live "" "$@"; }
 rgcpp() { _rg_live "--type cpp --type c" "$@"; }
 
 # ----------------------------------------------------------------------------
-# rgtex - live search LaTeX files only
+# rgtex - live search LaTeX and Typst files only
 # ----------------------------------------------------------------------------
-rgtex() { _rg_live "-g '*.tex' -g '*.sty' -g '*.cls' -g '*.bib'" "$@"; }
+rgtex() {
+  _rg_live "-g '*.tex' -g '*.sty' -g '*.cls' -g '*.bib' -g '*.typ'" "$@"
+}
 
 # ----------------------------------------------------------------------------
 # rgpy - live search Python files only
@@ -149,7 +151,7 @@ fdir() {
 rgt() {
   local types="cpp\nc\npy\ntex\nmd\njson\nyaml\ntoml\nsh\nrust\ngo"
   local type=$(echo -e "$types" | fzf --prompt="File type: " --height=40%)
-  [[ -z "$type" ]] && return 0
+  [[ -n "$type" ]] || return 0
   _rg_live "--type $type" "$@"
 }
 

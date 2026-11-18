@@ -44,7 +44,8 @@ class PapisAddPaperTests(unittest.TestCase):
             'echo "papis $*" >> "$LOG"\n'
             'case "$PAPIS_MODE" in\n'
             '  dup) echo "WARNING|No new document is created! ..."; exit 0 ;;\n'
-            '  fail) echo "ERROR|No importer found"; exit 1 ;;\n'
+            '  fail) echo "INFO|Trying importers"; echo "ERROR|No importer found"\n'
+            "    exit 1 ;;\n"
             "esac\n"
             'for a; do [ "$prev" = ref ] && ref=$a; prev=$a; done\n'
             'd="$HOME/.local/share/papis/papers/new"; mkdir -p "$d"\n'
@@ -127,7 +128,11 @@ class PapisAddPaperTests(unittest.TestCase):
         self.assertEqual(
             self.run_script("doi", "10.1000/new", PAPIS_MODE="fail"), 1
         )
-        self.assertIn("ERROR|No importer found", self.notices()[-1])
+        self.assertTrue(
+            self.notices()[-1].endswith("\\nERROR|No importer found"),
+            self.notices()[-1],
+        )
+        self.assertNotIn("Trying importers", self.notices()[-1])
 
     def test_broken_info_yaml_stops_before_the_prompt(self):
         self.entry("aaa-broken", 'title: "unclosed\n')
@@ -165,6 +170,23 @@ class PapisAddPaperTests(unittest.TestCase):
         self.run_script("doi", "10.1000/new")
         self.assertEqual(
             Path(f"{self.log}.prefill").read_text(), "10_1000_newa\n"
+        )
+
+    def test_fetched_metadata_suggests_family_and_year(self):
+        self.fake(
+            "curl",
+            """echo '{"message": {"title": ["A Title"],"""
+            """ "author": [{"family": "Smith"}],"""
+            """ "issued": {"date-parts": [[2021]]}}}'""",
+        )
+        self.fake(
+            "footclient",
+            'printf "%s\\n" "$8" >> "$LOG.prefill"; for a; do last=$a; done\n'
+            'printf "\\n" > "$last"',
+        )
+        self.run_script("doi", "10.1000/new")
+        self.assertEqual(
+            Path(f"{self.log}.prefill").read_text(), "Smith_2021\n"
         )
 
 

@@ -13,6 +13,8 @@ import unittest
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
 GIT = shutil.which("git")
 MV = shutil.which("mv")
+# Every default sysup step as a no-op (test_sysup_stub_steps.py keeps it complete).
+STUB_STEPS = Path(__file__).resolve().parent / "sysup-stub-steps.zsh"
 
 
 class BgutilUpdateTests(unittest.TestCase):
@@ -359,16 +361,18 @@ _sysup_bgutil "$2" || exit 1
 
     def test_sysup_stops_after_uv_if_helper_update_fails(self):
         self.env["SHPOOL_SESSION_NAME"] = "sysup-test"
-        result = self.run_update("""
-source "$1"
+        result = self.run_update(
+            'source "$1"\n'
+            f'source "{STUB_STEPS}" || exit 1\n'
+            """
 systemd-inhibit() { return 0; }
-_sysup_mirrorlist_check() { :; }
 paru() { :; }
 uv() { echo "uv $*"; }
 _sysup_bgutil() { echo helper-failed; return 1; }
 cargo() { echo must-not-run; }
 sysup
-""")
+"""
+        )
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertLess(
             result.stdout.index("uv tool upgrade --all"),

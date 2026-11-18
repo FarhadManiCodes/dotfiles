@@ -8,6 +8,8 @@ import tempfile
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1] / "zsh/functions/sysup.zsh"
+# Every default sysup step as a no-op (test_sysup_stub_steps.py keeps it complete).
+STUB_STEPS = Path(__file__).resolve().parent / "sysup-stub-steps.zsh"
 ZSH = shutil.which("zsh")
 AWK = shutil.which("awk")
 
@@ -109,17 +111,22 @@ esac
     def run_sysup(self, *args):
         code = """
 source "$1"
-shift
-for fn in _sysup_mirrorlist_check _sysup_bgutil _sysup_yts _sysup_herdr \\
-          _sysup_prune_claude_versions _sysup_plugins _sysup_nvim_health \\
-          _sysup_fwupd_refresh_if_stale; do
-  functions[$fn]=':'
-done
+source "$2" || exit 1
+shift 2
 _sysup_pacnew() { print -r -- "config-drift $*" >> "$SYSUP_TEST_LOG"; }
 sysup "$@"
 """
         return subprocess.run(
-            [ZSH, "-f", "-c", code, "test", str(SOURCE), *args],
+            [
+                ZSH,
+                "-f",
+                "-c",
+                code,
+                "test",
+                str(SOURCE),
+                str(STUB_STEPS),
+                *args,
+            ],
             env=self.env,
             capture_output=True,
             text=True,

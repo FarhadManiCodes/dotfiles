@@ -69,7 +69,7 @@ case "$cmd" in
         --preview-window=hidden,right:40% \
         --bind 'ctrl-p:toggle-preview' \
         --header='Enter: open | Ctrl-d: cd')
-    [[ -z "$result" ]] && exit 0
+    [[ -n "$result" ]] || exit 0
     abs="$sp/$result"
     if [[ -e "$xdir/cd" ]]; then
       reply cd "$(dirname "$abs")"
@@ -99,7 +99,7 @@ case "$cmd" in
       --preview-window='hidden,right:50%' \
       --bind 'ctrl-p:toggle-preview' \
       --header='Enter: open at page | Ctrl-d: cd')
-    [[ -z "$result" ]] && exit 0
+    [[ -n "$result" ]] || exit 0
     relpath="${result%%$'\t'*}"
     page=$(grep -oP 'Page \K[0-9]+' <<<"$result" | head -1)
     abs="$sp/${relpath%.md}.pdf"
@@ -134,7 +134,7 @@ case "$cmd" in
       --preview-window=hidden,right:40% \
       --bind 'ctrl-p:toggle-preview' \
       --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
-    [[ -z "$result" ]] && exit 0
+    [[ -n "$result" ]] || exit 0
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
     if [[ -e "$xdir/cd" ]]; then
       reply cd "$(dirname "$abs")"
@@ -154,7 +154,7 @@ case "$cmd" in
         --preview-window=hidden,right:30% \
         --bind 'ctrl-p:toggle-preview' \
         --header='Enter: goto | Ctrl-d: cd')
-    [[ -z "$result" ]] && exit 0
+    [[ -n "$result" ]] || exit 0
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
     if [[ -e "$xdir/cd" ]]; then
       reply cd "$(dirname "$abs")"

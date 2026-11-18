@@ -14,8 +14,7 @@ safe_source() {
   local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/syntax"
   local cache_file="$cache_dir/${file//\//_}"
 
-  [[ ! -f "$file" ]] && return 1
-  [[ ! -r "$file" ]] && return 1
+  [[ -f "$file" && -r "$file" ]] || return 1
 
   # Only fork zsh -n when the file is newer than the last successful check
   if [[ ! -f "$cache_file" || "$file" -nt "$cache_file" ]]; then

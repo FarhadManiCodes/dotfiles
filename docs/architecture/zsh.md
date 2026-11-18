@@ -5,7 +5,6 @@
 - **Aliases**: `zsh/aliases`
 - **Helpers**: `zsh/helpers.zsh` — `safe_source` and utilities
 - **Functions** (`zsh/functions/`):
-  - `audio.zsh` — `playaudio`, fzf-driven mpv queue for `~/Audio`
   - `clipboard.zsh` — Wayland file copy
   - `cpp.zsh` — C++ build helpers (cmake/ninja/ccache)
   - `fzf.zsh` — FZF config + `fnb` (Jupyter finder) + `fdata` (data file finder)
@@ -14,11 +13,11 @@
   - `papis.zsh` — `pask` wrapper (papis-ask + llama.cpp embedding server)
   - `pdf.zsh` — book search with fzf; `rgbook` searches refinery's sibling Markdown
     review copies with physical PDF page markers
-  - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`
+  - `search.zsh` — `ff`, `fdir`, `fgit`, `rgf`, `rgpy`, `rgcpp`, `rgtex` (LaTeX and Typst)
   - `shpool.zsh` — detachable `keep`, per-repository `lg`, interactive `attach`
   - `sysclean.zsh` — system & cache cleanup, see [sysclean.md](sysclean.md)
   - `sysup.zsh` — full system update (mirrorlist → paru → uv → bgutil → yts → Cargo → Herdr →
-    Claude Code → agent skills (`gh`, `linux-perf`) → `ctx7` and its skill → plugins →
+    Claude Code → agent skill (`gh`) → `ctx7` and its rule → plugins →
     nvim `:checkhealth` → fwupd → `config-drift`);
     `sysup --podman-images` also updates installed Quadlet images, including stopped ones;
     `sysup --test-tools` also runs my own uv tools' test suites on the newest dependencies
@@ -74,31 +73,33 @@ repeated after the last step, and again when the run stops early (a bgutil or Ca
 Ctrl-C); a run with recorded failures or skips ends "sysup finished with warnings" and returns
 non-zero (the podman status when the image update failed, otherwise 1).
 
-Limits of the ctx7 update and skill refresh. What ctx7 itself does was read from its source (0.9.0,
+Limits of the ctx7 update and rule refresh. What ctx7 itself does was read from its source (0.9.0,
 rechecked on 0.10.0) rather than observed:
 
 - `sysup` compares `ctx7 --version` with `npm view ctx7 version` and runs `npm install -g` only when
   they differ. `ctx7 upgrade` cannot do it: it recognises an npm install only from the `npm_*`
   variables npm sets when it launches a program, so run directly it prints the npm command and
   exits 0 without installing.
-- The skill is refreshed on every run, not only after an install: `ctx7 setup` fetches `find-docs`
-  from ctx7's GitHub repository, so it changes independently of the package version.
-- Codex and OpenCode share `~/.agents/skills/find-docs`, and each `setup` rewrites it. Codex runs
-  last, so its variant wins; it adds one paragraph on running ctx7 outside Codex's sandbox, which
-  OpenCode has no use for. Each agent's rule file is its own, so both rules stay correct.
+- Setup runs on every `sysup`, not only after an install, so the rules follow ctx7's current
+  wording. Each agent's rule is its own (`~/.claude/rules/context7.md`,
+  `~/.config/opencode/AGENTS.md`, `~/.codex/AGENTS.md`; Codex's adds running ctx7 outside its
+  sandbox) and is always loaded.
+- Setup also writes a `find-docs` skill (`~/.claude/skills`, and `~/.agents/skills` shared by
+  Codex and OpenCode) that repeats the rule. `sysup` deletes both copies after the runs: they only
+  spent each agent's skill-listing budget, and ctx7 has no rule-only mode. A copy is deleted only
+  once the rules it repeats are on disk (Claude's rule file; for the shared copy, the
+  `<!-- context7 -->` section in both Codex's and OpenCode's `AGENTS.md`), so a first setup that
+  failed leaves the skill in place. After a failed version check or install no setup runs, and
+  nothing is deleted.
 
 - `ctx7 setup --cli --yes` asks nothing while ctx7 is logged in. With no usable token it starts a
   browser login, so each of the three runs is bounded by `timeout --foreground 120s` and a hang
   becomes a warning naming the agent (exit 124). `timeout` runs `ctx7` as a program, so tests stub
   it as an executable, not a shell function.
-- A failed skill or rule write is printed as `failed: ...` but ctx7 still exits 0, so `sysup` does
-  not warn. Read the output above if a skill looks stale.
-- If ctx7 cannot fetch `find-docs` from GitHub, it installs a short bundled copy and exits 0,
-  replacing the full skill.
-- The `gh` and `linux-perf` skills and the global `ctx7` package are not recreated by
-  `install.sh`. On a rebuilt machine none of them exists until reinstalled, and every `sysup` ends
-  "with warnings" until then. If only one of the two named skills is missing, `gh skill update`
-  updates the other and exits 0, so the missing one is not reported.
+- A failed rule write is printed as `failed: ...` but ctx7 still exits 0, so `sysup` does
+  not warn. Read the output above if a rule looks stale.
+- The `gh` skill and the global `ctx7` package are not recreated by `install.sh`. On a rebuilt
+  machine neither exists until reinstalled, and every `sysup` ends "with warnings" until then.
 
 ## Ctrl-C in sysup
 

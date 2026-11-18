@@ -11,7 +11,8 @@
 #
 # No general global npm update: system node/npm are covered by paru, and the bgutil step
 # rebuilds only the local yt-dlp token helper, using its release's lockfile. The one global
-# npm package, ctx7, is reinstalled when npm's version differs, then refreshes its skill.
+# npm package, ctx7, is reinstalled when npm's version differs, then refreshes each agent's
+# rule and deletes the find-docs skill copies.
 #
 # Steps live one-per-file in sysup/, sourced below by $0's own resolved
 # directory -- zsh sets $0 to the currently-sourcing file even nested inside a
@@ -303,12 +304,12 @@ _sysup_steps() {
   claude update
   _sysup_prune_claude_versions
 
-  _sysup_header "Agent skills (gh, linux-perf)"
+  _sysup_header "Agent skill (gh)"
   _status=0
-  gh skill update --all gh linux-perf || _status=$?
+  gh skill update --all gh || _status=$?
   (( _status )) && { _sysup_note "$_status" "gh skill update failed (exit $_status); see the output above"; }
 
-  _sysup_header "ctx7 CLI and skill"
+  _sysup_header "ctx7 CLI and rule"
   # Not `ctx7 upgrade`: it recognises an npm install only from the npm_* variables npm sets when it
   # launches a program, so run directly it just prints the npm command and exits 0 (ctx7 0.10.0).
   local _ctx7_have _ctx7_latest
@@ -324,15 +325,18 @@ _sysup_steps() {
     npm install -g "ctx7@$_ctx7_latest" || _status=$?
     (( _status )) && { _sysup_note "$_status" "ctx7 install failed (exit $_status); see the output above"; }
   fi
-  # One run per agent, in this order: Codex and OpenCode share ~/.agents/skills/find-docs and each
-  # writes its own variant of SKILL.md, so the last one wins -- Codex's, whose extra paragraph on
-  # running ctx7 outside Codex's sandbox does not apply to OpenCode. Setup is
-  # idempotent (skill file overwritten, rule section replaced between its markers) and with
+  # One run per agent. Each writes its rule into the agent's always-loaded instructions
+  # (~/.claude/rules/context7.md, ~/.config/opencode/AGENTS.md, ~/.codex/AGENTS.md, Codex's with
+  # the run-outside-the-sandbox note) and also a find-docs skill that repeats the rule, so the
+  # skill copies are removed afterwards: they only spent each agent's skill-listing budget, and
+  # ctx7 has no rule-only mode. Claude's rule is a file of its own, without markers; Codex and
+  # OpenCode get a section between <!-- context7 --> markers in AGENTS.md. Setup is
+  # idempotent (skill and Claude's rule overwritten, the AGENTS.md section replaced) and with
   # --yes asks nothing while ctx7 is logged in; with no usable token it starts a browser login,
   # so each run is bounded by timeout (an external command, hence --foreground for Ctrl-C and
   # a real ctx7 on PATH, not a function). Skipped after a failed version check or install, so one failure is one warning, not four.
   if (( _status )); then
-    echo "    skipping the ctx7 skill refresh; the version check or install did not finish"
+    echo "    skipping the ctx7 rule refresh; the version check or install did not finish"
   else
     local _agent
     for _agent in claude opencode codex; do
@@ -340,6 +344,14 @@ _sysup_steps() {
       timeout --foreground 120s ctx7 setup --cli --yes --"$_agent" || _status=$?
       (( _status )) && { _sysup_note "$_status" "ctx7 setup for $_agent failed (exit $_status); see the output above"; }
     done
+    # A copy goes only once the rules it repeats are in place, whatever setup's exit status: a
+    # first setup that timed out would otherwise leave an agent with neither. The shared copy
+    # serves Codex and OpenCode, so it waits for both.
+    # ctx7 is the command the rule tells Claude to run, so every version of the rule names it.
+    grep -qsF ctx7 "$HOME/.claude/rules/context7.md" && rm -rf -- "$HOME/.claude/skills/find-docs"
+    grep -qsF '<!-- context7 -->' "$HOME/.codex/AGENTS.md" &&
+      grep -qsF '<!-- context7 -->' "$HOME/.config/opencode/AGENTS.md" &&
+      rm -rf -- "$HOME/.agents/skills/find-docs"
   fi
 
   _sysup_header "Editor & shell plugins"

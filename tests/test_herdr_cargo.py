@@ -215,6 +215,43 @@ def log(value):
             check=False,
         )
 
+    def start_held(self, hold, marker, *args):
+        """The helper in its own process group, once a fake tool shows it has
+        reached the point $hold names (the fake creates the marker file and
+        waits). Killed at test end if it is still running."""
+        held = self.base / marker
+        proc = subprocess.Popen(
+            ["/bin/bash", str(SOURCE), *args],
+            env=dict(self.env, **{hold: str(held)}),  # later runs are not held
+            cwd=self.base,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+
+        def stop():
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+                proc.communicate()
+
+        self.addCleanup(stop)
+        deadline = time.monotonic() + 10
+        while (
+            not held.exists()
+            and time.monotonic() < deadline
+            and proc.poll() is None
+        ):
+            time.sleep(0.02)
+        if not held.exists():
+            if proc.poll() is None:
+                os.killpg(proc.pid, signal.SIGKILL)
+            _, err = proc.communicate(timeout=5)
+            self.fail(
+                f"{marker} never appeared (exit {proc.returncode}): {err}"
+            )
+        return proc
+
     def calls(self, tool=None):
         rows = (
             [json.loads(line) for line in self.log.read_text().splitlines()]
@@ -458,6 +495,20 @@ def log(value):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("older than the engine minimum", result.stderr)
 
+    def test_failed_zig_comparison_is_not_reported_as_too_old(self):
+        self.stub(
+            "sort",
+            """
+if "-VC" in sys.argv:
+    sys.exit(2)
+os.execv("/usr/bin/sort", ["sort", *sys.argv[1:]])
+""",
+        )
+        result = self.run_helper("--check")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot compare the CI-pinned Zig", result.stderr)
+        self.assertNotIn("older than the engine minimum", result.stderr)
+
     def test_prerelease_or_tag_version_mismatch_is_rejected(self):
         self.fixture(
             "release.json",
@@ -536,68 +587,22 @@ def log(value):
 
     def test_interrupt_cleans_temporary_work_and_keeps_old_install(self):
         before = self.installed()
-        ready = self.base / "building"
-        self.env["HOLD_BUILD"] = str(ready)
-        proc = subprocess.Popen(
-            ["/bin/bash", str(SOURCE), "--update"],
-            env=self.env,
-            cwd=self.base,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True,
-        )
-        try:
-            deadline = time.monotonic() + 10
-            while (
-                not ready.exists()
-                and time.monotonic() < deadline
-                and proc.poll() is None
-            ):
-                time.sleep(0.02)
-            self.assertTrue(ready.exists())
-            os.killpg(proc.pid, signal.SIGINT)
-            proc.communicate(timeout=5)
-            self.assertEqual(proc.returncode, 130)
-            self.assertEqual((self.root / "bin/herdr").read_bytes(), before)
-            self.assert_clean()
-        finally:
-            if proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.communicate()
+        proc = self.start_held("HOLD_BUILD", "building", "--update")
+        os.killpg(proc.pid, signal.SIGINT)
+        proc.communicate(timeout=5)
+        self.assertEqual(proc.returncode, 130)
+        self.assertEqual((self.root / "bin/herdr").read_bytes(), before)
+        self.assert_clean()
 
     def test_ctrl_c_reaches_a_slow_git_lookup_at_once(self):
         # The terminal's SIGINT goes to the foreground process group. Plain `timeout` starts its
         # child in a new group, so Ctrl-C then waited for the whole 90 s limit.
-        held = self.base / "git-held"
-        self.env["HOLD_GIT"] = str(held)
-        proc = subprocess.Popen(
-            ["/bin/bash", str(SOURCE), "--check"],
-            env=self.env,
-            cwd=self.base,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True,
-        )
-        try:
-            deadline = time.monotonic() + 10
-            while (
-                not held.exists()
-                and time.monotonic() < deadline
-                and proc.poll() is None
-            ):
-                time.sleep(0.02)
-            self.assertTrue(held.exists())
-            started = time.monotonic()
-            os.killpg(proc.pid, signal.SIGINT)
-            proc.communicate(timeout=5)
-            self.assertEqual(proc.returncode, 130)
-            self.assertLess(time.monotonic() - started, 3)
-        finally:
-            if proc.poll() is None:
-                os.killpg(proc.pid, signal.SIGKILL)
-                proc.communicate()
+        proc = self.start_held("HOLD_GIT", "git-held", "--check")
+        started = time.monotonic()
+        os.killpg(proc.pid, signal.SIGINT)
+        proc.communicate(timeout=5)
+        self.assertEqual(proc.returncode, 130)
+        self.assertLess(time.monotonic() - started, 3)
 
     def test_arguments_help_and_explicit_root(self):
         self.assertEqual(self.run_helper("--help").returncode, 0)

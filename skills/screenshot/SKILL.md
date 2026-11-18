@@ -1,12 +1,10 @@
 ---
 name: screenshot
 description: >
-  Capture the screen on this Wayland/niri machine, so visual work can be checked rather than
-  assumed. Use when you need to see what is currently displayed, verify a UI or theme change
-  took effect, confirm a window opened or is positioned correctly, read something only visible
-  on screen, or capture a region or a specific monitor. Covers which capture mechanisms work
-  non-interactively, how to keep the file small enough to read, and how to handle the image
-  afterwards.
+  Capture the screen on this Wayland/niri machine, so visual work is checked rather than
+  assumed. Use when you need to see what is displayed, verify a UI or theme change took
+  effect, confirm a window opened or is positioned correctly, read something only visible on
+  screen, or capture a region or one monitor.
 ---
 
 # Taking a screenshot here

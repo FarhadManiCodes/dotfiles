@@ -1,14 +1,12 @@
 ---
 name: papers-and-pdfs
 description: >
-  Work with PDFs on this machine, whether academic papers or not. Use when adding a paper to
-  papis, indexing or asking questions across the library with pask or papis-ask, running
-  refinery on a PDF, re-refining documents to improve citations or chunks, converting a PDF or
-  scanned book to markdown or plain text, extracting text from a PDF, reading or rendering pages
-  of a PDF (the Read tool's PDF mode needs poppler, which is missing: use mutool), typesetting a parsed
-  document, or when chunks.json, citations.json, resolution_report.txt or a .refinery work
-  directory is involved. Covers which entry point to use, what is automatic, what costs API
-  calls, and the traps that fail silently.
+  Work with PDFs on this machine, academic papers or not. Use when adding a paper to papis,
+  indexing or asking questions across the library with pask or papis-ask, running or
+  re-running refinery on a PDF, converting a PDF or scanned book to markdown or text,
+  extracting text, reading or rendering PDF pages (the Read tool's PDF mode needs poppler,
+  which is missing: use mutool), typesetting a parsed document, or when chunks.json,
+  citations.json, resolution_report.txt or a .refinery directory is involved.
 ---
 
 # Papers and PDFs

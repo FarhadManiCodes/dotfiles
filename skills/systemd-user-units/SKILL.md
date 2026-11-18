@@ -2,11 +2,10 @@
 name: systemd-user-units
 description: >
   Write or change a systemd user unit or a suspend/resume sleep hook on this machine. Use when
-  something needs to run at login, on a timer, in the background, or around suspend and resume;
-  when adding a .service, .timer or template unit; when a unit needs to wait for the network or
-  restart on failure; or when editing anything under systemd/user/ or system-sleep/. Covers the
-  orderings that are silently inert here, how failures get reported, and why a sleep hook cannot
-  talk to the user manager.
+  something needs to run at login, on a timer, in the background, or around suspend and
+  resume; when adding a .service, .timer or template unit; when a unit needs to wait for the
+  network or restart on failure; or when editing anything under systemd/user/ or
+  system-sleep/. Not for investigating a failed boot or resume (use diagnose-boot-or-suspend).
 ---
 
 # Writing a user unit or a sleep hook here

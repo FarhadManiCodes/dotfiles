@@ -4,10 +4,8 @@ description: >
   Time and compare commands on this machine with hyperfine, so a speed or startup claim is
   measured rather than assumed. Use when asked whether something got faster or slower, to time
   shell or terminal startup, the prompt, a script or a build step, to compare two
-  implementations, or before and after any performance edit. Covers the hyperfine flags that
-  matter, what it cannot measure (memory, shell functions), and the traps that gave wrong
-  numbers here: machine drift, warm versus cold caches, inherited environment, and probe
-  shells overwriting the last working directory.
+  implementations, or before and after any performance edit. Not for finding where CPU time
+  goes (use profile-cpu).
 ---
 
 # Measuring speed here

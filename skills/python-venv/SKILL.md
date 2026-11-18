@@ -4,8 +4,7 @@ description: >
   Find the Python environment a project is meant to use, instead of creating another one. Use
   when about to run python, pip, pytest or any Python tool in a project; when installing a
   package; when deciding where a new environment should live; or when an import fails that
-  should have worked. Covers the three places environments live on this machine, how to tell which one a
-  project intends, and which commands create one as a side effect.
+  should have worked.
 ---
 
 # Where Python environments live here

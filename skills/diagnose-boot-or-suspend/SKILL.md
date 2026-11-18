@@ -1,12 +1,11 @@
 ---
 name: diagnose-boot-or-suspend
 description: >
-  Investigate a boot or suspend/resume that misbehaved on this machine, using the journal as
-  the primary evidence source. Use when a resume failed or hung, the machine did not sleep or
-  did not wake, wifi or audio did not come back, the lid did nothing, the battery drained
-  overnight, boot was slow or degraded, a user unit failed at startup, or the laptop was
-  "weird overnight". Covers choosing the right boot, counting before reading, freezer and FUSE
-  state, the suspend retry-loop signature, and which probes have given wrong answers here.
+  Investigate a boot or suspend/resume that misbehaved on this machine, using the journal. Use
+  when a resume failed or hung, the machine did not sleep or did not wake, wifi or audio did
+  not come back, the lid did nothing, the battery drained overnight, boot was slow or
+  degraded, a user unit failed at startup, or the laptop was "weird overnight". Not for
+  writing or changing a unit (use systemd-user-units).
 ---
 
 # Diagnosing a boot or suspend on this machine

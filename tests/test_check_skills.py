@@ -137,6 +137,30 @@ class CheckSkillsTests(unittest.TestCase):
         self.assertIn("bash/tool is not executable", out)
         self.assertNotIn("present and executable", out)
         self.assertIn("2 reference file(s) exist", out)
+        # A deleted tool, the rename-and-delete case.
+        tool.unlink()
+        code, out = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertIn("names bash/tool, which does not exist", out)
+
+    def test_scripts_it_names_are_checked_only_with_its_own_scripts_dir(self):
+        body = (
+            VALID.format(name="fixture-skill") + "\nRun `scripts/check.sh`.\n"
+        )
+        path = self.skill("fixture-skill", body)
+        self.assertEqual(self.run_script()[0], 0)  # may name another project's
+        (path / "scripts").mkdir()
+        out = self.run_script()[1]
+        self.assertIn("routes to scripts/check.sh, which does not exist", out)
+        (path / "scripts/check.sh").touch()
+        self.assertEqual(self.run_script()[0], 0)
+
+    def test_name_not_matching_its_directory_fails(self):
+        # A renamed skill directory whose frontmatter kept the old name.
+        self.skill("renamed-skill", body=VALID.format(name="old-skill"))
+        code, out = self.run_script()
+        self.assertEqual(code, 1)
+        self.assertIn("does not match directory 'renamed-skill'", out)
 
     def test_checkout_is_located_through_an_installed_symlink(self):
         self.skill("fixture-skill")

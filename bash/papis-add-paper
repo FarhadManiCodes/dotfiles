@@ -18,7 +18,7 @@ set -uo pipefail
 importer="${1:-}"
 if (($# >= 2)); then identifier=$2; else identifier=$(cat); fi
 
-[[ -z "$importer" || -z "$identifier" ]] && {
+[[ -n "$importer" && -n "$identifier" ]] || {
   notify-send -u critical "Papis" "Usage: papis-add-paper <importer> [identifier]"
   exit 1
 }
@@ -71,7 +71,7 @@ existing=$(ID=$identifier IMP=$importer awk -F'\t' '
     function bare(s) { s = tolower(s); if (ENVIRON["IMP"] == "arxiv") sub(/v[0-9]+$/, "", s); return s }
     BEGIN { id = bare(ENVIRON["ID"]); col = (ENVIRON["IMP"] == "doi") ? 2 : 3 }
     $col != "" && bare($col) == id { print $1; exit }' <<<"$library")
-[[ -n "$existing" ]] && {
+[[ -z "$existing" ]] || {
   notify-send -u low "Papis" "Already in papis as $existing\n$identifier"
   exit 0
 }
@@ -122,12 +122,20 @@ prompt_meta() {
       exit 1
       ;;
   esac
-  OUT_KEY=$(sanitize_ref "$(sed -n 1p "$out" 2>/dev/null)")
-  OUT_TAGS=$(sed -n 2p "$out" 2>/dev/null | tr -s ' ' | sed 's/^ *//; s/ *$//')
+  # A closed or cancelled window leaves the file empty: an empty key cancels.
+  local key="" tag_words=()
+  {
+    read -r key
+    read -ra tag_words
+  } <"$out"
+  OUT_KEY=$(sanitize_ref "$key")
+  OUT_TAGS=${tag_words[*]}
   rm -f "$out"
 }
 
-IFS=$SEP read -r META_TITLE META_FAMILY META_YEAR < <(fetch_meta "$importer" "$identifier" 2>/dev/null)
+# Offline or no answer is fine: the suggested key falls back to the identifier.
+meta=$(fetch_meta "$importer" "$identifier" 2>/dev/null) || meta=
+IFS=$SEP read -r META_TITLE META_FAMILY META_YEAR <<<"$meta"
 
 base=$(sanitize_ref "$META_FAMILY")
 [[ -n "$META_YEAR" ]] && base="${base:+${base}_}$META_YEAR"
@@ -159,7 +167,9 @@ notify-send -u low "Papis" "Adding as $ref…\n$identifier"
 # --batch is required: --set turns the value into a second metadata source, and
 # without it papis prompts to merge importer-vs-command-line (no TTY -> "Aborted!").
 if ! output=$(papis add --from "$importer" "$identifier" --no-edit --batch --set ref "$ref" 2>&1); then
-  notify-send -u critical "Papis" "Failed to add\n$identifier\n$(tail -1 <<<"$output")"
+  # ${output##*$'\n'}: the last line of papis's output, usually the reason.
+  notify-send -u critical "Papis" \
+    "Failed to add\n$identifier\n${output##*$'\n'}"
   exit 1
 fi
 # --batch refuses a duplicate found on another unique key (isbn, url, ...) but

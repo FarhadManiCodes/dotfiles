@@ -55,7 +55,8 @@ fi
 for tool in curl git jq awk sort sha256sum mktemp uname timeout; do
   command -v "$tool" >/dev/null || die "$tool is required"
 done
-[[ $(uname -s) == Linux && $(uname -m) == x86_64 ]] || die 'this build recipe requires x86_64 Linux'
+platform=$(uname -sm) || die 'uname could not report the platform'
+[[ $platform == 'Linux x86_64' ]] || die 'this build recipe requires x86_64 Linux'
 repo=https://github.com/herdrdev/herdr
 recipe='target=x86_64-unknown-linux-gnu;cpu=znver4;opt=3;lto=fat;cgu=1;strip=symbols;panic=unwind;zig=ReleaseFast;simd=true'
 work=
@@ -88,6 +89,13 @@ read_install() {
     installed_hash=$(sha256sum -- "$binary")
     installed_hash=${installed_hash%% *}
   fi
+}
+
+# Run a Herdr executable and stop unless it reports the selected version.
+check_version() {
+  local reported
+  reported=$("$1" --version) || die "$2 Herdr did not run"
+  [[ $reported == "herdr $version" ]] || die "$2 Herdr failed its version check"
 }
 
 if [[ $mode == check ]]; then
@@ -131,9 +139,11 @@ commit=$(awk -v ref="refs/tags/$tag" '
 [[ $commit =~ ^[0-9a-f]{40}$ ]] || die "could not resolve $tag to a commit"
 printf 'Latest stable Herdr: %s (%s)\n' "$tag" "$commit"
 printf 'Installed: %s\n' "${installed_version:-absent}"
-if [[ -n $installed_version && $installed_version != "$version" &&
-  $(printf '%s\n%s\n' "$installed_version" "$version" | sort -V | tail -n1) == "$installed_version" ]]; then
-  die 'installed version is newer than the latest stable; refusing to downgrade'
+if [[ -n $installed_version && $installed_version != "$version" ]]; then
+  newest=$(printf '%s\n%s\n' "$installed_version" "$version" | sort -V | tail -n1) \
+    || die 'cannot compare the installed and latest versions'
+  [[ $newest != "$installed_version" ]] \
+    || die 'installed version is newer than the latest stable; refusing to downgrade'
 fi
 if [[ $installed_commit == "$commit" && -r $record ]] \
   && jq -e --arg commit "$commit" --arg recipe "$recipe" --arg hash "$installed_hash" \
@@ -164,8 +174,11 @@ minimum_zig=$(awk '/^[[:space:]]*\.minimum_zig_version[[:space:]]*=/ {
 }' "$work/build.zig.zon")
 [[ $zig_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $minimum_zig =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
   || die 'cannot determine one stable CI-pinned Zig version and the engine minimum; review the release build files'
-[[ $(printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -V | tail -n1) == "$zig_version" ]] \
-  || die 'CI-pinned Zig is older than the engine minimum'
+# sort -C exits 1 when the lines are out of order and 2 when it fails.
+order=0
+printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -VC || order=$?
+((order != 2)) || die 'cannot compare the CI-pinned Zig with the engine minimum'
+((order == 0)) || die 'CI-pinned Zig is older than the engine minimum'
 fetch https://ziglang.org/download/index.json "$work/zig-index.json"
 zig_url=$(jq -er --arg version "$zig_version" '.[$version]["x86_64-linux"].tarball' "$work/zig-index.json") \
   || die "Zig $zig_version has no official x86_64 Linux archive in the download index"
@@ -180,13 +193,15 @@ if [[ $mode == check ]]; then
   printf 'Would build, verify and install %s into %s.\n' "$tag" "$cargo_root"
   exit 0
 fi
-[[ $(rustc --print target-cpus) == *'currently znver4)'* ]] \
+target_cpus=$(rustc --print target-cpus) || die 'rustc could not list its target CPUs'
+[[ $target_cpus == *'currently znver4)'* ]] \
   || die 'this recipe is tuned for a Zen 4 host; review target-cpu=znver4 for this machine'
 fetch "$zig_url" "$work/zig.tar.xz" 300
 printf '%s  %s\n' "$zig_sha" "$work/zig.tar.xz" | sha256sum --check --strict \
   || die 'Zig archive checksum mismatch'
 tar -xJf "$work/zig.tar.xz" -C "$work" || die 'could not extract the Zig archive'
-[[ $("$work/$zig_name/zig" version) == "$zig_version" ]] || die 'extracted Zig reports an unexpected version'
+zig_reported=$("$work/$zig_name/zig" version) || die 'extracted Zig did not run'
+[[ $zig_reported == "$zig_version" ]] || die 'extracted Zig reports an unexpected version'
 
 mkdir -p "$work/tmp"
 export TMPDIR="$work/tmp"
@@ -200,10 +215,12 @@ export LIBGHOSTTY_VT_OPTIMIZE=ReleaseFast LIBGHOSTTY_VT_SIMD=true
 unset CARGO_ENCODED_RUSTFLAGS CARGO_INCREMENTAL LIBGHOSTTY_VT_ZIG_SYSTEM_DIR
 export RUSTFLAGS='-C target-cpu=znver4'
 install_args=(install --git "$repo" --rev "$commit" --locked --bin herdr --target x86_64-unknown-linux-gnu)
+rustc_info=$(rustc -vV) || die 'cannot read the rustc version for the record'
+cargo_info=$(cargo --version) || die 'cannot read the Cargo version for the record'
 # Verify the built executable before replacing anything in the installation root.
 cargo "${install_args[@]}" --root "$work/stage" herdr {lockfd}>&- \
   || die 'staged Cargo build failed; the installed executable was not replaced'
-[[ $("$work/stage/bin/herdr" --version) == "herdr $version" ]] || die 'staged Herdr failed its version check'
+check_version "$work/stage/bin/herdr" staged
 read_install
 [[ $installed_hash == "$initial_hash" && $installed_commit == "$initial_commit" ]] \
   || die 'Herdr changed while the build was running; retry after reviewing the installation'
@@ -211,16 +228,17 @@ read_install
 # also applies the recipe when the same commit was previously built differently.
 cargo "${install_args[@]}" --root "$cargo_root" --force herdr {lockfd}>&- \
   || die "Cargo could not install the verified candidate into $cargo_root"
-[[ $("$binary" --version) == "herdr $version" ]] || die 'installed Herdr failed its version check'
+check_version "$binary" installed
 read_install
 [[ $installed_commit == "$commit" && $installed_version == "$version" ]] || die 'installed Cargo metadata does not match the selected release'
+bytes=$(stat -c %s "$binary") || die "cannot read the size of $binary"
 record_tmp=$(mktemp "$cargo_root/.herdr-cargo.XXXXXX")
 jq -n --arg tag "$tag" --arg commit "$commit" --arg zig "$zig_version" \
-  --arg recipe "$recipe" --arg hash "$installed_hash" --arg rustc "$(rustc -vV)" \
-  --arg cargo "$(cargo --version)" --argjson bytes "$(stat -c %s "$binary")" \
+  --arg recipe "$recipe" --arg hash "$installed_hash" --arg rustc "$rustc_info" \
+  --arg cargo "$cargo_info" --argjson bytes "$bytes" \
   '{schema:1, tag:$tag, commit:$commit, zig:$zig, recipe:$recipe,
     binary_sha256:$hash, binary_bytes:$bytes, rustc:$rustc, cargo:$cargo}' >"$record_tmp"
 mv -- "$record_tmp" "$record"
 record_tmp=
-printf 'Installed %s (%s), %s bytes: %s\n' "$tag" "$commit" "$(stat -c %s "$binary")" "$binary"
+printf 'Installed %s (%s), %s bytes: %s\n' "$tag" "$commit" "$bytes" "$binary"
 printf 'Running Herdr sessions retain their current server; no sessions were restarted.\n'

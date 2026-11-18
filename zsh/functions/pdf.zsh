@@ -110,7 +110,7 @@ fbook() {
       --header='Enter: open | Ctrl-d: cd to folder | Ctrl-o: open in vifm' || return 0
 
   local file="$search_path/$selection"
-  [[ ! -f "$file" ]] && return 0
+  [[ -f "$file" ]] || return 0
 
   case "$key" in
     ctrl-d)
@@ -159,13 +159,17 @@ pdfmerge() {
     return 1
   fi
   local out="${@[-1]}" ins=("${@[1,-2]}") f
+  # An existing output is refused: with the output name forgotten,
+  # `pdfmerge a.pdf b.pdf c.pdf` would overwrite c.pdf, and a rerun of
+  # `pdfmerge ./*.pdf out.pdf` would merge out.pdf into itself. A dangling
+  # symlink counts too: -e is false for it, and qpdf would write its target.
+  if [[ -e "$out" || -L "$out" ]]; then
+    echo "pdfmerge: $out exists; remove it or name a new output" >&2
+    return 1
+  fi
   for f in "$ins[@]"; do
     [[ -f "$f" ]] || {
       echo "pdfmerge: no such file: $f" >&2
-      return 1
-    }
-    [[ "$f" == "$out" ]] && {
-      echo "pdfmerge: output would overwrite input: $f" >&2
       return 1
     }
   done
