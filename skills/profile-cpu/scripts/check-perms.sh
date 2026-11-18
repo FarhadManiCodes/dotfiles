@@ -51,6 +51,10 @@ row() {
 row "perf stat" perf stat -- ./chain
 row "perf record (no -e)" perf record -q -o p.data -- ./chain
 row "perf record -e cycles:u" perf record -q -o p.data -e cycles:u -- ./chain
+# Both read the recording above. Each must also print what it is for, since
+# annotate exits 0 with no output when it cannot disassemble.
+row "perf report" bash -c 'perf report -i p.data --stdio >r.txt && grep -q " leaf$" r.txt'
+row "perf annotate" bash -c 'perf annotate -i p.data --stdio -s leaf >a.txt && grep -q "<leaf>:" a.txt'
 row "-g (no --user-callchains)" perf record -q -o p.data -g -- ./chain
 row "--call-graph dwarf (no flag)" perf record -q -o p.data --call-graph dwarf -- ./chain
 row "-g --user-callchains" perf record -q -o p.data -g --user-callchains -- ./chain
