@@ -495,6 +495,20 @@ def log(value):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("older than the engine minimum", result.stderr)
 
+    def test_failed_zig_comparison_is_not_reported_as_too_old(self):
+        self.stub(
+            "sort",
+            """
+if "-VC" in sys.argv:
+    sys.exit(2)
+os.execv("/usr/bin/sort", ["sort", *sys.argv[1:]])
+""",
+        )
+        result = self.run_helper("--check")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("cannot compare the CI-pinned Zig", result.stderr)
+        self.assertNotIn("older than the engine minimum", result.stderr)
+
     def test_prerelease_or_tag_version_mismatch_is_rejected(self):
         self.fixture(
             "release.json",

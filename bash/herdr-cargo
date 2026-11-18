@@ -174,8 +174,11 @@ minimum_zig=$(awk '/^[[:space:]]*\.minimum_zig_version[[:space:]]*=/ {
 }' "$work/build.zig.zon")
 [[ $zig_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && $minimum_zig =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
   || die 'cannot determine one stable CI-pinned Zig version and the engine minimum; review the release build files'
-printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -VC \
-  || die 'CI-pinned Zig is older than the engine minimum'
+# sort -C exits 1 when the lines are out of order and 2 when it fails.
+order=0
+printf '%s\n%s\n' "$minimum_zig" "$zig_version" | sort -VC || order=$?
+((order != 2)) || die 'cannot compare the CI-pinned Zig with the engine minimum'
+((order == 0)) || die 'CI-pinned Zig is older than the engine minimum'
 fetch https://ziglang.org/download/index.json "$work/zig-index.json"
 zig_url=$(jq -er --arg version "$zig_version" '.[$version]["x86_64-linux"].tarball' "$work/zig-index.json") \
   || die "Zig $zig_version has no official x86_64 Linux archive in the download index"
