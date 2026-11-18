@@ -33,14 +33,19 @@ echo
 
 # row LABEL CMD... : run CMD, print whether it worked.
 row() {
-  local label=$1
+  local label=$1 status=0 reason
   shift
-  if timeout 60 "$@" >/dev/null 2>err.txt; then
+  timeout 60 "$@" >/dev/null 2>err.txt || status=$?
+  if ((status == 0)); then
     printf '  works  %s\n' "$label"
-  else
-    printf '  FAILS  %s  (%s)\n' "$label" \
-      "$(grep -v '^Error:$' err.txt | grep -m1 -iE 'failure|error|denied|not supported' | cut -c1-70)"
+    return
   fi
+  reason=$(grep -v '^Error:$' err.txt | grep -m1 -iE 'failure|error|denied|not supported' | cut -c1-70)
+  if [[ -z $reason ]]; then
+    reason="exit $status"
+    ((status == 124)) && reason="timed out after 60 s"
+  fi
+  printf '  FAILS  %s  (%s)\n' "$label" "$reason"
 }
 
 row "perf stat" perf stat -- ./chain
@@ -62,4 +67,6 @@ if perf record -q -o d.data --call-graph dwarf --user-callchains -- ./chain >/de
   else
     echo "  dwarf stacks do NOT show mid"
   fi
+else
+  echo "  dwarf stack check not run: its perf record failed"
 fi

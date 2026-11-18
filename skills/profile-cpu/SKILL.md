@@ -57,7 +57,6 @@ and AMD reports cache-line contention through IBS (the `ibs_op` and `ibs_fetch` 
 ## The flow
 
 ```sh
-cd /tmp                                                    # perf record writes ./perf.data
 perf stat -- ./prog                                        # 1. counters: IPC, branch-miss rate
 perf record -o /tmp/p.data -- ./prog                       # 2. sample
 perf report -i /tmp/p.data --stdio --sort dso,sym --percent-limit 2
