@@ -1,6 +1,7 @@
 """Check the gh skill and ctx7 steps of sysup: what they run, and that a failure is warned about."""
 
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -19,13 +20,23 @@ class SysupAgentToolsTests(unittest.TestCase):
         self.log = self.base / "calls"
         # ctx7 must be a real executable: sysup runs setup through timeout, which cannot call a
         # shell function. Each stub prints its *_VERSION for a version query; FAIL_ON names the
-        # arguments that make it fail, with STATUS. ctx7 setup writes find-docs like the real one,
-        # so a test can tell whether sysup deletes it after setup or before.
+        # arguments that make it fail, with STATUS. ctx7 setup writes find-docs and the agent's
+        # rule like the real one, so a test can tell whether sysup deletes the skill after setup
+        # or before; CTX7_NO_RULE names agents whose rule it does not write.
         bin_dir = self.base / "bin"
         bin_dir.mkdir()
-        ctx7_setup = """case "$*" in
-  "setup "*--claude) mkdir -p "$HOME/.claude/skills/find-docs" ;;
-  "setup "*) mkdir -p "$HOME/.agents/skills/find-docs" ;;
+        ctx7_setup = """case "$*" in "setup "*)
+  args="$*" && agent=${args##*--}
+  case $agent in
+    claude) skill=.claude/skills/find-docs rule=.claude/rules/context7.md ;;
+    opencode) skill=.agents/skills/find-docs rule=.config/opencode/AGENTS.md ;;
+    codex) skill=.agents/skills/find-docs rule=.codex/AGENTS.md ;;
+  esac
+  mkdir -p "$HOME/$skill"
+  case " $CTX7_NO_RULE " in *" $agent "*) ;; *)
+    mkdir -p "$(dirname "$HOME/$rule")"
+    echo "<!-- context7 -->" >> "$HOME/$rule" ;;
+  esac ;;
 esac
 """
         for name, prefix, version_args, extra in (
@@ -46,6 +57,7 @@ case "$*" in *"${prefix}_FAIL_ON"*) exit "${prefix}_STATUS" ;; esac
             "HOME": str(self.base),
             "PATH": f"{bin_dir}:/usr/bin:/bin",
             "CTX7_FAIL_ON": "no-such-argument",
+            "CTX7_NO_RULE": "",
             "CTX7_STATUS": "0",
             "CTX7_VERSION": "1.0.0",
             "NPM_FAIL_ON": "no-such-argument",
@@ -107,14 +119,30 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
     def test_agents_keep_the_rules_but_not_the_find_docs_skills(self):
         claude_skill = self.base / ".claude/skills/find-docs"
         shared_skill = self.base / ".agents/skills/find-docs"
-        rule = self.base / ".claude/rules/context7.md"
-        rule.parent.mkdir(parents=True)
-        rule.write_text("rule\n")
         result = self.run_sysup()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertFalse(claude_skill.exists())
         self.assertFalse(shared_skill.exists())
-        self.assertTrue(rule.exists())
+        self.assertTrue((self.base / ".claude/rules/context7.md").exists())
+
+    def test_find_docs_is_kept_while_its_rule_is_missing(self):
+        # Setup can fail or time out before writing a rule; the skill is then the only copy.
+        claude_skill = self.base / ".claude/skills/find-docs"
+        shared_skill = self.base / ".agents/skills/find-docs"
+        for missing, kept, removed in (
+            ("claude", claude_skill, shared_skill),
+            ("codex", shared_skill, claude_skill),
+            ("opencode", shared_skill, claude_skill),
+        ):
+            with self.subTest(missing):
+                for path in (".claude", ".agents", ".codex", ".config"):
+                    shutil.rmtree(self.base / path, ignore_errors=True)
+                result = self.run_sysup(CTX7_NO_RULE=missing)
+                self.assertEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                self.assertTrue(kept.exists())
+                self.assertFalse(removed.exists())
 
     def test_find_docs_is_kept_when_the_refresh_is_skipped(self):
         skills = (

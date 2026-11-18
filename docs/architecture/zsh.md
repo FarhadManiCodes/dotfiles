@@ -86,8 +86,11 @@ rechecked on 0.10.0) rather than observed:
   sandbox) and is always loaded.
 - Setup also writes a `find-docs` skill (`~/.claude/skills`, and `~/.agents/skills` shared by
   Codex and OpenCode) that repeats the rule. `sysup` deletes both copies after the runs: they only
-  spent each agent's skill-listing budget, and ctx7 has no rule-only mode. After a failed version
-  check or install no setup runs, and nothing is deleted.
+  spent each agent's skill-listing budget, and ctx7 has no rule-only mode. A copy is deleted only
+  once the rules it repeats are on disk (Claude's rule file; for the shared copy, the
+  `<!-- context7 -->` section in both Codex's and OpenCode's `AGENTS.md`), so a first setup that
+  failed leaves the skill in place. After a failed version check or install no setup runs, and
+  nothing is deleted.
 
 - `ctx7 setup --cli --yes` asks nothing while ctx7 is logged in. With no usable token it starts a
   browser login, so each of the three runs is bounded by `timeout --foreground 120s` and a hang
