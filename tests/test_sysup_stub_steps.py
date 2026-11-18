@@ -17,7 +17,7 @@ SYSUP = ROOT / "zsh/functions/sysup.zsh"
 STUBS = ROOT / "tests/sysup-stub-steps.zsh"
 
 HELPERS = {"_sysup_header", "_sysup_note", "_sysup_flush_notes"}
-VARIABLES = {"_sysup_guard", "_sysup_notes", "_sysup_skipped", "_sysup_steps"}
+VARIABLES = {"_sysup_guard", "_sysup_notes", "_sysup_skipped"}
 OPT_IN = {"_sysup_tool_tests", "_sysup_podman_images"}
 
 
