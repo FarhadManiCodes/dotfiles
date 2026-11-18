@@ -61,12 +61,12 @@ row "-e ibs_op//" perf record -q -o p.data -e ibs_op// -- ./chain
 row "perf c2c record" perf c2c record -o p.data -- ./chain
 
 # Does dwarf unwinding see the middle frame that frame pointers can miss?
-if perf record -q -o d.data --call-graph dwarf --user-callchains -- ./chain >/dev/null 2>&1; then
-  if perf report -i d.data --stdio --no-children 2>/dev/null | grep -q '^ *mid$'; then
-    echo "  dwarf stacks show leaf -> mid -> main"
-  else
-    echo "  dwarf stacks do NOT show mid"
-  fi
-else
+if ! perf record -q -o d.data --call-graph dwarf --user-callchains -- ./chain >/dev/null 2>&1; then
   echo "  dwarf stack check not run: its perf record failed"
+elif ! perf report -i d.data --stdio --no-children >report.txt 2>/dev/null; then
+  echo "  dwarf stack check not run: its perf report failed"
+elif grep -q '^ *mid$' report.txt; then
+  echo "  dwarf stacks show leaf -> mid -> main"
+else
+  echo "  dwarf stacks do NOT show mid"
 fi
