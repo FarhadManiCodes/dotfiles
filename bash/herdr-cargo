@@ -91,6 +91,13 @@ read_install() {
   fi
 }
 
+# Run a Herdr executable and stop unless it reports the selected version.
+check_version() {
+  local reported
+  reported=$("$1" --version) || die "$2 Herdr did not run"
+  [[ $reported == "herdr $version" ]] || die "$2 Herdr failed its version check"
+}
+
 if [[ $mode == check ]]; then
   work=$(mktemp -d "${TMPDIR:-/tmp}/herdr-cargo-check.XXXXXX")
 else
@@ -210,8 +217,7 @@ cargo_info=$(cargo --version) || die 'cannot read the Cargo version for the reco
 # Verify the built executable before replacing anything in the installation root.
 cargo "${install_args[@]}" --root "$work/stage" herdr {lockfd}>&- \
   || die 'staged Cargo build failed; the installed executable was not replaced'
-staged_reported=$("$work/stage/bin/herdr" --version) || die 'staged Herdr did not run'
-[[ $staged_reported == "herdr $version" ]] || die 'staged Herdr failed its version check'
+check_version "$work/stage/bin/herdr" staged
 read_install
 [[ $installed_hash == "$initial_hash" && $installed_commit == "$initial_commit" ]] \
   || die 'Herdr changed while the build was running; retry after reviewing the installation'
@@ -219,8 +225,7 @@ read_install
 # also applies the recipe when the same commit was previously built differently.
 cargo "${install_args[@]}" --root "$cargo_root" --force herdr {lockfd}>&- \
   || die "Cargo could not install the verified candidate into $cargo_root"
-installed_reported=$("$binary" --version) || die 'installed Herdr did not run'
-[[ $installed_reported == "herdr $version" ]] || die 'installed Herdr failed its version check'
+check_version "$binary" installed
 read_install
 [[ $installed_commit == "$commit" && $installed_version == "$version" ]] || die 'installed Cargo metadata does not match the selected release'
 bytes=$(stat -c %s "$binary") || die "cannot read the size of $binary"
