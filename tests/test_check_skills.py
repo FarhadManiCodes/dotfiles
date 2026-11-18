@@ -143,6 +143,28 @@ class CheckSkillsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("names bash/tool, which does not exist", out)
 
+    def test_scripts_it_names_are_checked_only_with_its_own_scripts_dir(self):
+        body = (
+            VALID.format(name="fixture-skill") + "\nRun `scripts/check.sh`.\n"
+        )
+        path = self.skill("fixture-skill", body)
+        # No scripts/ of its own: the name may point at another project.
+        code, out = self.run_script()
+        self.assertEqual(code, 0, out)
+        (path / "scripts").mkdir()
+        (path / "scripts/other.sh").write_text("#!/bin/sh\n")
+        code, out = self.run_script()
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("names scripts/check.sh, which does not exist", out)
+        (path / "scripts/check.sh").write_text("#!/bin/sh\n")
+        code, out = self.run_script()
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("scripts/check.sh is not executable", out)
+        (path / "scripts/check.sh").chmod(0o755)
+        code, out = self.run_script()
+        self.assertEqual(code, 0, out)
+        self.assertIn("1 script(s) present and executable", out)
+
     def test_name_not_matching_its_directory_fails(self):
         # A renamed skill directory whose frontmatter kept the old name.
         self.skill("renamed-skill", body=VALID.format(name="old-skill"))

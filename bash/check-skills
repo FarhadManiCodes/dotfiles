@@ -1,6 +1,7 @@
 #!/bin/bash
 # Assert what every SKILL.md in skills/ must satisfy: frontmatter Claude Code
-# will load, and that every references/ file and bash/ tool it names exists.
+# will load, and that every references/ file, scripts/ file and bash/ tool it
+# names exists.
 # Read-only. The checkout comes from this script's real path, since install.sh
 # links it into ~/.local/bin.
 
@@ -107,6 +108,25 @@ for dir in "$skills_dir"/*/; do
       [[ -f "$dir/$r" ]] || red "routes to $r, which does not exist"
     done <<<"$refs"
     ((fail > failed)) || green "$n reference file(s) exist"
+  fi
+
+  # --- every scripts/ file it names must exist and be runnable -------------
+  # Only in a skill with its own scripts/: another may name a script that
+  # lives in a different project (papers-and-pdfs names paper-refinery's).
+  scripts=
+  [[ -d $dir/scripts ]] && scripts=$(grep -oE 'scripts/[A-Za-z0-9._-]+' "$md" | sort -u)
+  if [[ -n $scripts ]]; then
+    failed=$fail n=0
+    while read -r s; do
+      [[ -z $s ]] && continue
+      checked=$((checked + 1)) n=$((n + 1))
+      if [[ ! -f "$dir/$s" ]]; then
+        red "names $s, which does not exist"
+      elif [[ ! -x "$dir/$s" ]]; then
+        red "$s is not executable"
+      fi
+    done <<<"$scripts"
+    ((fail > failed)) || green "$n script(s) present and executable"
   fi
 
   # --- every bash/ tool it names must exist and be runnable ----------------
