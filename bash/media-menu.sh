@@ -174,8 +174,9 @@ toggle_recording() (
     exit 0
   fi
 
-  # An empty --target would make pw-record capture the microphone.
-  if ! sink=$(pactl get-default-sink) || [[ -z $sink ]]; then
+  # An empty --target would make pw-record capture the microphone. With no
+  # sink at all, pipewire-pulse names the placeholder @DEFAULT_SINK@ instead.
+  if ! sink=$(pactl get-default-sink) || [[ -z $sink || $sink == @DEFAULT_SINK@ ]]; then
     notify-send -u critical "Audio Recording" "No default output device"
     exit 1
   fi

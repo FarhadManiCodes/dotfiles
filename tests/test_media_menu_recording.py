@@ -183,9 +183,14 @@ fi
         self.assert_status(active=True)
 
     def test_no_default_sink_starts_no_recorder(self):
-        # An empty --target makes pw-record capture the microphone, so both
-        # a failed pactl and a server with no default sink must refuse.
-        for case, body in (("failed", "exit 1\n"), ("empty", "printf '\\n'\n")):
+        # An empty --target makes pw-record capture the microphone, so a
+        # failed pactl, an empty answer and pipewire-pulse's placeholder for
+        # a server with no sink must all refuse.
+        for case, body in (
+            ("failed", "exit 1\n"),
+            ("empty", "printf '\\n'\n"),
+            ("no sink", "echo @DEFAULT_SINK@\n"),
+        ):
             with self.subTest(case):
                 (self.base / "notices").unlink(missing_ok=True)
                 self.stub("pactl", body)
