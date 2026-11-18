@@ -64,12 +64,17 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
   rows) matches itself shifted by a line, or an unrelated list elsewhere.
 - Date: 2026-11-16
 - Pairs:
-  - bash/capture-ocr <-> tests/test_herdr_cargo.py, test_git_hooks.py: `import json`
-  - bash/capture-ocr <-> git-hooks/report.py: `key = secrets.token_urlsafe(16)`
+  - bash/capture-ocr <-> tests/test_herdr_cargo.py, test_git_hooks.py: `import http.client`
+    or `import json` <-> `import io`, `import contextlib`
+  - bash/capture-ocr <-> git-hooks/report.py: `key = secrets.token_urlsafe(16)` <->
+    `config.write_text("{}\n", encoding="utf-8")`
   - bash/gdocs-open <-> itself: `b='\e[1m'`
   - bash/status-menu <-> itself: `BAT_FULL=$'…'`
   - zsh/helpers.zsh <-> itself: `echo -e "Status:   ${color}…`
-  - ptpython/config.py <-> itself and three tests' env dicts: `"fg": "#abb2bf",`
+  - ptpython/config.py <-> itself and three tests' env dicts: `"fg": "#abb2bf",`,
+    `"green": "#98c379",` or `"colors": {` <-> `"PATH": str(self.base / "hostile-path"),`
+    (test_niri_session_isolated.py), `stub.write_text(` (test_sysup_agent_tools.py),
+    `mappings = {` (test_config_drift.py)
 
 ## Guards and early exits (group)
 - Verdict: accepted
@@ -79,15 +84,18 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
 - Date: 2026-11-16
 - Pairs:
   - bash/audio-switch <-> bash/mic-control, bash/papis-fuzzel: `|| {` + `notify`
-  - bash/herdr-cargo <-> bash/mirrorlist-rank: `[[ -n ${2:-} && $2 != --* ]] ||`
+  - bash/herdr-cargo <-> bash/mirrorlist-rank: `[[ -n ${2:-} && $2 != --* ]] ||` <->
+    `[[ ${2:-} =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] ||`
   - bash/media-menu.sh <-> itself: `player=$(resolve_player)`
   - bash/papis-add-paper <-> itself: `[[ -n "$importer" && -n "$identifier" ]] || {`
   - git-hooks/hook <-> itself: `if git cat-file -e :git-hooks/bootstrap`
   - install.sh <-> itself: `htop_dest="${XDG_CONFIG_HOME}/htop/htoprc"`
-  - system-sleep/fprintd-resume, unblock-fuse <-> unblock-fuse: `if [ -z "$first" ]`
+  - system-sleep/fprintd-resume <-> unblock-fuse: `if output=$(systemctl --no-block
+    try-restart fprintd.service 2>&1); then` <-> `"$0" remount 2>&1); then`
+  - system-sleep/unblock-fuse <-> itself: `if [ -z "$first" ]; then` <-> `if [ -z "$stuck" ]; then`
   - zsh/functions/sysclean.zsh <-> sysup.zsh: `[[ -n ${SHPOOL_SESSION_NAME:-} ]] || {`
-  - zsh/functions/sysclean.zsh, sysup/*.zsh: `command -v nvim >/dev/null 2>&1 || {`,
-    `_sysup_bgutil() (` + `emulate -L zsh`, `if [[ ! -r $ml ]]; then`
+  - zsh/functions/sysclean.zsh <-> sysup/nvim-health.zsh, sysup/podman.zsh:
+    `_sysclean_nvme_health() {` <-> `_sysup_nvim_health() {`, `_sysup_podman_images() {`
   - zsh/functions/virtualenv.zsh <-> itself: `[[ -n "$VIRTUAL_ENV" ]] || {`
 
 ## fzf pickers (group)
