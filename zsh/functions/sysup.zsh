@@ -11,7 +11,8 @@
 #
 # No general global npm update: system node/npm are covered by paru, and the bgutil step
 # rebuilds only the local yt-dlp token helper, using its release's lockfile. The one global
-# npm package, ctx7, is reinstalled when npm's version differs, then refreshes its skill.
+# npm package, ctx7, is reinstalled when npm's version differs, then refreshes each agent's
+# rule and deletes the find-docs skill copies.
 #
 # Steps live one-per-file in sysup/, sourced below by $0's own resolved
 # directory -- zsh sets $0 to the currently-sourcing file even nested inside a
@@ -345,6 +346,7 @@ _sysup_steps() {
     # A copy goes only once the rules it repeats are in place, whatever setup's exit status: a
     # first setup that timed out would otherwise leave an agent with neither. The shared copy
     # serves Codex and OpenCode, so it waits for both.
+    # ctx7 is the command the rule tells Claude to run, so every version of the rule names it.
     grep -qsF ctx7 "$HOME/.claude/rules/context7.md" && rm -rf -- "$HOME/.claude/skills/find-docs"
     grep -qsF '<!-- context7 -->' "$HOME/.codex/AGENTS.md" &&
       grep -qsF '<!-- context7 -->' "$HOME/.config/opencode/AGENTS.md" &&
