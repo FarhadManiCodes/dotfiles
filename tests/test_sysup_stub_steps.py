@@ -26,6 +26,7 @@ class SysupStubStepsTests(unittest.TestCase):
         text = SYSUP.read_text()
         body = re.search(r"^_sysup_steps\(\) \{\n(.*?)^\}", text, re.M | re.S)
         self.assertIsNotNone(body, "_sysup_steps() not found in sysup.zsh")
+        self.assertIn('echo "==> sysup done"', body.group(1), "body cut short")
         used = set(re.findall(r"\b_sysup_[a-z0-9_]+", body.group(1)))
         loop = re.search(r"for fn in (.*?); do", STUBS.read_text(), re.S)
         self.assertIsNotNone(loop, "no `for fn in ...; do` in the stub file")
