@@ -161,8 +161,9 @@ pdfmerge() {
   local out="${@[-1]}" ins=("${@[1,-2]}") f
   # An existing output is refused: with the output name forgotten,
   # `pdfmerge a.pdf b.pdf c.pdf` would overwrite c.pdf, and a rerun of
-  # `pdfmerge ./*.pdf out.pdf` would merge out.pdf into itself.
-  if [[ -e "$out" ]]; then
+  # `pdfmerge ./*.pdf out.pdf` would merge out.pdf into itself. A dangling
+  # symlink counts too: -e is false for it, and qpdf would write its target.
+  if [[ -e "$out" || -L "$out" ]]; then
     echo "pdfmerge: $out exists; remove it or name a new output" >&2
     return 1
   fi
