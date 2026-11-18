@@ -252,8 +252,8 @@ System-level choices that aren't captured in any config file:
   links only the repo's own `skills/*`. Recreate the skill with `gh skill install cli/cli gh`,
   with `--scope user` and `--agent claude-code`, `codex` and `opencode`. Recreate ctx7 with
   `npm install -g ctx7` and `ctx7 login`; `ctx7 setup --cli --<agent>` then installs `find-docs`
-  and its rule (`sysup` runs it, then removes the skill copies: each agent's always-loaded
-  rule says the same). Until they exist, `sysup` ends "with warnings" on every run
+  and its rule (`sysup` runs it, then removes each skill copy once its rule is on disk: each
+  agent's always-loaded rule says the same). Until they exist, `sysup` ends "with warnings" on every run
   (`docs/architecture/zsh.md`).
 - **yt-dlp's bgutil helper is a separate Node checkout**, not part of its uv tool
   environment. Recreate `~/.local/share/bgutil-pot` from the upstream release

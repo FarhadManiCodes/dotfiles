@@ -184,7 +184,7 @@ same list with fuller reasoning; keep the two in step.
 | `~/.cargo/bin/git-graph` | Draws `glol` — recreate with `cargo install git-graph`; `sysup` updates it once installed |
 | `~/.cargo/bin/herdr` | Stable Cargo build — recreate with `herdr-cargo --install` (also called by `install.sh`); `sysup` updates it once installed |
 | `gh` agent skill | User-scope skill from `cli/cli` — recreate with `gh skill install cli/cli gh --scope user` per agent (`--agent claude-code`, `codex`, `opencode`); `sysup` updates it once installed, and warns on every run until then |
-| global `ctx7` npm package and its rule | Recreate with `npm install -g ctx7`, `ctx7 login`, then `ctx7 setup --cli --claude`, `--opencode` and `--codex` (`sysup` runs the same, then deletes the `find-docs` skill copies setup also writes); `sysup` updates them once installed |
+| global `ctx7` npm package and its rule | Recreate with `npm install -g ctx7`, `ctx7 login`, then `ctx7 setup --cli --claude`, `--opencode` and `--codex` (`sysup` runs the same, then deletes the `find-docs` skill copies setup also writes, each once its rule is on disk); `sysup` updates them once installed |
 | `~/.local/share/bgutil-pot` | Node token helper for yt-dlp — recreate with the matching plugin release; `sysup` maintains it once installed |
 | `~/.local/share/backgrounds/` | Wallpaper image and the `current` link swaybg and swaylock read — copy the image back and recreate the link (`niri/README.md`) |
 | `~/.config/zsh/plugins/` | Plugin repos — cloned by `update-plugins.sh` |
