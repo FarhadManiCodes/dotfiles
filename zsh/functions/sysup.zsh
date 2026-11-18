@@ -345,7 +345,7 @@ _sysup_steps() {
     # A copy goes only once the rules it repeats are in place, whatever setup's exit status: a
     # first setup that timed out would otherwise leave an agent with neither. The shared copy
     # serves Codex and OpenCode, so it waits for both.
-    [[ -f $HOME/.claude/rules/context7.md ]] && rm -rf -- "$HOME/.claude/skills/find-docs"
+    grep -qsF ctx7 "$HOME/.claude/rules/context7.md" && rm -rf -- "$HOME/.claude/skills/find-docs"
     grep -qsF '<!-- context7 -->' "$HOME/.codex/AGENTS.md" &&
       grep -qsF '<!-- context7 -->' "$HOME/.config/opencode/AGENTS.md" &&
       rm -rf -- "$HOME/.agents/skills/find-docs"

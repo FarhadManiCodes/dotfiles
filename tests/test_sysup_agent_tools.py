@@ -35,7 +35,7 @@ class SysupAgentToolsTests(unittest.TestCase):
   mkdir -p "$HOME/$skill"
   case " $CTX7_NO_RULE " in *" $agent "*) ;; *)
     mkdir -p "$(dirname "$HOME/$rule")"
-    echo "<!-- context7 -->" >> "$HOME/$rule" ;;
+    printf '<!-- context7 -->\nUse the ctx7 CLI\n<!-- context7 -->\n' >> "$HOME/$rule" ;;
   esac ;;
 esac
 """
@@ -129,14 +129,20 @@ gh() { print -r -- "gh $*" >> "$TEST_LOG"; }
         # Setup can fail or time out before writing a rule; the skill is then the only copy.
         claude_skill = self.base / ".claude/skills/find-docs"
         shared_skill = self.base / ".agents/skills/find-docs"
-        for missing, kept, removed in (
-            ("claude", claude_skill, shared_skill),
-            ("codex", shared_skill, claude_skill),
-            ("opencode", shared_skill, claude_skill),
+        # An empty rule file stands for one a killed setup left behind.
+        for missing, empty_file, kept, removed in (
+            ("claude", False, claude_skill, shared_skill),
+            ("claude", True, claude_skill, shared_skill),
+            ("codex", False, shared_skill, claude_skill),
+            ("opencode", False, shared_skill, claude_skill),
         ):
-            with self.subTest(missing):
+            with self.subTest(missing=missing, empty_file=empty_file):
                 for path in (".claude", ".agents", ".codex", ".config"):
                     shutil.rmtree(self.base / path, ignore_errors=True)
+                if empty_file:
+                    rule = self.base / ".claude/rules/context7.md"
+                    rule.parent.mkdir(parents=True)
+                    rule.touch()
                 result = self.run_sysup(CTX7_NO_RULE=missing)
                 self.assertEqual(
                     result.returncode, 0, result.stdout + result.stderr
