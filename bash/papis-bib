@@ -36,11 +36,13 @@ TMPS=()
 cleanup() { ((${#TMPS[@]})) && rm -f "${TMPS[@]}" 2>/dev/null; }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
+# mktmp VAR [mktemp args]: sets VAR rather than printing the name, because
+# $(mktmp) would run in a subshell and its TMPS entry would be lost.
 mktmp() {
-  local t
-  t=$(mktemp "$@") || exit 1
-  TMPS+=("$t")
-  printf '%s' "$t"
+  local -n _tmp=$1
+  shift
+  _tmp=$(mktemp "$@") || fail "cannot create a temporary file"
+  TMPS+=("$_tmp")
 }
 
 # Atomically replace $bib with the contents of $1. The staging temp is created
@@ -48,7 +50,8 @@ mktmp() {
 # rather than a cross-fs copy from /tmp -- the .bib is never left half-written.
 commit_bib() {
   local staged
-  staged=$(mktmp -p "$(dirname "$bib")" ".$(basename "$bib").XXXXXX") || return 1
+  staged=$(mktemp -p "$(dirname "$bib")" ".${bib##*/}.XXXXXX") || return 1
+  TMPS+=("$staged")
   cp -- "$1" "$staged" && mv -- "$staged" "$bib"
 }
 
@@ -96,23 +99,32 @@ src_args=()
 for f in "$dir"/*.tex "$dir"/*.typ; do [[ -e "$f" ]] && src_args+=(-f "$f"); done
 [[ ${#src_args[@]} -gt 0 ]] || exit 0
 
-# citation keys of a papis-serialised .bib, one per line, sorted+unique.
-keys_of() { grep -oP '^@\w+\{\s*\K[^,]+' "$1" 2>/dev/null | sort -u; }
+# citation keys of a papis-serialised .bib, one per line, sorted+unique. Fails
+# only when the file cannot be read; a file without keys is an empty list.
+keys_of() { { grep -oP '^@\w+\{\s*\K[^,]+' "$1" || (($? == 1)); } | sort -u; }
+
+# read_keys VAR FILE: VAR = the keys of FILE; stops the run if FILE cannot be read.
+read_keys() {
+  local -n _keys=$1
+  _keys=$(keys_of "$2") || fail "cannot read papis's output for ${bib##*/}"
+}
 
 # indent a newline-separated list as "  - item" bullets.
 bullets() { while IFS= read -r l; do [[ -n "$l" ]] && printf '  - %s\n' "$l"; done; }
 
-# "N entry" / "N entries" — count-aware noun (count is the number of lines in $1).
+# n_entries VAR LIST: VAR = "N entry" / "N entries", N = the non-empty lines of LIST.
 n_entries() {
-  local n
-  n=$(grep -c . <<<"$1")
-  ((n == 1)) && printf '%s entry' "$n" || printf '%s entries' "$n"
+  local -n _noun=$1
+  local line n=0
+  while IFS= read -r line; do [[ -n $line ]] && ((++n)); done <<<"$2"
+  ((n == 1)) && _noun='1 entry' || _noun="$n entries"
 }
 
 # print the entry block for one key (papis puts the closing brace on its own line).
+# The key is compared as text, not used as a regex: "a.b" must not match "axb".
 entry_block() {
   awk -v k="$2" '
-        $0 ~ "^@[a-zA-Z]+\\{[[:space:]]*" k "," { p = 1 }
+        /^@[a-zA-Z]+\{/ { key = $0; sub(/^@[a-zA-Z]+\{[[:space:]]*/, "", key); sub(/,.*/, "", key); p = key == k }
         p { print }
         p && /^\}/ { p = 0 }
     ' "$1"
@@ -123,8 +135,8 @@ entry_block() {
 # =============================================================================
 auto_sync() {
   local cited out
-  cited=$(mktmp)
-  out=$(mktmp)
+  mktmp cited
+  mktmp out
 
   # 1. library entries whose key is cited somewhere in the sources.
   bibtex add --all filter-cited "${src_args[@]}" unique save -f "$cited"
@@ -140,7 +152,7 @@ auto_sync() {
 
   if [[ -f "$bib" ]] && cmp -s "$out" "$bib"; then
     rm -f "$out"
-    echo "papis-bib: $(basename "$bib") already up to date"
+    echo "papis-bib: ${bib##*/} already up to date"
     return 0
   fi
 
@@ -152,13 +164,13 @@ auto_sync() {
   if ((new < old)); then
     rm -f "$out"
     echo "papis-bib: REFUSING -- additive sync produced fewer entries ($old -> $new); papis likely errored."
-    command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused" "$(basename "$bib"): $old -> $new entries"
+    command -v notify-send >/dev/null && notify-send -u critical "papis-bib: refused" "${bib##*/}: $old -> $new entries"
     return 1
   fi
 
   commit_bib "$out" || fail "failed to write $bib"
-  echo "papis-bib: synced $(basename "$bib") ($old -> $new entries)"
-  command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced $(basename "$bib") ($old -> $new entries)"
+  echo "papis-bib: synced ${bib##*/} ($old -> $new entries)"
+  command -v notify-send >/dev/null && notify-send -u low "papis-bib" "Synced ${bib##*/} ($old -> $new entries)"
 }
 
 # =============================================================================
@@ -177,21 +189,25 @@ prune_mode() {
   # Normalise through papis up front so later diffs reflect content, not the
   # difference between hand formatting and papis' serialisation.
   local work
-  work=$(mktmp)
+  mktmp work
   # Every papis step goes through bibtex(): a failed filter-cited left an empty
   # list, which read as "no source cites anything" and offered every entry.
   bibtex read "$bib" save -f "$work"
-  local changed=0 ans
+  local changed=0 ans count
 
   # ---- Phase 1: remove uncited -------------------------------------------
   local pruned removed
-  pruned=$(mktmp)
+  mktmp pruned
   bibtex read "$work" filter-cited "${src_args[@]}" unique save -f "$pruned"
-  removed=$(comm -23 <(keys_of "$work") <(keys_of "$pruned"))
+  local work_keys pruned_keys
+  read_keys work_keys "$work"
+  read_keys pruned_keys "$pruned"
+  removed=$(comm -23 <(printf '%s\n' "$work_keys") - <<<"$pruned_keys")
   if [[ -n "$removed" ]]; then
-    echo "Uncited entries in $(basename "$bib") (no source cites them):"
+    echo "Uncited entries in ${bib##*/} (no source cites them):"
     bullets <<<"$removed"
-    read -rp "Remove $(n_entries "$removed") (uncited)? [y/N] " ans
+    n_entries count "$removed"
+    read -rp "Remove $count (uncited)? [y/N] " ans
     if [[ "$ans" == [yY] ]]; then
       mv "$pruned" "$work"
       changed=1
@@ -207,22 +223,26 @@ prune_mode() {
 
   # ---- Phase 2: update entries that differ from the library --------------
   local updated
-  updated=$(mktmp)
+  mktmp updated
   bibtex read "$work" update --from --all save -f "$updated"
   if ! cmp -s "$work" "$updated"; then
-    local diffkeys=""
+    local diffkeys="" updated_keys common old new
+    read_keys work_keys "$work"
+    read_keys updated_keys "$updated"
+    common=$(comm -12 <(printf '%s\n' "$work_keys") - <<<"$updated_keys")
     while read -r k; do
       [[ -z "$k" ]] && continue
-      if ! diff -q <(entry_block "$work" "$k") <(entry_block "$updated" "$k") >/dev/null 2>&1; then
-        diffkeys+="$k"$'\n'
-      fi
-    done < <(comm -12 <(keys_of "$work") <(keys_of "$updated"))
+      old=$(entry_block "$work" "$k") || fail "cannot read $k from $work"
+      new=$(entry_block "$updated" "$k") || fail "cannot read $k from $updated"
+      [[ $old == "$new" ]] || diffkeys+="$k"$'\n'
+    done <<<"$common"
     diffkeys=${diffkeys%$'\n'}
 
     if [[ -n "$diffkeys" ]]; then
-      echo "Cited entries whose $(basename "$bib") version differs from papis:"
+      echo "Cited entries whose ${bib##*/} version differs from papis:"
       bullets <<<"$diffkeys"
-      read -rp "Update $(n_entries "$diffkeys") from the library? [y/N] " ans
+      n_entries count "$diffkeys"
+      read -rp "Update $count from the library? [y/N] " ans
       if [[ "$ans" == [yY] ]]; then
         mv "$updated" "$work"
         changed=1
@@ -242,7 +262,9 @@ prune_mode() {
   # ---- Write back only if the user confirmed a change --------------------
   if ((changed)); then
     if commit_bib "$work"; then
-      echo "papis-bib --prune: wrote $(basename "$bib") ($(grep -c '^@' "$bib") entries)."
+      local total
+      total=$(grep -c '^@' "$bib") # prints 0 (and exits 1) when no entry is left
+      echo "papis-bib --prune: wrote ${bib##*/} ($total entries)."
     else
       echo "papis-bib --prune: failed to write $bib"
       return 1
