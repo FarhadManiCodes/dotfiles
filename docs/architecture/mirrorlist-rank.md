@@ -107,7 +107,8 @@ The script exists rather than a three-line pipeline because of four things, each
   refuses to install a list that came back empty.
 - **The `.bak` is the recovery, so it is made first.** Of the 763 files in
   `/var/cache/pacman/pkg` none is a `pacman-mirrorlist` package, so there is nothing to extract
-  offline and an unbacked overwrite cannot be undone.
+  offline and an unbacked overwrite cannot be undone. A missing list has nothing to back up,
+  so it is installed without one, and no restore command is offered.
 - **A `.bak` beside the live file is inert.** `/etc/pacman.conf` `Include`s the literal path,
   not a glob, so the spare file is never read as extra mirrors.
 - **A package upgrade will not clobber your list.** `/etc/pacman.d/mirrorlist` is a `Backup`
