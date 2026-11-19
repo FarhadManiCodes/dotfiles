@@ -8,6 +8,7 @@ arguments to $LOG. How papis merges is papis's own logic; tested is what
 papis-bib then does to the .bib.
 """
 
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -125,6 +126,29 @@ class PapisBibSyncTests(unittest.TestCase):
         # The existing .bib is read first into the union: papis keeps the
         # first copy of a key, so hand-edited entries win over the library's.
         self.assertIn(f"bibtex read {self.bib} read ", self.log.read_text())
+
+    def test_sync_keeps_the_bib_mode(self):
+        self.bib.chmod(0o644)
+        self.sync(OUT=entries("A", "B", "C"))
+        self.assertEqual(self.bib.stat().st_mode & 0o777, 0o644)
+
+    @unittest.skipIf(os.geteuid() == 0, "root can write a read-only file")
+    def test_read_only_bib_is_left_unchanged(self):
+        self.bib.chmod(0o444)
+        result = self.sync(OUT=entries("A", "B", "C"))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("refs.bib is read-only, left unchanged", result.stdout)
+        self.assertEqual(self.bib.read_text(), entries("A", "B"))
+        self.assertEqual(self.bib.stat().st_mode & 0o777, 0o444)
+
+    def test_sync_writes_through_a_symlinked_bib(self):
+        shared = self.project.parent / "shared.bib"
+        shared.write_text(entries("A", "B"))
+        self.bib.unlink()
+        self.bib.symlink_to(shared)
+        self.sync(OUT=entries("A", "B", "C"))
+        self.assertTrue(self.bib.is_symlink())
+        self.assertEqual(shared.read_text(), entries("A", "B", "C"))
 
     def test_fewer_entries_are_refused(self):
         result = self.sync(OUT=entries("A"))

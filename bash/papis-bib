@@ -49,10 +49,19 @@ mktmp() {
 # in $bib's own directory so the final `mv` is a same-filesystem rename (atomic)
 # rather than a cross-fs copy from /tmp -- the .bib is never left half-written.
 commit_bib() {
-  local staged
-  staged=$(mktemp -p "$(dirname "$bib")" ".${bib##*/}.XXXXXX") || return 1
+  local real staged
+  real=$(readlink -f -- "$bib") || return 1 # a symlinked .bib is written where it points
+  # A read-only .bib was protected on purpose: leave it, say so quietly, and succeed.
+  if [[ -e $real && ! -w $real ]]; then
+    echo "papis-bib: ${bib##*/} is read-only, left unchanged"
+    command -v notify-send >/dev/null && notify-send -u low "papis-bib" "${bib##*/} is read-only, left unchanged"
+    exit 0
+  fi
+  staged=$(mktemp -p "$(dirname "$real")" ".${real##*/}.XXXXXX") || return 1
   TMPS+=("$staged")
-  cp -- "$1" "$staged" && mv -- "$staged" "$bib"
+  # mktemp makes 0600; keep the .bib's own mode
+  [[ ! -e $real ]] || chmod --reference="$real" -- "$staged" || return 1
+  cp -- "$1" "$staged" && mv -- "$staged" "$real"
 }
 
 # The compile hook discards this script's output (nvim runs it through
