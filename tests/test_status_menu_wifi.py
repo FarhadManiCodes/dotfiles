@@ -20,7 +20,9 @@ case "$*" in
   *"station dump") printf '%s' "$DUMP" ;;
 esac
 """
-IP = "#!/bin/sh\necho 'default via 10.0.0.1 dev wlan0'\n"
+IP = """#!/bin/sh
+echo '[{"dst":"default","gateway":"10.0.0.1","dev":"wlan0"}]'
+"""
 NOTIFY = '#!/bin/sh\nprintf "%s" "$4" >"$OUT"\n'  # args: -u low TITLE BODY
 
 
@@ -40,14 +42,15 @@ class StatusMenuWifiTests(unittest.TestCase):
         ):
             (self.bin / name).write_text(body)
             (self.bin / name).chmod(0o755)
-        for name in ("awk", "basename", "cat", "grep", "sed"):
+        for name in ("awk", "cat", "jq"):
             (self.bin / name).symlink_to(f"/usr/bin/{name}")
         self.sysfs = root / "net"
         (self.sysfs / "wlan0").mkdir(parents=True)
         (self.sysfs / "wlan0/phy80211").touch()
 
     def notification(self, *, avg, link):
-        lines = f"\tsignal:  \t{link} [{link}] dBm\n"
+        # The dump's last-frame reading differs from link's, so a test shows which is used.
+        lines = "\tsignal:  \t-90 [-90] dBm\n"
         if avg is not None:
             lines += f"\tsignal avg:\t{avg} dBm\n"
         lines += "\tbeacon signal avg:\t-51 dBm\n"
@@ -93,7 +96,41 @@ class StatusMenuWifiTests(unittest.TestCase):
         text = self.notification(avg=-59, link=-30)
         name, details = text.split("\\n")
         self.assertTrue(name.endswith("Home  (active)"), name)
-        self.assertEqual(details, "     867 Mb/s · very good signal")
+        self.assertEqual(details, "     866 Mb/s · very good signal")
+
+    def test_active_mark_for_a_route_without_a_gateway(self):
+        # A VPN-style default route: "dev" is not the fifth word of the text form.
+        (self.bin / "ip").write_text(
+            '#!/bin/sh\necho \'[{"dst":"default","dev":"wlan0","scope":"link"}]\'\n'
+        )
+        text = self.notification(avg=-59, link=-30)
+        self.assertIn("Home  (active)", text)
+
+    def test_failing_ip_only_drops_the_active_mark(self):
+        (self.bin / "ip").write_text("#!/bin/sh\nexit 1\n")
+        text = self.notification(avg=-59, link=-30)
+        self.assertTrue(text.startswith(f"{chr(0xF05A9)}  Home\\n"), text)
+
+    def ethernet(self, **files):
+        eth = self.sysfs / "eth0"
+        (eth / "device").mkdir(parents=True)
+        for name, text in files.items():
+            (eth / name).write_text(text + "\n")
+
+    def test_ethernet_with_carrier_shows_its_speed(self):
+        self.ethernet(carrier="1", speed="1000")
+        text = self.notification(avg=-59, link=-30)
+        self.assertTrue(text.startswith(f"{chr(0xF0200)}  1000 Mb/s\\n"), text)
+
+    def test_ethernet_without_carrier_is_left_out(self):
+        self.ethernet(carrier="0", speed="1000")
+        text = self.notification(avg=-59, link=-30)
+        self.assertTrue(text.startswith(chr(0xF05A9)), text)
+
+    def test_ethernet_with_unreadable_carrier_is_left_out(self):
+        self.ethernet(speed="1000")  # no carrier file: reading it fails
+        text = self.notification(avg=-59, link=-30)
+        self.assertTrue(text.startswith(chr(0xF05A9)), text)
 
     def test_average_wins_over_the_last_frame(self):
         text = self.notification(avg=-80, link=-40)
