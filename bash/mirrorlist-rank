@@ -26,7 +26,7 @@ die() {
 while (($#)); do
   case $1 in
     -n | --count)
-      [[ ${2:-} =~ ^[0-9]+$ ]] || die "-n needs a number"
+      [[ ${2:-} =~ ^[1-9][0-9]*$ ]] || die "-n needs a number of 1 or more"
       count=$2
       shift 2
       ;;
@@ -74,7 +74,7 @@ jq -r --arg cc "$country" --argjson minc "$min_completion" '
   || die "could not read the mirror status JSON — nothing was changed"
 
 candidates=$(grep -c '^Server' "$tmp/all")
-((candidates)) || die "no ${country} mirror is https, IPv4, active and >= $(awk -v m="$min_completion" 'BEGIN{printf "%d", m*100}')% complete — check the country code"
+((candidates)) || die "no ${country} mirror is https, IPv4, active, at most 24 h behind and has completion >= $min_completion — check the country code"
 
 # One timed pass. Neighbours differ by less than run-to-run noise, so no number
 # of passes settles the order; 20 entries put the cut-off where it does not matter.
@@ -86,13 +86,13 @@ ranked=$(wc -l <"$tmp/times")
 ((ranked)) || die "no mirror responded — nothing was changed"
 ((ranked >= count)) || printf 'note: asked for %d, only %d answered\n' "$count" "$ranked" >&2
 
-head -n "$count" "$tmp/times" >"$tmp/top"
+head -n "$count" "$tmp/times" >"$tmp/top" || die "could not stage the new list — nothing was changed"
 installed=$(wc -l <"$tmp/top")
 {
-  printf '## Ranked by mirrorlist-rank on %s — %s, top %d by one timed pass\n##\n' \
-    "$(date +%F)" "$country" "$installed"
+  printf '## Ranked by mirrorlist-rank on %(%F)T — %s, top %d by one timed pass\n##\n' \
+    -1 "$country" "$installed"
   awk '{print "Server = " $2}' "$tmp/top"
-} >"$tmp/final"
+} >"$tmp/final" || die "could not stage the new list — nothing was changed"
 cat "$tmp/final"
 
 # Say whether this changes anything, on stderr so stdout stays a clean
@@ -101,10 +101,13 @@ bases() {
   # shellcheck disable=SC2016  # $repo is a literal pacman placeholder, not a shell variable
   sed -n 's/^[[:space:]]*Server[[:space:]]*=[[:space:]]*//p' "$1" | sed 's/\$repo.*//' | sort -u
 }
-if [[ -r $target ]]; then
-  mapfile -t added < <(comm -23 <(bases "$tmp/final") <(bases "$target"))
-  mapfile -t dropped < <(comm -13 <(bases "$tmp/final") <(bases "$target"))
-  kept=$(comm -12 <(bases "$tmp/final") <(bases "$target") | wc -l)
+if [[ -r $target ]] && old=$(bases "$target") && new=$(bases "$tmp/final") \
+  && only_new=$(comm -23 <(printf '%s\n' "$new") - <<<"$old") \
+  && only_old=$(comm -13 <(printf '%s\n' "$new") - <<<"$old"); then
+  added=() dropped=()
+  [[ -z $only_new ]] || mapfile -t added <<<"$only_new"
+  [[ -z $only_old ]] || mapfile -t dropped <<<"$only_old"
+  kept=$((installed - ${#added[@]}))
   printf '\n%d of %d already in your current list.\n' "$kept" "$installed" >&2
   if ((${#added[@]} == 0 && ${#dropped[@]} == 0)); then
     printf 'Same set of mirrors — a re-rank would only reorder them.\n' >&2
@@ -113,7 +116,7 @@ if [[ -r $target ]]; then
     ((${#dropped[@]})) && printf '  - would drop: %s\n' "${dropped[@]}" >&2
   fi
 else
-  printf '\n%s unreadable — not compared with your current list.\n' "$target" >&2
+  printf '\ncould not compare with your current list (%s).\n' "$target" >&2
 fi
 
 if ((do_install == 0)); then
@@ -122,7 +125,14 @@ if ((do_install == 0)); then
   exit 0
 fi
 
-sudo cp "$target" "$target.bak" || die "could not back up $target — nothing was changed"
+# A missing list (deleted or lost) is installed without a backup.
+backup=0
+if [[ -e $target ]]; then
+  sudo cp "$target" "$target.bak" || die "could not back up $target — nothing was changed"
+  backup=1
+fi
 sudo install -m644 "$tmp/final" "$target" || die "could not write $target (the .bak still holds the old list)"
-printf '\ninstalled %d mirror(s) into %s\nprevious list kept at %s.bak — restore with:\n  sudo mv %s.bak %s\n' \
-  "$installed" "$target" "$target" "$target" "$target" >&2
+printf '\ninstalled %d mirror(s) into %s\n' "$installed" "$target" >&2
+if ((backup)); then
+  printf 'previous list kept at %s.bak — restore with:\n  sudo mv %s.bak %s\n' "$target" "$target" "$target" >&2
+fi
