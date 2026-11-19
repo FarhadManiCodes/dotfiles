@@ -47,6 +47,7 @@ Off-machine backup remains deferred.
 | 30. Clipboard picker overwrites the clipboard on Esc | Found 2026-11-07; user reports it has happened | Reproduce, then copy only when a selection was made |
 | 31. lazygit diff pane in foot's light theme | Found 2026-11-12; not checked live | Drop `--dark` and look; pass the theme in if delta cannot detect it |
 | 32. sysup new-dependency report | Requested 2026-11-15 | Plan a read-only list of packages an update newly pulled in |
+| 33. Return to the sender's window | Opened 2026-11-19. Follow-up to [issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2) | Identify where the sender gets the Niri window ID |
 
 ## 1. Off-machine backup
 
@@ -607,3 +608,15 @@ and removes again are left out. Report only; never remove anything.
 short after a large update.
 
 **Scope:** planning only; this TODO does not change `sysup`.
+
+## 33. Return to the window that sent a notification
+
+**Opened 2026-11-19.** Start with an opt-in Mako action for notifications sent from Foot. Herdr pane routing is a follow-up once the sender can supply a pane ID. [Dotfiles issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2)
+
+**Related work.** [Item 20](#20-open-external-links-in-a-predictable-browser-window-and-bring-it-into-view) investigates focusing the browser window that received a link. [Actionable media download notifications](#investigate-actionable-notifications-for-completed-media-downloads) explores Mako actions for opening the completed file or showing it in its folder.
+
+**Omarchy finding:** Searching for `fantasi` matched any Hyprland window class or title containing that word, so a window that merely mentioned Fantasi could receive focus. The agents panel now passes the anchored pattern `^fantasi$` to `bin/omarchy-launch-or-focus`. The helper focuses the address of the first matching window or launches the app if none matches. Two windows with the same class or title can still match. [Omarchy commit `0558c72c4`](https://github.com/basecamp/omarchy/commit/0558c72c416fd08f3daa06bf6a6c21b27f1543a5)
+
+**Local approach to investigate:** Identify the originating Niri window when the notification is sent, then carry its window ID into the action. Check where the sender can reliably get that ID, including when another window already has focus. If the window is closed or the compositor session has changed, leave focus where it is. Use the existing Mako action path without adding a persistent service.
+
+**Acceptance criteria:** With two Foot windows sharing an app ID and title on different workspaces, a notification sent from either window returns to that window even if focus has since moved. With the sender closed, clicking leaves focus where it is.

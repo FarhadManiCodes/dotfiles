@@ -183,7 +183,7 @@ Acceptance criteria:
 - [ ] Every popup opens in the invoking pane's directory, as tmux's popups did: `Prefix+t` (scratch terminal) and `Prefix+Alt+g` (lazygit shows that pane's repository).
 - [ ] `Ctrl+a Ctrl+a` reaches zsh as `Ctrl+a`, which jumps to the start of the line.
 - [ ] `Mod+Alt+T` flips Herdr's sidebar and tab bar without a Herdr-specific signal from the script. If it doesn't, the clients-only `SIGWINCH` fallback from Step 4 is added and does.
-- [ ] In both light and dark, Herdr's colors look right beside foot and Neovim. A decision on `panel_bg = "reset"` is recorded.
+- [ ] In both light and dark, Herdr's sidebar, tab bar, pane borders, and popups look right beside foot and Neovim. The comparison is done in a throwaway Herdr session with separate config and session state, leaving live `~/.config/herdr` and the live session untouched. The decision on `panel_bg = "reset"` is recorded.
 - [ ] `pane_gaps = false` and `true` compared by eye; the choice is recorded in Step 3.
 - [ ] `makoctl reload` succeeds, and a Herdr notification shows 🐑 before its title.
 - [ ] Copying with `y` in copy mode and with mouse selection is pasted with both `Ctrl+Shift+v` and middle-click. Where each copy lands (clipboard, primary) is recorded in Step 7.

@@ -288,3 +288,23 @@ The 7 November pull at 17:23 CET fast-forwarded exactly 178 commits including me
 - Skipped by the user: a touchpad `scroll-factor` window rule for foot (niri 26.04 accepts it; foot has `[scrollback] multiplier=5`).
 
 Discussion complete. Last reviewed Omarchy commit: `9044b7e8e`.
+
+### 2026-11-19: `3b36b9e19..b20d7876f` (116 commits)
+
+The local reflog records a fast-forward at 19:53 CET. The review screened all 116 commits, including merges, and discussed the candidates against the Niri and Herdr setup. The 354 commits between the previous logged endpoint (`9044b7e8e`) and this pull's starting point (`3b36b9e19`) are outside this entry.
+
+**Recorded for follow-up**
+
+- **Return to the notification sender** (`0558c72c4`). Omarchy anchored its Fantasi match to avoid focusing a window that merely mentioned the app. [TODO item 33](../TODO.md#33-return-to-the-window-that-sent-a-notification) ties this to [issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2). Investigate carrying the originating Niri window ID in an opt-in Mako action. The acceptance check uses two Foot windows with the same title and app ID.
+- **Verify Herdr visually in isolation.** Omarchy used the real renderer and isolated test settings after its software preview hid effects that worked on the desktop. [Herdr Milestone 1](herdr-implementation.md#milestone-1-base-config-live) calls for checking light and dark in a disposable Herdr session in foot. [Omarchy commit `c6945dec2`](https://github.com/basecamp/omarchy/commit/c6945dec274644ed825dd93df0b84ce81b53269c)
+
+**Reviewed and skipped**
+
+- **Terminal launch environment** (`b20d7876f`). Existing `footclient` calls use the Foot server's environment by default. Codex's command environment had the same color and pager overrides as the upstream report, but the running Foot server's environment was unavailable for verification.
+- **Herdr binary update check** (`b49c74df8`). The migration already plans to disable it while keeping manifest checks enabled. `sysup` manages binary updates through `herdr-cargo`.
+- **Regression fixtures and detached launches** (`eb701f1f9`, `c0c63402a`). Test audit item 21 already covers making assertions fail for the intended reason and cleaning up background processes and temporary files. No new local cleanup race was identified.
+- **Manual agent account choice and per-agent launchers** (`92deb4302`, `f525d4368`). No account rotation is configured. Herdr Milestone 5 already plans a picker that opens an agent tab in the current project.
+- **Model memory and download size** (`adaf22031`, `4be96ba83`). The offline GLM-OCR fallback already has a measured memory footprint. There is no local model update panel, and the `sysup` restart report is already planned.
+- **Menu ranking, printing, and regional settings** (`d54cde78f`, `699319d40`, `b4010b232`). The checked Fuzzel menus search one list at a time. CUPS and cups-browsed are absent, and installed packages require Ghostscript. US English and the chosen German regional formats are already configured.
+
+Discussion complete through `b20d7876f` for this pull. The earlier gap remains outside this review.
