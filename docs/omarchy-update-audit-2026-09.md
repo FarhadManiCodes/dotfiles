@@ -308,3 +308,21 @@ The local reflog records a fast-forward at 19:53 CET. The review screened all 11
 - **Menu ranking, printing, and regional settings** (`d54cde78f`, `699319d40`, `b4010b232`). The checked Fuzzel menus search one list at a time. CUPS and cups-browsed are absent, and installed packages require Ghostscript. US English and the chosen German regional formats are already configured.
 
 Discussion complete through `b20d7876f` for this pull. The earlier gap remains outside this review.
+
+### 2026-11-20: `b20d7876f..3b88cbcee` (17 commits)
+
+The local reflog records a fast-forward at 20:31 CET. All 17 commits were screened, 2 of them translation syncs.
+
+**Recorded for follow-up**
+
+- **Lock screen stays lit after a media key** (`3869d6652`). Your volume, mic, brightness and play keys work while locked and wake the panel. swayidle should re-arm its timers on any input, but this is unconfirmed. TODO item 34 holds a one-key check.
+
+**Reviewed and skipped**
+
+- **Drive formatting** (`38b2cebfa`). It hardens Omarchy's own `format-drive` function. The dotfiles have no `mkfs` or `dd` wrapper.
+- **Fingerprint reader detection** (`19fe28340`). FocalTech is added to a vendor list. The reader here is a Goodix `27c6:6594`, already enrolled with fprintd.
+- **Browser focus by window class** (`32baee97d`). It changes Omarchy's `omarchy-launch-browser`. The dotfiles have no browser-focus launcher; TODO item 20 covers external links.
+- **Quickshell shell changes** (`3edd80310`, `eda4adb32`, `f458b5757`, `40556923f`). The keybindings menu, audio panel, crash dialog and agents panel belong to the Quickshell desktop, which is not installed.
+- **Omarchy content and packaging** (`0c230d540`, `d7d69f63d`, `ff6533ee8`, `14b1ee10b`, `1eb7ed873`, `1a3493ce2`, `3b88cbcee`, `90cab2fc8`, `9aad31a99`). Optional app entries, fonts, theme loops, skill renames, the manual and translations. None changes behavior this system shares.
+
+Discussion complete through `3b88cbcee` for this pull.

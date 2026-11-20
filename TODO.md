@@ -48,6 +48,7 @@ Off-machine backup remains deferred.
 | 31. lazygit diff pane in foot's light theme | Found 2026-11-12; not checked live | Drop `--dark` and look; pass the theme in if delta cannot detect it |
 | 32. sysup new-dependency report | Requested 2026-11-15 | Plan a read-only list of packages an update newly pulled in |
 | 33. Return to the sender's window | Opened 2026-11-19. Follow-up to [issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2) | Identify where the sender gets the Niri window ID |
+| 34. Locked screen after a media key | Opened 2026-11-20 | Press a locked-screen media key once the panel is dark; see whether it goes dark again |
 
 ## 1. Off-machine backup
 
@@ -620,3 +621,17 @@ short after a large update.
 **Local approach to investigate:** Identify the originating Niri window when the notification is sent, then carry its window ID into the action. Check where the sender can reliably get that ID, including when another window already has focus. If the window is closed or the compositor session has changed, leave focus where it is. Use the existing Mako action path without adding a persistent service.
 
 **Acceptance criteria:** With two Foot windows sharing an app ID and title on different workspaces, a notification sent from either window returns to that window even if focus has since moved. With the sender closed, clicking leaves focus where it is.
+
+## 34. Check the panel blanks again after a media key on the lock screen
+
+**Opened 2026-11-20.** The volume, mic, brightness and play keys carry `allow-when-locked=true` in `niri/config.kdl`, so they work on the lock screen and wake a dark panel. Whether the panel then goes dark again is unverified.
+
+**Omarchy finding:** On Hyprland a bound key wakes the panel but never reaches the lock surface, so the blank timer is not re-armed and the lock screen stays lit until unlock or suspend. They now watch idle state while locked and blank again after the usual quiet period. [Omarchy commit `3869d6652`](https://github.com/basecamp/omarchy/commit/3869d6652)
+
+**Local expectation:** `systemd/user/swayidle.service` dims at 290 s, locks at 300 s, powers the monitors off at 305 s and suspends at 900 s on battery. swayidle reads niri's idle notifications, which I expect niri sends for any input, bound keys included, so the timers should re-arm and the panel should blank again. That is not confirmed, and `niri msg` actions probably do not count as input, so it needs a real key press.
+
+**Check:** Lock the screen, wait for the panel to go dark, press volume-up, and see whether it goes dark again about 5 minutes later.
+
+**If it stays lit:** Find out whether niri reports activity for bound keys before touching the idle timers.
+
+**Acceptance criteria:** After a locked-screen media key, the panel goes dark again within the usual quiet period, or the cause is recorded and fixed.
