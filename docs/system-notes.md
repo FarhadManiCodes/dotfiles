@@ -360,7 +360,6 @@ System-level choices that aren't captured in any config file:
     `d189cc131`), and sioyek is what actually opens untrusted downloaded PDFs, so patching the
     occasionally-used CLI to 1.28.4 would buy a false sense of security. `mutool` refreshes for
     free whenever sioyek is rebuilt.
-  - `agy` (204 MiB, an AI CLI agent) is unrelated to these dotfiles.
 - **`poppler` is optional for the checked workflows**: `rgbook`, `fbook` and vifm's PDF
   preview use refinery review copies and `pdf-meta`/`mutool`. The standalone
   `~/projects/papis-ask/contrib/ocrpdf.py` still calls `pdftotext`, but normal papis-ask

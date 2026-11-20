@@ -81,7 +81,7 @@ For future graphical or background operations requiring privilege, first look fo
 
 ### Keep the existing agent set small
 
-Claude, Codex, and AGY are installed. A future general launcher may default to Claude and allow explicit Codex or AGY selection while preserving each tool's normal approval behavior. Do not add unrestricted approval-bypass modes. The Claude/tmux workspace layout remains a separate design task.
+Claude, Codex and OpenCode are installed; AGY was uninstalled on 2026-11-20. A future general launcher may default to Claude and allow explicit Codex or OpenCode selection while preserving each tool's normal approval behavior. Do not add unrestricted approval-bypass modes. The Claude/tmux workspace layout remains a separate design task.
 
 ## Benchmark or decide before adoption
 

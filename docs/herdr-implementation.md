@@ -262,7 +262,7 @@ Notes carried over from the removed `TODO.md` item 2 (full text, including Omarc
 Acceptance criteria:
 - [ ] `Prefix+W` offers editor + terminal and C++ `code` + `profile`, and builds the layout for the invoking pane's project.
 - [ ] `Prefix+W` for a project whose editor is already open focuses that editor. There is no duplicate, and the layout is unchanged. The editor is found by project, not by tab or workspace name.
-- [ ] `Prefix+A` offers OpenCode, Claude Code and Codex, and opens a new tab for the invoking pane's project. Existing agent tabs are untouched. AGY is left out on purpose (user decision, 2026-10-23).
+- [ ] `Prefix+A` offers OpenCode, Claude Code and Codex, and opens a new tab for the invoking pane's project. Existing agent tabs are untouched. AGY is not offered: it was uninstalled on 2026-11-20.
 - [ ] Both helpers handle a project path with spaces, a missing agent command (clear message, nothing half-built), a small terminal, being run twice in a row, and focus changing while they run. They run no command beyond the layout and the chosen agent.
 - [ ] Both keys work correctly when two projects share a workspace.
 - [ ] Investigated and decided: Sioyek inverse search when Neovim's pane is not focused. The handler (`nvim/lua/plugins/documents.lua`) only matches a foot window title containing "NVIM", which shows the focused pane, and after Milestone 2 two foot windows attached to the same session can both carry it (the handler takes the first match). Reaching a hidden editor, or the right one of two windows, needs the same find-the-project's-editor lookup as `Prefix+W`; fix it with that lookup, or record it as a known gap.
