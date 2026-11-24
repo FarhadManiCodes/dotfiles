@@ -13,7 +13,7 @@
 check_sioyek_build() {
   hdr "Custom sioyek build"
   local bin=${XDG_DATA_HOME:-$HOME/.local/share}/sioyek/sioyek
-  local launcher=$HOME/.local/bin/sioyek built installed
+  local launcher=$HOME/.local/bin/sioyek built='' installed='' syms package
   if [[ ! -x $bin ]]; then
     skip "not built (${bin/#$HOME/\~} missing)"
     return
@@ -23,9 +23,12 @@ check_sioyek_build() {
   elif [[ ! -x $launcher ]] || ! grep -qF "exec \"$bin\"" "$launcher" 2>/dev/null; then
     warn "~/.local/bin/sioyek is missing or not the exec wrapper — rerun install.sh"
   fi
-  built=$(readelf --dyn-syms -W "$bin" 2>/dev/null | grep -om1 'qt_version_tag@Qt_[0-9.]*')
-  built=${built#*@Qt_}
-  installed=$(pacman -Q qt6-base 2>/dev/null | awk '{split($2, v, "."); print v[1] "." v[2]}')
+  # The Qt minor the binary was compiled against, from its qt_version_tag symbol.
+  syms=$(readelf --dyn-syms -W "$bin" 2>/dev/null) || syms=''
+  [[ $syms =~ qt_version_tag@Qt_([0-9]+\.[0-9]+) ]] && built=${BASH_REMATCH[1]}
+  # The installed qt6-base, cut to major.minor: "qt6-base 6.12.0-5" gives 6.12.
+  package=$(pacman -Q qt6-base 2>/dev/null) || package=''
+  [[ $package =~ \ ([0-9]+\.[0-9]+) ]] && installed=${BASH_REMATCH[1]}
   if [[ -z $built || -z $installed ]]; then
     skip "Qt version not compared (readelf or pacman gave nothing)"
     return
