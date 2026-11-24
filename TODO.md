@@ -49,6 +49,7 @@ Off-machine backup remains deferred.
 | 32. sysup new-dependency report | Requested 2026-11-15 | Plan a read-only list of packages an update newly pulled in |
 | 33. Return to the sender's window | Opened 2026-11-19. Follow-up to [issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2) | Identify where the sender gets the Niri window ID |
 | 34. Locked screen after a media key | Opened 2026-11-20 | Press a locked-screen media key once the panel is dark; see whether it goes dark again |
+| 35. Ly waits 2 s for iwd at boot | Opened 2026-11-24 | Audit what the iwd `sleep 2` and `nowait.conf` are for, then decide; no change before that |
 
 ## 1. Off-machine backup
 
@@ -635,3 +636,21 @@ short after a large update.
 **If it stays lit:** Find out whether niri reports activity for bound keys before touching the idle timers.
 
 **Acceptance criteria:** After a locked-screen media key, the panel goes dark again within the usual quiet period, or the cause is recorded and fixed.
+
+## 35. Audit why Ly waits 2 s for iwd at boot
+
+**Opened 2026-11-24.** Audit first; change nothing until the findings are read.
+
+**What is measured:** `systemd-analyze critical-chain ly@tty2.service` shows Ly starting at 3.655 s after `systemd-user-sessions.service`, which waits on `network.target`, which waits on `iwd.service`. iwd takes 2.1 s to start (2.16, 2.16, 2.16 and 2.11 s over the last four boots, 2.110 s this boot). Almost all of that is `ExecStartPre=/usr/bin/sleep 2` in `/etc/systemd/system/iwd.service.d/override.conf`. The whole boot is 21.8 s, of which firmware is 10.4 s and the initrd 3.2 s, so the best case is a login prompt about 2 s sooner.
+
+**What the history says:** Nothing records why the sleep exists. Both drop-ins first appear in commit `983febf` (2026-09-04), which only began tracking files that already existed in `/etc`; the tracked and live copies are identical. `override.conf` calls the sleep "a 2-second buffer to let the hardware wake up". The same week `fix-wifi.sh` (`d0de7f9`) was removed because the ath11k resume bug it worked around was fixed in the kernel, so the sleep may be from the same era of QCNFA765 trouble and may be obsolete too. This is a guess; no commit says so.
+
+**A second problem:** `etc/README.md` says `nowait.conf` clears iwd's packaged `Before=`. It does not: `systemctl show iwd.service -p Before` still lists `network.target`, so iwd still holds up the target and Ly. A drop-in cannot clear ordering, so either the file does nothing and should go, or it needs a different mechanism.
+
+**Audit steps:**
+- Read the journal and the iwd and ath11k messages on a boot with the sleep removed for one test, to see whether iwd fails or the interface is late without it. `Restart=on-failure` already covers a failed start.
+- Check what `After=dbus-broker.service`, `Before=` and `Wants=` in `nowait.conf` do on the live system, using `systemctl show iwd.service`, and whether any of it has an effect.
+- Compare the options by what each saves and what it risks: drop the sleep; stop Ly waiting for the network by replacing `systemd-user-sessions.service` whole; or leave it. A full-unit replacement does not follow later systemd package changes.
+- Several boots with wifi checked each time before choosing, since the original fault was intermittent.
+
+**Acceptance criteria:** The reason for the sleep is known or recorded as unknown. The README matches what `nowait.conf` does. Any change is measured against `systemd-analyze` over several boots, with wifi up on each.
