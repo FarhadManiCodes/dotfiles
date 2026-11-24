@@ -53,7 +53,8 @@ selected=$(printf '%s\n' "${OPTIONS[@]}" | fuzzel "${FUZZEL_ARGS[@]}" --prompt "
 
 # --- Confirmation helper ---
 confirm() {
-  printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1"
+  local answer
+  answer=$(printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1") && [[ $answer == Yes ]]
 }
 
 # --- Protected power request ---
@@ -78,10 +79,10 @@ request_power() {
 case "$selected" in
   "🔒 Lock") loginctl lock-session ;;
   "💤 Suspend") systemctl suspend ;;
-  "🚪 Logout") [[ "$(confirm 'Logout? ')" == "Yes" ]] && {
+  "🚪 Logout") confirm 'Logout? ' && {
     pre_shutdown
     niri msg action quit
   } ;;
-  "🔄 Reboot") [[ "$(confirm 'Reboot? ')" == "Yes" ]] && request_power reboot ;;
-  "🛑 Shutdown") [[ "$(confirm 'Shutdown? ')" == "Yes" ]] && request_power poweroff ;;
+  "🔄 Reboot") confirm 'Reboot? ' && request_power reboot ;;
+  "🛑 Shutdown") confirm 'Shutdown? ' && request_power poweroff ;;
 esac
