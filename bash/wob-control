@@ -21,7 +21,9 @@ led() {
   brightnessctl --device "$1" set "$on" >/dev/null 2>&1
 }
 # Rounded: int() made 0.29 read as 28.
+# shellcheck disable=SC2312  # failure means no output: no bar, not a wrong one
 show_volume() { wpctl get-volume "$sink" | awk '{ printf "%d volume\n", $2 * 100 + 0.5 }' >"$pipe"; }
+# shellcheck disable=SC2312  # same as show_volume
 show_brightness() { brightnessctl -m set "$1" | awk -F, '{ print $4 + 0, "brightness" }' >"$pipe"; }
 
 case $1 in
