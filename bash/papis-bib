@@ -59,8 +59,12 @@ commit_bib() {
   fi
   staged=$(mktemp -p "$(dirname "$real")" ".${real##*/}.XXXXXX") || return 1
   TMPS+=("$staged")
-  # mktemp makes 0600; keep the .bib's own mode
-  [[ ! -e $real ]] || chmod --reference="$real" -- "$staged" || return 1
+  # mktemp makes 0600: keep the .bib's own mode; a new .bib gets the umask default
+  if [[ -e $real ]]; then
+    chmod --reference="$real" -- "$staged" || return 1
+  else
+    chmod '=rw' -- "$staged" || return 1
+  fi
   cp -- "$1" "$staged" && mv -- "$staged" "$real"
 }
 
