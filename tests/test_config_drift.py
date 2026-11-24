@@ -176,7 +176,7 @@ class ConfigDriftTests(unittest.TestCase):
         self.write("etc/unowned.txt", "")
         self.write("etc/modified.txt", "")
         stub = r"""
-find() { [[ $3 == f ]] || { printf '/etc/secret\n'; return; }; printf '/etc/a\n'; return 1; }
+find() { printf 'd /etc/secret\nf /etc/a\n'; }
 pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'; return $qii_status; fi; }
 """
         message = "no new paths"
@@ -193,6 +193,13 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
         )
         self.assertIn("scan failed, cause unknown", output)
         self.assertNotIn(message, output)
+        # A file no package owns is reported.
+        output = self.run_check(
+            "check_etc_baselines",
+            stub
+            + "qii_status=0\nfind() { printf 'f /etc/a\\nf /etc/new\\n'; }",
+        )
+        self.assertIn("+ /etc/new", output)
 
     def test_spotify(self):
         base = 'client_id = "SECRET_TEMPLATE"\nblank = ""\nnumber = 1\n[device]\nvolume = 70\nclient_id = "nested"\n'
@@ -694,7 +701,7 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
     def test_failed_pacman_inventory(self):
         output = self.run_check(
             "check_etc_baselines",
-            'pacman() { return 1; }; find() { printf "/etc/example\\n"; }',
+            'pacman() { return 1; }; find() { printf "f /etc/example\\n"; }',
         )
         self.assertIn("unowned files not compared", output)
         self.assertIn("modified files not compared", output)
@@ -704,7 +711,7 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
         self.write("etc/unowned.txt", "")
         self.write("etc/modified.txt", "/etc/one\n/etc/two\n")
         stub = r"""
-find() { printf '/etc/one\n/etc/two\n'; }
+find() { printf 'f /etc/one\nf /etc/two\n'; }
 pacman() {
   if [[ $1 == -Qlq ]]; then
     printf '/etc/one\n/etc/two\n'
