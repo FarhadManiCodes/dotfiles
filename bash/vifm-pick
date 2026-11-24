@@ -31,13 +31,24 @@ cmd="${1:-}"
 xdir="${XDG_RUNTIME_DIR:?}/vifm-pick"
 mkdir -p "$xdir"
 chmod 700 "$xdir"
-rm -f "$xdir"/action "$xdir"/path "$xdir"/cd "$xdir"/cp
+rm -f "$xdir"/action "$xdir"/path
 
 # reply <cd|goto|none> [path] — the only things vifm still acts on.
 reply() {
   printf '%s' "$1" >"$xdir/action"
   [[ $# -ge 2 ]] && printf '%s' "$2" >"$xdir/path"
   return 0
+}
+
+# fbook and rgbook search the papis library; without it fd and rg find nothing
+# and fzf would open empty, so say why instead. SP is for fzf's own shells.
+papers() {
+  sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
+  [[ -d $sp ]] || {
+    notify-send "$cmd" "Papers folder not found: $sp"
+    exit 1
+  }
+  export SP="$sp"
 }
 
 # Open in sioyek directly rather than via xdg-open, because xdg-open cannot
@@ -59,20 +70,17 @@ open_book() {
 case "$cmd" in
 
   fbook)
-    sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
-    export SP="$sp"
-    result=$(fd --type f --max-depth 2 -e pdf -e epub . "$sp" 2>/dev/null \
-      | sed "s|^$sp/||" \
-      | fzf \
-        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-        --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
-        --preview-window=hidden,right:40% \
-        --bind 'ctrl-p:toggle-preview' \
-        --header='Enter: open | Ctrl-d: cd')
-    [[ -n "$result" ]] || exit 0
+    papers
+    out=$(FZF_DEFAULT_COMMAND='fd --type f --max-depth 2 -e pdf -e epub --base-directory "$SP" 2>/dev/null' \
+      fzf --expect=ctrl-d \
+      --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
+      --preview-window=hidden,right:40% \
+      --bind 'ctrl-p:toggle-preview' \
+      --header='Enter: open | Ctrl-d: cd') || exit 0
+    key=${out%%$'\n'*} result=${out#*$'\n'}
     abs="$sp/$result"
-    if [[ -e "$xdir/cd" ]]; then
-      reply cd "$(dirname "$abs")"
+    if [[ $key == ctrl-d ]]; then
+      reply cd "${abs%/*}"
     else
       reply none
       open_book "$abs"
@@ -80,8 +88,7 @@ case "$cmd" in
     ;;
 
   rgbook)
-    sp="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
-    export SP="$sp"
+    papers
     rg_cmd="[ -n {q} ] && rg --smart-case --color=always --no-heading --line-number --max-depth 2 -g '*.md' -g '!notes.md' -g '!*.refinery/**' -e '^<page_number>[0-9]+</page_number>$' -e {q} \"\$SP\" 2>/dev/null"
     # Exported, like SP, for fzf's reload shell; shared with rgbook in zsh.
     self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
@@ -89,27 +96,27 @@ case "$cmd" in
     export RGBOOK_AWK
     format_cmd="awk -v sp=\"\$SP/\" -f \"\$RGBOOK_AWK\""
     reload_cmd="$rg_cmd | $format_cmd || true"
-    result=$(fzf --ansi --disabled \
+    out=$(fzf --ansi --disabled --expect=ctrl-d \
       --bind "change:reload:$reload_cmd" \
       --bind "start:reload:$reload_cmd" \
       --delimiter=$'\t' \
       --with-nth=2 \
-      --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
       --preview '[ -n {q} ] && rg --smart-case --context 3 --no-heading -e {q} "$SP/"{1} 2>/dev/null | head -20' \
       --preview-window='hidden,right:50%' \
       --bind 'ctrl-p:toggle-preview' \
-      --header='Enter: open at page | Ctrl-d: cd')
-    [[ -n "$result" ]] || exit 0
+      --header='Enter: open at page | Ctrl-d: cd') || exit 0
+    key=${out%%$'\n'*} result=${out#*$'\n'}
     relpath="${result%%$'\t'*}"
-    page=$(grep -oP 'Page \K[0-9]+' <<<"$result" | head -1)
+    page=''
+    [[ $result =~ Page\ ([0-9]+) ]] && page=${BASH_REMATCH[1]}
     abs="$sp/${relpath%.md}.pdf"
     # vifm redraws over term()'s output, so stderr would never be seen.
     if [[ ! -f "$abs" ]]; then
       notify-send rgbook "File not found: $abs"
       exit 1
     fi
-    if [[ -e "$xdir/cd" ]]; then
-      reply cd "$(dirname "$abs")"
+    if [[ $key == ctrl-d ]]; then
+      reply cd "${abs%/*}"
     else
       reply none
       open_book "$abs" "$page"
@@ -124,40 +131,37 @@ case "$cmd" in
     # rules go too (build/, _build/, build_*/, bin/, ENV/, /target/,
     # /dbt_packages/, /logs/), so data files in them show; each repository's
     # .gitignore still applies.
-    fd_cmd=(env XDG_CONFIG_HOME=/nonexistent
-      fd --one-file-system --type f "${exts[@]/#/--extension=}"
-      --exclude __pycache__ --exclude node_modules --exclude venv)
-    result=$("${fd_cmd[@]}" 2>/dev/null | fzf \
-      --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-      --bind "ctrl-v:execute-silent(touch '$xdir/cp')+accept" \
+    # A string, for fzf to run: every word is fixed, so nothing needs quoting.
+    fd_cmd="env XDG_CONFIG_HOME=/nonexistent fd --one-file-system --type f ${exts[*]/#/--extension=}"
+    fd_cmd+=" --exclude __pycache__ --exclude node_modules --exclude venv 2>/dev/null"
+    out=$(FZF_DEFAULT_COMMAND=$fd_cmd fzf --expect=ctrl-d,ctrl-v \
       --preview 'bat --color=always --style=plain --line-range=:12 {} 2>/dev/null' \
       --preview-window=hidden,right:40% \
       --bind 'ctrl-p:toggle-preview' \
-      --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path')
-    [[ -n "$result" ]] || exit 0
+      --header='Enter: goto | Ctrl-d: cd | Ctrl-v: copy path') || exit 0
+    key=${out%%$'\n'*} result=${out#*$'\n'}
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
-    if [[ -e "$xdir/cd" ]]; then
-      reply cd "$(dirname "$abs")"
-    elif [[ -e "$xdir/cp" ]]; then
-      reply none
-      printf '%s' "$abs" | setsid -f wl-copy
-    else
-      reply goto "$abs"
-    fi
+    case $key in
+      ctrl-d) reply cd "${abs%/*}" ;;
+      ctrl-v)
+        reply none
+        printf '%s' "$abs" | setsid -f wl-copy
+        ;;
+      *) reply goto "$abs" ;;
+    esac
     ;;
 
   fnb)
-    result=$(fd --one-file-system --type f --extension ipynb 2>/dev/null \
-      | fzf \
-        --bind "ctrl-d:execute-silent(touch '$xdir/cd')+accept" \
-        --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
-        --preview-window=hidden,right:30% \
-        --bind 'ctrl-p:toggle-preview' \
-        --header='Enter: goto | Ctrl-d: cd')
-    [[ -n "$result" ]] || exit 0
+    out=$(FZF_DEFAULT_COMMAND='fd --one-file-system --type f --extension ipynb 2>/dev/null' \
+      fzf --expect=ctrl-d \
+      --preview 'echo "Cells: $(jq ".cells | length" {} 2>/dev/null || echo unknown)"' \
+      --preview-window=hidden,right:30% \
+      --bind 'ctrl-p:toggle-preview' \
+      --header='Enter: goto | Ctrl-d: cd') || exit 0
+    key=${out%%$'\n'*} result=${out#*$'\n'}
     abs=$(realpath "$result" 2>/dev/null || printf '%s' "$result")
-    if [[ -e "$xdir/cd" ]]; then
-      reply cd "$(dirname "$abs")"
+    if [[ $key == ctrl-d ]]; then
+      reply cd "${abs%/*}"
     else
       reply goto "$abs"
     fi
@@ -168,5 +172,3 @@ case "$cmd" in
     exit 1
     ;;
 esac
-
-rm -f "$xdir/cd" "$xdir/cp"

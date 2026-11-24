@@ -55,8 +55,9 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
   names the other. A test comparing more of the two copies was dropped as out of
   proportion (2026-11-11).
 - Date: 2026-11-11
-- Lines when judged: bash/vifm-pick:51-57 <-> zsh/functions/pdf.zsh:28-34 (re-judged
-  2026-11-16 after 651bff5 and 1528573 rewrote both)
+- Lines when judged: bash/vifm-pick:62-68 <-> zsh/functions/pdf.zsh:28-34 (re-judged
+  2026-11-16 after 651bff5 and 1528573 rewrote both; vifm-pick lines moved
+  2026-11-24 when papers() was added above, code unchanged)
 
 ## Lists and tables (group)
 - Verdict: false positive
@@ -103,9 +104,11 @@ Decided 2026-10-25; a map of how files group for jscpd is planned for later.
 - Reason: the zsh pickers share `_fzf_pick` (zsh/helpers.zsh); what matches is
   each picker's own options and key actions. vifm-pick mirrors them in Bash,
   where `_fzf_pick` is not available.
-- Date: 2026-11-16
+- Date: 2026-11-16 (re-judged 2026-11-24: vifm-pick's pickers now take the key
+  from fzf --expect, so the repeated lines changed)
 - Pairs:
-  - bash/vifm-pick <-> itself: `if [[ -e "$xdir/cd" ]]; then`, `--header='Enter: goto`
+  - bash/vifm-pick <-> itself: `if [[ $key == ctrl-d ]]; then`,
+    `key=${out%%$'\n'*} result=${out#*$'\n'}`, `--header='Enter: goto`
   - zsh/functions/pdf.zsh, search.zsh, fzf.zsh <-> each other and themselves:
     `case "$key" in`, `--bind 'ctrl-p:toggle-preview' \`, `| _fzf_pick key file`
 

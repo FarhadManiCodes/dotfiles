@@ -101,8 +101,7 @@ fbook() {
 
   local -x SP="$search_path"
   local key selection
-  fd --type f --max-depth 2 -e pdf -e epub "$pattern" "$search_path" 2>/dev/null \
-    | sed "s|^$search_path/||" \
+  fd --type f --max-depth 2 -e pdf -e epub --base-directory "$search_path" "$pattern" 2>/dev/null \
     | _fzf_pick key selection --preview 'pdf-meta preview "$SP/"{} 2>/dev/null || echo "No info available"' \
       --preview-window='hidden,right:40%' \
       --bind 'ctrl-p:toggle-preview' \

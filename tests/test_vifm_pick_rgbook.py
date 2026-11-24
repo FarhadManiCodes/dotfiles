@@ -29,6 +29,12 @@ if reload:
     command = reload.replace("{q}", shlex.quote(query))
     result = subprocess.run(["/bin/sh", "-c", command], capture_output=True, text=True)
     rows = result.stdout.splitlines()
+elif os.environ.get("FZF_DEFAULT_COMMAND"):
+    # Like fzf with no piped input: it runs the default command itself. Real fzf
+    # does so only when stdin is a terminal, which vifm's term() provides.
+    result = subprocess.run(["/bin/sh", "-c", os.environ["FZF_DEFAULT_COMMAND"]],
+                            capture_output=True, text=True)
+    rows = result.stdout.splitlines()
 else:
     result = None
     rows = sys.stdin.read().splitlines()
@@ -48,13 +54,10 @@ Path(os.environ["FZF_LOG"]).write_text(json.dumps({
     "preview_stderr": preview_result.stderr if preview_result else None,
 }))
 key = os.environ.get("TEST_KEY", "")
-if os.environ.get("TEST_CALLER") == "zsh":
-    print(key)  # Like fzf --expect: the key line comes first, empty for Enter.
+print(key)  # Like fzf --expect: the key line comes first, empty for Enter.
 if not selected:
     # Like fzf: no match prints only the --expect key line, and exits 1.
     sys.exit(1)
-if key == "ctrl-d" and os.environ.get("TEST_CALLER") == "vifm":
-    Path(os.environ["XDG_RUNTIME_DIR"], "vifm-pick", "cd").touch()
 print(selected)
 
 """
