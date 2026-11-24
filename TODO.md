@@ -48,7 +48,7 @@ Off-machine backup remains deferred.
 | 31. lazygit diff pane in foot's light theme | Found 2026-11-12; not checked live | Drop `--dark` and look; pass the theme in if delta cannot detect it |
 | 32. sysup new-dependency report | Requested 2026-11-15 | Plan a read-only list of packages an update newly pulled in |
 | 33. Return to the sender's window | Opened 2026-11-19. Follow-up to [issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2) | Identify where the sender gets the Niri window ID |
-| 34. Locked screen after a media key | Opened 2026-11-20 | Press a locked-screen media key once the panel is dark; see whether it goes dark again |
+| 34. Locked screen after a media key or resume | Opened 2026-11-20; resume check added 2026-11-24 | Press a locked-screen media key once the panel is dark, then suspend with the panel off; see whether it blanks again and lights on resume |
 | 35. Ly waits 2 s for iwd at boot | Opened 2026-11-24 | Audit what the iwd `sleep 2` and `nowait.conf` are for, then decide; no change before that |
 
 ## 1. Off-machine backup
@@ -635,7 +635,9 @@ short after a large update.
 
 **If it stays lit:** Find out whether niri reports activity for bound keys before touching the idle timers.
 
-**Acceptance criteria:** After a locked-screen media key, the panel goes dark again within the usual quiet period, or the cause is recorded and fixed.
+**Second check, added 2026-11-24:** the same lock-screen area after a suspend. The monitors power off at 305 s and the machine suspends at 900 s on battery or when the lid closes, so it can suspend with the panel already off. Whether niri lights the panel on resume, or only on the first key press, is unknown. Omarchy's Hyprland did not light it, and the panel stayed dark after the lid opened. [Omarchy commit `eb7cfd015`](https://github.com/basecamp/omarchy/commit/eb7cfd015) lights the screen on a resume that finds it blanked. To test, lock the screen, wait about 5 minutes until the panel is dark, then run `systemctl suspend` or close the lid, open it, and see whether the panel lights without a key press. If it needs a key press, the cost is one key press, so decide whether it is worth a `power-on-monitors` call from the resume path.
+
+**Acceptance criteria:** After a locked-screen media key, the panel goes dark again within the usual quiet period, or the cause is recorded and fixed. After a resume that found the panel off, the panel lights without a key press, or the key press is accepted as the cost.
 
 ## 35. Audit why Ly waits 2 s for iwd at boot
 
