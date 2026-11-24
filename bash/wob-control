@@ -7,7 +7,12 @@ pipe=${XDG_RUNTIME_DIR:-}/wobpipe
 [ -p "$pipe" ] || pipe=/dev/null
 sink=@DEFAULT_AUDIO_SINK@ source=@DEFAULT_AUDIO_SOURCE@
 
-muted() { wpctl get-volume "$1" | grep -q MUTED; }
+# wpctl exits 0 with no output for an unknown node, hence the Volume: check.
+muted() {
+  local v
+  v=$(wpctl get-volume "$1") && [[ $v == Volume:* ]] || exit 1
+  [[ $v == *MUTED* ]]
+}
 # One computed value, so a failed `set 1` can't fall through to `set 0` and
 # darken the LED while muted.
 led() {
