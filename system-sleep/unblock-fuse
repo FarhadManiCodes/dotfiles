@@ -38,7 +38,14 @@ wedged_pids() {
   for status in /proc/[0-9]*/status; do
     pid=${status%/status}
     pid=${pid#/proc/}
-    [ "$(awk '/^State:/{print $2; exit}' "$status" 2>/dev/null)" = "D" ] || continue
+    state=
+    while read -r key val _; do
+      if [ "$key" = State: ]; then
+        state=$val
+        break
+      fi
+    done 2>/dev/null <"$status"
+    [ "$state" = D ] || continue
     case "$(cat "/proc/$pid/wchan" 2>/dev/null)" in
       request_wait_answer | *fuse*) printf '%s ' "$pid" ;;
     esac
@@ -112,10 +119,13 @@ case "$1" in
     # Runs as a transient unit, so it outlives the sleep hook. Wait for the thaw
     # before touching the user manager; without this the restart fails instantly.
     i=0
-    while [ "$(systemctl show user.slice -p FreezerState --value 2>/dev/null)" != "running" ]; do
+    while
+      state=$(systemctl show user.slice -p FreezerState --value 2>/dev/null)
+      [ "$state" != running ]
+    do
       i=$((i + 1))
       if [ "$i" -gt 60 ]; then
-        logger -t unblock-fuse "user.slice still frozen after ${i}s -- rclone NOT remounted"
+        logger -t unblock-fuse "user.slice not running after ${i}s (FreezerState: ${state:-no answer}) -- rclone NOT remounted"
         exit 1
       fi
       sleep 1
