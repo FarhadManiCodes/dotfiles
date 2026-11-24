@@ -359,3 +359,22 @@ The local reflog records a fast-forward at 11:03 CET. All 188 commits were scree
 - **Fork-avoidance speedups** (`e3802fd9c`, `98e2adef5`, `9e998d91a`, `f8f9fed54`, `eef578065`). The technique was checked here by measurement on 2026-11-24, warm, from `/tmp`, with hyperfine. `zsh -i -c exit` takes 36.0 ms ± 4.8 ms over 40 runs, and 35.0 ms ± 1.5 ms in a second run, against 2.2 ms for `zsh -f`; `bash -ic exit` takes 2.8 ms. `bash/hardware-readings` takes 41.5 ms over 20 runs, of which `sensors -j` alone is 33.0 ms, so the script adds about 8.5 ms. Nothing is slow enough to gain from it. Not measured: `wob-control` (changes the volume), `cliphist-store-guard` (writes clipboard history), and `status-menu` and `media-menu.sh` (interactive menus). This is a measurement of the scripts named, not of every script.
 
 Discussion complete through `7427fab86` for this pull.
+
+### 2026-11-24: 7427fab86..65d3982b3 (11 commits)
+
+All 11 commits were screened; the memory and slice diffs were read in full.
+
+**Reviewed and skipped by the user**
+
+- **Protect niri and pipewire under CPU or swap load** (`10c65dc6d`). Omarchy gives `session.slice` `CPUWeight=500` and `MemorySwapMax=0`. Here niri and pipewire run in `session.slice` and every shell and app runs in `app.slice`, so the layout matches. CPU pressure `full` is 0, memory pressure is about 0, and `pswpin` and `pswpout` are 0, so there is no measured stall. Not tested under a heavy numeric job.
+
+**Checked and not applicable**
+
+- **zram cap and reclaim tuning** (`3c295f275`). Omarchy moves from `zram-size = ram`, zstd and `vm.swappiness=150` to `min(ram / 2, 8192)`, lzo-rle and swappiness 1. This system already has `ram / 3`, zstd and swappiness 10 (`revisit.md`, accepted 2026-09-06), and has never swapped a page. Omarchy has moved toward the existing choice, not past it.
+- **Firefox and Zen updater policy** (`873ffbc84`). The installed Firefox is Arch's package, which has no updater, and Zen is not installed.
+
+**Reviewed and skipped**
+
+- **Hardware and Omarchy-only** (`5dff22538` Snapdragon camera nodes, `f958290c6` Surface iptsd, `6169f05c8` ultrawide mode labels, `a19d38d0a` Quickshell notification icons, `372e1dec9` `omarchy-make-app`, `65d3982b3` Pi defaults, `6ffadc3e1` Gruvbox keyboard backlight, `9233a4b45` Omarchy CI). None applies to a ThinkPad P16s Gen 2 AMD on niri without Quickshell, Pi or Gruvbox keyboard lighting.
+
+Discussion complete through `65d3982b3` for this pull.
