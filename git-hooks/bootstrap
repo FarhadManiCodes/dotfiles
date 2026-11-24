@@ -38,6 +38,7 @@ esac
 # named by GIT_INDEX_FILE, and --path-format=absolute keeps it valid after cd.
 top=$(git rev-parse --show-toplevel)
 index=$(git rev-parse --path-format=absolute --git-path index)
+shallow=$(git rev-parse --is-shallow-repository)
 head=$(git rev-parse -q --verify 'HEAD^{commit}' || true)
 if [[ $mode == full ]]; then
   [[ -n $head ]] || die "full run needs a HEAD commit"
@@ -82,7 +83,7 @@ if [[ $source == index ]]; then
 fi
 # Git clones a shallow repository by copying, not sharing, its objects, so the
 # clone would lack what was just staged.
-[[ $(git rev-parse --is-shallow-repository) == false ]] \
+[[ $shallow == false ]] \
   || die "the repository is shallow; run git fetch --unshallow first"
 
 # Every Git variable goes, not only the repository's location (GIT_DIR,
