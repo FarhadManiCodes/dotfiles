@@ -66,13 +66,16 @@ ENTRIES=$(yq -o=tsv '[(.doi // ""), (.eprint // ""), .ref, (.title // ""),
     exit 1
   }
 
-# Entries whose field COL contains SEL, case-insensitive; the title (col 4) is
-# compared on a normalised form (non-alnum -> space) so "physics informed"
-# matches "Physics-informed ...". A third argument asks for equality, not
-# containment. Emits "file \t ref | title". ENVIRON avoids awk -v escape
+# lookup ARRAY COL SEL [exact]: entries whose field COL contains SEL,
+# case-insensitive; the title (col 4) is compared on a normalised form
+# (non-alnum -> space) so "physics informed" matches "Physics-informed ...".
+# exact asks for equality, not containment. Fills ARRAY with "file \t ref |
+# title" lines and fails when nothing matches. ENVIRON avoids awk -v escape
 # processing of SEL.
 lookup() {
-  COL=$1 SEL=$2 EXACT=${3:-} awk -F'\t' '
+  local -n _found=$1
+  local out
+  out=$(COL=$2 SEL=$3 EXACT=${4:-} awk -F'\t' '
         function norm(s) {
             s = tolower(s)
             if (col == 4) { gsub(/[^a-z0-9]+/, " ", s); gsub(/^ +| +$/, "", s) }
@@ -80,7 +83,13 @@ lookup() {
         }
         BEGIN { col = ENVIRON["COL"]; q = norm(ENVIRON["SEL"]) }
         q != "" && $col != "" && (ENVIRON["EXACT"] != "" ? norm($col) == q : index(norm($col), q)) \
-            { print $5 "\t" $3 " | " $4 }' <<<"$ENTRIES"
+            { print $5 "\t" $3 " | " $4 }' <<<"$ENTRIES") || {
+    note "Library lookup failed"
+    exit 1
+  }
+  _found=()
+  [[ -n $out ]] && mapfile -t _found <<<"$out"
+  ((${#_found[@]}))
 }
 
 # Open an entry's file in a new sioyek window. Without `files:` the scan yields
@@ -128,8 +137,7 @@ add() {
 # Open the library entry holding DOI, else add it.
 open_or_add_doi() {
   local M
-  mapfile -t M < <(lookup 1 "$1" exact)
-  if ((${#M[@]})); then open_file "${M[0]%%$'\t'*}"; else add doi "$1"; fi
+  if lookup M 1 "$1" exact; then open_file "${M[0]%%$'\t'*}"; else add doi "$1"; fi
 }
 
 # ---- refinery's citations.json ---------------------------------------------
@@ -182,24 +190,23 @@ US=$'\x1f'
 
 # Library entries for a reference: by DOI, else by exact title, since the library
 # may hold the preprint of a paper the reference cites under its published DOI.
+# find_reference ARRAY DOI TITLE fills ARRAY like lookup.
 find_reference() {
-  local m=
-  [[ -n $1 ]] && m=$(lookup 1 "$1" exact)
-  [[ -n $m ]] || m=$(lookup 4 "$2" exact)
-  [[ -z $m ]] || printf '%s\n' "$m"
+  if [[ -n $2 ]] && lookup "$1" 1 "$2" exact; then return; fi
+  lookup "$1" 4 "$3" exact
 }
 
 # Take the one reference, or let fuzzel choose among several (marked when already
 # in the library), then resolve it: the library entry, else add its DOI, else an
 # external search by title, first author and year.
 resolve_reference() {
-  local line idx label doi title surname year menu=() chosen
+  local line idx label doi title surname year menu=() chosen M
   if (($# == 1)); then
     chosen=$1
   else
     for line; do
       IFS=$US read -r idx label doi title _ <<<"$line"
-      [[ -n $(find_reference "$doi" "$title") ]] && label+="  ✓"
+      find_reference M "$doi" "$title" && label+="  ✓"
       menu+=("$idx"$'\t'"$label")
     done
     idx=$(printf '%s\n' "${menu[@]}" | pick) || return 0
@@ -207,9 +214,7 @@ resolve_reference() {
     for line; do [[ ${line%%"$US"*} == "$idx" ]] && chosen=$line; done
   fi
   IFS=$US read -r _ _ doi title surname year <<<"$chosen"
-  local M
-  mapfile -t M < <(find_reference "$doi" "$title")
-  if ((${#M[@]})); then
+  if find_reference M "$doi" "$title"; then
     open_matches "${M[@]}"
   elif [[ -n $doi ]]; then
     add doi "$doi"
@@ -283,9 +288,7 @@ external_search() {
 # looked up, so it doesn't list every paper from that publisher.
 if [[ $NOSPACE =~ 10\.[0-9]{4,9}/.* ]]; then
   DOI=${BASH_REMATCH[0]%%+([.,;:)])}
-  M=()
-  [[ $DOI == */ ]] || mapfile -t M < <(lookup 1 "$DOI")
-  if ((${#M[@]})); then
+  if [[ $DOI != */ ]] && lookup M 1 "$DOI"; then
     open_matches "${M[@]}"
   elif doi_complete "$DOI"; then
     add doi "$DOI"
@@ -296,17 +299,20 @@ if [[ $NOSPACE =~ 10\.[0-9]{4,9}/.* ]]; then
 fi
 
 # ---- a marker or author-year citation, through this paper's citations.json --
+# A failed lookup is reported. References printed before the failure are still
+# offered; with none, the text search runs as it does without a citations.json.
 if [[ -f $CITES ]]; then
-  mapfile -t REFS < <(jq -r --arg sel "$QUERY" "$CITE_JQ" "$CITES" 2>/dev/null)
-  ((${#REFS[@]})) && {
+  refs=$(jq -r --arg sel "$QUERY" "$CITE_JQ" "$CITES" 2>/dev/null) \
+    || note "Citation lookup in ${CITES##*/} failed; results may be incomplete"
+  [[ -n $refs ]] && {
+    mapfile -t REFS <<<"$refs"
     resolve_reference "${REFS[@]}"
     exit 0
   }
 fi
 
 # ---- no DOI: local bibliographic search (normalised title match) ----------
-mapfile -t M < <(lookup 4 "$QUERY")
-((${#M[@]})) && {
+lookup M 4 "$QUERY" && {
   open_matches "${M[@]}"
   exit 0
 }
@@ -314,8 +320,7 @@ mapfile -t M < <(lookup 4 "$QUERY")
 # ---- arXiv id (no DOI, looks like an arXiv id) ----------------------------
 if [[ $NOSPACE =~ [0-9]{4}\.[0-9]{4,5}(v[0-9]+)? ]]; then
   ARXIV=${BASH_REMATCH[0]}
-  mapfile -t M < <(lookup 2 "${ARXIV%v*}") # the library may hold another version
-  ((${#M[@]})) && {
+  lookup M 2 "${ARXIV%v*}" && { # the library may hold another version
     open_matches "${M[@]}"
     exit 0
   }
