@@ -206,7 +206,8 @@ ln -sf "${DOTFILES}/xdg/user-dirs.dirs" "${XDG_CONFIG_HOME}/user-dirs.dirs"
 (
   # shellcheck source=xdg/user-dirs.dirs
   . "${DOTFILES}/xdg/user-dirs.dirs"
-  for var in $(compgen -A variable XDG_ | grep '_DIR$'); do
+  for var in "${!XDG_@}"; do
+    [[ $var == *_DIR ]] || continue
     mkdir -p "${!var}"
   done
 )
