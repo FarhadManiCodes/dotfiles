@@ -558,7 +558,7 @@ os.execv("/usr/bin/sort", ["sort", *sys.argv[1:]])
         self.env["HOST_CPU"] = "znver3"
         result = self.run_helper("--install")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("Zen 4 host", result.stderr)
+        self.assertIn("target-cpu=znver4", result.stderr)
         self.assertFalse(
             any(r["url"].endswith(".tar.xz") for r in self.calls("curl"))
         )

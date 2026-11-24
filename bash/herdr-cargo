@@ -58,7 +58,23 @@ done
 platform=$(uname -sm) || die 'uname could not report the platform'
 [[ $platform == 'Linux x86_64' ]] || die 'this build recipe requires x86_64 Linux'
 repo=https://github.com/herdrdev/herdr
-recipe='target=x86_64-unknown-linux-gnu;cpu=znver4;opt=3;lto=fat;cgu=1;strip=symbols;panic=unwind;zig=ReleaseFast;simd=true'
+# Every setting that changes the executable, in stamp order. The install record
+# stores the stamp, so changing any value here rebuilds Herdr once.
+recipe_settings=(
+  target=x86_64-unknown-linux-gnu # rustc --target
+  cpu=znver4                      # RUSTFLAGS target-cpu
+  opt=3                           # opt-level
+  lto=fat                         # link-time optimization
+  cgu=1                           # codegen-units
+  strip=symbols                   # strip
+  panic=unwind                    # panic strategy
+  zig=ReleaseFast                 # libghostty-vt optimize mode
+  simd=true                       # libghostty-vt SIMD
+)
+declare -A build
+for setting in "${recipe_settings[@]}"; do build[${setting%%=*}]=${setting#*=}; done
+printf -v recipe '%s;' "${recipe_settings[@]}"
+recipe=${recipe%;}
 work=
 record_tmp=
 cleanup() {
@@ -188,14 +204,14 @@ zig_name=zig-x86_64-linux-$zig_version
 [[ $zig_url == "https://ziglang.org/download/$zig_version/$zig_name.tar.xz" &&
   $zig_sha =~ ^[0-9a-f]{64}$ ]] || die 'unsupported official Zig archive metadata'
 printf 'Required Zig: %s (release CI pin; engine minimum %s)\n' "$zig_version" "$minimum_zig"
-printf 'Build: Zen 4, opt=3, fat LTO, codegen-units=1, stripped; engine ReleaseFast/SIMD\n'
+printf 'Build: %s\n' "$recipe"
 if [[ $mode == check ]]; then
   printf 'Would build, verify and install %s into %s.\n' "$tag" "$cargo_root"
   exit 0
 fi
 target_cpus=$(rustc --print target-cpus) || die 'rustc could not list its target CPUs'
-[[ $target_cpus == *'currently znver4)'* ]] \
-  || die 'this recipe is tuned for a Zen 4 host; review target-cpu=znver4 for this machine'
+[[ $target_cpus == *"currently ${build[cpu]})"* ]] \
+  || die "this recipe is tuned for target-cpu=${build[cpu]}; review it for this machine"
 fetch "$zig_url" "$work/zig.tar.xz" 300
 printf '%s  %s\n' "$zig_sha" "$work/zig.tar.xz" | sha256sum --check --strict \
   || die 'Zig archive checksum mismatch'
@@ -208,13 +224,14 @@ export TMPDIR="$work/tmp"
 export ZIG="$work/$zig_name/zig"
 export ZIG_GLOBAL_CACHE_DIR="$work/zig-cache" ZIG_LOCAL_CACHE_DIR="$work/zig-local-cache"
 export CARGO_TARGET_DIR="$work/target" CARGO_BUILD_BUILD_DIR="$work/target"
-export CARGO_BUILD_JOBS=8 CARGO_PROFILE_RELEASE_OPT_LEVEL=3 CARGO_PROFILE_RELEASE_LTO=fat
-export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_STRIP=symbols
-export CARGO_PROFILE_RELEASE_PANIC=unwind CARGO_PROFILE_RELEASE_INCREMENTAL=false
-export LIBGHOSTTY_VT_OPTIMIZE=ReleaseFast LIBGHOSTTY_VT_SIMD=true
+export CARGO_BUILD_JOBS=8 CARGO_PROFILE_RELEASE_INCREMENTAL=false
+export CARGO_PROFILE_RELEASE_OPT_LEVEL=${build[opt]} CARGO_PROFILE_RELEASE_LTO=${build[lto]}
+export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=${build[cgu]} CARGO_PROFILE_RELEASE_STRIP=${build[strip]}
+export CARGO_PROFILE_RELEASE_PANIC=${build[panic]}
+export LIBGHOSTTY_VT_OPTIMIZE=${build[zig]} LIBGHOSTTY_VT_SIMD=${build[simd]}
 unset CARGO_ENCODED_RUSTFLAGS CARGO_INCREMENTAL LIBGHOSTTY_VT_ZIG_SYSTEM_DIR
-export RUSTFLAGS='-C target-cpu=znver4'
-install_args=(install --git "$repo" --rev "$commit" --locked --bin herdr --target x86_64-unknown-linux-gnu)
+export RUSTFLAGS="-C target-cpu=${build[cpu]}"
+install_args=(install --git "$repo" --rev "$commit" --locked --bin herdr --target "${build[target]}")
 rustc_info=$(rustc -vV) || die 'cannot read the rustc version for the record'
 cargo_info=$(cargo --version) || die 'cannot read the Cargo version for the record'
 # Verify the built executable before replacing anything in the installation root.
