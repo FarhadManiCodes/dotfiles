@@ -16,7 +16,8 @@ lock_keyring() {
   "$HOME/.local/bin/keyring-lock" || :
 }
 
-for pid in $(pgrep -x -u "$(id -u)" swaylock 2>/dev/null); do
+uid=$(id -u)
+for pid in $(pgrep -x -u "$uid" swaylock 2>/dev/null); do
   case "$(awk '{print $3}' "/proc/$pid/stat" 2>/dev/null)" in
     "" | Z) continue ;; # vanished or defunct: holding nothing
     *)
