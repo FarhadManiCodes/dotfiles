@@ -25,22 +25,31 @@ int main(void) { mid(); return 0; }
 EOF
 cc -O1 -g -fno-omit-frame-pointer chain.c -o chain || exit 1
 
-echo "kernel $(uname -r), $(perf --version)"
-echo "perf_event_paranoid=$(cat /proc/sys/kernel/perf_event_paranoid)" \
-  "perf_event_mlock_kb=$(cat /proc/sys/kernel/perf_event_mlock_kb)" \
-  "ptrace_scope=$(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null || echo n/a)"
+read -r kernel </proc/sys/kernel/osrelease || kernel='?'
+version=$(perf --version) || version='perf version unknown'
+read -r paranoid </proc/sys/kernel/perf_event_paranoid || paranoid='?'
+read -r mlock </proc/sys/kernel/perf_event_mlock_kb || mlock='?'
+read -r ptrace 2>/dev/null </proc/sys/kernel/yama/ptrace_scope || ptrace=n/a
+echo "kernel $kernel, $version"
+echo "perf_event_paranoid=$paranoid perf_event_mlock_kb=$mlock ptrace_scope=$ptrace"
 echo
 
 # row LABEL CMD... : run CMD, print whether it worked.
 row() {
-  local label=$1 status=0 reason
+  local label=$1 status=0 reason='' line
   shift
   timeout 60 "$@" >/dev/null 2>err.txt || status=$?
   if ((status == 0)); then
     printf '  works  %s\n' "$label"
     return
   fi
-  reason=$(grep -v '^Error:$' err.txt | grep -m1 -iE 'failure|error|denied|not supported')
+  # The first line naming the failure; perf's bare "Error:" header says nothing.
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ $line != Error: && ${line,,} =~ failure|error|denied|not\ supported ]] && {
+      reason=$line
+      break
+    }
+  done <err.txt
   if [[ -z $reason ]]; then
     reason="exit $status"
     ((status == 124)) && reason="timed out after 60 s"
