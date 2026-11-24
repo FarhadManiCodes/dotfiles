@@ -126,12 +126,12 @@ if ((do_install == 0)); then
 fi
 
 # A missing list (deleted or lost) is installed without a backup.
-backup=0
+backup=0 note=''
 if [[ -e $target ]]; then
   sudo cp "$target" "$target.bak" || die "could not back up $target — nothing was changed"
-  backup=1
+  backup=1 note=' (the .bak still holds the old list)'
 fi
-sudo install -m644 "$tmp/final" "$target" || die "could not write $target (the .bak still holds the old list)"
+sudo install -m644 "$tmp/final" "$target" || die "could not write $target$note"
 printf '\ninstalled %d mirror(s) into %s\n' "$installed" "$target" >&2
 if ((backup)); then
   printf 'previous list kept at %s.bak — restore with:\n  sudo mv %s.bak %s\n' "$target" "$target" "$target" >&2
