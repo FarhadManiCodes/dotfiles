@@ -342,7 +342,7 @@ The local reflog records a fast-forward at 11:03 CET. All 188 commits were scree
 
 **Checked and not applicable**
 
-- **Boot and shutdown helpers** (`7ffd4a996`, `94a8c3c33`, `f38a102a7`, `3aab775bb`, `93a53afa8`, `465247f11`'s neighbours). `ufw` and `thermald` are not installed, and the previous boot's journal has no stop-job timeout.
+- **Boot and shutdown helpers** (`7ffd4a996`, `94a8c3c33`, `f38a102a7`, `3aab775bb`, `93a53afa8`, `db5fa1134`). `ufw` and `thermald` are not installed, and the previous boot's journal has no stop-job timeout.
 - **Fingerprint packages** (`1bcb85eac`). The system runs stock `libfprint` 1.94.100-2, with no TOD or git variant to protect.
 - **Bluetooth firmware unload** (`de35f241a`). The wireless card is a Qualcomm QCNFA765, not a MediaTek MT7925.
 - **Symlinked configs, lock files and temp paths** (`eb12b5435`, `2d9c60fbc`, `19db4b759`, `ec17b203f`). The scripts use `mktemp`, keep their locks under `XDG_RUNTIME_DIR` with `flock`, and use no `sed -i`. The one script that rewrites a config, `papis-bib`, already writes through a symlink.
