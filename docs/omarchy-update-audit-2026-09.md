@@ -326,3 +326,34 @@ The local reflog records a fast-forward at 20:31 CET. All 17 commits were screen
 - **Omarchy content and packaging** (`0c230d540`, `d7d69f63d`, `ff6533ee8`, `14b1ee10b`, `1eb7ed873`, `1a3493ce2`, `3b88cbcee`, `90cab2fc8`, `9aad31a99`). Optional app entries, fonts, theme loops, skill renames, the manual and translations. None changes behavior this system shares.
 
 Discussion complete through `3b88cbcee` for this pull.
+
+### 2026-11-24: `3b88cbcee..7427fab86` (188 commits)
+
+The local reflog records a fast-forward at 11:03 CET. All 188 commits were screened: 147 messages and file lists were read, with about 40 diffs, and 41 are translation syncs and merges. Three ideas came out of it.
+
+**Recorded for follow-up**
+
+- **Ly waits about 2 s for Wi-Fi at boot** (`465247f11`). `systemd-analyze critical-chain ly@tty2.service` shows Ly behind `systemd-user-sessions`, `network.target` and `iwd.service`, which takes 2.1 s. Nearly all of that is a `sleep 2` in the iwd drop-in, and no commit records why it exists. `nowait.conf` does not clear iwd's `Before=` as the README says. TODO item 35 audits both before any change.
+- **Panel after a suspend with the screen off** (`eb7cfd015`). The monitors power off at 305 s and the machine can suspend with the panel already dark. Whether niri lights it on resume is unknown. Added to TODO item 34 as a second check.
+
+**Reviewed and skipped by the user**
+
+- **Low-battery warning on a charger that cannot keep up** (`a91badb52`, `e0cdfc6de`). `notifiers/power-notify/power-notify.c` warns only when `AC/online` is 0, and its level timer is off while plugged in. With `AC/online=1` and `BAT0/status` Discharging, there is no low, critical or danger notice. Not tested with a weak charger.
+
+**Checked and not applicable**
+
+- **Boot and shutdown helpers** (`7ffd4a996`, `94a8c3c33`, `f38a102a7`, `3aab775bb`, `93a53afa8`, `465247f11`'s neighbours). `ufw` and `thermald` are not installed, and the previous boot's journal has no stop-job timeout.
+- **Fingerprint packages** (`1bcb85eac`). The system runs stock `libfprint` 1.94.100-2, with no TOD or git variant to protect.
+- **Bluetooth firmware unload** (`de35f241a`). The wireless card is a Qualcomm QCNFA765, not a MediaTek MT7925.
+- **Symlinked configs, lock files and temp paths** (`eb12b5435`, `2d9c60fbc`, `19db4b759`, `ec17b203f`). The scripts use `mktemp`, keep their locks under `XDG_RUNTIME_DIR` with `flock`, and use no `sed -i`. The one script that rewrites a config, `papis-bib`, already writes through a symlink.
+- **Orphaned watchers** (`b1bb225c9`, `4e633234d`). No script in the dotfiles starts a long-lived watcher child. The only `inotifywait` running is `grub-btrfsd`'s, with a live parent.
+- **Key-position bindings and dictation** (`67bb5448b`, `1114430ff`, `6adb5fee8`, `cbdf480e6`, `dcb3f8e96`, `1010f2f0b`). These are Hyprland bindings, and the niri layout is plain `us`.
+- **Download error on the toast** (`1d7186438`). It changes Omarchy's Chromium yt-dlp host, which has no counterpart here.
+
+**Reviewed and skipped**
+
+- **Omarchy's Quickshell desktop** (agents panel, local models panel, Pi, notifications, clipboard, lock service, launcher scrolling, polkit labels). Quickshell and Hyprland are not installed.
+- **Installer, hardware families and regions** (kmscon setup, hostname, Surface, Snapdragon, HP, Yoga, Dell, Intel Mac, Samsung, China mirrors and hidden apps, Game Vibes, fonts, WeChat). They do not apply to a ThinkPad P16s Gen 2 AMD that is already installed.
+- **Omarchy's own tooling** (CLI speedups, i18n, test suite, migrations, skill and manual changes, 41 translation syncs and merges). They change Omarchy's commands and documents, not behavior this system shares.
+
+Discussion complete through `7427fab86` for this pull.
