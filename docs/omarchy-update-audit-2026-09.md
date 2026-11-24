@@ -356,4 +356,6 @@ The local reflog records a fast-forward at 11:03 CET. All 188 commits were scree
 - **Installer, hardware families and regions** (kmscon setup, hostname, Surface, Snapdragon, HP, Yoga, Dell, Intel Mac, Samsung, China mirrors and hidden apps, Game Vibes, fonts, WeChat). They do not apply to a ThinkPad P16s Gen 2 AMD that is already installed.
 - **Omarchy's own tooling** (CLI speedups, i18n, test suite, migrations, skill and manual changes, 41 translation syncs and merges). They change Omarchy's commands and documents, not behavior this system shares.
 
+- **Fork-avoidance speedups** (`e3802fd9c`, `98e2adef5`, `9e998d91a`, `f8f9fed54`, `eef578065`). The technique was checked here by measurement on 2026-11-24, warm, from `/tmp`, with hyperfine. `zsh -i -c exit` takes 36.0 ms ± 4.8 ms over 40 runs, and 35.0 ms ± 1.5 ms in a second run, against 2.2 ms for `zsh -f`; `bash -ic exit` takes 2.8 ms. `bash/hardware-readings` takes 41.5 ms over 20 runs, of which `sensors -j` alone is 33.0 ms, so the script adds about 8.5 ms. Nothing is slow enough to gain from it. Not measured: `wob-control` (changes the volume), `cliphist-store-guard` (writes clipboard history), and `status-menu` and `media-menu.sh` (interactive menus). This is a measurement of the scripts named, not of every script.
+
 Discussion complete through `7427fab86` for this pull.
