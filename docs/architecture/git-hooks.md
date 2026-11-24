@@ -234,15 +234,13 @@ blocking check's output appears only when it fails.
   trailing whitespace, a space before a tab in indentation, blank lines at the end of a
   file, and leftover conflict markers.
 - `shell`: `bash -n`, `sh -n` and `zsh -n`; ShellCheck with `.shellcheckrc` on Bash and
-  sh; `shfmt -d` on all three dialects except the files under "Exceptions"; and a file
-  ending in `.sh` or `.bash` that no dialect claims.
+  sh, including `check-extra-masked-returns` for commands whose failure goes unnoticed
+  (blocking since Milestone 0.5); `shfmt -d` on all three dialects except the files
+  under "Exceptions"; and a file ending in `.sh` or `.bash` that no dialect claims.
 - `python`: `ruff check` and `ruff format --check`, both with `ruff.toml`.
 
 **Report-only, at every commit and in the full run:**
 
-- `masked-returns`: ShellCheck's `check-extra-masked-returns` on Bash and sh, commands
-  whose failure goes unnoticed. It stays report-only until Milestone 0.5 has fixed or
-  suppressed each finding; then it joins `.shellcheckrc` and blocks.
 - `clones`: jscpd's token clones among the shell files and the Python outside `tests/`
   that are new compared with the base: HEAD at a commit, the given base in the full
   run. With no HEAD, as at a first commit, it reports every clone. Clones are judged at
@@ -263,7 +261,6 @@ blocking check's output appears only when it fails.
 the full run, when its result could not be trusted:
 
 - any check: a tool it needs is missing;
-- `masked-returns`: ShellCheck could not check a file;
 - `clones` and `clones-broad`: the scan would be wrong, because jscpd fails or writes no
   report, leaves out a file big enough to hold a clone, a file name contains `,` or `;`,
   or a shell file and a Python file share a name; `clones-broad` also when the model

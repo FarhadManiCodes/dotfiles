@@ -26,14 +26,6 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-commit, pre-merge-commit, manual]
-      - id: masked-returns
-        name: masked return codes (report only)
-        entry: bash git-hooks/checks masked-returns
-        language: system
-        pass_filenames: false
-        always_run: true
-        verbose: true
-        stages: [pre-commit, pre-merge-commit, manual]
       - id: clones
         name: clones (report only)
         entry: bash git-hooks/checks clones

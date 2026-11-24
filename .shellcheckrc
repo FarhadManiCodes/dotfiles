@@ -1,6 +1,7 @@
 # Read by editors and, through --rcfile, by git-hooks/checks. Why these and not
-# others: docs/herdr-implementation.md, Milestone 0. check-extra-masked-returns
-# runs as a separate report until Milestone 0.5 has judged its findings.
+# others: docs/herdr-implementation.md, Milestone 0; check-extra-masked-returns
+# joined in Milestone 0.5, once no checked file had an unjudged finding.
 enable=deprecate-which,useless-use-of-cat,avoid-negated-conditions
 enable=check-set-e-suppressed,quote-safe-variables
 enable=check-unassigned-uppercase,avoid-nullary-conditions
+enable=check-extra-masked-returns

@@ -5,7 +5,7 @@
 #
 #   checks pre-commit|pre-merge-commit|run|full   run prek for that mode
 #   checks CHECK                                  run one check, as prek does:
-#     whitespace shell python masked-returns clones clones-broad indicators
+#     whitespace shell python clones clones-broad indicators
 #     measure
 
 set -euo pipefail
@@ -186,19 +186,6 @@ check_python() {
   return "$status"
 }
 
-# Report only until Milestone 0.5 has judged each finding. ShellCheck exits 1
-# for findings and higher when it could not check a file.
-check_masked_returns() {
-  need shellcheck
-  collect "$CHECKS_SCOPE"
-  ((${#posix[@]})) || return 0
-  local status=0
-  # The option's only code; check_shell already reports the default ones.
-  shellcheck --rcfile .shellcheckrc -x -o check-extra-masked-returns -i SC2312 \
-    -f gcc -- "${posix[@]}" || status=$?
-  ((status <= 1))
-}
-
 clone_report() {
   python3 -I "$here/report.py" clones "$1" "${CHECKS_BASE:-}" "$CHECKS_TMP" \
     "${@:2}"
@@ -343,7 +330,6 @@ case ${1:-} in
   whitespace) check_whitespace ;;
   shell) check_shell ;;
   python) check_python ;;
-  masked-returns) check_masked_returns ;;
   clones) check_clones ;;
   clones-broad) check_clones_broad ;;
   semantic-scan) semantic_scan "$2" ;;

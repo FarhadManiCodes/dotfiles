@@ -38,12 +38,11 @@ RESULT = re.compile(r"^(\S.*?)\.{3,}(Passed|Failed|Skipped)", re.MULTILINE)
 WHITESPACE = "whitespace"
 SHELL = "shell syntax, ShellCheck and shfmt"
 RUFF = "ruff lint and format"
-MASKED = "masked return codes (report only)"
 INDICATORS = "long chains and lines (report only)"
 CLONES = "clones (report only)"
 CANDIDATES = "clone candidates for judgment (report only)"
 MEASURE = "size and complexity against the base (report only)"
-COMMIT_HOOKS = (WHITESPACE, SHELL, RUFF, MASKED, CLONES, INDICATORS)
+COMMIT_HOOKS = (WHITESPACE, SHELL, RUFF, CLONES, INDICATORS)
 
 PROXIES = (
     "http_proxy",
@@ -851,28 +850,15 @@ class Blocking(HookCase):
         self.assert_blocked(code, out, CLONES)
         self.assertIn("jscpd failed (2)", out)
 
-    def test_masked_return_is_reported_without_blocking(self):
+    def test_masked_return_blocks(self):
         self.write(
             "bash/tool",
             '#!/bin/bash\nset -eu\nprintf "%s\\n" "$(date)"\n',
             executable=True,
         )
         code, out = self.stage_and_commit("bash/tool")
-        self.assert_passed(code, out)
-        self.assertIn("SC2312", section(out, MASKED))
-
-    def test_masked_returns_checker_error_blocks(self):
-        stub = self.stubs / "shellcheck"
-        real = shutil.which("shellcheck", path=os.environ["PATH"])
-        stub.write_text(
-            '#!/bin/sh\ncase " $* " in *check-extra-masked-returns*) echo broke >&2; exit 2 ;; esac\n'
-            f'exec "{real}" "$@"\n'
-        )
-        stub.chmod(0o755)
-        self.write("bash/tool", GOOD_BASH, executable=True)
-        code, out = self.stage_and_commit("bash/tool")
-        self.assert_blocked(code, out, MASKED)
-        self.assertEqual(results(out).get(SHELL), "Passed", out)
+        self.assert_blocked(code, out, SHELL)
+        self.assertIn("SC2312", section(out, SHELL))
 
     def test_intent_to_add_file_is_not_checked(self):
         # prek clears intent-to-add entries for its run, so the empty file the
