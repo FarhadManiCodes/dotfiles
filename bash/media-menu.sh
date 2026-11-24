@@ -6,10 +6,14 @@
 
 # The Playing player, else a Paused one: one playerctl call for all players.
 active_player() {
-  playerctl -a status -f '{{status}}	{{playerInstance}}' 2>/dev/null | awk -F'\t' '
+  local statuses
+  # Exit status unused: playerctl fails with no player, which prints nothing,
+  # and whatever it did print still counts.
+  statuses=$(playerctl -a status -f '{{status}}	{{playerInstance}}' 2>/dev/null)
+  awk -F'\t' '
         $1 == "Playing" { print $2; found = 1; exit }
         $1 == "Paused" && paused == "" { paused = $2 }
-        END { if (!found && paused != "") print paused }'
+        END { if (!found && paused != "") print paused }' <<<"$statuses"
 }
 
 # The active player, else the one playerctl picks itself; empty if none.
@@ -76,11 +80,12 @@ seek_track() {
 }
 
 toggle_playback() {
-  local player
+  local player status
   player=$(resolve_player)
   [[ -n $player ]] || return 1
   playerctl -p "$player" play-pause || return
-  if [[ $(playerctl -p "$player" status 2>/dev/null) == Paused ]]; then
+  status=$(playerctl -p "$player" status 2>/dev/null) || status=
+  if [[ $status == Paused ]]; then
     show_progress "$player" paused
   else
     show_progress "$player"
@@ -111,7 +116,7 @@ previous_track() {
 }
 
 focus_player() {
-  local player app title id
+  local player app title windows id
   player=$(resolve_player)
   [[ -n $player ]] || return
   case $player in
@@ -125,9 +130,13 @@ focus_player() {
   esac
   # The window whose title has the track in it (a Firefox tab), else the first.
   title=$(playerctl -p "$player" metadata xesam:title 2>/dev/null)
-  id=$(niri msg -j windows | jq -r --arg a "$app" --arg t "$title" '
+  windows=$(niri msg -j windows) || {
+    notify-send -t 2000 "Media" "Could not list windows from niri"
+    return
+  }
+  id=$(jq -r --arg a "$app" --arg t "$title" '
         [.[] | select(.app_id == $a)]
-        | (map(select($t != "" and ((.title // "") | contains($t)))) + .)[0].id // empty')
+        | (map(select($t != "" and ((.title // "") | contains($t)))) + .)[0].id // empty' <<<"$windows")
   if [[ -n $id ]]; then
     niri msg action focus-window --id "$id"
   else
@@ -139,9 +148,10 @@ focus_player() {
 # it plays: the active-player guess can pick a paused one left behind. Never
 # Firefox, whose tabs are more than the media in them.
 stop_player() {
-  local lines choice player
-  lines=$(playerctl -a metadata -f '{{playerInstance}}	{{status}} · {{trunc(default(title, "untitled"), 60)}}' 2>/dev/null \
-    | awk -F'\t' '$1 !~ /^firefox/ && $1 != "" { print $1 " · " $2 }')
+  local players lines choice player
+  # Exit status unused, as in active_player: no player prints nothing.
+  players=$(playerctl -a metadata -f '{{playerInstance}}	{{status}} · {{trunc(default(title, "untitled"), 60)}}' 2>/dev/null)
+  lines=$(awk -F'\t' '$1 !~ /^firefox/ && $1 != "" { print $1 " · " $2 }' <<<"$players")
   if [[ -z $lines ]]; then
     notify-send -t 2000 "Media" "No player to stop"
     return
@@ -159,7 +169,12 @@ stop_player() {
 pidfile=$XDG_RUNTIME_DIR/toggle-record.pid
 
 # Our pw-record only: a bare pgrep/pkill would also match anyone else's.
-recording() { pid=$(cat "$pidfile" 2>/dev/null) && [[ $(cat "/proc/$pid/comm" 2>/dev/null) == pw-record ]]; }
+# Leaves pid set (global) for toggle_recording's kill.
+recording() {
+  local comm
+  pid=
+  read -r pid 2>/dev/null <"$pidfile" && read -r comm 2>/dev/null <"/proc/$pid/comm" && [[ $comm == pw-record ]]
+}
 
 # A subshell contains exits and releases the lock when the toggle finishes.
 # Reading status for the menu never acquires this lock.
@@ -217,13 +232,18 @@ case ${1:-} in
     exit 0
     ;;
   call)
-    mic_muted() { wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED; }
-    if [[ $(pc status 2>/dev/null) == Playing ]]; then
+    # wob-control only toggles, so an unknown mic state is left alone.
+    status=$(pc status 2>/dev/null) || status=
+    if ! mic=$(wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null); then
+      mic=unknown
+      notify-send -t 3000 "Media" "Microphone state unknown; mute left unchanged"
+    fi
+    if [[ $status == Playing ]]; then
       pc pause
-      mic_muted && wob-control mic-mute
+      [[ $mic == *MUTED* ]] && wob-control mic-mute
     else
       pc play
-      mic_muted || wob-control mic-mute
+      [[ $mic == unknown || $mic == *MUTED* ]] || wob-control mic-mute
     fi
     exit 0
     ;;
