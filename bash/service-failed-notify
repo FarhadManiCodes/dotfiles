@@ -23,7 +23,7 @@ case "$unit" in
     ;;
 esac
 
-printf '%s  %s\n' "$(date -Is)" "$unit" >>"$state_dir/failures.log"
+printf '%(%FT%T%z)T  %s\n' -1 "$unit" >>"$state_dir/failures.log"
 # OnFailure= fires on every failure, retries included: mako/config groups this
 # app's popups by title, so one unit's repeats show as one "(N)" popup.
 notify-send -a service-failed-notify -u critical "$title" "$body" || true
