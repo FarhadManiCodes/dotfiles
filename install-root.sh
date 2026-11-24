@@ -7,7 +7,7 @@
 
 set -e
 
-if [ "$(id -u)" -ne 0 ]; then
+if [ "${EUID}" -ne 0 ]; then
   echo "This installs root-owned files. Run it with sudo:" >&2
   echo "  sudo bash install-root.sh" >&2
   exit 1
@@ -27,7 +27,11 @@ export PATH
 
 # Resolve DOTFILES for the invoking user (HOME is /root under sudo).
 if [ -n "${SUDO_USER}" ]; then
-  user_home="$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
+  entry=$(getent passwd "${SUDO_USER}") || {
+    echo "No passwd entry for ${SUDO_USER}" >&2
+    exit 1
+  }
+  IFS=: read -r _ _ _ _ _ user_home _ <<<"${entry}"
   : "${DOTFILES:=${user_home}/dotfiles}"
 else
   : "${DOTFILES:=${HOME}/dotfiles}"
@@ -98,8 +102,10 @@ if [ -d "${DOTFILES}/etc" ]; then
   # config-drift's /etc sweeps. All three are repo metadata and install nowhere --
   # without excluding them this copies them into /etc, where the unowned sweep
   # then correctly reports them as new unowned files. (Happened 2026-09-06.)
-  find "${DOTFILES}/etc" -type f \
-    ! -name README.md ! -name unowned.txt ! -name modified.txt | while read -r src; do
+  shopt -s globstar dotglob
+  for src in "${DOTFILES}"/etc/**; do
+    [ -f "$src" ] && [ ! -L "$src" ] || continue
+    case ${src##*/} in README.md | unowned.txt | modified.txt) continue ;; esac
     # Quoted separately: unquoted, the prefix is a glob pattern, so a checkout
     # path containing [ or * would strip the wrong thing and build a wrong
     # destination -- in a script that then writes it as root.
@@ -111,6 +117,7 @@ if [ -d "${DOTFILES}/etc" ]; then
       echo "  ${dest} already up to date"
     fi
   done
+  shopt -u globstar dotglob
 fi
 
 # --- /etc/systemd/zram-generator.conf : compressed swap in RAM ---
@@ -132,7 +139,8 @@ fi
 # legacy: Docker was removed 2026-09-02, the subvolume was kept.
 if [ -d /var/lib/docker ]; then
   target_user="${SUDO_USER:-root}"
-  if [ "$(stat -c '%U' /var/lib/docker)" != "$target_user" ]; then
+  owner=$(stat -c '%U' /var/lib/docker)
+  if [ "$owner" != "$target_user" ]; then
     chown "${target_user}:${target_user}" /var/lib/docker
     chmod 700 /var/lib/docker
     echo "  /var/lib/docker handed to ${target_user} (podman graphroot)"
