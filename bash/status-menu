@@ -55,13 +55,19 @@ case "$choice" in
     fi
     if ((w >= 1000000 && togo > 0)); then
       m=$((togo * 60 / w))
-      ((m < 60)) && t="$m min" || t="$(((m + 30) / 60)) h"
+      if ((m < 60)); then
+        t="$m min"
+      else
+        t="$(((m + 30) / 60)) h"
+      fi
       body+=", ~${t}${what}"
     fi
     # What a charger offers: its best fixed USB-C PD profile, volts × amps. Not the
     # UCSI power_supply's voltage_max × current_max, which mixes profiles (60 W for 27).
     for port in /sys/class/typec/port*-partner; do
-      [[ -e $port && $(<"${port%-partner}/power_role") == *'[sink]'* ]] || continue
+      [[ -e $port ]] || continue
+      read -r role <"${port%-partner}/power_role" || continue
+      [[ $role == *'[sink]'* ]] || continue
       best=0
       for pdo in "$port"/usb_power_delivery/source-capabilities/*:fixed_supply; do
         [[ -e $pdo ]] || continue
@@ -69,7 +75,11 @@ case "$choice" in
         watts=$((${v%mV} * ${a%mA} / 1000000))
         ((watts > best)) && best=$watts
       done
-      ((best > 0)) && body+=" · charger $best W" || body+=" · charger without USB PD"
+      if ((best > 0)); then
+        body+=" · charger $best W"
+      else
+        body+=" · charger without USB PD"
+      fi
     done
     notify-send -u low "${icon} Battery" "$body"
     ;;
@@ -109,7 +119,8 @@ case "$choice" in
         }' <<<"$link"$'\n'"$dump")
         body+="${WIFI}  ${ssid}${mark}\n     ${rxbr} Mb/s${sig}\n"
       elif [[ -e "$p/device" ]]; then
-        read -r carrier 2>/dev/null <"$p/carrier" && [[ $carrier == 1 ]] || continue
+        read -r carrier 2>/dev/null <"$p/carrier" || continue
+        [[ $carrier == 1 ]] || continue
         read -r spd 2>/dev/null <"$p/speed" || spd=''
         body+="${ETH}  ${spd} Mb/s${mark}\n"
       fi
@@ -153,18 +164,7 @@ case "$choice" in
     notify-send -u low "${WORLD} World Clock" "$body"
     ;;
   *Codex*)
-    # Asks the Codex app server (the protocol the TUI uses) for the account's live
-    # limits, reading its replies until the one to request 2 (~0.3 s).
-    coproc CODEX { timeout 8 codex app-server 2>/dev/null; }
-    trap '' PIPE # if codex is gone, the write fails instead of killing the script
-    printf '%s\n' \
-      '{"id":1,"method":"initialize","params":{"clientInfo":{"name":"status-menu","version":"0"}}}' \
-      '{"method":"initialized"}' '{"id":2,"method":"account/rateLimits/read"}' 2>/dev/null 1>&"${CODEX[1]}"
-    trap - PIPE
-    while IFS= read -r reply && [[ $reply != '{"id":2,'* ]]; do :; done 2>/dev/null <&"${CODEX[0]}"
-    body=$(jq -r 'select(.id == 2) | .result.rateLimits
-                | [.primary, .secondary][] | select(. != null)
-                | "\(if .windowDurationMins >= 10080 then "Week" else "\(.windowDurationMins / 60 | floor) h" end): \(.usedPercent | floor)% used, resets \(.resetsAt | strflocaltime("%a %H:%M"))"' <<<"$reply" 2>/dev/null)
+    body=$(codex-limits 2>/dev/null)
     notify-send -u low "${OPENAI} Codex limits" "${body:-Codex did not answer}"
     ;;
   *Claude*)

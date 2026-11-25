@@ -1,0 +1,90 @@
+#!/usr/bin/python3
+#
+# The Codex account's live limits, one line per window, asked of the Codex app
+# server (the protocol the TUI's /status uses; Codex has no command that prints
+# them). status-menu shows them as a notification.
+
+import contextlib
+import json
+import locale
+import subprocess
+import sys
+import time
+
+CODEX = ["timeout", "8", "codex", "app-server"]
+REQUESTS = [
+    {
+        "id": 1,
+        "method": "initialize",
+        "params": {"clientInfo": {"name": "codex-limits", "version": "0"}},
+    },
+    {"method": "initialized"},
+    {"id": 2, "method": "account/rateLimits/read"},
+]
+
+
+def ask_codex():
+    """The reply to request 2, or None when Codex did not give one."""
+    try:
+        codex = subprocess.Popen(
+            CODEX,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except OSError:
+        return None
+    # A Codex already gone breaks the pipe at the write, or again when leaving
+    # the block closes its input: either way there is no answer.
+    with contextlib.suppress(BrokenPipeError), codex:
+        # Codex drops its replies when its input ends, so the input is closed
+        # only once the answer is in.
+        codex.stdin.writelines(json.dumps(r) + "\n" for r in REQUESTS)
+        codex.stdin.flush()
+        for line in codex.stdout:
+            try:
+                reply = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(reply, dict) and reply.get("id") == 2:
+                return reply
+    return None
+
+
+def describe(window):
+    """One window as "Week: 10% used, resets Mon 21:09"."""
+    minutes = window.get("windowDurationMins")
+    if minutes is None:
+        name = "Limit"
+    elif minutes >= 10080:
+        name = "Week"
+    else:
+        name = f"{minutes // 60} h"
+    text = f"{name}: {int(window['usedPercent'])}% used"
+    resets = window.get("resetsAt")
+    if resets is not None:
+        text += f", resets {time.strftime('%a %H:%M', time.localtime(resets))}"
+    return text
+
+
+def main():
+    # Weekday names in the user's language, as the rest of the desktop shows.
+    with contextlib.suppress(locale.Error):
+        locale.setlocale(locale.LC_TIME, "")
+    reply = ask_codex()
+    try:
+        limits = reply["result"]["rateLimits"]
+        windows = [limits.get("primary"), limits.get("secondary")]
+        lines = [describe(w) for w in windows if w]
+    except KeyError, TypeError, ValueError:
+        lines = []
+    if not lines:
+        print("codex-limits: Codex did not answer", file=sys.stderr)
+        return 1
+    print("\n".join(lines))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
