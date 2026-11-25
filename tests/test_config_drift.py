@@ -527,7 +527,7 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
             "vim/vimrc": "live/vim",
             "containers/pg.container": "live/containers/systemd/pg.container",
             "applications/example.desktop": "home/.local/share/applications/example.desktop",
-            "ptpython/config.py": "home/.config/ptpython/config.py",
+            "ptpython/config.py": "live/ptpython/config.py",
             "skills/example/SKILL.md": "home/.claude/skills/example",
             "zsh/.zshrc": "home/.zshrc",
         }

@@ -13,8 +13,17 @@
 check_symlink_integrity() {
   hdr "Symlink integrity"
   declare -A dangling_seen=()
+  local config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+  local -a candidates=(
+    "$config_home"
+    ~/.local/bin
+    ~/.local/share/applications
+    ~/.ssh
+    ~/.claude/skills
+    ~/.agents/skills
+  )
   roots=()
-  for root in "${XDG_CONFIG_HOME:-$HOME/.config}" ~/.local/bin ~/.local/share/applications ~/.ssh ~/.claude/skills ~/.agents/skills; do
+  for root in "${candidates[@]}"; do
     [[ -d $root ]] && roots+=("$root")
   done
   # One traversal. The old decorative link count required a second traversal
@@ -44,7 +53,6 @@ check_symlink_integrity() {
   # tracked file is not necessarily installed. In particular, never treat docs,
   # generated state, root copies, local htop/nvtop/pcmanfm-qt settings or
   # Spotify's local app.toml as expected links.
-  config_home=${XDG_CONFIG_HOME:-$HOME/.config}
   # -c core.fsmonitor=false: a read-only audit must not start a background daemon as
   # a side effect. Redundant while fsmonitor is off globally (git/config), and kept
   # so this holds whatever that file says later.
@@ -80,9 +88,7 @@ check_symlink_integrity() {
           ;;
         bash/*) livef=$HOME/.local/bin/${rel#bash/} ;;
         applications/*.desktop) livef=$HOME/.local/share/applications/${rel##*/} ;;
-        ptpython/config.py | ipython/profile_default/ipython_config.py | ipython/profile_default/startup/*.py | systemd/user/*)
-          livef=$HOME/.config/$rel
-          ;;
+        systemd/user/*) livef=$HOME/.config/$rel ;;
         pcmanfm-qt/bookmarks.xml)
           livef=$config_home/pcmanfm-qt/default/${rel##*/}
           ;;
@@ -125,7 +131,9 @@ check_symlink_integrity() {
           sioyek/prefs_user.config | sioyek/keys_user.config | \
           clangd/config.yaml | spotify-player/theme.toml | ccache/ccache.conf | wob/wob.ini | wob/playback.ini | \
           latexmk/latexmkrc | mimeapps.list | papis/config | containers/containers.conf | \
-          containers/storage.conf | wireplumber/wireplumber.conf.d/51-mic-suspend.conf)
+          containers/storage.conf | wireplumber/wireplumber.conf.d/51-mic-suspend.conf | \
+          ptpython/config.py | ipython/profile_default/ipython_config.py | \
+          ipython/profile_default/startup/*.py)
           livef=$config_home/$rel
           ;;
         *) continue ;;
