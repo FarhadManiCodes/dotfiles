@@ -52,9 +52,9 @@ if name == 'busctl':
 sys.exit(0)
 """
 
-MPV = "mpv\tPaused · Fukuyama on Trump\n"
-SPOTIFY = "spotify_player\tPlaying · A song\n"
-FIREFOX = "firefox.instance_1_813\tPlaying · A tab\n"
+MPV = "mpv · Paused · Fukuyama on Trump\n"
+SPOTIFY = "spotify_player · Playing · A song\n"
+FIREFOX = "firefox.instance_1_813 · Playing · A tab\n"
 
 
 class MediaMenuStopTests(unittest.TestCase):
@@ -71,7 +71,7 @@ class MediaMenuStopTests(unittest.TestCase):
             path = self.bin / name
             path.write_text(FAKE)
             path.chmod(0o755)
-        for tool in ("awk", "printf", "cat", "timeout", "tee"):
+        for tool in ("awk", "grep", "printf", "cat", "timeout", "tee"):
             real = Path("/usr/bin") / tool
             if real.exists():
                 (self.bin / tool).symlink_to(real)

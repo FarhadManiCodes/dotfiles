@@ -144,19 +144,28 @@ focus_player() {
   fi
 }
 
+# One entry picked in fuzzel; fails on Esc. $1 prompt, $2 rows shown, then the
+# entries.
+pick() {
+  local prompt=$1 rows=$2
+  shift 2
+  printf '%s\n' "$@" | fuzzel --dmenu --prompt "$prompt > " --lines "$rows"
+}
+
 # Quits the player chosen from a list of the running ones, each named by what
 # it plays: the active-player guess can pick a paused one left behind. Never
 # Firefox, whose tabs are more than the media in them.
 stop_player() {
-  local players lines choice player
+  local format players lines choice player
+  format='{{playerInstance}} · {{status}} · {{trunc(default(title, "untitled"), 60)}}'
   # Exit status unused, as in active_player: no player prints nothing.
-  players=$(playerctl -a metadata -f '{{playerInstance}}	{{status}} · {{trunc(default(title, "untitled"), 60)}}' 2>/dev/null)
-  lines=$(awk -F'\t' '$1 !~ /^firefox/ && $1 != "" { print $1 " · " $2 }' <<<"$players")
+  players=$(playerctl -a metadata -f "$format" 2>/dev/null)
+  lines=$(grep -v '^firefox' <<<"$players")
   if [[ -z $lines ]]; then
     notify-send -t 2000 "Media" "No player to stop"
     return
   fi
-  choice=$(printf '%s\n' "$lines" | fuzzel --dmenu --prompt "Stop > " --lines 5) || return 0 # Esc
+  choice=$(pick Stop 5 "$lines") || return 0 # Esc
   player=${choice%% · *}
   [[ -n $player && $player != firefox* ]] || return 0
   # Quit, not stop: an idle mpv still holds its memory. playerctl has no
@@ -173,7 +182,9 @@ pidfile=$XDG_RUNTIME_DIR/toggle-record.pid
 recording() {
   local comm
   pid=
-  read -r pid 2>/dev/null <"$pidfile" && read -r comm 2>/dev/null <"/proc/$pid/comm" && [[ $comm == pw-record ]]
+  read -r pid 2>/dev/null <"$pidfile" || return 1
+  read -r comm 2>/dev/null <"/proc/$pid/comm" || return 1
+  [[ $comm == pw-record ]]
 }
 
 # A subshell contains exits and releases the lock when the toggle finishes.
@@ -250,7 +261,16 @@ case ${1:-} in
 esac
 
 if recording; then rec="🔴  Stop Recording"; else rec="⏺  Start Recording"; fi
-choice=$(printf '%s\n' "▶/⏸  Play/Pause" "⏭  Next" "⏮  Prev" "▰  Playback Position" "🎯  Focus Player" "⏹  Stop…" "$rec" | fuzzel --dmenu --prompt "Media > " --lines 7)
+entries=(
+  "▶/⏸  Play/Pause"
+  "⏭  Next"
+  "⏮  Prev"
+  "▰  Playback Position"
+  "🎯  Focus Player"
+  "⏹  Stop…"
+  "$rec"
+)
+choice=$(pick Media "${#entries[@]}" "${entries[@]}")
 case $choice in
   "▶/⏸  Play/Pause") toggle_playback ;;
   "⏭  Next") pc next ;;
