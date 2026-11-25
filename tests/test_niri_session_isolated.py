@@ -407,7 +407,13 @@ if stage == "start" and config["block"]:
                 ["/bin/sh", "-n"], input=script, text=True, check=True
             )
             lint = subprocess.run(
-                ["/usr/bin/shellcheck", "--shell=sh", "-"],
+                # The repository's settings, wherever the test runs from.
+                [
+                    "/usr/bin/shellcheck",
+                    f"--rcfile={ROOT / '.shellcheckrc'}",
+                    "--shell=sh",
+                    "-",
+                ],
                 input=script,
                 text=True,
                 capture_output=True,

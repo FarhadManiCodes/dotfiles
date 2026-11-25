@@ -14,7 +14,9 @@ XDG_RUNTIME_DIR=/run/user/$uid
 export XDG_RUNTIME_DIR
 DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
 export DBUS_SESSION_BUS_ADDRESS
-[ "$(/usr/bin/stat -c '%u:%a' "$XDG_RUNTIME_DIR")" = "$uid:700" ] ||
+runtime=$(/usr/bin/stat -c '%u:%a' "$XDG_RUNTIME_DIR") ||
+    fail 'cannot inspect the runtime directory'
+[ "$runtime" = "$uid:700" ] ||
     fail 'runtime directory must belong to this user with mode 0700'
 
 # "self" checks the caller, not another session named by an inherited variable.
