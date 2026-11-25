@@ -69,7 +69,7 @@ check_etc_baselines() {
     fi
     if ((${#unreadable[@]})); then
       etc_complete=0
-      skip "unowned: ${#unreadable[@]} root-only dir(s) not scanned (no root) — additions elsewhere still checked; -v lists them"
+      skip "unowned: ${#unreadable[@]} root-only dir(s) not scanned — other additions still checked; -v lists them"
       ((verbose)) && printf '       ~ %s\n' "${unreadable[@]}" | sort
     fi
     # The package list (fd 3) is the owned set; unowned = /etc files not in it.

@@ -31,6 +31,22 @@ check_pacman_transaction() {
   ((issues > warned)) || ok "clean (${when})"
 }
 
+# A log stamp is device:inode:bytes: which file the log was, and its size then.
+# Prints the log's stamp now, only while it is still the file stamp $1 names and
+# has not shrunk since.
+log_grown_from() {
+  local now
+  now=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) || return 1
+  [[ ${now%:*} == "${1%:*}" ]] || return 1
+  ((${now##*:} >= ${1##*:})) || return 1
+  printf '%s\n' "$now"
+}
+
+# What was written to the log after stamp $1 (tail counts bytes from 1).
+log_written_after() {
+  tail -c "+$((${1##*:} + 1))" "$plog" 2>/dev/null
+}
+
 # Standalone: inspect the last transaction. sysup supplies a device:inode:bytes
 # boundary captured before paru, so every new transaction is checked separately.
 check_last_pacman_transaction() {
@@ -44,11 +60,9 @@ check_last_pacman_transaction() {
   if [[ -n $pacman_since ]]; then
     if [[ $pacman_since == unavailable ]]; then
       warn "pacman log boundary unavailable — update transactions not checked"
-    elif ! current=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) \
-      || [[ ${current%:*} != "${pacman_since%:*}" ]] \
-      || ((${current##*:} < ${pacman_since##*:})); then
+    elif ! current=$(log_grown_from "$pacman_since"); then
       warn "pacman log replaced, truncated or unavailable — update coverage incomplete"
-    elif ! block=$(tail -c "+$((${pacman_since##*:} + 1))" "$plog" 2>/dev/null); then
+    elif ! block=$(log_written_after "$pacman_since"); then
       warn "$plog is not readable — update transactions not checked"
     else
       transaction=''
@@ -66,8 +80,7 @@ check_last_pacman_transaction() {
       else
         ok "no new ALPM transaction recorded since update started"
       fi
-      if ! after=$(stat -Lc '%d:%i:%s' "$plog" 2>/dev/null) \
-        || [[ ${after%:*} != "${current%:*}" ]] || ((${after##*:} < ${current##*:})); then
+      if ! log_grown_from "$current" >/dev/null; then
         warn "pacman log changed during read — update coverage incomplete"
       fi
     fi
