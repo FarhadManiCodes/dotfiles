@@ -80,7 +80,7 @@ check_pacnew() {
           age=$(((now - $(stat -c %Y "$f")) / 86400))
           printf '       %-46s %4s changed lines, %s days old\n' "${f#/etc/}" "$n" "$age"
           if ((verbose)); then
-            diff -u "$base" "$f" 2>/dev/null | sed -n '3,$p' | sed 's/^/         /'
+            diff -u "$base" "$f" 2>/dev/null | sed '1,2d; s/^/         /'
           fi
         else
           printf '       %-46s (unreadable)\n' "${f#/etc/}"
@@ -243,13 +243,19 @@ check_privileged_configs() {
   check_privileged /usr/local/bin/niri-session-isolated exec
   # The list's own warning was printed under the section above.
   ((root_list_bad)) \
-    || pass -p "root-owned, not writable by others, under root-owned directories (unreadable paths listed above excluded)"
+    || pass -p "all checked, parent directories included (access exclusions listed above)"
 }
 
 check_plugin_staleness() {
   hdr "Plugins behind upstream"
   plugin_count=0
-  for d in "${XDG_CONFIG_HOME:-$HOME/.config}"/tmux/plugins/*/ "${XDG_CONFIG_HOME:-$HOME/.config}"/zsh/plugins/*/ ~/.vim/plugged/*/; do
+  local config=${XDG_CONFIG_HOME:-$HOME/.config}
+  local -a plugin_dirs=(
+    "$config"/tmux/plugins/*/
+    "$config"/zsh/plugins/*/
+    ~/.vim/plugged/*/
+  )
+  for d in "${plugin_dirs[@]}"; do
     [[ -e $d/.git ]] || continue
     name=${d%/}
     name=${name##*/}
@@ -321,7 +327,7 @@ main() {
         shift
         ;;
       --pacman-since)
-        if (($# < 2)) || [[ ! $2 =~ ^[0-9]+:[0-9]+:[0-9]+$ && $2 != unavailable ]]; then
+        if [[ ! ${2-} =~ ^([0-9]+:[0-9]+:[0-9]+|unavailable)$ ]]; then
           echo "config-drift: --pacman-since requires a device:inode:bytes boundary" >&2
           exit 2
         fi
