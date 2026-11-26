@@ -100,7 +100,13 @@ case "$choice" in
         while IFS=: read -r key value; do
           case $key in
             *SSID) ssid=${value# } ;;
-            *'rx bitrate') read -r rxbr _ <<<"$value" && rxbr=${rxbr%.*} ;;
+            *'rx bitrate')
+              # iw prints tenths ("866.7 MBit/s"), rounded here to whole Mb/s.
+              read -r rxbr _ <<<"$value"
+              if [[ $rxbr =~ ^([0-9]+)\.([0-9])$ ]]; then
+                rxbr=$((BASH_REMATCH[1] + (BASH_REMATCH[2] >= 5)))
+              fi
+              ;;
           esac
         done <<<"$link"
         # Signal as a word. The driver's average is steadier than the last frame's

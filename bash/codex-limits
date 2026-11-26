@@ -68,16 +68,23 @@ def describe(window):
     return text
 
 
+def windows_of(reply):
+    """The reply's limit windows that are objects; none for any other shape."""
+    match reply:
+        case {"result": {"rateLimits": dict() as limits}}:
+            windows = [limits.get("primary"), limits.get("secondary")]
+            return [w for w in windows if isinstance(w, dict) and w]
+        case _:
+            return []
+
+
 def main():
     # Weekday names in the user's language, as the rest of the desktop shows.
     with contextlib.suppress(locale.Error):
         locale.setlocale(locale.LC_TIME, "")
-    reply = ask_codex()
     try:
-        limits = reply["result"]["rateLimits"]
-        windows = [limits.get("primary"), limits.get("secondary")]
-        lines = [describe(w) for w in windows if w]
-    except KeyError, TypeError, ValueError:
+        lines = [describe(w) for w in windows_of(ask_codex())]
+    except KeyError, TypeError, ValueError:  # a missing or malformed value
         lines = []
     if not lines:
         print("codex-limits: Codex did not answer", file=sys.stderr)

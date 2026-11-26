@@ -96,7 +96,7 @@ class StatusMenuWifiTests(unittest.TestCase):
         text = self.notification(avg=-59, link=-30)
         name, details = text.split("\\n")
         self.assertTrue(name.endswith("Home  (active)"), name)
-        self.assertEqual(details, "     866 Mb/s · very good signal")
+        self.assertEqual(details, "     867 Mb/s · very good signal")
 
     def test_active_mark_for_a_route_without_a_gateway(self):
         # A VPN-style default route: "dev" is not the fifth word of the text form.
