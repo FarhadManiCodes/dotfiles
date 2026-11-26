@@ -47,35 +47,54 @@ fetch_meta() {
 }
 
 # papis-style citation key: alphanumerics joined by single underscores.
-sanitize_ref() { printf '%s' "$1" | sed 's/[^[:alnum:]]\+/_/g; s/^_*//; s/_*$//'; }
+sanitize_ref() {
+  local ref=${1//[^[:alnum:]]/_}
+  while [[ $ref == *__* ]]; do ref=${ref//__/_}; done
+  ref=${ref#_}
+  printf '%s' "${ref%_}"
+}
 
-# Snapshot keys, identifiers and tags once, read straight from YAML with yq:
-# accurate (handles any field content) and faster than papis' Python startup.
+# Snapshot the library once, read straight from YAML with yq: accurate (handles
+# any field content) and faster than papis' Python startup.
 PAPERS="$HOME/.local/share/papis/papers"
 # yq stops at the first unreadable info.yaml, and every key after it would look
-# free: a duplicate ref breaks papis.nvim, so a failed scan stops here.
-# "ref \t doi \t eprint \t tags" per entry. Tags are joined when a list; a plain string
-# (hand edits, `papis --set tags x`) is taken as is, since join() fails on it.
-library=$(yq -o=tsv '[.ref, (.doi // ""), (.eprint // ""), ((.tags // []) | (select(tag == "!!seq") | join(" ")) // .)]' \
-  "$PAPERS"/*/info.yaml 2>&1) \
-  || {
-    notify-send -u critical "Papis" "Library scan failed: ${library##*$'\n'}"
-    exit 1
-  }
-existing_refs=$(cut -f1 <<<"$library")
+# free: a duplicate ref breaks papis.nvim, so a failed scan, or a failed query
+# of it, stops here. $1 is yq's output; its last line is the reason.
+scan_failed() {
+  notify-send -u critical "Papis" "Library scan failed: ${1##*$'\n'}"
+  exit 1
+}
+# Kept as YAML, not JSON: JSON would turn an unquoted arXiv id (2606.14130) into
+# a number and drop its trailing zero.
+library=$(yq ea '[.]' "$PAPERS"/*/info.yaml 2>&1) || scan_failed "$library"
+# A yq query over the snapshot. TSV output: yq's YAML printer turns a selected
+# string "y" into "Y".
+ask() { yq -o=tsv "$1" <<<"$library" 2>&1; }
+
+existing_refs=$(ask '.[].ref') || scan_failed "$existing_refs"
 ref_taken() { grep -qxF -- "$1" <<<"$existing_refs"; }
 
 # Already in the library? A DOI matches case-insensitively, an arXiv id without
 # its version suffix (entries store "2602.23859v2" as well as "2606.14130").
-existing=$(ID=$identifier IMP=$importer awk -F'\t' '
-    function bare(s) { s = tolower(s); if (ENVIRON["IMP"] == "arxiv") sub(/v[0-9]+$/, "", s); return s }
-    BEGIN { id = bare(ENVIRON["ID"]); col = (ENVIRON["IMP"] == "doi") ? 2 : 3 }
-    $col != "" && bare($col) == id { print $1; exit }' <<<"$library")
+case $importer in
+  doi) field=.doi bare='tostring | downcase' ;;
+  *) field=.eprint bare='tostring | downcase | sub("v[0-9]+$"; "")' ;;
+esac
+existing=$(ID=$identifier ask "first($field and ($field | $bare) == (strenv(ID) | $bare)) | .ref") \
+  || scan_failed "$existing"
 [[ -z "$existing" ]] || {
   notify-send -u low "Papis" "Already in papis as $existing\n$identifier"
   exit 0
 }
-existing_tags=$(cut -f4 <<<"$library" | tr ' ' '\n' | sort -u | grep . | paste -sd' ' -)
+# Tags are a YAML list, one element per tag: papis.nvim needs that, and this
+# script and `papis tag` write it so. Anything else (a hand edit, or `papis
+# --set tags x`) is reported rather than guessed at.
+existing_tags=$(ask '[.[].tags[]] | unique | sort | join(" ")') \
+  || scan_failed "$existing_tags"
+bad_tags=$(ask '[.[] | select(.tags != null and (.tags | tag) != "!!seq") | .ref] | join(" ")') \
+  || scan_failed "$bad_tags"
+[[ -z $bad_tags ]] \
+  || notify-send -u normal "Papis" "Tags saved as text, not a list: $bad_tags\nFix with papis tag"
 
 # Append a/b/c… (then _2, _3…) until the key is free.
 free_ref() {

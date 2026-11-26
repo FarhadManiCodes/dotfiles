@@ -157,6 +157,7 @@ class PapisAddPaperTests(unittest.TestCase):
         self.entry("plain", "ref: Plain_2019\ntags: control-theory\n")
         self.assertEqual(self.run_script("doi", "10.1000/new"), 0)
         self.assertNotIn("Library scan failed", self.logged())
+        self.assertIn("not a list: Plain_2019", self.logged())
         self.assertIn("Added with PDF", self.notices()[-1])
 
     def test_suggested_key_skips_taken_ones(self):
