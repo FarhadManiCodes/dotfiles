@@ -30,7 +30,6 @@ FUZZEL_ARGS=(
   --no-sort
   --anchor top-right
   --width 12
-  --lines 5
   --background-color 1e1e2eff
   --text-color cdd6f4ff
   --border-color f38ba8ff
@@ -48,13 +47,21 @@ OPTIONS=(
   "🛑 Shutdown"
 )
 
+# menu PROMPT ITEM...: prints the chosen item; fails when the menu is closed.
+menu() {
+  local prompt=$1
+  shift
+  printf '%s\n' "$@" | fuzzel "${FUZZEL_ARGS[@]}" --lines $# --prompt "$prompt"
+}
+
 # --- Main Menu ---
-selected=$(printf '%s\n' "${OPTIONS[@]}" | fuzzel "${FUZZEL_ARGS[@]}" --prompt "Power: ")
+selected=$(menu "Power: " "${OPTIONS[@]}")
 
 # --- Confirmation helper ---
 confirm() {
   local answer
-  answer=$(printf 'No\nYes\n' | fuzzel "${FUZZEL_ARGS[@]}" --lines 2 --prompt "$1") && [[ $answer == Yes ]]
+  answer=$(menu "$1" No Yes) || return
+  [[ $answer == Yes ]]
 }
 
 # --- Protected power request ---
@@ -70,7 +77,8 @@ request_power() {
   else
     status=$?
     printf '%s\n' "$diagnostic" >&2
-    notify-send -u critical "Power request failed" "$action canceled (exit $status): ${diagnostic:-No diagnostic output}"
+    notify-send -u critical "Power request failed" \
+      "$action canceled (exit $status): ${diagnostic:-No diagnostic output}"
     return "$status"
   fi
 }
