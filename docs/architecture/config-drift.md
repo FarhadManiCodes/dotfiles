@@ -38,8 +38,10 @@ an empty preset file, and a mkinitcpio hook run that printed output but no succe
 alone included.
 Limits: success lines name no image, so a direct `mkinitcpio -g` success right after a
 stopped build would answer it; a UKI assembly that dies silently after its initramfs
-succeeded is not seen; and neither is a hook that dies before printing anything, because a
-run that selects no preset is silent too and is legitimate.
+succeeded is not seen; neither is a hook that dies before printing anything, because a
+run that selects no preset is silent too and is legitimate; and the printed-but-no-success
+check knows the hook only as `90-mkinitcpio-install.hook`, so a local hook under another
+name gets only the open-build check.
 
 **The symlink check verifies `install.sh`'s tracked mappings** — missing links, links
 replaced by a file/directory, or resolving to the wrong target. Vim/Neovim and skill
