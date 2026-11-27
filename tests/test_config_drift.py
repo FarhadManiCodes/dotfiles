@@ -302,6 +302,36 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
             "never reported success",
             self.run_check("check_last_pacman_transaction"),
         )
+        # With two kernels, one image's success must not answer for the other.
+        # The hook may legitimately build nothing, but then it prints nothing.
+        hook = "[ALPM] running '90-mkinitcpio-install.hook'..."
+        build = "[ALPM-SCRIPTLET] ==> Building image from preset"
+        success = "[ALPM-SCRIPTLET] ==> Initcpio image generation successful"
+        skipped = (
+            "[ALPM-SCRIPTLET] ==> WARNING: No image or UKI specified."
+            " Skipping image 'x'"
+        )
+        later = "[ALPM] running '99-other.hook'..."
+        note = "[ALPM-SCRIPTLET] ==> unrelated output"
+        empty = (
+            "[ALPM-SCRIPTLET] ==> WARNING: Preset file 'x' is empty or does"
+            " not contain any presets."
+        )
+        for lines, expected in [
+            ((build, success, build), "never reported success"),
+            ((build, build, success), "never reported success"),
+            ((hook, later, note), "clean (new)"),
+            ((hook, build, skipped), "hook ran and no image reported success"),
+            ((hook, build, success, build, skipped), "clean (new)"),
+            ((build, success, empty), "is empty or does"),
+        ]:
+            with self.subTest(lines=lines):
+                output = "".join(f"[new] {line}\n" for line in lines)
+                self.write("pacman.log", transaction("new") + output)
+                self.assertIn(
+                    expected,
+                    self.run_check("check_last_pacman_transaction"),
+                )
         (self.root / "pacman.log").unlink()
         self.assertIn(
             "not readable", self.run_check("check_last_pacman_transaction")

@@ -11,11 +11,33 @@
 # update transcript it is persistent and covers transactions run outside sysup.
 check_pacman_transaction() {
   local block=$1 when line message warned=$issues
+  # Each preset build stays open until mkinitcpio answers it with a success or a
+  # deliberate skip: counting per transaction would let one kernel's success hide
+  # the other's failure. The pacman hook must also end in a success once it has
+  # printed anything; a run that selects no preset prints nothing and is fine.
+  local build_open=0 unanswered=0 in_hook=0 hook_printed=0 hook_built=0
   when=${block%%]*}
   when=${when#\[}
   while IFS= read -r line; do
+    case $line in
+      *"running '90-mkinitcpio-install.hook'"*) in_hook=1 ;;
+      *"[ALPM] running '"*) in_hook=0 ;;
+      *'[ALPM-SCRIPTLET]'*) ((in_hook == 0)) || hook_printed=1 ;;
+    esac
+    case $line in
+      *'==> Building image'*)
+        ((build_open == 0)) || unanswered=1
+        build_open=1
+        ;;
+      *'Initcpio image generation successful'*)
+        build_open=0
+        ((in_hook == 0)) || hook_built=1
+        ;;
+      *'No image or UKI specified. Skipping image'*) build_open=0 ;;
+    esac
     if [[ $line == *'[ALPM-SCRIPTLET]'* &&
-      ($line == *'==> ERROR'* || $line == *'errors were encountered'*) ]]; then
+      ($line == *'==> ERROR'* || $line == *'errors were encountered'* ||
+      $line == *'is empty or does not contain any presets'*) ]]; then
       message=${line#*\[ALPM-SCRIPTLET\] }
       warn "scriptlet error in transaction ${when}: ${message:0:80}"
     fi
@@ -23,9 +45,10 @@ check_pacman_transaction() {
   if [[ $block != *'[ALPM] transaction completed'* ]]; then
     warn "pacman transaction has no completion record (${when})"
   fi
-  if [[ ($block == *'Updating linux initcpios'* || $block == *'==> Building'*) &&
-    $block != *'Initcpio image generation successful'* ]]; then
+  if ((unanswered || build_open)); then
     warn "initramfs was rebuilt but never reported success (${when}) — check before rebooting"
+  elif ((hook_printed && ! hook_built)); then
+    warn "mkinitcpio hook ran and no image reported success (${when}) — check before rebooting"
   fi
   # Several transactions share one section, so each answers for its own.
   ((issues > warned)) || ok "clean (${when})"
