@@ -328,7 +328,7 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
             ((hook, build, skipped), "hook ran and no image reported success"),
             ((hook, build, success, build, skipped), "clean (new)"),
             ((build, success, build, kver_skipped), "never reported success"),
-            ((build, success, empty), "is empty or does"),
+            ((build, success, empty), "empty mkinitcpio preset"),
         ]:
             with self.subTest(lines=lines):
                 output = "".join(f"[new] {line}\n" for line in lines)

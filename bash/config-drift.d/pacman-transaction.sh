@@ -35,11 +35,12 @@ check_pacman_transaction() {
         ;;
       *'No image or UKI specified. Skipping image'*) build_open=0 ;;
     esac
-    if [[ $line == *'[ALPM-SCRIPTLET]'* &&
-      ($line == *'==> ERROR'* || $line == *'errors were encountered'* ||
-      $line == *'is empty or does not contain any presets'*) ]]; then
-      message=${line#*\[ALPM-SCRIPTLET\] }
+    [[ $line == *'[ALPM-SCRIPTLET]'* ]] || continue
+    message=${line#*\[ALPM-SCRIPTLET\] }
+    if [[ $line == *'==> ERROR'* || $line == *'errors were encountered'* ]]; then
       warn "scriptlet error in transaction ${when}: ${message:0:80}"
+    elif [[ $line == *'is empty or does not contain any presets'* ]]; then
+      warn "empty mkinitcpio preset in transaction ${when}: ${message:0:80}"
     fi
   done <<<"$block"
   if [[ $block != *'[ALPM] transaction completed'* ]]; then
