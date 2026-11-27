@@ -1106,3 +1106,15 @@ npm can stop mid-swap under `~/.local/lib/node_modules/ctx7`, and every later `s
   history picker. Untested for `copyfile`: it copies a file reference
   (`text/uri-list`), not text, and whether the history keeps that type is unknown.
 - **Recheck:** if a copy is ever missing from the history as well.
+
+---
+
+## USB microphone onboard processing — REVISIT when trying a USB mic (2026-11-26)
+
+If a USB microphone sounds compressed, filtered, or gated across multiple apps, check for
+processing inside the microphone before changing PipeWire settings. Depending on the model,
+this can include automatic gain, noise reduction, compression, and a high-pass filter.
+Record the current settings and compare a short recording with those effects bypassed, if supported.
+
+For the Shure MV7+, [Omarchy commit `759535689`](https://github.com/basecamp/omarchy/commit/759535689fbed92f55db397aaef14f4eff027c12)
+adds `bin/omarchy-audio-mv7plus`, a CLI with a read-only `status` command and a neutral preset.

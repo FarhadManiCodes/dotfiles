@@ -51,6 +51,7 @@ Off-machine backup remains deferred.
 | 34. Locked screen after a media key or resume | Opened 2026-11-20; resume check added 2026-11-24 | Press a locked-screen media key once the panel is dark, then suspend with the panel off; see whether it blanks again and lights on resume |
 | 35. Ly waits 2 s for iwd at boot | Opened 2026-11-24 | Audit what the iwd `sleep 2` and `nowait.conf` are for, then decide; no change before that |
 | 36. Stale mate-polkit startup entry | Opened 2026-11-25 | Remove the missing executable from Niri startup and update the related docs |
+| 37. Battery drain during sleep | Opened 2026-11-27 as an open discussion; nothing decided | Check whether it is worth measuring, then discuss |
 
 ## 1. Off-machine backup
 
@@ -384,6 +385,8 @@ path is chosen, with no heavy dependency pulled in.
 
 **Known fixed sleep (found 2026-11-07, Omarchy review of `573b518be..9044b7e8e`):** `tests/test_sysup_ctrl_c.py:207` sleeps 0.3 s and then asserts the sleep inhibitor exited. On a busy machine the process can take longer, so the test fails with nothing wrong, the same class as `d5b32d24d`. It has not flaked yet. Wait for the process to exit with a generous upper bound instead.
 
+**Startup and reload readiness (Omarchy review, 2026-11-26):** [Omarchy commit `522d47afe`](https://github.com/basecamp/omarchy/commit/522d47afee83cefd46485146a853c1f867f57d31) fixed a smoke test that proceeded when an old plugin disappeared, before the full reload had recreated the widgets. The test now waits for a recreated widget whose marker confirms the reload completed, retries panel opening on a missing IPC target, and reports the log if the shell exits. During the audit, check that each bounded wait observes the state the next assertion needs. For startup and reload, look for a signal from the new instance or the operation it must serve. Report early exits and timeouts with the last observed state or relevant log. No equivalent local reload race was confirmed.
+
 **Standing test rules (added 2026-11-07, from the Omarchy review of `573b518be..9044b7e8e`):** `AGENTS.md`, `CLAUDE.md`, `docs/`, `skills/` and `.agents/` hold no rules for when a test earns its place; the Validation section covers only how to run tests. Omarchy's `AGENTS.md` ("When to add a test") has them. As part of this audit, decide which fit this repo and propose them as a short `AGENTS.md` section, adapted rather than copied: name the breakage a test would catch before writing it; a test must fail without the change it guards, for the right reason; do not test a stub the test itself supplies; do not restate the implementation or add change-detectors (snapshots of large output, exact counts); extend the area's existing test file; keep the test in proportion to the change. Also Omarchy's run discipline for agents: write a run's whole output to a log file and read it from there rather than piping it through `grep`, `head` or `tail`, and rerun only after changing something the test covers. The audit's findings (dead assertions, stubs that supply the behavior under test) are the evidence for which rules are worth the lines.
 
 **Tests out of proportion to their code (found 2026-11-11, Herdr Milestone 0.5):** how it came up: the plan asked to extend `test_search_and_formatter_are_mirrored` so the two copies of the pickers (`bash/vifm-pick` and the zsh functions) cannot drift in `fbook`'s `fd` command, `fdata`'s extension list and opening an EPUB. The test written for that, comparing what both copies do, came to about 30 lines plus a change to the fake fzf, to guard a handful of lines anyone can check by eye, so the user dropped it before its commit; each file's "MIRRORS" comment stays the guard. Measuring every test file against the code it tests showed the same pattern elsewhere. Test lines per line of the code tested: `test_cliphist_store_guard.py` 357 for a 55-line script (17 tests, several on the same size-limit edge), `test_niri_session_isolated.py` 461 for 113, `test_pdf_meta.py` 156 for 43, `test_powermenu.py` 243 for 87, `test_herdr_cargo.py` 618 for 226 (plus part of `test_sysup_ctrl_c.py`), the two `test_media_menu*.py` 558 for 236, `test_git_hooks.py` 1663 for about 780, the six `test_sysup_*.py` about 1,500 for about 1,000. `test_vifm_pick_rgbook.py` is about 1:1 but carries a 47-line fake fzf. Aim for well under 100 lines where the code is small: group overlapping tests, keep one per real failure, and show the user which go before editing. A line count is a pointer, not a verdict.
@@ -665,3 +668,15 @@ short after a large update.
 **Scope.** Remove the obsolete startup line and the matching dependency entry in `niri/README.md`. Update item 28 so its planned `sysup` restart report does not assume a graphical agent starts at login. Keep `polkit` and the existing terminal authorization paths. Once done, update the "Nothing else to clean up" line in revisit.md's mate-polkit entry.
 
 **Acceptance criteria.** The Niri config validates, and a normal login no longer attempts to spawn the missing executable. The README and restart plan describe the actual startup helpers.
+
+## 37. Discuss whether to measure battery drain during sleep
+
+**Opened 2026-11-27. An open discussion, not a decision:** nothing is agreed beyond looking into it, and no hook is to be written before that talk.
+
+**What is known.** The kernel reports hardware sleep time in `/sys/power/suspend_stats/last_hw_sleep` (microseconds). The 2026-11-26 suspend from 22:44 to 23:16 lasted about 1,944 s by the journal, with 1,942 s in hardware sleep. The journal records suspend entry and exit, but no record of the energy used was found: `upower` is inactive and the history file checked ends in May. `batt` shows only the current charge and draw. No drain problem has been recorded.
+
+**To check.** Whether overnight drain has been noticed at all; whether `BAT0/energy_now` read before and after a suspend gives a believable figure; and whether the answer justifies another hook in `system-sleep/`.
+
+**One possible shape, if wanted.** A small hook that logs battery energy, AC state and hardware sleep time to the journal before and after suspend, with no history file or display. Item 8 covers the separate wake at the 5% battery alarm.
+
+**Omarchy reference:** [`f7bdd8378`](https://github.com/basecamp/omarchy/commit/f7bdd8378e5e14463e4c5587e747feede409489c), `default/systemd/system-sleep/omarchy-sleep-stats`, records energy and hardware sleep time across suspend and keeps a history for its power panel.

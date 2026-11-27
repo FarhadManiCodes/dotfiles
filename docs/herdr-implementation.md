@@ -194,6 +194,7 @@ Acceptance criteria:
 - [ ] Bare `Ctrl+h/j/k/l` moves between Neovim and Vim splits, and `Ctrl+l` clears the zsh screen.
 - [ ] Vim and Neovim pick the right light/dark background inside Herdr.
 - [ ] Sioyek inverse search reaches Neovim when its pane is the focused one, with several foot windows open (Step 3, `window_title`). The hidden-pane case is Milestone 5's.
+- [ ] The idle server's cost is measured on battery: after detaching with only an idle shell, record how often the server process wakes (for example, the change in `voluntary_ctxt_switches`, summed over `/proc/<pid>/task/*/status`, across 60 s). The server stays started on demand, with no niri startup line or user unit, and the decision on stopping it when unused is recorded with the number.
 
 ### Milestone 2: Switch the launcher
 Decisions: Step 9. Follow `niri/AGENTS.md`; reload with `niri msg action load-config-file`.

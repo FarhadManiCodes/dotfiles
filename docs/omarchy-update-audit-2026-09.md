@@ -378,3 +378,90 @@ All 11 commits were screened; the memory and slice diffs were read in full.
 - **Hardware and Omarchy-only** (`5dff22538` Snapdragon camera nodes, `f958290c6` Surface iptsd, `6169f05c8` ultrawide mode labels, `a19d38d0a` Quickshell notification icons, `372e1dec9` `omarchy-make-app`, `65d3982b3` Pi defaults, `6ffadc3e1` Gruvbox keyboard backlight, `9233a4b45` Omarchy CI). None applies to a ThinkPad P16s Gen 2 AMD on niri without Quickshell, Pi or Gruvbox keyboard lighting.
 
 Discussion complete through `65d3982b3` for this pull.
+
+### 2026-11-25: `65d3982b3..f767c7a6c` (69 commits)
+
+The local reflog records a fast-forward at 21:26 CET. The review ran in Codex and screened all 69 commits, including 3 merges. This entry was written on 2026-11-27 from that session.
+
+**Recorded for follow-up**
+
+- **Stale `mate-polkit` startup line** (found while checking the polkit prompt change, `5318bdaca`). Niri still launches the removed agent. [TODO item 36](../TODO.md#36-remove-the-stale-mate-polkit-startup-entry). Terminal authorization stays as it is.
+
+**Raised, no decision recorded**
+
+- **Read-only hardware check** (`14504bfd8`). A short checklist for Wi-Fi, audio and the panel in the boot and suspend skill, for use after a kernel update or a bad resume.
+- **Lower CPU priority for local model servers** (`c2ea2d87c`). Worth another look if the OCR fallback or the semantic checks make the desktop sluggish.
+- **Race tests that wait for an event** (`d4512a755`). The test audit is the place for it.
+
+**Checked and already covered or not applicable**
+
+- Foot already has `workers=4` (`04cd61ae9`, `756adabab`), the DNS fallback rule is in `/etc/nsswitch.conf` (`4056b357f`), and Git finds the packaged `gh` through `PATH` (`3f5694e78`).
+- The clipboard race (`de5d1cd61`) comes from reading a list by position. The local picker passes a Cliphist entry ID.
+- Most of the other commits belong to Omarchy's desktop, its installer or other hardware.
+
+Discussion complete through `f767c7a6c` for this pull.
+
+### 2026-11-26: `f767c7a6c..7be231846` (45 commits)
+
+The local reflog records a fast-forward at 19:30 CET. The review ran in Codex and screened all 45 commits. This entry was written on 2026-11-27 from that session.
+
+**Recorded for follow-up**
+
+- **Tests that wait for the state they check** (`522d47afe`). Added to TODO item 21.
+- **USB microphone onboard processing** (`759535689`, Shure MV7+). A note in `revisit.md` for when a USB microphone is tried.
+
+**Reviewed and skipped by the user**
+
+- **A known-good boot image beside the rollback snapshots** (`c3108ac42`). Every GRUB snapshot entry loads the current files from `/boot`. GRUB and both kernels stay, with no boot change.
+- **Clock resync after a clock jump** (`0eaa278b3`). The status menu reads the time on demand.
+- **Webcam relay and speaker tunings** (`6c426bf23`, `155c4b4c0`, `a1dda991e`, `82656f6cc`, `27bc9726d`). The webcam is a USB `uvcvideo` device and the speaker profiles are for other laptops.
+- **Workspaces left without a monitor** (`2dfb187fa`). The Niri bindings use native workspace actions, and no unreachable workspace is recorded. HDMI disconnect was not tested.
+- **An installed Node that provides `nodejs`** (`e0d083ff4`). Arch's `nodejs` is installed; TODO item 26 covers dependency replacement.
+- **Polkit prompt layout** (`a30167e00`, `618051603`). Authorization is in the terminal.
+- **CLI-installed models in a panel** (`b64e765f6`). The local OCR model is an automatic fallback.
+- **Initramfs rebuilds, bar surface size, menu width, keyboard layout table** (`982ea1eb0`, `e33c5a8fe`, `790e82485`, `b982dc919`, `f989b43e9`). No settings package, persistent bar or installer here, and the Fuzzel menus already have fixed widths.
+
+Discussion complete through `7be231846` for this pull.
+
+### 2026-11-26: `7be231846..9c2792f40` (4 commits)
+
+The local reflog records a fast-forward at 19:55 CET. The review ran in Codex. This entry was written on 2026-11-27 from that session.
+
+**Checked, no change**
+
+- **Shure MV7+ controls in the CLI** (`081715b58`). The `revisit.md` microphone note already covers it.
+- **Camera panel controls, translations and an ARM package list** (`7f762a75a`, `9c2792f40`, `1b9529000`). The webcam is a USB device and the dotfiles build no ISO.
+
+Discussion complete through `9c2792f40` for this pull.
+
+### 2026-11-27: `9c2792f40..153d177e7` (82 commits)
+
+The local reflog records a fast-forward at 20:06 CET. The range holds 78 non-merge commits and 4 merges. Every non-merge message and file list was read, with the diffs that looked relevant.
+
+**Recorded for follow-up**
+
+- **Idle cost of the Herdr server** (`0c67de009`). Omarchy stopped autostarting it, reporting about 16 wakeups a second while idle; this was not measured here. Herdr 0.9.5 was not running, with no startup line or user unit found. A check was added to [Herdr Milestone 1](herdr-implementation.md#milestone-1-base-config-live). The commit's SSH clipboard fix does not apply while `sshd` is disabled.
+- **Battery drain during sleep** (`f7bdd8378`). Kept as an open discussion, with nothing decided: [TODO item 37](../TODO.md#37-discuss-whether-to-measure-battery-drain-during-sleep).
+
+**Checked: already handled or set differently**
+
+- **Closed lid on external power** (`9dfce75c0`). The logind drop-in already sets `HandleLidSwitchExternalPower=lock`.
+- **NMI watchdog, journal cap, huge pages** (`f5438c96d`, `9c6677eab`). The watchdog reads 0 and the journal is capped at 200M. Huge pages stay `always`: Omarchy's change targets 8 GiB machines, and this one reports 58 GiB.
+- **Power profile on battery** (`67c1fee65`). It configures `power-profiles-daemon`; TLP sets `balance_power` here.
+- **Browser video decode, `gh` credential helper** (`43821cb7e`, `e6b8386b9`). No Chromium package; mpv uses `hwdec=vaapi`. Git already calls `!gh auth git-credential`.
+- **Early-exit pipes** (`518062644`). No `| grep -q` was found on a line in the scripts that use `pipefail`. `check-skills`, `papis-bib` and `papis-add-paper` use `| head -1` without `set -e`. Nothing was run to provoke the failure.
+
+**Reviewed and skipped**
+
+- **Memory protection, app memory cap, out-of-memory notice** (`dbc3aeaf1`, `0d225171e`, `7f81f1b6b`). Related to the `session.slice` change skipped on 2026-11-24. The cap's size threshold would include this machine, but no kernel OOM kill was found in the journal across all boots back to 2026-09-28, swap was unused, and `systemd-oomd` is disabled.
+- **Network and Bluetooth commands** (`03e670714`, `9b1c2f30f`, `c5fbeec6e`, `d360a0b37`). Networking is iwd, Bluetooth is `bluetui`, and no rfkill toggle script was found.
+- **Drive automounting** (`fd25d608b`, `b01e8b116`). No `udiskie`; drives are mounted from vifm.
+- **Software not in use** (`7abc952fd`, `295e8b28a`, `30831d8b8`, `fa897dc05`, `a1d7fc1a8`, `a43cedd24`, `d461b9261`, `aeda788b6`): mise, CUPS, LibreOffice, Steam, Pi, the headless Chrome look tools and Omarchy's image viewer launcher.
+- **`pkexec` reason text and agent resume at login** (`d4779d424`, `8f191d827`). Authorization is in the terminal; Herdr Milestone 3 covers agent resume.
+- **Other hardware** (`0d03063cd`, `039b1f0ce`, `4f7e81385`, `8e92b7449` Intel; `c921707f6`, `c304e8ca1`, `44ff2065a`, `4e1ee517e`, `5c799c21e`, `63695003a`, `1da3ffdad`, `eac590b60` ASUS, Snapdragon and Anduril; `10287a472`, `06ea210fe` 8 GiB tuning; `9bacda154` camera relay). Wi-Fi power save is already on here.
+- **Omarchy's boot loader** (`f75565bab`, `7da256826`, `3c8da43aa`). This system boots with GRUB.
+- **Omarchy's desktop shell and menus** (`10870ca48`, `a11b6a601`, `ecd8a5324`, `cbd7139ac`, `438a59c67`, `c1b2b03d4`, `4a2de629c`, `a9f721d93`, `33c2f660f`, `b02dd992d`, `105d18d53`, `37eb0a3bd`, `f5b4db67c`, `5cdb507d2`, `aed2a30ec`). Quickshell and Hyprland are not used.
+- **Omarchy's commands and tests** (`c9af681cb`, `960f77263`, `c63f32f7a`, `bacc2acdd`, `0ca92c3c4`, `e0ac77dc5`, `48f622d08`, `153d177e7`).
+- **Translations** (9 commits).
+
+Discussion complete through `153d177e7` for this pull.
