@@ -279,8 +279,11 @@ fi
 # notifiers, like nvim (fetched by the `git submodule update` above); their
 # services run the installed binaries. make builds all three before installing
 # any, so a failed build installs none; a failed install can leave one missing.
-make -s -C "${DOTFILES}/notifiers" install \
-  || echo "⚠️  notifiers: build or install failed (see above); a notifier service without its binary in ~/.local/bin will fail"
+notifiers_failed=0
+if ! make -s -C "${DOTFILES}/notifiers" install; then
+  notifiers_failed=1
+  echo "⚠️  notifiers: build or install failed (see above); their services may fail" >&2
+fi
 echo "✅ Helper scripts installed"
 
 # ============ ssh client config ===================================
@@ -390,7 +393,7 @@ elif ((herdr_status)); then
 fi
 
 echo ""
-if ((${#failed_user_units[@]} == 0 && herdr_install_failed == 0)); then
+if ((${#failed_user_units[@]} == 0 && herdr_install_failed == 0 && notifiers_failed == 0)); then
   if ((herdr_interrupted)); then
     echo "⚠️  Dotfiles installation interrupted" >&2
   else
@@ -421,13 +424,16 @@ if ((herdr_interrupted)); then
 elif ((herdr_install_failed)); then
   echo 'Herdr installation/update failed; retry: herdr-cargo --install' >&2
 fi
+if ((notifiers_failed)); then
+  echo 'notifiers build/install failed; retry: make -C ~/dotfiles/notifiers install' >&2
+fi
 if ((${#failed_user_units[@]})); then
   printf 'User units not enabled:\n' >&2
   printf '  %s\n' "${failed_user_units[@]}" >&2
 fi
 if ((herdr_interrupted)); then
   exit "$herdr_status"
-elif ((${#failed_user_units[@]} || herdr_install_failed)); then
+elif ((${#failed_user_units[@]} || herdr_install_failed || notifiers_failed)); then
   exit 1
 fi
 exit 0
