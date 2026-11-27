@@ -30,9 +30,12 @@ replacement/truncation all produce warnings. Message matching is heuristic, and 
 interruption can bypass checks entirely.
 
 **Each initramfs build answers for itself** (2026-11-27). Every preset build stays open
-until a success line, or mkinitcpio's deliberate `No image or UKI specified` skip. A build
-still open at the next one or at the end of the transaction warns, as does an empty preset
-file, and a mkinitcpio hook run that printed output but no success, skips alone included.
+until a success line, or mkinitcpio's deliberate `No image or UKI specified` skip. Its
+other skip, `No kernel version specified`, leaves the build open on purpose: presets made
+from `hook.preset` always set a kernel, so that skip means a broken preset and an image not
+rebuilt. A build still open at the next one or at the end of the transaction warns, as does
+an empty preset file, and a mkinitcpio hook run that printed output but no success, skips
+alone included.
 Limits: success lines name no image, so a direct `mkinitcpio -g` success right after a
 stopped build would answer it; a UKI assembly that dies silently after its initramfs
 succeeded is not seen; and neither is a hook that dies before printing anything, because a

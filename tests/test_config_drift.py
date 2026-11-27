@@ -311,6 +311,10 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
             "[ALPM-SCRIPTLET] ==> WARNING: No image or UKI specified."
             " Skipping image 'x'"
         )
+        kver_skipped = (
+            "[ALPM-SCRIPTLET] ==> WARNING: No kernel version specified."
+            " Skipping image 'x'"
+        )
         later = "[ALPM] running '99-other.hook'..."
         note = "[ALPM-SCRIPTLET] ==> unrelated output"
         empty = (
@@ -323,6 +327,7 @@ pacman() { if [[ $1 == -Qlq ]]; then printf '/etc/a\n'; else printf 'Name : a\n'
             ((hook, later, note), "clean (new)"),
             ((hook, build, skipped), "hook ran and no image reported success"),
             ((hook, build, success, build, skipped), "clean (new)"),
+            ((build, success, build, kver_skipped), "never reported success"),
             ((build, success, empty), "is empty or does"),
         ]:
             with self.subTest(lines=lines):
