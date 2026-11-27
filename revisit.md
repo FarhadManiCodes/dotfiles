@@ -768,7 +768,8 @@ then run by the user.
 - **Confirmed after the fact:** package gone, `polkit` (still needed by `fprintd fwupd
   rtkit udisks2`) untouched, no orphans, no leftover `.pacsave`/`.pacnew`.
 - **Nothing else to clean up** — the XDG autostart entries it removed were already
-  `OnlyShowIn`-gated and structurally inert under niri.
+  `OnlyShowIn`-gated and structurally inert under niri. Wrong, found 2026-11-25:
+  `niri/config.kdl` still spawns the removed agent; TODO item 36 removes it.
 - **No GUI polkit agent added, deliberately.** 69 of 245 polkit actions are
   `implicit active: yes` (no prompt needed for a local session); the rest are reached only
   by CLI tools with their own agent (`pkttyagent`, `fwupdmgr`'s `FuPolkitAgent`). No GUI

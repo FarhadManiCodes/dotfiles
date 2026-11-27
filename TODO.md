@@ -50,6 +50,7 @@ Off-machine backup remains deferred.
 | 33. Return to the sender's window | Opened 2026-11-19. Follow-up to [issue #2](https://github.com/FarhadManiCodes/dotfiles/issues/2) | Identify where the sender gets the Niri window ID |
 | 34. Locked screen after a media key or resume | Opened 2026-11-20; resume check added 2026-11-24 | Press a locked-screen media key once the panel is dark, then suspend with the panel off; see whether it blanks again and lights on resume |
 | 35. Ly waits 2 s for iwd at boot | Opened 2026-11-24 | Audit what the iwd `sleep 2` and `nowait.conf` are for, then decide; no change before that |
+| 36. Stale mate-polkit startup entry | Opened 2026-11-25 | Remove the missing executable from Niri startup and update the related docs |
 
 ## 1. Off-machine backup
 
@@ -656,3 +657,11 @@ short after a large update.
 - Several boots with wifi checked each time before choosing, since the original fault was intermittent.
 
 **Acceptance criteria:** The reason for the sleep is known or recorded as unknown. The README matches what `nowait.conf` does. Any change is measured against `systemd-analyze` over several boots, with wifi up on each.
+
+## 36. Remove the stale mate-polkit startup entry
+
+**Opened 2026-11-25.** The read-only Omarchy review confirmed that live `niri/config.kdl` still tries to launch `/usr/lib/mate-polkit/polkit-mate-authentication-agent-1`. The executable and package are absent, as expected after the September 18 removal recorded in [revisit.md](revisit.md). The Arch `polkit` package is installed and `polkit.service` is active.
+
+**Scope.** Remove the obsolete startup line and the matching dependency entry in `niri/README.md`. Update item 28 so its planned `sysup` restart report does not assume a graphical agent starts at login. Keep `polkit` and the existing terminal authorization paths. Once done, update the "Nothing else to clean up" line in revisit.md's mate-polkit entry.
+
+**Acceptance criteria.** The Niri config validates, and a normal login no longer attempts to spawn the missing executable. The README and restart plan describe the actual startup helpers.
