@@ -2,9 +2,9 @@
 # PDF/Book Search Functions (ripgrep + fzf)
 #
 # fbook and rgbook are MIRRORED in bash/vifm-pick (vifm needs a script, and
-# these cd, which only works in the interactive shell). The rg command and rg
-# preview are identical in both — change one, change the other. The awk
-# formatter is one file both read, bash/vifm-pick.d/rgbook.awk.
+# these cd, which only works in the interactive shell). The rg preview is
+# identical in both — change one, change the other. rgbook's search is one
+# script both run, bash/vifm-pick.d/rgbook-search.
 # ============================================================================
 
 # The papis library. Searched to depth 2 (<entry>/<file>) only: refinery keeps
@@ -12,9 +12,9 @@
 # would list each book twice and give the part's page numbers, not the book's.
 PAPIS_PAPERS="${PAPIS_PAPERS:-$HOME/.local/share/papis/papers}"
 
-# rgbook's formatter, shared with bash/vifm-pick. Resolved when this file is
+# rgbook's search, shared with bash/vifm-pick. Resolved when this file is
 # sourced: zsh sets $0 to the sourcing file, through install.sh's symlink too.
-_rgbook_awk="${0:A:h:h:h}/bash/vifm-pick.d/rgbook.awk"
+_rgbook_search="${0:A:h:h:h}/bash/vifm-pick.d/rgbook-search"
 
 # Open in sioyek directly rather than via xdg-open, because xdg-open cannot
 # carry a page number (--page, the point of rgbook).
@@ -47,12 +47,9 @@ rgbook() {
   # fzf substitutes it as a single-quoted string.
   local -x SP="$sp"
 
-  # Include markers in the same rg stream so each hit inherits its PDF page.
-  local rg_cmd="[ -n {q} ] && rg --smart-case --color=always --no-heading --line-number --max-depth 2 -g '*.md' -g '!notes.md' -g '!*.refinery/**' -e '^<page_number>[0-9]+</page_number>$' -e {q} \"\$SP\" 2>/dev/null"
   # Exported, like SP, for fzf's reload shell.
-  local -x RGBOOK_AWK="$_rgbook_awk"
-  local format_cmd="awk -v sp=\"\$SP/\" -f \"\$RGBOOK_AWK\""
-  local reload_cmd="$rg_cmd | $format_cmd || true"
+  local -x RGBOOK_SEARCH="$_rgbook_search"
+  local reload_cmd='"$RGBOOK_SEARCH" {q}'
 
   local key selection
   _fzf_pick key selection --ansi --disabled --query "$query" \

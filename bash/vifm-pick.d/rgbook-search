@@ -1,0 +1,22 @@
+#!/bin/bash
+# rgbook's search, one copy for both callers (bash/vifm-pick, zsh/functions/pdf.zsh):
+# fzf's reload runs it with the query as $1, and SP set to the papers folder.
+# Prints path<TAB>filename:Page N:text per hit (rgbook.awk). Page markers come in
+# the same rg stream, so each hit inherits its PDF page.
+
+set -uo pipefail
+
+[[ -n ${1:-} ]] || exit 0
+self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
+
+rg_args=(
+  --smart-case --color=always --no-heading --line-number --max-depth 2
+  -g '*.md' -g '!notes.md' -g '!*.refinery/**'
+  -e '^<page_number>[0-9]+</page_number>$'
+  -e "$1"
+)
+rg "${rg_args[@]}" "${SP:?}" 2>/dev/null | awk -v sp="$SP/" -f "${self%/*}/rgbook.awk"
+# rg exits 1 when nothing matches (a library with no review copies yet) and 2
+# on a half-typed regex such as "(": no failure here, and fzf would show any
+# non-zero exit as "Command failed". awk's status is the answer.
+exit "${PIPESTATUS[1]}"

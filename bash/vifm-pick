@@ -11,8 +11,8 @@
 # MIRRORS the interactive shell finders — keep the search halves in sync:
 #   fbook, rgbook  <-> zsh/functions/pdf.zsh
 #   fdata, fnb     <-> zsh/functions/fzf.zsh
-# Identical in both: the rg command, the rg preview and the fdata extension
-# list; the awk formatter is one file both read, vifm-pick.d/rgbook.awk. Only
+# Identical in both: the rg preview and the fdata extension list; rgbook's
+# search is one script both run, vifm-pick.d/rgbook-search. Only
 # the fzf key handling and what happens to the selection differ, and
 # deliberately so: the zsh versions `cd`, which only works in the interactive
 # shell, while vifm needs the exchange files below.
@@ -89,13 +89,11 @@ case "$cmd" in
 
   rgbook)
     papers
-    rg_cmd="[ -n {q} ] && rg --smart-case --color=always --no-heading --line-number --max-depth 2 -g '*.md' -g '!notes.md' -g '!*.refinery/**' -e '^<page_number>[0-9]+</page_number>$' -e {q} \"\$SP\" 2>/dev/null"
     # Exported, like SP, for fzf's reload shell; shared with rgbook in zsh.
     self=$(realpath -- "${BASH_SOURCE[0]}") || exit 1
-    RGBOOK_AWK="${self%/*}/vifm-pick.d/rgbook.awk"
-    export RGBOOK_AWK
-    format_cmd="awk -v sp=\"\$SP/\" -f \"\$RGBOOK_AWK\""
-    reload_cmd="$rg_cmd | $format_cmd || true"
+    RGBOOK_SEARCH="${self%/*}/vifm-pick.d/rgbook-search"
+    export RGBOOK_SEARCH
+    reload_cmd='"$RGBOOK_SEARCH" {q}'
     out=$(fzf --ansi --disabled --expect=ctrl-d \
       --bind "change:reload:$reload_cmd" \
       --bind "start:reload:$reload_cmd" \

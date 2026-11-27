@@ -1,6 +1,6 @@
-# rgbook's formatter, shared by rgbook in zsh/functions/pdf.zsh and in
-# bash/vifm-pick: each finds this file through its own resolved path, so moving
-# or removing it breaks both, not only vifm-pick.
+# rgbook's formatter. Its only reader is rgbook-search beside it, which both
+# rgbook pickers run (zsh/functions/pdf.zsh, bash/vifm-pick), so moving or
+# removing it breaks both.
 #
 # Input: rg --color=always --line-number output over the papis library's review
 # copies, page markers (<page_number>N</page_number>) in the same stream. Output:

@@ -50,6 +50,8 @@ if selected:
 Path(os.environ["FZF_LOG"]).write_text(json.dumps({
     "reload": reload, "preview": preview, "rows": rows,
     "stderr": result.stderr if result else "",
+    # Real fzf shows a non-zero reload exit as "[Command failed: ...]".
+    "reload_status": result.returncode if reload else 0,
     "preview_output": preview_result.stdout if preview_result else None,
     "preview_stderr": preview_result.stderr if preview_result else None,
 }))
@@ -181,6 +183,7 @@ pwd > "$PWD_LOG"
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(self.fzf_log.read_text())
         self.assertEqual(data["stderr"], "")
+        self.assertEqual(data["reload_status"], 0)
         return data, [ANSI.sub("", row) for row in data["rows"]]
 
     def test_search_page_dedup_colons_and_pdf_selection(self):
