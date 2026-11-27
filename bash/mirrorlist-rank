@@ -74,7 +74,7 @@ jq -r --arg cc "$country" --argjson minc "$min_completion" '
   || die "could not read the mirror status JSON — nothing was changed"
 
 candidates=$(grep -c '^Server' "$tmp/all")
-((candidates)) || die "no ${country} mirror is https, IPv4, active, at most 24 h behind and has completion >= $min_completion — check the country code"
+((candidates)) || die "no healthy $country mirror — check -c and --min-completion"
 
 # One timed pass. Neighbours differ by less than run-to-run noise, so no number
 # of passes settles the order; 20 entries put the cut-off where it does not matter.
@@ -101,12 +101,17 @@ bases() {
   # shellcheck disable=SC2016  # $repo is a literal pacman placeholder, not a shell variable
   sed -n 's/^[[:space:]]*Server[[:space:]]*=[[:space:]]*//p' "$1" | sed 's/\$repo.*//' | sort -u
 }
-if [[ -r $target ]] && old=$(bases "$target") && new=$(bases "$tmp/final") \
-  && only_new=$(comm -23 <(printf '%s\n' "$new") - <<<"$old") \
-  && only_old=$(comm -13 <(printf '%s\n' "$new") - <<<"$old"); then
-  added=() dropped=()
-  [[ -z $only_new ]] || mapfile -t added <<<"$only_new"
-  [[ -z $only_old ]] || mapfile -t dropped <<<"$only_old"
+# Fills added and dropped; fails when there is no current list to compare with.
+compare_with_current() {
+  [[ -r $target ]] || return
+  bases "$target" >"$tmp/old" || return
+  bases "$tmp/final" >"$tmp/new" || return
+  comm -13 "$tmp/old" "$tmp/new" >"$tmp/added" || return
+  comm -23 "$tmp/old" "$tmp/new" >"$tmp/dropped" || return
+  mapfile -t added <"$tmp/added"
+  mapfile -t dropped <"$tmp/dropped"
+}
+if compare_with_current; then
   kept=$((installed - ${#added[@]}))
   printf '\n%d of %d already in your current list.\n' "$kept" "$installed" >&2
   if ((${#added[@]} == 0 && ${#dropped[@]} == 0)); then
