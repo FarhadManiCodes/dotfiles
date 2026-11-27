@@ -46,7 +46,7 @@ check_pacman_transaction() {
     warn "pacman transaction has no completion record (${when})"
   fi
   if ((unanswered || build_open)); then
-    warn "initramfs was rebuilt but never reported success (${when}) — check before rebooting"
+    warn "an initramfs build never reported success (${when}) — check before rebooting"
   elif ((hook_printed && ! hook_built)); then
     warn "mkinitcpio hook ran and no image reported success (${when}) — check before rebooting"
   fi
