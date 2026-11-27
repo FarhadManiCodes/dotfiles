@@ -436,20 +436,28 @@ Discussion complete through `9c2792f40` for this pull.
 
 ### 2026-11-27: `9c2792f40..153d177e7` (82 commits)
 
-The local reflog records a fast-forward at 20:06 CET. The range holds 78 non-merge commits and 4 merges. Every non-merge message and file list was read, with the diffs that looked relevant.
+The local reflog records a fast-forward at 20:06 CET. The range holds 78 non-merge commits and 4 merges. Every non-merge message and file list was read, with the diffs that looked relevant. Later closer looks read about half of the remaining diff; tests, desktop UI code, the large new command files and much of the hardware setup were not read.
 
 **Recorded for follow-up**
 
 - **Idle cost of the Herdr server** (`0c67de009`). Omarchy stopped autostarting it, reporting about 16 wakeups a second while idle; this was not measured here. Herdr 0.9.5 was not running, with no startup line or user unit found. A check was added to [Herdr Milestone 1](herdr-implementation.md#milestone-1-base-config-live). The commit's SSH clipboard fix does not apply while `sshd` is disabled.
 - **Battery drain during sleep** (`f7bdd8378`). Kept as an open discussion, with nothing decided: [TODO item 37](../TODO.md#37-discuss-whether-to-measure-battery-drain-during-sleep).
+- **Panel self refresh turned off here** (`63695003a`, found on a closer second look). Omarchy turns it on for one Snapdragon OLED laptop; this system disables it with `amdgpu.dcdebugmask=0x10`, with no reason found beyond "an AMD GPU workaround". Nothing decided: [TODO item 38](../TODO.md#38-check-why-panel-self-refresh-is-turned-off).
+- **Battery health in `batt`** (`f7bdd8378`). Added to [TODO item 25](../TODO.md#25-align-batt-with-the-status-menus-battery-reporting) with the readings (88.2% around 2026-10-01, 81.1% on 2026-11-27) and a recalibration test that has not been run.
+
+**Adopted**
+
+- **One initramfs success hid another build's failure** (the idea came from reading `0ca92c3c4`, which stops earlier log output from hiding an update's failed build). `config-drift` warned only when a transaction held no success line, so with `linux-lts` built before `linux`, a second build that stopped without an error line read as clean. Each preset build now needs its own success or deliberate skip, an empty preset file warns, and a hook run that printed output without any success warns, with cases that failed before the change. A hook that dies without printing anything is still not seen, because a run that selects no preset is silent and legitimate. Run over the whole pacman log, the only rebuild flagged is the known 2025-11-20 failure.
 
 **Checked: already handled or set differently**
 
+- **Tab-separated readings** (`7f81f1b6b`). `hardware-readings` always fills its five fields.
+- **Subscribe before the first scan** (`fd25d608b`). `power-notify`, `mic-notify` and `net-notify` set up their event source before their first read.
 - **Closed lid on external power** (`9dfce75c0`). The logind drop-in already sets `HandleLidSwitchExternalPower=lock`.
 - **NMI watchdog, journal cap, huge pages** (`f5438c96d`, `9c6677eab`). The watchdog reads 0 and the journal is capped at 200M. Huge pages stay `always`: Omarchy's change targets 8 GiB machines, and this one reports 58 GiB.
 - **Power profile on battery** (`67c1fee65`). It configures `power-profiles-daemon`; TLP sets `balance_power` here.
-- **Browser video decode, `gh` credential helper** (`43821cb7e`, `e6b8386b9`). No Chromium package; mpv uses `hwdec=vaapi`. Git already calls `!gh auth git-credential`.
-- **Early-exit pipes** (`518062644`). No `| grep -q` was found on a line in the scripts that use `pipefail`. `check-skills`, `papis-bib` and `papis-add-paper` use `| head -1` without `set -e`. Nothing was run to provoke the failure.
+- **Browser video decode, `gh` credential helper** (`43821cb7e`, `e6b8386b9`). No Chromium package, and mpv uses `hwdec=vaapi`. Firefox hardware decoding was not checked: the profile's `media.ffmpeg.vaapi.enabled` is a name the installed Firefox 161 does not contain, so it shows nothing. Git already calls `!gh auth git-credential`.
+- **Early-exit pipes** (`518062644`). No `| grep -q` was found on a line in the scripts that use `pipefail`. `check-skills`, `papis-bib` and `papis-add-paper` use `| head -1` without `set -e`. The `fzf` pipelines opened in `gci` and `tmux-cpp-tools` do not lose a selection to an early exit. Nothing was run to provoke the failure.
 
 **Reviewed and skipped**
 
@@ -458,10 +466,10 @@ The local reflog records a fast-forward at 20:06 CET. The range holds 78 non-mer
 - **Drive automounting** (`fd25d608b`, `b01e8b116`). No `udiskie`; drives are mounted from vifm.
 - **Software not in use** (`7abc952fd`, `295e8b28a`, `30831d8b8`, `fa897dc05`, `a1d7fc1a8`, `a43cedd24`, `d461b9261`, `aeda788b6`): mise, CUPS, LibreOffice, Steam, Pi, the headless Chrome look tools and Omarchy's image viewer launcher.
 - **`pkexec` reason text and agent resume at login** (`d4779d424`, `8f191d827`). Authorization is in the terminal; Herdr Milestone 3 covers agent resume.
-- **Other hardware** (`0d03063cd`, `039b1f0ce`, `4f7e81385`, `8e92b7449` Intel; `c921707f6`, `c304e8ca1`, `44ff2065a`, `4e1ee517e`, `5c799c21e`, `63695003a`, `1da3ffdad`, `eac590b60` ASUS, Snapdragon and Anduril; `10287a472`, `06ea210fe` 8 GiB tuning; `9bacda154` camera relay). Wi-Fi power save is already on here.
+- **Other hardware** (`0d03063cd`, `039b1f0ce`, `4f7e81385`, `8e92b7449` Intel; `c921707f6`, `c304e8ca1`, `44ff2065a`, `4e1ee517e`, `5c799c21e`, `1da3ffdad`, `eac590b60` ASUS, Snapdragon and Anduril; `10287a472`, `06ea210fe` 8 GiB tuning; `9bacda154` camera relay). Wi-Fi power save is already on here.
 - **Omarchy's boot loader** (`f75565bab`, `7da256826`, `3c8da43aa`). This system boots with GRUB.
 - **Omarchy's desktop shell and menus** (`10870ca48`, `a11b6a601`, `ecd8a5324`, `cbd7139ac`, `438a59c67`, `c1b2b03d4`, `4a2de629c`, `a9f721d93`, `33c2f660f`, `b02dd992d`, `105d18d53`, `37eb0a3bd`, `f5b4db67c`, `5cdb507d2`, `aed2a30ec`). Quickshell and Hyprland are not used.
-- **Omarchy's commands and tests** (`c9af681cb`, `960f77263`, `c63f32f7a`, `bacc2acdd`, `0ca92c3c4`, `e0ac77dc5`, `48f622d08`, `153d177e7`).
+- **Omarchy's commands and tests** (`c9af681cb`, `960f77263`, `c63f32f7a`, `bacc2acdd`, `e0ac77dc5`, `48f622d08`, `153d177e7`).
 - **Translations** (9 commits).
 
 Discussion complete through `153d177e7` for this pull.

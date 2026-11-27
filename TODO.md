@@ -39,7 +39,7 @@ Off-machine backup remains deferred.
 | 22. Bounded Vifm image previews | Investigation only | Measure decoder costs, then choose a preview policy |
 | 23. Timed notification snoozing | Investigation only | Explore Mako modes and transient timers; preserve critical alerts |
 | 24. Claude release cleanup | Investigation only | Establish active-session risks and choose a retention policy |
-| 25. Consistent battery reporting in batt | Planned | Align estimates and state labels with the status menu |
+| 25. Consistent battery reporting in batt | Planned; battery health added 2026-11-27 | Align estimates and state labels with the status menu, show battery health, and run the recalibration test |
 | 26. sysup upgrade lifecycle | Investigation only | Test dependency replacement, partial failures and recovery reporting |
 | 27. ptipython in the venv, with preloads | Open 2026-10-27; after Herdr Milestone 0 | Pick the venv, measure startup, then install |
 | 28. sysup restart and reboot notice | Planned 2026-11-07 | Build a read-only end-of-run notice; two rclone mounts already run a replaced binary |
@@ -52,6 +52,7 @@ Off-machine backup remains deferred.
 | 35. Ly waits 2 s for iwd at boot | Opened 2026-11-24 | Audit what the iwd `sleep 2` and `nowait.conf` are for, then decide; no change before that |
 | 36. Stale mate-polkit startup entry | Opened 2026-11-25 | Remove the missing executable from Niri startup and update the related docs |
 | 37. Battery drain during sleep | Opened 2026-11-27 as an open discussion; nothing decided | Check whether it is worth measuring, then discuss |
+| 38. Panel self refresh is turned off | Opened 2026-11-27; nothing decided | Find why `amdgpu.dcdebugmask=0x10` is set, check panel support and measure idle draw; no change before that |
 
 ## 1. Off-machine backup
 
@@ -473,6 +474,8 @@ path is chosen, with no heavy dependency pulled in.
 
 **Acceptance criteria:** use isolated readings to check ordinary discharge, tiny/zero draw, charging to a configured limit, full/not-charging states and missing readings. Estimates remain finite and meaningful; labels reflect the reported state; unavailable readings do not become plausible zero values. Run focused Zsh checks and verify normal terminal output before considering the change complete. This TODO authorizes no implementation yet.
 
+**Added 2026-11-27: battery health in `batt`.** Show what a full charge holds against the design capacity (`BAT0/energy_full` over `BAT0/energy_full_design`); a missing or zero reading must not become a plausible figure. The charge thresholds (75–81%) are not part of this number. Readings so far, with 86 Wh design capacity: 75.83 Wh (88.2%) in session logs of 2026-09-29 to 10-01, and 69.78 Wh (81.1%, 252 cycles) live on 2026-11-27. Two readings cannot tell gauge drift from wear. **Test, not run:** with the charger connected and work saved, `sudo tlp recalibrate BAT0`, let it charge to 100% without unplugging, run `sudo tlp setcharge` to restore the thresholds, then read `energy_full` again. Watch whether idle suspend or the low-battery alarm triggers during the forced discharge. Source of the idea: Omarchy [`f7bdd8378`](https://github.com/basecamp/omarchy/commit/f7bdd8378e5e14463e4c5587e747feede409489c).
+
 ## 26. Investigate sysup dependencies across upgrades and partial failures
 
 **Requested 2026-10-23. Investigation and isolated testing only:** establish whether `sysup` can finish reliably when an earlier update replaces executables, libraries or helpers needed by later steps. This is a possible failure class, not a demonstrated local bug.
@@ -680,3 +683,19 @@ short after a large update.
 **One possible shape, if wanted.** A small hook that logs battery energy, AC state and hardware sleep time to the journal before and after suspend, with no history file or display. Item 8 covers the separate wake at the 5% battery alarm.
 
 **Omarchy reference:** [`f7bdd8378`](https://github.com/basecamp/omarchy/commit/f7bdd8378e5e14463e4c5587e747feede409489c), `default/systemd/system-sleep/omarchy-sleep-stats`, records energy and hardware sleep time across suspend and keeps a history for its power panel.
+
+## 38. Check why panel self refresh is turned off
+
+**Opened 2026-11-27. A check, with nothing decided:** no boot setting changes before the findings are read.
+
+**What is known.** The kernel command line carries `amdgpu.dcdebugmask=0x10`, which turns off panel self refresh (PSR v1 and PSR-SU). The running system has it, as did the boots sampled from 2026-09-28 on. [etc/README.md](etc/README.md) calls it "an AMD GPU workaround"; the dotfiles history and the earlier Codex messages searched gave no further reason. `/etc/default/grub` is not tracked.
+
+**To check.**
+- Why the flag was added: which symptom, on which kernel.
+- Whether the eDP panel supports PSR (needs root).
+- Idle battery draw with and without the flag, for one boot each from the GRUB editor so nothing persists: same brightness, a still screen, runs back to back, each read after `BAT0/power_now` has settled. How long that takes on this machine is unmeasured: measure it first (the 30–50 s in Omarchy's guide is for a Snapdragon battery driver).
+- Flicker, freezes and resume from suspend while the flag is off.
+
+**Then decide** whether to keep the flag, with the reason recorded next to it, or remove it. The expected saving is unknown; a workaround of this kind may be there to stop flicker or freezes.
+
+**Omarchy reference:** [`63695003a`](https://github.com/basecamp/omarchy/commit/63695003a) turns PSR on for a Snapdragon OLED laptop and reports the idle saving there; its [Snapdragon tuning guide](https://github.com/basecamp/omarchy/blob/5c799c21ea0b7b152da65b365d11ca9c794821d8/agents/skills/snapdragon-power-tuning.md) holds the measuring rules. The figures come from different hardware.
