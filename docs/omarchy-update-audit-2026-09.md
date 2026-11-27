@@ -473,3 +473,24 @@ The local reflog records a fast-forward at 20:06 CET. The range holds 78 non-mer
 - **Translations** (9 commits).
 
 Discussion complete through `153d177e7` for this pull.
+
+### 2026-11-27: `153d177e7..c56cbe923` (11 commits)
+
+The local reflog records a fast-forward at 21:38 CET. The range holds 9 non-merge commits and 2 merges. The diffs were read apart from the panel UI code and most translation files.
+
+**Recorded for follow-up**
+
+- **A package Arch drops can break an update** (`c0987eac7`). No .NET package is installed, and the three foreign packages (`pandoc-bin`, `paru`, `shellcheck-bin`) show no dropped leftover. [TODO item 39](../TODO.md#39-check-whether-to-report-unexpected-packages-from-outside-the-repos).
+
+**Checked and not applicable**
+
+- **Early-exit pipe in the test runner** (`f7e2d873c`). No unguarded case was found in the local scripts that stop on errors; the matching `tmux-cpp-tools` pipelines end in `|| true`.
+- **Login screen popups** (`d0e2275ad`). Hyprland under SDDM; the login manager here is Ly.
+- **Dell audio workarounds retired** (`12ffcf2c0`). Dell hardware. Removing a workaround once upstream is fixed already applies to TODO items 35 and 38.
+
+**Reviewed and skipped**
+
+- **Agents panel and Chrome offer** (`ea5838709`, `e2559a478`, `7d682ddb3`).
+- **Translations** (`6cf7a9324`, `c56cbe923`).
+
+Discussion complete through `c56cbe923` for this pull.
