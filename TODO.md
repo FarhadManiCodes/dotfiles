@@ -692,7 +692,7 @@ short after a large update.
 
 **To check.**
 - Why the flag was added: which symptom, on which kernel.
-- Whether the eDP panel supports PSR (needs root).
+- Whether the eDP panel supports PSR or Panel Replay, and which one is active with and without the flag (amdgpu debugfs, needs root). `0x10` turns off PSR only; Panel Replay has its own bit (`0x400`) and is on by default from DCN 3.1.4, the display core here, so without this the idle-draw comparison may not compare what it means to.
 - Idle battery draw with and without the flag, for one boot each from the GRUB editor so nothing persists: same brightness, a still screen, runs back to back, each read after `BAT0/power_now` has settled. How long that takes on this machine is unmeasured: measure it first (the 30–50 s in Omarchy's guide is for a Snapdragon battery driver).
 - Flicker, freezes and resume from suspend while the flag is off.
 
