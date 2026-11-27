@@ -53,6 +53,9 @@ Off-machine backup remains deferred.
 | 36. Stale mate-polkit startup entry | Opened 2026-11-25 | Remove the missing executable from Niri startup and update the related docs |
 | 37. Battery drain during sleep | Opened 2026-11-27 as an open discussion; nothing decided | Check whether it is worth measuring, then discuss |
 | 38. Panel self refresh is turned off | Opened 2026-11-27; nothing decided | Find why `amdgpu.dcdebugmask=0x10` is set, check panel support and measure idle draw; no change before that |
+| 39. Packages from outside the repos | Opened 2026-11-27; low priority, nothing decided | Check whether `config-drift` or `sysup` should report an unexpected one |
+| 40. Standalone pacman check sees only the last transaction | Opened 2026-11-27; nothing decided | Choose how far back a standalone `config-drift` run looks, then test it |
+| 41. Pre-transaction hook output is misplaced | Opened 2026-11-27; nothing decided | Start each transaction block where pacman starts it, then test with the snapshot hook |
 
 ## 1. Off-machine backup
 
@@ -699,3 +702,31 @@ short after a large update.
 **Then decide** whether to keep the flag, with the reason recorded next to it, or remove it. The expected saving is unknown; a workaround of this kind may be there to stop flicker or freezes.
 
 **Omarchy reference:** [`63695003a`](https://github.com/basecamp/omarchy/commit/63695003a) turns PSR on for a Snapdragon OLED laptop and reports the idle saving there; its [Snapdragon tuning guide](https://github.com/basecamp/omarchy/blob/5c799c21ea0b7b152da65b365d11ca9c794821d8/agents/skills/snapdragon-power-tuning.md) holds the measuring rules. The figures come from different hardware.
+
+## 39. Check whether to report unexpected packages from outside the repos
+
+**Opened 2026-11-27. Low priority, a check with nothing decided.** Nothing is wrong today.
+
+**Why.** A package that leaves the repos stays installed. Omarchy reports that when Arch dropped an old .NET runtime, its AUR helper tried to build it from source and the update failed. `sysup` uses `paru`; no check was found in the `bash` or `zsh` scripts that reports a newly foreign package.
+
+**Known state.** `pacman -Qm` lists `pandoc-bin`, `paru` and `shellcheck-bin`.
+
+**To check.** What `paru -Syu` does here with a package dropped from the repos, both when the AUR has it and when it does not; whether `pacman -Qm` against a short expected list is enough; and whether it belongs in `config-drift` or in `sysup`.
+
+**Omarchy reference:** [`c0987eac7`](https://github.com/basecamp/omarchy/commit/c0987eac74a5454b5dc98eb2dffdbacc1cc2a34c) removes the dropped runtime only when a pacman removal preview succeeds.
+
+## 40. Decide how far back a standalone pacman check looks
+
+**Opened 2026-11-27, from the review of the initramfs check fix. Nothing decided.** This was already the case before that fix.
+
+**What is wrong.** Run on its own, `config-drift` checks only the last pacman transaction (`check_last_pacman_transaction` in `bash/config-drift.d/pacman-transaction.sh`). If a kernel upgrade's initramfs build fails and any later transaction follows, such as `pacman -S ripgrep`, the section reads clean and the broken image goes unmentioned before reboot. `diagnose-boot-or-suspend` sends readers to this check for initramfs failures. `sysup` is not affected: it passes `--pacman-since` and every transaction after that point is checked.
+
+**To decide.** Whether to look back to the last transaction that rebuilt an initramfs, to everything since the current boot, or to keep the last transaction and say so in the section header. Then add one test for the case above.
+
+## 41. Start each pacman transaction block where pacman starts it
+
+**Opened 2026-11-27, from the review of the initramfs check fix. Nothing decided.** This was already the case before that fix.
+
+**What is wrong.** libalpm runs PreTransaction hooks before it logs `[ALPM] transaction started`, and both block splitters in `bash/config-drift.d/pacman-transaction.sh` cut at that line. This happens on every transaction here: `05-snap-pac-pre.hook` (the pre-update snapshot) runs first. In a `sysup` run, the first transaction's pre-hook output is dropped. A later transaction's pre-hook output is checked as part of the transaction before it. In a standalone run, the last transaction's pre-hook output is dropped. A failed pre-update snapshot printing `==> ERROR` would not be seen.
+
+**To check.** Start a block at the `[PACMAN] Running` line, or at the first `[ALPM] running` after the previous `transaction completed`. Confirm against the real log that the replay still flags only the known 2025-11-20 failure, and add one test with an error in a pre-transaction hook.
